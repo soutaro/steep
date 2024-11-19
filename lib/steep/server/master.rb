@@ -382,7 +382,11 @@ module Steep
                       declaration_provider: false,
                       implementation_provider: true,
                       type_definition_provider: true
-                    )
+                    ),
+                    server_info: {
+                      name: "steep",
+                      version: VERSION
+                    }
                   )
                 }
               )
