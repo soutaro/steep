@@ -9,6 +9,7 @@ class ArgsTest < Minitest::Test
   Types = Steep::AST::Types
   AST = Steep::AST
 
+  # @rbs skip
   include Minitest::Hooks
 
   def around

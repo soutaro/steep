@@ -1,0 +1,45 @@
+# Generated from test/logic_type_interpreter_test.rb with RBS::Inline
+
+class LogicTypeInterpreterTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include Steep
+
+  LogicTypeInterpreter: untyped
+
+  def type_env: (?context: untyped) -> untyped
+
+  def config: () -> untyped
+
+  def test_lvar_assignment: () -> untyped
+
+  def test_masgn: () -> untyped
+
+  def test_pure_call: () -> untyped
+
+  def test_call_is_a_p: () -> untyped
+
+  def test_call_nil_p: () -> untyped
+
+  def test_call_arg_is_receiver: () -> untyped
+
+  def test_call_arg_equals_receiver: () -> untyped
+
+  def test_call_arg_is_ancestor: () -> untyped
+
+  def test_call_not: () -> untyped
+
+  def test_type_case_select: () -> untyped
+
+  def test_type_case_select_untyped: () -> untyped
+
+  def test_type_case_select_top: () -> untyped
+
+  def test_type_case_select_subtype: () -> untyped
+
+  def test_type_case_select_alias: () -> untyped
+end

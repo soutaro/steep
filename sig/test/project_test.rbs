@@ -1,0 +1,11 @@
+# Generated from test/project_test.rb with RBS::Inline
+
+class ProjectTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include Steep
+
+  def dirs: () -> untyped
+end

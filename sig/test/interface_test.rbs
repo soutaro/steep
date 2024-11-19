@@ -1,0 +1,35 @@
+# Generated from test/interface_test.rb with RBS::Inline
+
+class InterfaceTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include Steep
+
+  def method_params: (untyped source) -> untyped
+
+  def subtyping: () -> untyped
+
+  def test_method_type_params_plus: () -> untyped
+
+  def test_method_type_params_intersection: () -> untyped
+
+  def test_method_type_params_union: () -> untyped
+
+  def test_method_type_union: () -> untyped
+
+  def test_method_type_union_poly: () -> untyped
+
+  def test_method_type_union_poly2: () -> untyped
+
+  def test_method_strict_block_param_compatibility: () -> untyped
+
+  def test_method_type_intersection: () -> untyped
+
+  def test_method_type_intersection_poly: () -> untyped
+
+  def test_method_type_plus: () -> untyped
+
+  def test_method_type_params_poly: () -> untyped
+end

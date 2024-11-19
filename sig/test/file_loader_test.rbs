@@ -1,0 +1,21 @@
+# Generated from test/file_loader_test.rb with RBS::Inline
+
+class FileLoaderTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  include ShellHelper
+
+  Pattern: untyped
+
+  FileLoader: untyped
+
+  def dirs: () -> untyped
+
+  def test_each_path_in_patterns: () -> untyped
+
+  def test_each_path_in_patterns_with_glob: () -> untyped
+
+  def test_each_path_in_patterns_with_glob_and_ext: () -> untyped
+end

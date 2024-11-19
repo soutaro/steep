@@ -1,0 +1,7 @@
+# Generated from test/type_test.rb with RBS::Inline
+
+class TypeTest < Minitest::Test
+  Types: untyped
+
+  def test_level: () -> untyped
+end

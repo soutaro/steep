@@ -1,0 +1,47 @@
+# Generated from test/ruby_hover_test.rb with RBS::Inline
+
+class RubyHoverTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include Steep
+
+  HoverProvider: untyped
+
+  ContentChange: untyped
+
+  def dirs: () -> untyped
+
+  def typecheck_service: (?steepfile: untyped) -> untyped
+
+  def test_variable: () -> untyped
+
+  def test_assignment: () -> untyped
+
+  def test_method_call: () -> untyped
+
+  def test_method_call_csend: () -> untyped
+
+  def test_method_call_with_block: () -> untyped
+
+  def test_method_call_with_numblock: () -> untyped
+
+  def test_method_definition: () -> untyped
+
+  def test_method_definition_no_signature: () -> untyped
+
+  def test_var_parameter: () -> untyped
+
+  def test_constant: () -> untyped
+
+  def test_heredoc: () -> untyped
+
+  def test_hover_on_pure_calls: () -> untyped
+
+  def test_rescue: () -> untyped
+
+  def test_type_assertion: () -> untyped
+
+  def test_hover_on_syntax_error: () -> untyped
+end

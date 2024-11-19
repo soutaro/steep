@@ -1,0 +1,21 @@
+# Generated from test/rake_task_test.rb with RBS::Inline
+
+class RakeTaskTest < Minitest::Test
+  def test_task_configuration: () -> untyped
+
+  def test_define_task_with_options: () -> untyped
+
+  def test_rake_arguments: () -> untyped
+
+  def test_help_task: () -> untyped
+
+  def test_default_task: () -> untyped
+
+  def test_skipped_commands: () -> untyped
+
+  private
+
+  def setup_rake_tasks!: (?untyped cli_runner) ?{ (?) -> untyped } -> untyped
+
+  def mock_cli: (expecting: untyped) -> untyped
+end

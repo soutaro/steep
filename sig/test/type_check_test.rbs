@@ -1,0 +1,166 @@
+# Generated from test/type_check_test.rb with RBS::Inline
+
+# (Almost) end-to-end type checking test
+#
+# Specify the type definition, Ruby code, and expected diagnostics.
+# Running test here allows using debuggers.
+#
+# You can use `Add type_check_test case` VSCode snippet to add new test case.
+class TypeCheckTest < Minitest::Test
+  include TestHelper
+
+  include TypeErrorAssertions
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include TypeConstructionHelper
+
+  include Steep
+
+  # @rbs signatures: Hash[String, String]
+  # @rbs code: Hash[String, String]
+  # @rbs expectations: String?
+  # @rbs &block: ? (Hash[String, Steep::Typing]) -> void
+  # @rbs return: void
+  def run_type_check_test: (?signatures: Hash[String, String], ?code: Hash[String, String], ?expectations: String?) ?{ (Hash[String, Steep::Typing]) -> void } -> void
+
+  def test_setter_type: () -> untyped
+
+  def test_lambda_method: () -> untyped
+
+  def test_back_ref: () -> untyped
+
+  def test_type_variable_in_Set_new: () -> untyped
+
+  def test_if_unreachable: () -> untyped
+
+  def test_if_unreachable__if_then: () -> untyped
+
+  def test_if_unreachable__if_else: () -> untyped
+
+  def test_if_unreachable__unless_then: () -> untyped
+
+  def test_if_unreachable__unless_else: () -> untyped
+
+  def test_case_unreachable_1: () -> untyped
+
+  def test_case_unreachable_2: () -> untyped
+
+  def test_case_unreachable_3: () -> untyped
+
+  def test_flow_sensitive__csend: () -> untyped
+
+  def test_flow_sensitive__csend2: () -> untyped
+
+  def test_flow_sensitive__self: () -> untyped
+
+  def test_flow_sensitive__self2: () -> untyped
+
+  def test_flow_sensitive__self3: () -> untyped
+
+  def test_flow_sensitive__self4: () -> untyped
+
+  def test_and_shortcut__truthy: () -> untyped
+
+  def test_and_shortcut__false: () -> untyped
+
+  def test_or_shortcut__nil: () -> untyped
+
+  def test_or_shortcut__false: () -> untyped
+
+  def test_type_assertion__generic_type_error: () -> untyped
+
+  def test_type_case__local_variable_narrowing: () -> untyped
+
+  def test_branch_unreachable__logic_type: () -> untyped
+
+  def test_type_case__returns_nil_untyped_union: () -> untyped
+
+  def test_case_when__no_subject__reachability: () -> untyped
+
+  def test_case_when__no_subject__reachability_no_continue: () -> untyped
+
+  def test_case_when__untyped_value: () -> untyped
+
+  def test_case_when__narrow_pure_call: () -> untyped
+
+  def test_case_when__bool_value: () -> untyped
+
+  def test_type_inference__nested_block: () -> untyped
+
+  def test_type_inference__nested_block_free_variable: () -> untyped
+
+  def test_type_narrowing__local_variable_safe_navigation_operator: () -> untyped
+
+  def test_argument_error__unexpected_unexpected_positional_argument: () -> untyped
+
+  def test_type_assertion__type_error: () -> untyped
+
+  def test_nilq_unreachable: () -> untyped
+
+  def test_type_case__type_variable: () -> untyped
+
+  def test_lambda__hint_is_untyped: () -> untyped
+
+  def test_safe_navigation_operator__or_hint: () -> untyped
+
+  def test_type_check__elsif: () -> untyped
+
+  def test_untyped_nilp: () -> untyped
+
+  def test_paren_conditional: () -> untyped
+
+  def test_self_constant: () -> untyped
+
+  def test_class_narrowing: () -> untyped
+
+  def test_calls_with_index_writer_methods: () -> untyped
+
+  def test_underscore_opt_param: () -> untyped
+
+  def test_rescue_assignment: () -> untyped
+
+  def test_defined?: () -> untyped
+
+  def test_string_match: () -> untyped
+
+  def test_big_literal_union_type: () -> untyped
+
+  def test_nilp_flow_sensitive_typing_error__or: () -> untyped
+
+  def test_nilp_flow_sensitive_typing_error__and: () -> untyped
+
+  def test_method_call__untyped: () -> untyped
+
+  def test_method_call__untyped_block_body: () -> untyped
+
+  def test_method_def__untyped: () -> untyped
+
+  def test_method_yield__untyped: () -> untyped
+
+  def test_args_annotation: () -> untyped
+
+  def test_data_struct_annotation: () -> untyped
+
+  def test_any_upperbound: () -> untyped
+
+  def test_generics_upperbound_default: () -> untyped
+
+  def test_record__optional_key__assignment: () -> untyped
+
+  def test_record__optional_key__get: () -> untyped
+
+  def test_generics__tuple: () -> untyped
+
+  def test_yield_self_union: () -> untyped
+
+  def test_class_type: () -> untyped
+
+  def test_record_type__keys: () -> untyped
+
+  def test_implicitly_returns_nil: () -> untyped
+
+  def test_untyped_hash: () -> untyped
+end

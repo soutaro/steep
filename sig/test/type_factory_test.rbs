@@ -1,0 +1,47 @@
+# Generated from test/type_factory_test.rb with RBS::Inline
+
+class TypeFactoryTest < Minitest::Test
+  def parse_type: (untyped str, ?variables: untyped) -> untyped
+
+  def parse_method_type: (untyped str) -> untyped
+
+  def assert_overload_with: (untyped c, *untyped types) -> untyped
+
+  def assert_overload_including: (untyped c, *untyped types) -> untyped
+
+  Types: untyped
+
+  Interface: untyped
+
+  include TestHelper
+
+  include FactoryHelper
+
+  def test_type: () -> untyped
+
+  def test_type__untyped_function: () -> untyped
+
+  def test_alias_type: () -> untyped
+
+  def test_type_1: () -> untyped
+
+  def test_method_type: () -> untyped
+
+  def test_bounded_method_type: () -> untyped
+
+  def test_method_type_1: () -> untyped
+
+  def test_unfold: () -> untyped
+
+  def test_expand_alias: () -> untyped
+
+  def test_deep_expand_alias: () -> untyped
+
+  def test_absolute_type: () -> untyped
+
+  def test_partition_union__top: () -> untyped
+
+  def test_partition_union__boolish: () -> untyped
+
+  def test_partition_union__bool_union: () -> untyped
+end

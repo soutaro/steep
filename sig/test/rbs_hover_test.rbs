@@ -1,0 +1,29 @@
+# Generated from test/rbs_hover_test.rb with RBS::Inline
+
+class RBSHoverTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include Steep
+
+  HoverProvider: untyped
+
+  ContentChange: untyped
+
+  def dirs: () -> untyped
+
+  def typecheck_service: (?steepfile: untyped) -> untyped
+
+  def test_type_alias_type: () -> untyped
+
+  def test_class_singleton_type: () -> untyped
+
+  def test_class_instance_type: () -> untyped
+
+  def test_interface_type: () -> untyped
+
+  def test_hover_comment_on_rbs: () -> untyped
+
+  def test_hover_use: () -> untyped
+end

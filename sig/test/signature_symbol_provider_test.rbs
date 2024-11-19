@@ -1,0 +1,27 @@
+# Generated from test/signature_symbol_provider_test.rb with RBS::Inline
+
+class SignatureSymbolProviderTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include ShellHelper
+
+  include Steep
+
+  LSP: untyped
+
+  SignatureSymbolProvider: untyped
+
+  RBSIndex: untyped
+
+  def dirs: () -> untyped
+
+  def assignment: () -> untyped
+
+  def test_find_class_symbol: () -> untyped
+
+  def test_find_method_symbol: () -> untyped
+
+  def test_find_constant_global: () -> untyped
+end

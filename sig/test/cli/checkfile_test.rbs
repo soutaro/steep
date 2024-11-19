@@ -1,0 +1,41 @@
+# Generated from test/cli/checkfile_test.rb with RBS::Inline
+
+module CLI
+  class CheckfileTest < Minitest::Test
+    include ShellHelper
+
+    include TestHelper
+
+    def dirs: () -> untyped
+
+    def envs: () -> untyped
+
+    def steep: () -> untyped
+
+    def prepare_project: (?untyped files) -> untyped
+
+    def parse_output: (untyped output) -> untyped
+
+    def test_no_arg: () -> untyped
+
+    def test_ruby_code_error: () -> untyped
+
+    def test_ruby_code_success: () -> untyped
+
+    def test_ruby_code_syntax_error: () -> untyped
+
+    def test_ruby_code_rbs_error: () -> untyped
+
+    def test_rbs_success: () -> untyped
+
+    def test_rbs_error: () -> untyped
+
+    def test_rbs_syntax_error: () -> untyped
+
+    def test_dirname: () -> untyped
+
+    def test_all_options: () -> untyped
+
+    def test_stdin: () -> untyped
+  end
+end

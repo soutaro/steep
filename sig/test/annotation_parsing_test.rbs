@@ -1,0 +1,53 @@
+# Generated from test/annotation_parsing_test.rb with RBS::Inline
+
+class AnnotationParsingTest < Minitest::Test
+  include TestHelper
+
+  include ASTAssertion
+
+  include FactoryHelper
+
+  AnnotationParser: untyped
+
+  Annotation: untyped
+
+  Types: untyped
+
+  def parse_type: (untyped src, factory: untyped) -> untyped
+
+  def parse_annotation: (untyped source, factory: untyped) -> untyped
+
+  def test_skip_annotation: () -> untyped
+
+  def test_var_type_annotation: () -> untyped
+
+  def test_method_annotation: () -> untyped
+
+  def test_return_type_annotation: () -> untyped
+
+  def test_block_type_annotation: () -> untyped
+
+  def test_self_type: () -> untyped
+
+  def test_const_type: () -> untyped
+
+  def test_const_type2: () -> untyped
+
+  def test_const_type3: () -> untyped
+
+  def test_instance_type: () -> untyped
+
+  def test_module_type: () -> untyped
+
+  def test_implements: () -> untyped
+
+  def test_implement2: () -> untyped
+
+  def test_ivar_type: () -> untyped
+
+  def test_dynamic: () -> untyped
+
+  def test_break: () -> untyped
+
+  def test_annotation_syntax_error: () -> untyped
+end

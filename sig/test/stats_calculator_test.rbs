@@ -1,0 +1,25 @@
+# Generated from test/stats_calculator_test.rb with RBS::Inline
+
+class StatsCalculatorTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include Steep
+
+  StatsCalculator: untyped
+
+  ContentChange: untyped
+
+  def dirs: () -> untyped
+
+  def setup_project: () -> untyped
+
+  def test_stats_success: () -> untyped
+
+  def test_stats_syntax_error: () -> untyped
+end

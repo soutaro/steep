@@ -1,0 +1,15 @@
+# Generated from test/path_helper_test.rb with RBS::Inline
+
+use Steep::*
+
+class PathHelperTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  include PathHelper
+
+  def test_to_pathname: () -> untyped
+
+  def test_to_uri: () -> untyped
+end

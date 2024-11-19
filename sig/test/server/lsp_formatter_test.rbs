@@ -1,0 +1,73 @@
+# Generated from test/server/lsp_formatter_test.rb with RBS::Inline
+
+class Steep::Server::LSPFormatterTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include FactoryHelper
+
+  include Steep
+
+  MethodDecl: untyped
+
+  def type_check: (untyped content) -> untyped
+
+  def test_ruby_hover_variable: () -> untyped
+
+  def test_ruby_hover_method_call__simple_receiver: () -> untyped
+
+  def test_ruby_hover_method_call__underscore: () -> untyped
+
+  def test_ruby_hover_method_call__simple_receiver__no_doc: () -> untyped
+
+  def test_ruby_hover_method_call__complex_receiver: () -> untyped
+
+  def test_ruby_hover_method_call__special: () -> untyped
+
+  def test_ruby_hover_method_call__error: () -> untyped
+
+  def test_ruby_hover_method_def: () -> untyped
+
+  def test_ruby_hover_method_def__overloads: () -> untyped
+
+  def test_ruby_hover_constant_class__single_definition: () -> untyped
+
+  def test_ruby_hover_constant_class__single_definition_no_doc: () -> untyped
+
+  def test_ruby_hover_constant_class__multiple_definitions: () -> untyped
+
+  def test_rbs_hover_class__single: () -> untyped
+
+  def test_rbs_hover_class__no_doc: () -> untyped
+
+  def test_ruby_hover_constant_const: () -> untyped
+
+  def test_ruby_hover_type: () -> untyped
+
+  def test_ruby_hover_assertion: () -> untyped
+
+  def test_rbs_hover_type_alias: () -> untyped
+
+  def test_rbs_hover_interface: () -> untyped
+
+  def test_ruby_completion__local_variable: () -> untyped
+
+  def test_ruby_completion__instance_variable: () -> untyped
+
+  def test_ruby_completion__constant___constant__no_doc: () -> untyped
+
+  def test_ruby_completion__constant___constant__doc: () -> untyped
+
+  def test_ruby_completion__constant___class__multiple_decls: () -> untyped
+
+  def test_ruby_completion__method___simple__no_docs: () -> untyped
+
+  def test_ruby_completion__method___simple__with_docs: () -> untyped
+
+  def test_ruby_completion__method___complex: () -> untyped
+
+  def test_ruby_completion__method___generated: () -> untyped
+
+  def test_rbs_completion: () -> untyped
+end

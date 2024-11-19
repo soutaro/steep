@@ -1,0 +1,47 @@
+# Generated from test/type_check_service_test.rb with RBS::Inline
+
+class TypeCheckServiceTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  ContentChange: untyped
+
+  TypeCheckService: untyped
+
+  def project: () -> untyped
+
+  def reset_changes: () -> untyped
+
+  def test_update_file__signature: () -> untyped
+
+  def test_update_file__signature_unreferenced: () -> untyped
+
+  def test_update_file__ruby: () -> untyped
+
+  def test_typecheck__ruby_syntax_error: () -> untyped
+
+  def test_typecheck__ruby_encoding_error: () -> untyped
+
+  def test_type_check__ruby_annotation_syntax_error: () -> untyped
+
+  def test_typecheck__ruby_errors: () -> untyped
+
+  def test_typecheck__ruby_project_class: () -> untyped
+
+  def test_typecheck__ruby_unreferenced_target: () -> untyped
+
+  def test_validate__signature: () -> untyped
+
+  def test_validate__other_target: () -> untyped
+
+  def test_validate__unreferenced_target: () -> untyped
+
+  def test_update_signature_3: () -> untyped
+
+  def test_signature_error_unknown_outer_module: () -> untyped
+
+  def test_typecheck__ignore: () -> untyped
+
+  def test_typecheck__ignore_error: () -> untyped
+end

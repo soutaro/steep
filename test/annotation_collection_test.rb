@@ -1,6 +1,7 @@
 require_relative "test_helper"
 
 class AnnotationCollectionTest < Minitest::Test
+  # @rbs skip
   include Minitest::Hooks
   include TestHelper
   include FactoryHelper

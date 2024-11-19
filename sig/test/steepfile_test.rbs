@@ -1,0 +1,37 @@
+# Generated from test/steepfile_test.rb with RBS::Inline
+
+class SteepfileTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  include ShellHelper
+
+  def dirs: () -> untyped
+
+  def test_config: () -> untyped
+
+  def test_repo_path: () -> untyped
+
+  def test_diagnostics: () -> untyped
+
+  def test_collection_implicit: () -> untyped
+
+  def test_collection_explicit: () -> untyped
+
+  def test_disable_collection: () -> untyped
+
+  def test_collection_missing: () -> untyped
+
+  def test_load_collection_missing_error: () -> untyped
+
+  def test_load_collection_syntax_error: () -> untyped
+
+  def test_load_collection_failed: () -> untyped
+
+  def test_global_library_option: () -> untyped
+
+  def test_target_unreferenced: () -> untyped
+
+  def test_group: () -> untyped
+end

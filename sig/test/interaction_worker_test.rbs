@@ -1,0 +1,51 @@
+# Generated from test/interaction_worker_test.rb with RBS::Inline
+
+use Steep::*
+
+class InteractionWorkerTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include LSPTestHelper
+
+  include Steep
+
+  LSP: untyped
+
+  InteractionWorker: untyped
+
+  ContentChange: untyped
+
+  include Server::CustomMethods
+
+  def run_worker: (untyped worker) -> untyped
+
+  def shutdown!: () -> untyped
+
+  def dirs: () -> untyped
+
+  def test_handle_request_initialize: () -> untyped
+
+  def test_handle_request_change: () -> untyped
+
+  def test_handle_request__file_reset: () -> untyped
+
+  def test_handle_request_hover: () -> untyped
+
+  def test_handle_hover_job_success: () -> untyped
+
+  def test_handle_alias_hover_job_success_on_rbs: () -> untyped
+
+  def test_handle_interface_hover_job_success_on_rbs: () -> untyped
+
+  def test_handle_class_hover_job_success_on_rbs: () -> untyped
+
+  def test_handle_class_hover_strip_html_comment: () -> untyped
+
+  def test_handle_hover_invalid: () -> untyped
+
+  def test_handle_completion_request: () -> untyped
+
+  def test_completion_on_signature: () -> untyped
+end

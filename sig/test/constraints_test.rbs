@@ -1,0 +1,23 @@
+# Generated from test/constraints_test.rb with RBS::Inline
+
+class ConstraintsTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  BUILTIN: ::String
+
+  def test_bounds: () -> untyped
+
+  def test_subst: () -> untyped
+
+  def test_subst_with_skip_constraints: () -> untyped
+
+  def test_subst2: () -> untyped
+
+  def test_variable_elimination: () -> untyped
+end

@@ -1,0 +1,31 @@
+# Generated from test/multiple_assignment_test.rb with RBS::Inline
+
+class MultipleAssignmentTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include Steep
+
+  MultipleAssignment: untyped
+
+  TypeEnv: untyped
+
+  ConstantEnv: untyped
+
+  def node: (untyped type, *untyped children) -> untyped
+
+  def constant_env: (?context: untyped) -> untyped
+
+  def test_tuple_assignment: () -> untyped
+
+  def test_tuple_assignment_optional: () -> untyped
+
+  def test_array_assignment: () -> untyped
+
+  def test_array_assignment_optional: () -> untyped
+
+  def test_hint_for_mlhs: () -> untyped
+end

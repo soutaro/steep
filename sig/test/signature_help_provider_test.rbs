@@ -1,0 +1,27 @@
+# Generated from test/signature_help_provider_test.rb with RBS::Inline
+
+class SignatureHelpProviderTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include Steep
+
+  SignatureHelpProvider: untyped
+
+  def test_send_error: () -> untyped
+
+  def test_send_ok: () -> untyped
+
+  def test_active_parameter: () -> untyped
+
+  def test_active_parameter_in_typing: () -> untyped
+
+  def test_send__with_block: () -> untyped
+
+  def test_send__within_block: () -> untyped
+
+  def test_send__within_block_error: () -> untyped
+end

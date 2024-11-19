@@ -1,0 +1,35 @@
+# Generated from test/type_env_test.rb with RBS::Inline
+
+class TypeEnvTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  MethodCall: untyped
+
+  ConstantEnv: untyped
+
+  TypeEnv: untyped
+
+  def constant_env: (?context: untyped) -> untyped
+
+  def test_local_variable: () -> untyped
+
+  def test_local_variable_name_p: () -> untyped
+
+  def test_annotated_local_variable: () -> untyped
+
+  def test_add_pure_node: () -> untyped
+
+  def test_join_local_vars_assignments: () -> untyped
+
+  def test_join_local_vars_enforced: () -> untyped
+
+  def test_join_calls_invalidate: () -> untyped
+
+  def test_refinements_branches_0: () -> untyped
+end

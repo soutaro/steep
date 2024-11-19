@@ -1,0 +1,59 @@
+# Generated from test/args_test.rb with RBS::Inline
+
+class ArgsTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  SendArgs: untyped
+
+  Params: untyped
+
+  Types: untyped
+
+  AST: untyped
+
+  def around: () -> untyped
+
+  def method_name: () -> untyped
+
+  def parse_args: (untyped source) -> untyped
+
+  def test_positional_single_arg: () -> untyped
+
+  def test_positional_no_arg: () -> untyped
+
+  def test_positional_consume: () -> untyped
+
+  def test_positional_rest_arg: () -> untyped
+
+  def test_keyword_single_keyword_arg: () -> untyped
+
+  def test_keyword_single_keyword_no_arg: () -> untyped
+
+  def test_keyword_single_rocket_arg: () -> untyped
+
+  def test_keyword_splat_arg: () -> untyped
+
+  def test_keyword_consume_keys: () -> untyped
+
+  def test_compat_keyword_positional_arg: () -> untyped
+
+  def test_block_pass_arg: () -> untyped
+
+  def test_each_single_args: () -> untyped
+
+  def test_each_missing_arg: () -> untyped
+
+  def test_each_splat_tuple: () -> untyped
+
+  def test_each_splat_array: () -> untyped
+
+  def test_each_keyword_arg: () -> untyped
+
+  def test_each_keyword_arg_splat_record: () -> untyped
+
+  def test_each_keyword_arg_splat_array: () -> untyped
+
+  def test_forwarded_args: () -> untyped
+end

@@ -1,0 +1,61 @@
+# Generated from test/master_test.rb with RBS::Inline
+
+use Steep::*
+
+class MasterTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include LSPTestHelper
+
+  include Steep
+
+  class Master = Server::Master
+
+  class TypeCheckController = Server::TypeCheckController
+
+  class WorkDoneProgress = Server::WorkDoneProgress
+
+  DEFAULT_CLI_LSP_INITIALIZE_PARAMS: untyped
+
+  include Server::CustomMethods
+
+  def dirs: () -> untyped
+
+  def test_start_type_check_with_progress: () -> untyped
+
+  def test_start_type_check_with_progress_no_support: () -> untyped
+
+  def test_start_type_check_without_progress: () -> untyped
+
+  def test_on_type_check_update_with_progress: () -> untyped
+
+  def test_on_type_check_update_without_progress: () -> untyped
+
+  def test_client_message_initialize_work_done_supported_no: () -> untyped
+
+  def test_client_message_initialize_work_done_supported_yes: () -> untyped
+
+  def test_client_message_document_did_change: () -> untyped
+
+  def test_client_message_document_did_save: () -> untyped
+
+  def test_client_message_document_did_open_close: () -> untyped
+
+  def test_type_check_request__start: () -> untyped
+
+  def test_code_type_check: () -> untyped
+
+  def test_signature_type_check: () -> untyped
+
+  def test_code_interaction: () -> untyped
+
+  def test_workspace_symbol: () -> untyped
+
+  def test_untitled_file_notifications: () -> untyped
+
+  def test_type_check_request__empty: () -> untyped
+
+  def test_type_check_request__type_check: () -> untyped
+end

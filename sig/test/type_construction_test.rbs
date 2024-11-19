@@ -1,0 +1,931 @@
+# Generated from test/type_construction_test.rb with RBS::Inline
+
+class TypeConstructionTest < Minitest::Test
+  include TestHelper
+
+  include TypeErrorAssertions
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include TypeConstructionHelper
+
+  Namespace: untyped
+
+  Diagnostic: untyped
+
+  Typing: untyped
+
+  ConstantEnv: untyped
+
+  TypeEnv: untyped
+
+  TypeConstruction: untyped
+
+  Annotation: untyped
+
+  Context: untyped
+
+  AST: untyped
+
+  MethodCall: untyped
+
+  DEFAULT_SIGS: ::String
+
+  def with_checker: (*untyped files, ?no_default: untyped) ?{ (?) -> untyped } -> untyped
+
+  def test_lvar_with_annotation: () -> untyped
+
+  def test_lvar_with_annotation_type_check: () -> untyped
+
+  def test_lvar_without_annotation_infer: () -> untyped
+
+  def test_lvar_without_annotation_redef: () -> untyped
+
+  def test_lvar_with_annotation_inference: () -> untyped
+
+  def test_method_call: () -> untyped
+
+  def test_method_call_with_argument: () -> untyped
+
+  def test_method_call_incompatible_argument_type: () -> untyped
+
+  def test_method_call_no_error_if_any: () -> untyped
+
+  def test_method_call_no_method_error: () -> untyped
+
+  def test_method_call_missing_argument: () -> untyped
+
+  def test_method_call_extra_args: () -> untyped
+
+  def test_keyword_call: () -> untyped
+
+  def test_keyword_missing: () -> untyped
+
+  def test_extra_keyword_given: () -> untyped
+
+  def test_keyword_typecheck: () -> untyped
+
+  def test_def_no_params: () -> untyped
+
+  def test_def_param: () -> untyped
+
+  def test_def_param_error: () -> untyped
+
+  def test_def_kw_param_error: () -> untyped
+
+  def test_def_optional_param: () -> untyped
+
+  def test_block: () -> untyped
+
+  def test_block_shadow: () -> untyped
+
+  def test_block_param_type: () -> untyped
+
+  def test_block_extra_missing_params: () -> untyped
+
+  def test_block_value_type: () -> untyped
+
+  def test_block_break_type: () -> untyped
+
+  def test_return_type_annotation: () -> untyped
+
+  def test_return_error: () -> untyped
+
+  def test_return_hint: () -> untyped
+
+  def test_constant_annotation: () -> untyped
+
+  def test_constant_annotation2: () -> untyped
+
+  def test_constant_signature: () -> untyped
+
+  def test_constant_signature2: () -> untyped
+
+  def test_overloaded_method: () -> untyped
+
+  def test_overloaded_method2: () -> untyped
+
+  def test_ivar_types: () -> untyped
+
+  def test_poly_method_arg: () -> untyped
+
+  def test_poly_method_block: () -> untyped
+
+  def test_union_type: () -> untyped
+
+  def test_module_self: () -> untyped
+
+  def test_class_constructor_with_signature: () -> untyped
+
+  def test_class_constructor_without_signature: () -> untyped
+
+  def test_class_constructor_nested: () -> untyped
+
+  def test_module_constructor_with_signature: () -> untyped
+
+  def test_module_constructor_without_signature: () -> untyped
+
+  def test_module_constructor_nested: () -> untyped
+
+  def test_new_method_constructor: () -> untyped
+
+  def test_new_method_constructor_overloaded: () -> untyped
+
+  def test_new_method_constructor_method_annotation: () -> untyped
+
+  def test_new_method_constructor_with_return_type: () -> untyped
+
+  def test_relative_type_name: () -> untyped
+
+  def test_namespace_module: () -> untyped
+
+  def test_namespace_module_nested: () -> untyped
+
+  def test_masgn_1: () -> untyped
+
+  def test_masgn_tuple: () -> untyped
+
+  def test_masgn_nested_tuple: () -> untyped
+
+  def test_masgn_tuple_array: () -> untyped
+
+  def test_masgn_array: () -> untyped
+
+  def test_masgn_splat: () -> untyped
+
+  def test_masgn_splat_unnamed: () -> untyped
+
+  def test_masgn_optional: () -> untyped
+
+  def test_masgn_to_ary: () -> untyped
+
+  def test_masgn_to_ary_error: () -> untyped
+
+  def test_masgn_no_conversion: () -> untyped
+
+  def test_masgn_optional_conditional: () -> untyped
+
+  def test_masgn_untyped: () -> untyped
+
+  def test_union_send_error: () -> untyped
+
+  def test_intersection_send: () -> untyped
+
+  def test_union_send: () -> untyped
+
+  def test_masgn_array_error: () -> untyped
+
+  def test_op_asgn: () -> untyped
+
+  def test_op_asgn_send: () -> untyped
+
+  def test_while0: () -> untyped
+
+  def test_while2: () -> untyped
+
+  def test_while3: () -> untyped
+
+  def test_while_post: () -> untyped
+
+  def test_while_gets: () -> untyped
+
+  def test_until_gets: () -> untyped
+
+  def test_post_loop: () -> untyped
+
+  def test_for_0: () -> untyped
+
+  def test_for_1: () -> untyped
+
+  def test_for_2: () -> untyped
+
+  def test_range: () -> untyped
+
+  def test_regexp: () -> untyped
+
+  def test_nth_ref: () -> untyped
+
+  def test_or_and_asgn: () -> untyped
+
+  def test_or_and_asgn_method: () -> untyped
+
+  def test_next: () -> untyped
+
+  def test_next1: () -> untyped
+
+  def test_next2: () -> untyped
+
+  def test_method_arg_assign: () -> untyped
+
+  def test_restargs: () -> untyped
+
+  def test_restargs2: () -> untyped
+
+  def test_gvar: () -> untyped
+
+  def test_gvar1: () -> untyped
+
+  def test_gvar2: () -> untyped
+
+  def test_gvar3: () -> untyped
+
+  def test_ivar: () -> untyped
+
+  def test_ivar2: () -> untyped
+
+  def test_splat: () -> untyped
+
+  def test_splat_range: () -> untyped
+
+  def test_splat_object: () -> untyped
+
+  def test_splat_arg: () -> untyped
+
+  def test_splat_arg2: () -> untyped
+
+  def test_self: () -> untyped
+
+  def test_self_send: () -> untyped
+
+  def test_self_subtype: () -> untyped
+
+  def test_self_subtype_poly: () -> untyped
+
+  def test_self_subtype_error: () -> untyped
+
+  def test_instance_type_defn: () -> untyped
+
+  def test_instance_type_send: () -> untyped
+
+  def test_instance_type_poly: () -> untyped
+
+  def test_class_type_defn: () -> untyped
+
+  def test_class_type_send: () -> untyped
+
+  def test_class_type_poly: () -> untyped
+
+  def test_void: () -> untyped
+
+  def test_void2: () -> untyped
+
+  def test_zip: () -> untyped
+
+  def test_each_with_object: () -> untyped
+
+  def test_each_with_object2: () -> untyped
+
+  def test_if_typing: () -> untyped
+
+  def test_if_return: () -> untyped
+
+  def test_if_annotation_success: () -> untyped
+
+  def test_if_annotation_error: () -> untyped
+
+  def test_when_typing: () -> untyped
+
+  def test_while_typing: () -> untyped
+
+  def test_while_type_error: () -> untyped
+
+  def test_rescue_typing: () -> untyped
+
+  def test_rescue_binding_typing: () -> untyped
+
+  def test_string_or_true_false: () -> untyped
+
+  def test_type_case_case_when: () -> untyped
+
+  def test_type_case_case_when_no_body: () -> untyped
+
+  def test_type_case_array1: () -> untyped
+
+  def test_type_case_array2: () -> untyped
+
+  def test_initialize_typing: () -> untyped
+
+  def test_cast_via_underscore: () -> untyped
+
+  def test_parametrized_class_constant: () -> untyped
+
+  def test_splat_from_any: () -> untyped
+
+  def test_polymorphic: () -> untyped
+
+  def test_parameterized_class: () -> untyped
+
+  def test_parameterized_module: () -> untyped
+
+  def test_initialize: () -> untyped
+
+  def test_initialize2: () -> untyped
+
+  def test_initialize_unbound_type_var_fallback_to_any: () -> untyped
+
+  def test_if_unwrap: () -> untyped
+
+  def test_and_unwrap: () -> untyped
+
+  def test_and_assign: () -> untyped
+
+  def test_csend_unwrap: () -> untyped
+
+  def test_while: () -> untyped
+
+  def test_case_incompatible_annotation: () -> untyped
+
+  def test_case_non_exhaustive: () -> untyped
+
+  def test_case_non_exhaustive2: () -> untyped
+
+  def test_case_exhaustive: () -> untyped
+
+  def test_case_exhaustive_else: () -> untyped
+
+  def test_def_with_splat_kwargs: () -> untyped
+
+  def test_splat_kw_args: () -> untyped
+
+  def test_block_arg: () -> untyped
+
+  def test_and_or: () -> untyped
+
+  def test_empty_body_method: () -> untyped
+
+  def test_nil_reject: () -> untyped
+
+  def test_nil_method: () -> untyped
+
+  def test_optional_method: () -> untyped
+
+  def test_literal: () -> untyped
+
+  def test_literal2: () -> untyped
+
+  def test_tuple: () -> untyped
+
+  def test_tuple1: () -> untyped
+
+  def test_tuple2: () -> untyped
+
+  def test_tuple3: () -> untyped
+
+  def test_tuple4: () -> untyped
+
+  def test_tuple5_subtyping: () -> untyped
+
+  def test_tuple_first_last: () -> untyped
+
+  def test_hash_tuple: () -> untyped
+
+  def test_super: () -> untyped
+
+  def test_super_no_decl: () -> untyped
+
+  def test_super_missing_required_block: () -> untyped
+
+  def test_super_correct_block: () -> untyped
+
+  def test_super_correct_block_called_on_no_block_method: () -> untyped
+
+  def test_super_wrong_block: () -> untyped
+
+  def test_issue_512: () -> untyped
+
+  def test_super_missing_super: () -> untyped
+
+  def test_super_with_block_called_on_no_super_definition: () -> untyped
+
+  def test_empty_array_is_error: () -> untyped
+
+  def test_alias_hint: () -> untyped
+
+  def test_or: () -> untyped
+
+  def test_hash_optional: () -> untyped
+
+  def test_array_optional: () -> untyped
+
+  def test_array_union: () -> untyped
+
+  def test_passing_empty_block: () -> untyped
+
+  def test_type_lambda: () -> untyped
+
+  def test_type_lambda_annotation: () -> untyped
+
+  def test_type_lambda_hint: () -> untyped
+
+  def test_type_lambda_hint3: () -> untyped
+
+  def test_type_block_arg: () -> untyped
+
+  def test_type_proc_objects: () -> untyped
+
+  def test_lambda1: () -> untyped
+
+  def test_lambda2: () -> untyped
+
+  def test_empty_begin: () -> untyped
+
+  def test_begin_type: () -> untyped
+
+  def test_hash_type: () -> untyped
+
+  def test_hash_type2: () -> untyped
+
+  def test_hash_type3: () -> untyped
+
+  def test_hash_type4: () -> untyped
+
+  def test_hash_type5: () -> untyped
+
+  def test_hash_union: () -> untyped
+
+  def test_hash_with_kwargs: () -> untyped
+
+  def test_polymorphic_method: () -> untyped
+
+  def test_array_arg: () -> untyped
+
+  def test_private_method1: () -> untyped
+
+  def test_private_method2: () -> untyped
+
+  def test_private_method3: () -> untyped
+
+  def test_inherit_class: () -> untyped
+
+  def test_or_nil_unwrap: () -> untyped
+
+  def test_or_nil_unwrap2: () -> untyped
+
+  def test_alias: () -> untyped
+
+  def test_module_singleton_method_type: () -> untyped
+
+  def test_module_self_call: () -> untyped
+
+  def test_module_no_rbs: () -> untyped
+
+  def test_class_no_rbs: () -> untyped
+
+  def test_self_call: () -> untyped
+
+  def test_poly_new: () -> untyped
+
+  def test_context_toplevel: () -> untyped
+
+  def test_context_class: () -> untyped
+
+  def test_return_type: () -> untyped
+
+  def test_begin_void: () -> untyped
+
+  def test_assign_send_arg: () -> untyped
+
+  def test_assign_csend_arg: () -> untyped
+
+  def test_if_return_2: () -> untyped
+
+  def test_unless_return: () -> untyped
+
+  def test_and_occurrence: () -> untyped
+
+  def test_or_occurrence: () -> untyped
+
+  def test_heredoc: () -> untyped
+
+  def test_casgn_in_nested_class: () -> untyped
+
+  def test_singleton_class_in_class_decl: () -> untyped
+
+  def test_singleton_class_in_class_decl_error: () -> untyped
+
+  def test_singleton_class_for_object_success: () -> untyped
+
+  def test_singleton_class_for_object_type_check: () -> untyped
+
+  def test_literal_typing_with_hint: () -> untyped
+
+  def test_tuple_typing: () -> untyped
+
+  def test_class_variables: () -> untyped
+
+  def test_class_variables_error: () -> untyped
+
+  def test_flow_sensitive_untyped: () -> untyped
+
+  def test_flow_sensitive_if_return: () -> untyped
+
+  def test_flow_sensitive_when_optional: () -> untyped
+
+  def test_flow_sensitive_when: () -> untyped
+
+  def test_flow_sensitive_when2: () -> untyped
+
+  def test_orasign_lvar: () -> untyped
+
+  def test_orasign_ivar: () -> untyped
+
+  def test_orasgn_call: () -> untyped
+
+  def test_numbers_numeric: () -> untyped
+
+  def test_void_hint: () -> untyped
+
+  def test_case_when_union: () -> untyped
+
+  def test_endless_range: () -> untyped
+
+  def test_generic_param_rename: () -> untyped
+
+  def test_module_method_call: () -> untyped
+
+  def test_sclass_no_sig: () -> untyped
+
+  def test_assign_untyped_singleton_class: () -> untyped
+
+  def test_block_param_masgn: () -> untyped
+
+  def test_block_param_masgn_with_unnamed: () -> untyped
+
+  def test_block_param_masgn_with_unnamed2: () -> untyped
+
+  def test_logic_receiver_is_nil: () -> untyped
+
+  def test_logic_receiver_is_arg: () -> untyped
+
+  def test_logic_arg_is_receiver: () -> untyped
+
+  def test_logic_value: () -> untyped
+
+  def test_logic_not: () -> untyped
+
+  def test_logic_not2: () -> untyped
+
+  def test_logic_and: () -> untyped
+
+  def test_logic_or: () -> untyped
+
+  def test_logic_type_no_escape: () -> untyped
+
+  def test_logic_type_no_escape2: () -> untyped
+
+  def test_logic_type_case_any: () -> untyped
+
+  def test_type_case_after_union: () -> untyped
+
+  def test_type_case_after_any: () -> untyped
+
+  def test_incompatible_annotation: () -> untyped
+
+  def test_case_when_flow_sensitive_bug: () -> untyped
+
+  def test_rescue_hint: () -> untyped
+
+  def test_module_attribute: () -> untyped
+
+  def test_type_case_interface: () -> untyped
+
+  def test_flow_sensitive_and: () -> untyped
+
+  def test_assignment_call: () -> untyped
+
+  def test_send_untyped: () -> untyped
+
+  def test_send_top_void: () -> untyped
+
+  def test_send_concrete_receiver: () -> untyped
+
+  def test_send_concrete_receiver_with_block: () -> untyped
+
+  def test_send_concrete_receiver_without_expected_block: () -> untyped
+
+  def test_send_concrete_receiver_without_expected_block_type_var: () -> untyped
+
+  def test_send_concrete_receiver_with_unsupported_block_params: () -> untyped
+
+  def test_send_concrete_receiver_no_block_method_with_blockarg: () -> untyped
+
+  def test_send_concrete_receiver_receiving_block_with_blockarg: () -> untyped
+
+  def test_block_pass_and_untyped: () -> untyped
+
+  def test_send_unsatisfiable_constraint: () -> untyped
+
+  def test_send_rbs_error: () -> untyped
+
+  def test_const: () -> untyped
+
+  def test_const_class_module: () -> untyped
+
+  def test_block_without_hint: () -> untyped
+
+  def test_bool_typing: () -> untyped
+
+  def test_typing_record: () -> untyped
+
+  def test_typing_record_union: () -> untyped
+
+  def test_typing_record_union_alias: () -> untyped
+
+  def test_typing_record_map1: () -> untyped
+
+  def test_typing_record_nilable_attribute: () -> untyped
+
+  def test_type_case_case_when_assignment: () -> untyped
+
+  def test_type_case_case_selector: () -> untyped
+
+  def test_type_if_else_when_assignment: () -> untyped
+
+  def test_bool_and_or: () -> untyped
+
+  def test_and_is_a: () -> untyped
+
+  def test_and_nested: () -> untyped
+
+  def test_or_nested: () -> untyped
+
+  def test_or_is_a: () -> untyped
+
+  def test_logic_or2: () -> untyped
+
+  def test_self_attributes: () -> untyped
+
+  def test_proc_with_block_hint: () -> untyped
+
+  def test_proc_with_block_annotation: () -> untyped
+
+  def test_next_with_next_type: () -> untyped
+
+  def test_next_without_method_type: () -> untyped
+
+  def test_next_without_break_context: () -> untyped
+
+  def test_break_with_block: () -> untyped
+
+  def test_break_without_method_type: () -> untyped
+
+  def test_break_without_break_context: () -> untyped
+
+  def test_break_with_annotation: () -> untyped
+
+  def test_and_is_a_nested: () -> untyped
+
+  def test_value_case: () -> untyped
+
+  def test_value_case2: () -> untyped
+
+  def test_value_case3: () -> untyped
+
+  def test_case_when_var: () -> untyped
+
+  def test_defs_self: () -> untyped
+
+  def test_case_when_arg: () -> untyped
+
+  def test_if_is_a_assign: () -> untyped
+
+  def test_rescue_rbs_errors: () -> untyped
+
+  def test_inference: () -> untyped
+
+  def test_issue_269_1: () -> untyped
+
+  def test_issue_269_2: () -> untyped
+
+  def test_block_implements: () -> untyped
+
+  def test_block_implements_singleton: () -> untyped
+
+  def test_nil_block: () -> untyped
+
+  def test_issue_332: () -> untyped
+
+  def test_issue_328: () -> untyped
+
+  def test_issue_293: () -> untyped
+
+  def test_issue_372: () -> untyped
+
+  def test_ruby3_endless_def: () -> untyped
+
+  def test_ruby3_numbered_parameter1: () -> untyped
+
+  def test_ruby3_numbered_parameter2: () -> untyped
+
+  def test_ruby3_numbered_parameter3: () -> untyped
+
+  def test_ruby3_numbered_parameter4: () -> untyped
+
+  def test_type_check_def_without_decl: () -> untyped
+
+  def test_break_without_value_to_block: () -> untyped
+
+  def test_issue_389: () -> untyped
+
+  def test_break_from_loop: () -> untyped
+
+  def test_missing_args_with_csend: () -> untyped
+
+  def test_splat_arg_no_param: () -> untyped
+
+  def test_generic_alias_error: () -> untyped
+
+  def test_bounded_generics: () -> untyped
+
+  def test_bounded_generics_apply: () -> untyped
+
+  def test_generic_alias: () -> untyped
+
+  def test_send_solution_block_body_type_check_failure: () -> untyped
+
+  def test_send_solution_block_body_type_check_failure_with_annotation: () -> untyped
+
+  def test_send_solution_block_parameter_unsupported: () -> untyped
+
+  def test_send_solution_block_pass: () -> untyped
+
+  def test_send_solution_block_pass_nil: () -> untyped
+
+  def test_send_solution_block_pass_error: () -> untyped
+
+  def test_send_solution_required_block_is_missing: () -> untyped
+
+  def test_send_solution_unexpected_block_is_given: () -> untyped
+
+  def test_return_no_value: () -> untyped
+
+  def test_context_typing_bool: () -> untyped
+
+  def test_proc_type_case: () -> untyped
+
+  def test_lambda_with_block: () -> untyped
+
+  def test_lambda_with_block_alias: () -> untyped
+
+  def test_lambda_with_block_non_proc: () -> untyped
+
+  def test_lambda_with_block_non_proc_arg: () -> untyped
+
+  def test_flat_map: () -> untyped
+
+  def test_filter_map: () -> untyped
+
+  def test_filter_map_compact: () -> untyped
+
+  def test_array_compact: () -> untyped
+
+  def test_hash_compact: () -> untyped
+
+  def test_to_proc_syntax_optional_arg: () -> untyped
+
+  def test_splat_in_array: () -> untyped
+
+  def test_to_a_untyped: () -> untyped
+
+  def test_case_const_unexpected_error: () -> untyped
+
+  def test_const_one_error: () -> untyped
+
+  def test_flow_sensitive_not: () -> untyped
+
+  def test_super_class_not_const: () -> untyped
+
+  def test_keyword_param_methods: () -> untyped
+
+  def test_ruby31_shorthand_hash: () -> untyped
+
+  def test_module_annotation_merge_error: () -> untyped
+
+  def test_anonymouse_block_forwarding: () -> untyped
+
+  def test_optional_parameter_value_with_wrong_type: () -> untyped
+
+  def test_const_inline_annotation: () -> untyped
+
+  def test_issue_583: () -> untyped
+
+  def test_method_purity_attribute: () -> untyped
+
+  def test_method_purity_attribute2: () -> untyped
+
+  def test_method_flow_sensitive_is_a: () -> untyped
+
+  def test_method_flow_sensitive_nilp: () -> untyped
+
+  def test_method_flow_sensitive_arg_is_receiver: () -> untyped
+
+  def test_method_flow_sensitive_arg_equals_receiver: () -> untyped
+
+  def test_method_flow_sensitive_not: () -> untyped
+
+  def test_method_flow_sensitive_array_aref: () -> untyped
+
+  def test_method_flow_sensitive_hash_aref: () -> untyped
+
+  def test_method_type_refinements_if: () -> untyped
+
+  def test_assignment_in_block: () -> untyped
+
+  def test_issue_595_generics_type_inference: () -> untyped
+
+  def test_issue_610_type_param_block_param: () -> untyped
+
+  def test_issue_610_type_param_block_param_generic_constraint: () -> untyped
+
+  def test_lvar_special: () -> untyped
+
+  def test_type_narrowing_assignment: () -> untyped
+
+  def test_type_if_union_unify: () -> untyped
+
+  def test_type_case_union_unify: () -> untyped
+
+  def test_masgn_union_tuple: () -> untyped
+
+  def test_masgn_union_tuple2: () -> untyped
+
+  def test_self_type_call: () -> untyped
+
+  def test_empty_yield: () -> untyped
+
+  def test_self_type_binding_proc_with_type_declaration: () -> untyped
+
+  def test_self_type_binding_proc_with_annotation: () -> untyped
+
+  def test_self_type_binding_block: () -> untyped
+
+  def test_self_type_binding_type_parameter: () -> untyped
+
+  def test_self_type_binding_generic: () -> untyped
+
+  def test_self_type_incompatible: () -> untyped
+
+  def test_block_splat_alias: () -> untyped
+
+  def test_type_narrowing_subclass: () -> untyped
+
+  def test_assertion_as_type: () -> untyped
+
+  def test_assertion_as_type_fool_success: () -> untyped
+
+  def test_type_app_succeed: () -> untyped
+
+  def test_type_app_error: () -> untyped
+
+  def test_class_name_resolution: () -> untyped
+
+  def test_triple_dots_args: () -> untyped
+
+  def test_triple_dots_block: () -> untyped
+
+  def test_flow_sensitive_case_no_cond: () -> untyped
+
+  def test_untyped_call_block: () -> untyped
+
+  def test_masgn__global: () -> untyped
+
+  def test_opasgn__global: () -> untyped
+
+  def test_orasgn_andasgn__global: () -> untyped
+
+  def test_opasgn_error_report: () -> untyped
+
+  def test_return__mvalue: () -> untyped
+
+  def test_masgn__splat_rhs1: () -> untyped
+
+  def test_masgn__splat_rhs2: () -> untyped
+
+  def test_masgn__splat_rhs3: () -> untyped
+
+  def test_super__splat_arg: () -> untyped
+
+  def test_super__splat_arg_untyped: () -> untyped
+
+  def test_send__type_inference_return: () -> untyped
+
+  def test_send_block__untyped_distribute: () -> untyped
+
+  def test_assertion__ignore_rdoc_directive: () -> untyped
+
+  def test_block_pass__to_proc: () -> untyped
+
+  def test_block_pass__to_proc_nil: () -> untyped
+
+  def test_block_pass__to_proc_no: () -> untyped
+
+  def test_type_hint__proc_optional: () -> untyped
+
+  def test_type_hint__proc_union_with_proc: () -> untyped
+
+  def test_type_hint__proc_union_proc_instance: () -> untyped
+
+  def test_rational_and_complex_literal: () -> untyped
+end

@@ -1,0 +1,39 @@
+# Generated from test/server_type_check_controller_test.rb with RBS::Inline
+
+class ServerTypeCheckControllerTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include LSPTestHelper
+
+  include Steep
+
+  TypeCheckController: untyped
+
+  WorkDoneProgress: untyped
+
+  def dirs: () -> untyped
+
+  def test_initialize: () -> untyped
+
+  def test_load: () -> untyped
+
+  def test_load__groups: () -> untyped
+
+  def test_push_changes_project_file: () -> untyped
+
+  def test_update_priority: () -> untyped
+
+  def test_make_request_empty: () -> untyped
+
+  def test_make_request__include_unchanged: () -> untyped
+
+  def test_make_request__code_changed: () -> untyped
+
+  def test_make_request__signature_changed: () -> untyped
+
+  def test_make_request__other_group_priority: () -> untyped
+
+  def test_make_request__other_group_priority__unreferenced: () -> untyped
+end

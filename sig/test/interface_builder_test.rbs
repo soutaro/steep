@@ -1,0 +1,39 @@
+# Generated from test/interface_builder_test.rb with RBS::Inline
+
+class InterfaceBuilderTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include Steep
+
+  def config: (**untyped opts) -> untyped
+
+  def test_shape__interface: () -> untyped
+
+  def test_shape__class_singleton: () -> untyped
+
+  def test_shape__class_instance: () -> untyped
+
+  def test_shape__alias: () -> untyped
+
+  def test_shape__union: () -> untyped
+
+  def test_shape__bool: () -> untyped
+
+  def test_shape__literal: () -> untyped
+
+  def test_shape__intersection: () -> untyped
+
+  def test_shape__proc: () -> untyped
+
+  def test_shape__tuple: () -> untyped
+
+  def test_shape__record: () -> untyped
+
+  def test_shape__union_try: () -> untyped
+
+  def test_shape__bounded_variable: () -> untyped
+
+  def test_shape__big_literal_union: () -> untyped
+end

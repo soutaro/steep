@@ -1,5 +1,7 @@
 require_relative "test_helper"
 
+# @rbs use Steep::*
+
 class TypeCheckWorkerTest < Minitest::Test
   include TestHelper
   include ShellHelper
@@ -689,7 +691,7 @@ RUBY
           1+
         RUBY
       })
-      
+
       target = project.targets[0]
       worker.service.typecheck_source(path: Pathname("lib/hello.rb"), target: target)
       worker.service.typecheck_source(path: Pathname("lib/world.rb"), target: target)

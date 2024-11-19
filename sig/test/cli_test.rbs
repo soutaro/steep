@@ -1,0 +1,65 @@
+# Generated from test/cli_test.rb with RBS::Inline
+
+class CLITest < Minitest::Test
+  include ShellHelper
+
+  include TestHelper
+
+  def dirs: () -> untyped
+
+  def envs: () -> untyped
+
+  def steep: () -> untyped
+
+  def test_version: () -> untyped
+
+  def test_jobs_count: () -> untyped
+
+  def test_steep_command_option: () -> untyped
+
+  def test_check_success: () -> untyped
+
+  def test_check_failure: () -> untyped
+
+  def test_check_group__target: () -> untyped
+
+  def test_check_group__group: () -> untyped
+
+  def test_check_failure_severity_level: () -> untyped
+
+  def test_check_expectations_success: () -> untyped
+
+  def test_check_expectations_lineno_changed: () -> untyped
+
+  def test_check_expectations_fail: () -> untyped
+
+  def test_check_expectations_fail2: () -> untyped
+
+  def test_check_broken: () -> untyped
+
+  def test_check_unknown: () -> untyped
+
+  def test_check_no_steepfile: () -> untyped
+
+  def test_annotations: () -> untyped
+
+  def test_watch: () -> untyped
+
+  def test_watch_file: () -> untyped
+
+  def test_stats_default_no_tty: () -> untyped
+
+  def test_stats_csv: () -> untyped
+
+  def test_stats_table: () -> untyped
+
+  def test_stats_error: () -> untyped
+
+  def test_binstub_generate: () -> untyped
+
+  def test_binstub_skip: () -> untyped
+
+  def test_binstub_force: () -> untyped
+
+  def test_ci_jobs_setup_message: () -> untyped
+end

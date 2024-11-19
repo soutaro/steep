@@ -1,0 +1,55 @@
+# Generated from test/goto_service_test.rb with RBS::Inline
+
+class GotoServiceTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  ContentChange: untyped
+
+  TypeCheckService: untyped
+
+  GotoService: untyped
+
+  def dir: () -> untyped
+
+  def assignment: () -> untyped
+
+  def project: () -> untyped
+
+  def type_check_service: () -> untyped
+
+  def test_goto_definition_sig_class: () -> untyped
+
+  def test_query_at_code_const: () -> untyped
+
+  def test_query_at_rbs_const: () -> untyped
+
+  def test_query_at_method_def: () -> untyped
+
+  def test_query_at_type: () -> untyped
+
+  def test_query_at_method_call: () -> untyped
+
+  def test_constant_locations: () -> untyped
+
+  def test_method_locations: () -> untyped
+
+  def test_method_locations_error: () -> untyped
+
+  def test_type_name_locations: () -> untyped
+
+  def test_new_method_definition: () -> untyped
+
+  def test_new_method_impl: () -> untyped
+
+  def test_method_block: () -> untyped
+
+  def test_method_block_inner: () -> untyped
+
+  def test_goto_definition_wrt_assignment: () -> untyped
+
+  def test_go_to_type_definition: () -> untyped
+
+  def test_go_to_type_definition2: () -> untyped
+end

@@ -1,0 +1,21 @@
+# Generated from test/source_index_test.rb with RBS::Inline
+
+class SourceIndexTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include TypeConstructionHelper
+
+  include SubtypingHelper
+
+  SourceIndex: untyped
+
+  def test_nested_index: () -> untyped
+
+  def test_nested_index_error: () -> untyped
+
+  def test_constant_index: () -> untyped
+
+  def test_def_index: () -> untyped
+end

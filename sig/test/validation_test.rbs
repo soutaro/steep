@@ -1,0 +1,79 @@
+# Generated from test/validation_test.rb with RBS::Inline
+
+class ValidationTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  Validator: untyped
+
+  Diagnostic: untyped
+
+  def test_validate_constant: () -> untyped
+
+  def test_validate_global: () -> untyped
+
+  def test_validate_alias: () -> untyped
+
+  def test_generic_alias: () -> untyped
+
+  def test_validate_interface: () -> untyped
+
+  def test_validate_class: () -> untyped
+
+  def test_validate_stdlib: () -> untyped
+
+  def test_validate_super: () -> untyped
+
+  def test_validate_mixin: () -> untyped
+
+  def test_outer_namespace: () -> untyped
+
+  def test_validate_alias_missing: () -> untyped
+
+  def test_duplicated_method_definition: () -> untyped
+
+  def test_duplicated_interface_method_definition: () -> untyped
+
+  def test_recursive_alias: () -> untyped
+
+  def test_validate_mixin_class: () -> untyped
+
+  def test_validate_mixin_module: () -> untyped
+
+  def test_validate_instance_variables: () -> untyped
+
+  def test_validate_class_variables: () -> untyped
+
+  def test_validate_type_application: () -> untyped
+
+  def test_validate_type_application_class_decl: () -> untyped
+
+  def test_validate_type_application_super: () -> untyped
+
+  def test_validate_type_application_module_self: () -> untyped
+
+  def test_validate_type_application_mixin: () -> untyped
+
+  def test_validate_type_application_interface: () -> untyped
+
+  def test_validate_type_application_method: () -> untyped
+
+  def test_validate_type_application_interface_decl: () -> untyped
+
+  def test_validate_type_application_alias_decl: () -> untyped
+
+  def test_validate_generic_declaration_dependents: () -> untyped
+
+  def test_generic_ancestor_argument_types: () -> untyped
+
+  def test_validate_type_alias_module_alias: () -> untyped
+
+  def test_validate_type_app__classish_bounded: () -> untyped
+
+  def test_validate_type__generics_default_ref: () -> untyped
+
+  def test_validate_type__generics_default_upperbound: () -> untyped
+end

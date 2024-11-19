@@ -1,0 +1,59 @@
+# Generated from test/lsp_double.rb with RBS::Inline
+
+class LSPDouble
+  attr_reader reader: untyped
+
+  attr_reader writer: untyped
+
+  attr_reader diagnostics: untyped
+
+  attr_reader reader_thread: untyped
+
+  attr_reader response_queue: untyped
+
+  attr_reader responses: untyped
+
+  attr_reader mutex: untyped
+
+  attr_accessor default_timeout: untyped
+
+  def initialize: (reader: untyped, writer: untyped) -> untyped
+
+  def file_scheme: () -> untyped
+
+  def next_request_id: () -> untyped
+
+  def start: () -> untyped
+
+  def stop: () -> untyped
+
+  def process_request: (untyped request) -> untyped
+
+  def synchronize_ui: () ?{ (?) -> untyped } -> untyped
+
+  def process_response: (untyped response) -> untyped
+
+  def send_request: (method: untyped, ?id: untyped, ?params: untyped, ?response_timeout: untyped) -> untyped
+
+  def send_notification: (method: untyped, ?params: untyped) -> untyped
+
+  def retrieve_response: (untyped request_id, ?timeout: untyped) -> untyped
+
+  def finally: (?timeout: untyped) -> untyped
+
+  def open_file: (untyped path) -> untyped
+
+  def close_file: (untyped path) -> untyped
+
+  def edit_file: (untyped path, version: untyped, ?content: untyped) -> untyped
+
+  def save_file: (untyped path) -> untyped
+
+  def hover_on: (path: untyped, line: untyped, character: untyped) -> untyped
+
+  def complete_on: (path: untyped, line: untyped, character: untyped, ?kind: untyped, ?trigger_character: untyped) -> untyped
+
+  def workspace_symbol: (?untyped query) -> untyped
+
+  def diagnostics_for: (untyped path) -> untyped
+end

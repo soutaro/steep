@@ -1,0 +1,19 @@
+# Generated from test/ast/ignore_test.rb with RBS::Inline
+
+class AST__IgnoreTest < Minitest::Test
+  include TestHelper
+
+  Ignore: untyped
+
+  def parse: (untyped ruby) -> untyped
+
+  def test_parse_ignore_start: () -> untyped
+
+  def test_parse_ignore_end: () -> untyped
+
+  def test_parse_ignore__empty: () -> untyped
+
+  def test_parse_ignore__all: () -> untyped
+
+  def test_parse_ignore__diagnostics: () -> untyped
+end

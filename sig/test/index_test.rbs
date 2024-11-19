@@ -1,0 +1,23 @@
+# Generated from test/index_test.rb with RBS::Inline
+
+class IndexTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include TypeConstructionHelper
+
+  RBSIndex: untyped
+
+  SourceIndex: untyped
+
+  def assert_node_set: (untyped nodes, *untyped locs) -> untyped
+
+  def test_class: () -> untyped
+
+  def test_module: () -> untyped
+
+  def test_cdecl: () -> untyped
+end
