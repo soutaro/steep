@@ -657,6 +657,18 @@ module Steep
 
           start_type_check(request: request, last_request: nil)
 
+        when CustomMethods::TypeCheckGroups::METHOD
+          params = message[:params] #: CustomMethods::TypeCheckGroups::params
+
+          groups = params.fetch(:groups)
+
+          progress = work_done_progress(SecureRandom.uuid)
+          progress.begin("Type checking #{groups.empty? ? "project" : groups.join(", ")}", request_id: fresh_request_id)
+
+          request = controller.make_group_request(groups, progress: progress)
+          request.needs_response = false
+          start_type_check(request: request, last_request: current_type_check_request, report_progress_threshold: 0)
+
         when "$/ping"
           enqueue_write_job SendMessageJob.to_client(
             message: {
@@ -664,6 +676,25 @@ module Steep
                 result: message[:params]
             }
           )
+
+        when CustomMethods::Groups::METHOD
+          groups = [] #: Array[String]
+
+          project.targets.each do |target|
+            unless target.source_pattern.empty? && target.signature_pattern.empty?
+              groups << target.name.to_s
+            end
+
+            target.groups.each do |group|
+              unless group.source_pattern.empty? && group.signature_pattern.empty?
+                groups << "#{target.name}.#{group.name}"
+              end
+            end
+          end
+
+          enqueue_write_job(SendMessageJob.to_client(
+            message: CustomMethods::Groups.response(message[:id], groups)
+          ))
 
         when "shutdown"
           start_type_checking_queue.cancel

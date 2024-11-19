@@ -50,6 +50,10 @@ module Steep
         patterns.any? {|pat| File.fnmatch(pat, string, File::FNM_PATHNAME) } ||
           prefixes.any? {|prefix| File.fnmatch("#{prefix}**/*#{ext}", string, File::FNM_PATHNAME) }
       end
+
+      def empty?
+        patterns.empty?
+      end
     end
   end
 end
