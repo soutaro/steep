@@ -555,4 +555,173 @@ RUBY
       end
     end
   end
+
+  def test_type_check_groups
+    in_tmpdir do
+      write_file("Steepfile", <<RUBY)
+D = Steep::Diagnostic
+
+target :lib do
+  group :core do
+    check "lib/core"
+    signature "sig/core"
+  end
+
+  group :main do
+    check "lib/main"
+    signature "sig/main"
+  end
+end
+
+target :test do
+  unreferenced!
+
+  check "test"
+  signature "sig/test"
+end
+RUBY
+
+      write_file("lib/core/core.rb", <<~RUBY)
+        class Core
+        end
+      RUBY
+      write_file("sig/core/core.rbs", <<~RBS)
+        class Core
+        end
+      RBS
+      write_file("lib/main/main.rb", <<~RUBY)
+        class Main
+        end
+      RUBY
+      write_file("sig/main/main.rbs", <<~RBS)
+        class Main
+        end
+      RBS
+      write_file("test/core_test.rb", <<~RUBY)
+        class CoreTest
+        end
+      RUBY
+      write_file("test/main_test.rb", <<~RUBY)
+        class MainTest
+        end
+      RUBY
+      write_file("sig/test/test.rbs", <<~RBS)
+        class CoreTest
+          def core: () -> Core
+        end
+
+        class MainTest
+        end
+      RBS
+
+      start_server do |client|
+        client.send_request(method: "initialize", params: { }) {}
+        client.send_notification(method: "initialized", params: { })
+
+        client.send_request(method: "$/steep/groups", params: nil) do |result|
+          assert_equal ["lib.core", "lib.main", "test"], result[:result]
+        end
+
+        client.diagnostics.clear
+
+        client.send_notification(method: "$/steep/typecheck/groups", params: { groups: ["lib.core", "test"] })
+
+        finally_holds(timeout: 3) do
+          # `core` and `test` groups are type checked
+          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
+          refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
+          refute_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
+          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
+        end
+      ensure
+        client.send_request(method: "shutdown", params: nil) {}
+        client.send_notification(method: "exit", params: nil)
+      end
+    end
+  end
+
+  def test_type_check_groups__all
+    in_tmpdir do
+      write_file("Steepfile", <<RUBY)
+D = Steep::Diagnostic
+
+target :lib do
+  group :core do
+    check "lib/core"
+    signature "sig/core"
+  end
+
+  group :main do
+    check "lib/main"
+    signature "sig/main"
+  end
+end
+
+target :test do
+  unreferenced!
+
+  check "test"
+  signature "sig/test"
+end
+RUBY
+
+      write_file("lib/core/core.rb", <<~RUBY)
+        class Core
+        end
+      RUBY
+      write_file("sig/core/core.rbs", <<~RBS)
+        class Core
+        end
+      RBS
+      write_file("lib/main/main.rb", <<~RUBY)
+        class Main
+        end
+      RUBY
+      write_file("sig/main/main.rbs", <<~RBS)
+        class Main
+        end
+      RBS
+      write_file("test/core_test.rb", <<~RUBY)
+        class CoreTest
+        end
+      RUBY
+      write_file("test/main_test.rb", <<~RUBY)
+        class MainTest
+        end
+      RUBY
+      write_file("sig/test/test.rbs", <<~RBS)
+        class CoreTest
+          def core: () -> Core
+        end
+
+        class MainTest
+        end
+      RBS
+
+      start_server do |client|
+        client.send_request(method: "initialize", params: { }) {}
+        client.send_notification(method: "initialized", params: { })
+
+        client.diagnostics.clear
+
+        client.send_notification(method: "$/steep/typecheck/groups", params: { groups: [] })
+
+        finally_holds(timeout: 3) do
+          assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
+          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
+          assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
+          assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
+          assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
+        end
+      ensure
+        client.send_request(method: "shutdown", params: nil) {}
+        client.send_notification(method: "exit", params: nil)
+      end
+    end
+  end
 end
