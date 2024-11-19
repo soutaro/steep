@@ -877,7 +877,7 @@ Hello.new.foo([])
 
         assert_typing_error(typing, size: 2) do |errors|
           errors[0].tap do |error|
-            assert_instance_of Diagnostic::Ruby::FallbackAny, error
+            assert_instance_of Diagnostic::Ruby::UnannotatedEmptyCollection, error
           end
 
           errors[1].tap do |error|
@@ -4369,7 +4369,7 @@ EOF
 
         assert_equal 2, typing.errors.size
         assert_all typing.errors do |error|
-          error.is_a?(Diagnostic::Ruby::FallbackAny)
+          error.is_a?(Diagnostic::Ruby::UnannotatedEmptyCollection)
         end
       end
     end

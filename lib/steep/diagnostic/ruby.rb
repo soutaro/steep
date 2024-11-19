@@ -917,6 +917,13 @@ module Steep
         end
       end
 
+      class UnannotatedEmptyCollection < Base
+        def header_line
+          node or raise
+          "Empty #{node.type} doesn't have type annotation"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -963,6 +970,7 @@ module Steep
             SetterReturnTypeMismatch => :information,
             SyntaxError => :hint,
             TypeArgumentMismatchError => :hint,
+            UnannotatedEmptyCollection => :warning,
             UnexpectedBlockGiven => :warning,
             UnexpectedDynamicMethod => :hint,
             UnexpectedError => :hint,
@@ -1019,6 +1027,7 @@ module Steep
             SetterReturnTypeMismatch => :error,
             SyntaxError => :hint,
             TypeArgumentMismatchError => :error,
+            UnannotatedEmptyCollection => :error,
             UnexpectedBlockGiven => :error,
             UnexpectedDynamicMethod => :information,
             UnexpectedError => :information,
@@ -1075,6 +1084,7 @@ module Steep
             SetterReturnTypeMismatch => nil,
             SyntaxError => :hint,
             TypeArgumentMismatchError => nil,
+            UnannotatedEmptyCollection => :hint,
             UnexpectedBlockGiven => :hint,
             UnexpectedDynamicMethod => nil,
             UnexpectedError => :hint,
