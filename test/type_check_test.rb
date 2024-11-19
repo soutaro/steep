@@ -2493,5 +2493,49 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
-  
+  def test_empty_collection
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = []
+          b = {}
+
+          x = [] #: Array[String]
+          y = {} #: Hash[String, untyped]
+
+          t = [] #: untyped
+          s = {} #: untyped
+        RUBY
+      },
+      expectations: <<~YAML
+      ---
+      - file: a.rb
+        diagnostics:
+        - range:
+            start:
+              line: 1
+              character: 4
+            end:
+              line: 1
+              character: 6
+          severity: ERROR
+          message: Empty array doesn't have type annotation
+          code: Ruby::UnannotatedEmptyCollection
+        - range:
+            start:
+              line: 2
+              character: 4
+            end:
+              line: 2
+              character: 6
+          severity: ERROR
+          message: Empty hash doesn't have type annotation
+          code: Ruby::UnannotatedEmptyCollection
+      YAML
+    )
+  end
 end
