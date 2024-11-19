@@ -1,0 +1,15 @@
+# Generated from test/source/ignore_ranges_test.rb with RBS::Inline
+
+class SourceIgnoreRangesTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  def parse: (untyped source_code) -> untyped
+
+  def test_ignore_ranges: () -> untyped
+
+  def location_at_line: (untyped buffer, untyped start_line, ?untyped end_line) -> untyped
+
+  def test_ignore?: () -> untyped
+end

@@ -1,0 +1,13 @@
+# Generated from test/langserver_test.rb with RBS::Inline
+
+class LangserverTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  def dirs: () -> untyped
+
+  def langserver_command: (?untyped steepfile) -> untyped
+
+  def test_run: () -> untyped
+end

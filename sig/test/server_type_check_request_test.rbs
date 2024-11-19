@@ -1,0 +1,21 @@
+# Generated from test/server_type_check_request_test.rb with RBS::Inline
+
+class ServerTypeCheckRequestTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include LSPTestHelper
+
+  include Steep
+
+  def dirs: () -> untyped
+
+  def test_request: () -> untyped
+
+  def test_as_json_all: () -> untyped
+
+  def test_as_json_none: () -> untyped
+
+  def test_progress: () -> untyped
+end

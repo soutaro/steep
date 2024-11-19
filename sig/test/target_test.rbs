@@ -1,0 +1,15 @@
+# Generated from test/target_test.rb with RBS::Inline
+
+module Steep
+  class TargetTest < Minitest::Test
+    include TestHelper
+
+    def with_dir: () -> untyped
+
+    def test_environment_loader_default: () -> untyped
+
+    def test_environment_loader_custom: () -> untyped
+
+    def test_environment_loader_none: () -> untyped
+  end
+end

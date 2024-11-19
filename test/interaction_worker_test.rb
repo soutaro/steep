@@ -1,5 +1,7 @@
 require_relative "test_helper"
 
+# @rbs use Steep::*
+
 class InteractionWorkerTest < Minitest::Test
   include TestHelper
   include ShellHelper

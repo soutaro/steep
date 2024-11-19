@@ -1,0 +1,139 @@
+# Generated from test/subtyping_test.rb with RBS::Inline
+
+class SubtypingTest < Minitest::Test
+  include TestHelper
+
+  include Steep
+
+  BUILTIN: ::String
+
+  include FactoryHelper
+
+  Relation: untyped
+
+  Constraints: untyped
+
+  Failure: untyped
+
+  def parse_type: (untyped string, checker: untyped, ?variables: untyped) -> untyped
+
+  def parse_method_type: (untyped string, checker: untyped, ?variables: untyped) -> untyped
+
+  def parse_relation: (untyped sub_type, untyped super_type, checker: untyped) -> untyped
+
+  def self_type: () -> untyped
+
+  def instance_type: () -> untyped
+
+  def class_type: () -> untyped
+
+  def with_checker: (*untyped files, ?nostdlib: untyped) ?{ (?) -> untyped } -> untyped
+
+  def assert_success_result: (untyped result) -> untyped
+
+  def assert_fail_result: (untyped result) -> untyped
+
+  def test_reflexive: () -> untyped
+
+  def test_interface: () -> untyped
+
+  def test_interface2: () -> untyped
+
+  def test_interface3: () -> untyped
+
+  def test_interface4: () -> untyped
+
+  def test_interface5: () -> untyped
+
+  def test_interface51: () -> untyped
+
+  def test_interface52: () -> untyped
+
+  def test_interface53: () -> untyped
+
+  def test_interface6: () -> untyped
+
+  def test_interface7: () -> untyped
+
+  def test_interface8: () -> untyped
+
+  def test_interface_block_self: () -> untyped
+
+  def test_literal: () -> untyped
+
+  def test_literal_bidirectional: () -> untyped
+
+  def test_nil_type: () -> untyped
+
+  def test_void: () -> untyped
+
+  def print_result: (untyped result, untyped output, ?prefix: untyped) -> untyped
+
+  def assert_success_check: (untyped checker, untyped sub_type, untyped super_type, ?self_type: untyped, ?instance_type: untyped, ?class_type: untyped, ?constraints: untyped) -> untyped
+
+  def assert_fail_check: (untyped checker, untyped sub_type, untyped super_type, ?self_type: untyped, ?instance_type: untyped, ?class_type: untyped, ?constraints: untyped) -> untyped
+
+  def test_union: () -> untyped
+
+  def test_intersection: () -> untyped
+
+  def test_caching: () -> untyped
+
+  def test_constraints_01: () -> untyped
+
+  def test_constraints2: () -> untyped
+
+  def test_tuple_subtyping: () -> untyped
+
+  def test_expand_alias: () -> untyped
+
+  def test_hash: () -> untyped
+
+  def test_self: () -> untyped
+
+  def test_integer_rational: () -> untyped
+
+  def test_instance_super_types: () -> untyped
+
+  def test_singleton_super_types: () -> untyped
+
+  def test_nominal_typing: () -> untyped
+
+  def test_nominal_typing2: () -> untyped
+
+  def test_literal_alias_union: () -> untyped
+
+  def test_logic_type: () -> untyped
+
+  def test_proc_type: () -> untyped
+
+  def test_proc_type_with_self_binding: () -> untyped
+
+  def test_self_type: () -> untyped
+
+  def test_instance_type: () -> untyped
+
+  def test_class_type: () -> untyped
+
+  def type_params: (untyped checker, **untyped params) -> untyped
+
+  def test_type_var_bounded: () -> untyped
+
+  def test_method_type_bounded: () -> untyped
+
+  def test_method_type_bounded_2: () -> untyped
+
+  def test_cache: () -> untyped
+
+  def test_constraints_caching: () -> untyped
+
+  def test_selfq: () -> untyped
+
+  def test_tuple__objectq: () -> untyped
+
+  def test_record__objectq: () -> untyped
+
+  def test_intersection_union: () -> untyped
+
+  def test_union_var: () -> untyped
+end

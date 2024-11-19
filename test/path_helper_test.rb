@@ -1,5 +1,7 @@
 require_relative "test_helper"
 
+# @rbs use Steep::*
+
 class PathHelperTest < Minitest::Test
   include Steep
   include TestHelper

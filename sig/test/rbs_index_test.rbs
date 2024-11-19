@@ -1,0 +1,25 @@
+# Generated from test/rbs_index_test.rb with RBS::Inline
+
+class RBSIndexTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  RBSIndex: untyped
+
+  def test_class_decl: () -> untyped
+
+  def test_class_alias_decl: () -> untyped
+
+  def test_method_decl: () -> untyped
+
+  def test_attribute_decl: () -> untyped
+
+  def test_method_alias: () -> untyped
+
+  def test_interface_decl: () -> untyped
+
+  def test_alias_decl: () -> untyped
+
+  def test_const_decl: () -> untyped
+end

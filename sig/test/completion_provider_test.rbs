@@ -1,0 +1,73 @@
+# Generated from test/completion_provider_test.rb with RBS::Inline
+
+class CompletionProviderTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include Steep
+
+  CompletionProvider: untyped
+
+  def test_on_lower_identifier: () -> untyped
+
+  def test_on_upper_identifier: () -> untyped
+
+  def test_on_method_identifier: () -> untyped
+
+  def test_on_method_identifier_colon2: () -> untyped
+
+  def test_on_ivar_identifier: () -> untyped
+
+  def test_dot_trigger: () -> untyped
+
+  def test_qcall_trigger: () -> untyped
+
+  def test_on_atmark: () -> untyped
+
+  def test_on_trigger: () -> untyped
+
+  def test_on_interface: () -> untyped
+
+  def test_on_module_public: () -> untyped
+
+  def test_on_paren: () -> untyped
+
+  def test_on_const: () -> untyped
+
+  def test_on_colon2_parent: () -> untyped
+
+  def test_on_colon2_root: () -> untyped
+
+  def test_on_colon2_call: () -> untyped
+
+  def test_on_colon2_call_masgn: () -> untyped
+
+  def test_simple_method_name_item_two_defs: () -> untyped
+
+  def test_generated_method_name_item: () -> untyped
+
+  def test_complex_method_name_item: () -> untyped
+
+  def test_on_comment: () -> untyped
+
+  def test_on_steep_inline_comment: () -> untyped
+
+  def test_on_steep_type_assertion: () -> untyped
+
+  def test_on_steep_type_application: () -> untyped
+
+  def test_first_keyword_argument: () -> untyped
+
+  def test_following_keyword_argument: () -> untyped
+
+  def test_keyword_argument_block: () -> untyped
+
+  def test_comment__ignore: () -> untyped
+
+  def test_comment__type: () -> untyped
+
+  def test_self_receiver_call_type: () -> untyped
+end

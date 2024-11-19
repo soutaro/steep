@@ -1,0 +1,85 @@
+# Generated from test/source_test.rb with RBS::Inline
+
+class SourceTest < Minitest::Test
+  A: untyped
+
+  T: untyped
+
+  Namespace: untyped
+
+  include TestHelper
+
+  include SubtypingHelper
+
+  include FactoryHelper
+
+  def test_foo: () -> untyped
+
+  def test_if: () -> untyped
+
+  def test_unless: () -> untyped
+
+  def test_elsif: () -> untyped
+
+  def test_postfix_if: () -> untyped
+
+  def test_if_then_else: () -> untyped
+
+  def test_while: () -> untyped
+
+  def test_until: () -> untyped
+
+  def test_postfix_while_until: () -> untyped
+
+  def test_post_while: () -> untyped
+
+  def test_post_until: () -> untyped
+
+  def test_case: () -> untyped
+
+  def test_empty_source: () -> untyped
+
+  def test_empty_clauses: () -> untyped
+
+  def test_rescue: () -> untyped
+
+  def test_postfix_rescue: () -> untyped
+
+  def test_ternary_operator: () -> untyped
+
+  def test_defs: () -> untyped
+
+  def test_find_node: () -> untyped
+
+  def test_delete_defs: () -> untyped
+
+  def test_delete_defs_annotation: () -> untyped
+
+  def test_delete_defs_toplevel: () -> untyped
+
+  def test_assertion_class_module_names: () -> untyped
+
+  def test_assertion_assignment: () -> untyped
+
+  def test_assertion_voids: () -> untyped
+
+  def test_assertion__skip: () -> untyped
+
+  def test_assertion__no_skip: () -> untyped
+
+  def test_assertion__def: () -> untyped
+
+  def test_assertion__defs: () -> untyped
+
+  def test_tapp_send: () -> untyped
+
+  def test_tapp_csend: () -> untyped
+
+  def test_tapp_block: () -> untyped
+
+  def test_tapp_numblock: () -> untyped
+
+  def test_tapp_skip: () -> untyped
+
+  def test_find_comment: () -> untyped
+end

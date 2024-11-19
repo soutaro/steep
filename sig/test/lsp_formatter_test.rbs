@@ -1,0 +1,15 @@
+# Generated from test/lsp_formatter_test.rb with RBS::Inline
+
+class LSPFormatterTest < Minitest::Test
+  include TestHelper
+
+  include Steep
+
+  LSP: untyped
+
+  LSPFormatter: untyped
+
+  def node: () -> untyped
+
+  def test_severity_for: () -> untyped
+end

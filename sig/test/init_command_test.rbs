@@ -1,0 +1,21 @@
+# Generated from test/init_command_test.rb with RBS::Inline
+
+class InitCommandTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  def dirs: () -> untyped
+
+  def stdout: () -> untyped
+
+  def stderr: () -> untyped
+
+  def test_init: () -> untyped
+
+  def test_init_with_option: () -> untyped
+
+  def test_existing_file: () -> untyped
+
+  def test_overwrite_existing_file: () -> untyped
+end

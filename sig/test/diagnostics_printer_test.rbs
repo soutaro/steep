@@ -1,0 +1,21 @@
+# Generated from test/diagnostics_printer_test.rb with RBS::Inline
+
+class DiagnosticsPrinterTest < Minitest::Test
+  DiagnosticPrinter: untyped
+
+  LSP: untyped
+
+  def io: () -> untyped
+
+  def setup: () -> untyped
+
+  def teardown: () -> untyped
+
+  def buffer: () -> untyped
+
+  def test_single_line_message: () -> untyped
+
+  def test_multiline_message: () -> untyped
+
+  def test_multiline_source: () -> untyped
+end

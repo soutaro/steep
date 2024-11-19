@@ -1,0 +1,23 @@
+# Generated from test/annotation_collection_test.rb with RBS::Inline
+
+class AnnotationCollectionTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  Annotation: untyped
+
+  Types: untyped
+
+  AST: untyped
+
+  def new_collection: (current_module: untyped, factory: untyped) -> untyped
+
+  RBIS: ::Hash[untyped, untyped]
+
+  def test_types: () -> untyped
+
+  def test_dynamics: () -> untyped
+
+  def test_merge_block_annotations: () -> untyped
+end

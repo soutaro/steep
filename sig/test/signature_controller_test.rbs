@@ -1,0 +1,31 @@
+# Generated from test/signature_controller_test.rb with RBS::Inline
+
+class SignatureServiceTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  SignatureService: untyped
+
+  ContentChange: untyped
+
+  def environment_loader: () -> untyped
+
+  def test_update: () -> untyped
+
+  def test_update_nested: () -> untyped
+
+  def test_update_syntax_error: () -> untyped
+
+  def test_update_syntax_error2: () -> untyped
+
+  def test_update_loading_error1: () -> untyped
+
+  def test_update_loading_error2: () -> untyped
+
+  def test_update_after_syntax_error: () -> untyped
+
+  def test_const_decls: () -> untyped
+
+  def test_global_decls: () -> untyped
+end

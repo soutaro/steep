@@ -1,0 +1,13 @@
+# Generated from test/substitution_test.rb with RBS::Inline
+
+class SubstitutionTest < Minitest::Test
+  Types: untyped
+
+  Substitution: untyped
+
+  def test_build: () -> untyped
+
+  def test_apply: () -> untyped
+
+  def test_except: () -> untyped
+end

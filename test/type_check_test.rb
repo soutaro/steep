@@ -16,7 +16,12 @@ class TypeCheckTest < Minitest::Test
 
   include Steep
 
-  def run_type_check_test(signatures: {}, code: {}, expectations: nil)
+  # @rbs signatures: Hash[String, String]
+  # @rbs code: Hash[String, String]
+  # @rbs expectations: String?
+  # @rbs &block: ? (Hash[String, Steep::Typing]) -> void
+  # @rbs return: void
+  def run_type_check_test(signatures: {}, code: {}, expectations: nil, &block)
     typings = {}
 
     with_factory(signatures, nostdlib: false) do |factory|
@@ -24,9 +29,11 @@ class TypeCheckTest < Minitest::Test
       subtyping = Subtyping::Check.new(builder: builder)
 
       code.each do |path, content|
-        source = Source.parse(content, path: path, factory: factory)
+        source = Source.parse(content, path: Pathname(path), factory: factory)
         with_standard_construction(subtyping, source) do |construction, typing|
-          construction.synthesize(source.node)
+          if source.node
+            construction.synthesize(source.node)
+          end
 
           typings[path] = typing
         end
@@ -1070,8 +1077,10 @@ class TypeCheckTest < Minitest::Test
           diagnostics: []
       YAML
     ) do |typings|
-      typing = typings["a.rb"]
+      typing = typings["a.rb"] or raise
+
       node, * = typing.source.find_nodes(line: 3, column: 6)
+      node or raise
 
       assert_equal "::foo", typing.type_of(node: node).to_s
     end

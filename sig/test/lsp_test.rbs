@@ -1,0 +1,25 @@
+# Generated from test/lsp_test.rb with RBS::Inline
+
+class LSPTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  def dirs: () -> untyped
+
+  def langserver_command: (?untyped steepfile) -> untyped
+
+  def start_server: () -> untyped
+
+  def write_file: (untyped path, untyped content) -> untyped
+
+  def test_edit_files: () -> untyped
+
+  def test_file_watcher: () -> untyped
+
+  def test_workspace_symbol: () -> untyped
+
+  def test_goto_definition: () -> untyped
+
+  def test_goto_implementation: () -> untyped
+end

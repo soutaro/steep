@@ -1,0 +1,9 @@
+# Generated from test/pattern_test.rb with RBS::Inline
+
+class PatternTest < Minitest::Test
+  include Steep
+
+  def test_pattern: () -> untyped
+
+  def test_pattern_with_glob: () -> untyped
+end

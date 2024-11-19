@@ -1,0 +1,59 @@
+# Generated from test/block_params_test.rb with RBS::Inline
+
+class BlockParamsTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  BlockParams: untyped
+
+  Params: untyped
+
+  Types: untyped
+
+  Namespace: untyped
+
+  def block_params: (untyped src) -> untyped
+
+  def test_1: () -> untyped
+
+  def test_2: () -> untyped
+
+  def test_zip1: () -> untyped
+
+  def test_zip2: () -> untyped
+
+  def test_zip3: () -> untyped
+
+  def test_zip4: () -> untyped
+
+  def test_zip_missing_required_params: () -> untyped
+
+  def test_zip_with_extra_params: () -> untyped
+
+  def test_zip_expand_array: () -> untyped
+
+  def test_zip_expand_tuple: () -> untyped
+
+  def test_param_type: () -> untyped
+
+  def test_param_type_with_annotation: () -> untyped
+
+  def test_param_type_with_hint: () -> untyped
+
+  def param_type: (?required: untyped, ?optional: untyped, ?rest: untyped, ?required_keywords: untyped, ?optional_keywords: untyped, ?rest_keywords: untyped) -> untyped
+
+  def test_zip_block: () -> untyped
+
+  def test_multiple_param_parse: () -> untyped
+
+  def test_multiple_param_zip: () -> untyped
+
+  def test_zip_untyped: () -> untyped
+
+  def test_unnamed: () -> untyped
+
+  def test_unnamed_multi: () -> untyped
+end

@@ -1,0 +1,31 @@
+# Generated from test/driver_helper_test.rb with RBS::Inline
+
+class DriverHelperTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  include ShellHelper
+
+  def dirs: () -> untyped
+
+  def setup: () -> untyped
+
+  def teardown: () -> untyped
+
+  class Test
+    include Steep::Drivers::Utils::DriverHelper
+  end
+
+  def test_load_config_successful__no_collection_file__no_configuration: () -> untyped
+
+  def test_load_config_successful__collection_disabled: () -> untyped
+
+  def test_load_config_error__collection_file_missing: () -> untyped
+
+  def test_load_config_error__lock_file_missing: () -> untyped
+
+  def test_load_config_error__lock_file_is_broken: () -> untyped
+
+  def test_load_config_error__collection_not_installed: () -> untyped
+end

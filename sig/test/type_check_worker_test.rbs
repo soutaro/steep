@@ -1,0 +1,59 @@
+# Generated from test/type_check_worker_test.rb with RBS::Inline
+
+use Steep::*
+
+class TypeCheckWorkerTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include LSPTestHelper
+
+  include Steep
+
+  LSP: untyped
+
+  TypeCheckWorker: untyped
+
+  ContentChange: untyped
+
+  include Server::CustomMethods
+
+  def dirs: () -> untyped
+
+  def run_worker: (untyped worker) -> untyped
+
+  def shutdown!: () -> untyped
+
+  def assignment: () -> untyped
+
+  def test_worker_shutdown: () -> untyped
+
+  def test_handle_request_initialize: () -> untyped
+
+  def test_handle_request_document_did_change: () -> untyped
+
+  def test_handle_request_typecheck_start: () -> untyped
+
+  def test_handle_job_start_typecheck: () -> untyped
+
+  def test_handle_job_validate_app_signature: () -> untyped
+
+  def test_handle_job_validate_app_signature_skip: () -> untyped
+
+  def test_handle_job_validate_lib_signature: () -> untyped
+
+  def test_handle_job_validate_lib_signature_skip: () -> untyped
+
+  def test_handle_job_typecheck_code: () -> untyped
+
+  def test_handle_job_typecheck_code_diagnostics: () -> untyped
+
+  def test_handle_job_typecheck_skip: () -> untyped
+
+  def test_job_workspace_symbol: () -> untyped
+
+  def test_job_stats: () -> untyped
+
+  def test_goto_definition_from_ruby: () -> untyped
+end

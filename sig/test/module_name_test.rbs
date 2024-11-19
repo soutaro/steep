@@ -1,0 +1,13 @@
+# Generated from test/module_name_test.rb with RBS::Inline
+
+class ModuleHelperTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  Namespace: untyped
+
+  include Steep::ModuleHelper
+
+  def test_from_const_node: () -> untyped
+end

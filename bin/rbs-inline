@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+BINSTUB_DIR=$(cd $(dirname $0); pwd)
+GEMFILE=$(readlink -f ${BINSTUB_DIR}/../gemfile_steep/Gemfile)
+ROOT_DIR=$(readlink -f ${BINSTUB_DIR}/..)
+
+RBSINLINE="bundle exec --gemfile=${GEMFILE} rbs-inline"
+
+if type "rbenv" > /dev/null 2>&1; then
+  RBSINLINE="rbenv exec ${RBSINLINE}"
+else
+  if type "rvm" > /dev/null 2>&1; then
+    if [ -e ${ROOT_DIR}/.ruby-version ]; then
+      RBS="rvm ${ROOT_DIR} do ${RBSINLINE}"
+    fi
+  fi
+fi
+
+exec $RBSINLINE $@

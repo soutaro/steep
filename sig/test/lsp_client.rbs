@@ -1,0 +1,53 @@
+# Generated from test/lsp_client.rb with RBS::Inline
+
+class LSPClient
+  attr_reader reader: untyped
+
+  attr_reader writer: untyped
+
+  attr_reader current_dir: untyped
+
+  attr_reader notifications: untyped
+
+  attr_accessor default_timeout: untyped
+
+  attr_reader request_response_table: untyped
+
+  attr_reader diagnostics: untyped
+
+  attr_reader open_files: untyped
+
+  def initialize: (reader: untyped, writer: untyped, current_dir: untyped) -> untyped
+
+  def get_response: (untyped id, ?timeout: untyped) -> untyped
+
+  def flush_notifications: () -> untyped
+
+  def join: () -> untyped
+
+  def finally: (?timeout: untyped) -> untyped
+
+  def send_request: (method: untyped, params: untyped, ?id: untyped) ?{ (?) -> untyped } -> untyped
+
+  def send_notification: (method: untyped, params: untyped) -> untyped
+
+  def uri: (untyped path) -> untyped
+
+  def open_file: (*untyped paths) -> untyped
+
+  def close_file: (*untyped paths) -> untyped
+
+  def change_file: (untyped path) -> untyped
+
+  def save_file: (untyped path) -> untyped
+
+  def change_watched_file: (*untyped paths) -> untyped
+
+  def workspace_symbol: (?untyped query) ?{ (?) -> untyped } -> untyped
+
+  def goto_definition: (untyped path, line: untyped, character: untyped) ?{ (?) -> untyped } -> untyped
+
+  def goto_implementation: (untyped path, line: untyped, character: untyped) ?{ (?) -> untyped } -> untyped
+
+  def fresh_request_id: () -> untyped
+end

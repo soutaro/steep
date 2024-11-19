@@ -1,5 +1,7 @@
 require_relative "test_helper"
 
+# @rbs use Steep::*
+
 class MasterTest < Minitest::Test
   include TestHelper
   include ShellHelper
@@ -7,9 +9,17 @@ class MasterTest < Minitest::Test
 
   include Steep
 
+  # @rbs skip
   Master = Server::Master
+  # @rbs skip
   TypeCheckController = Server::TypeCheckController
+  # @rbs skip
   WorkDoneProgress = Server::WorkDoneProgress
+
+  # @rbs!
+  #   class Master = Server::Master
+  #   class TypeCheckController = Server::TypeCheckController
+  #   class WorkDoneProgress = Server::WorkDoneProgress
 
   DEFAULT_CLI_LSP_INITIALIZE_PARAMS = Drivers::Utils::DriverHelper::DEFAULT_CLI_LSP_INITIALIZE_PARAMS
 

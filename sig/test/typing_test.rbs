@@ -1,0 +1,27 @@
+# Generated from test/typing_test.rb with RBS::Inline
+
+class TypingTest < Minitest::Test
+  Typing: untyped
+
+  TypeEnv: untyped
+
+  Context: untyped
+
+  include TestHelper
+
+  include FactoryHelper
+
+  def around: () -> untyped
+
+  def context: () -> untyped
+
+  def test_1: () -> untyped
+
+  def test_new_child_with_save: () -> untyped
+
+  def test_new_child_without_save: () -> untyped
+
+  def test_new_child_check: () -> untyped
+
+  def test_new_child_check2: () -> untyped
+end

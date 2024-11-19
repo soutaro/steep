@@ -1,0 +1,17 @@
+# Generated from test/expectations_test.rb with RBS::Inline
+
+class ExpectationsTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include Steep
+
+  Diagnostic: untyped
+
+  LSP: untyped
+
+  def test_load: () -> untyped
+
+  def test_testresult: () -> untyped
+end

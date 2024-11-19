@@ -1,0 +1,29 @@
+# Generated from test/type_name_completion_test.rb with RBS::Inline
+
+class TypeNameCompletionTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include Steep
+
+  def buffer: (untyped string) -> untyped
+
+  def test_prefix_parse: () -> untyped
+
+  def test_find_type_names: () -> untyped
+
+  def test_each_type_name_used: () -> untyped
+
+  def test_each_type_name_alias: () -> untyped
+
+  def test_each_type_name_alias_use: () -> untyped
+
+  def test_relative_name_in_context: () -> untyped
+
+  def test_use_type_names: () -> untyped
+
+  def test_find_type_names_module_alias: () -> untyped
+
+  def test_use_type_names_nested: () -> untyped
+end

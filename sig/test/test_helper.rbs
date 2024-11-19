@@ -1,0 +1,166 @@
+# Generated from test/test_helper.rb with RBS::Inline
+
+use Steep::*
+
+module Steep::AST::Types::Name
+  def self.new_singleton: (name: untyped) -> untyped
+
+  def self.new_instance: (name: untyped, ?args: untyped) -> untyped
+end
+
+module TestHelper
+  attr_accessor timeout: untyped
+
+  def file_scheme: () -> untyped
+
+  def assert_any: (untyped collection) ?{ (?) -> untyped } -> untyped
+
+  def assert_any!: (untyped collection, ?size: untyped) ?{ (?) -> untyped } -> untyped
+
+  def assert_all: (untyped collection) ?{ (?) -> untyped } -> untyped
+
+  def assert_all!: (untyped collection, ?size: untyped) -> untyped
+
+  def refute_any: (untyped collection) ?{ (?) -> untyped } -> untyped
+
+  def assert_none!: (untyped collection, ?size: untyped) -> untyped
+
+  def assert_size: (untyped size, untyped collection) -> untyped
+
+  def finally: (?timeout: untyped) -> untyped
+
+  def finally_holds: (?timeout: untyped) -> untyped
+
+  def assert_finally: (?timeout: untyped) ?{ (?) -> untyped } -> untyped
+
+  def dig: (untyped node, *untyped indexes) -> untyped
+
+  def lvar_in: (untyped node, untyped name) -> untyped
+
+  def flush_queue: (untyped queue) -> untyped
+
+  # Assert `#to_s` of a method type `type` is compatible with `string`.
+  #
+  # The `string` can contain notation for *fresh* type variables, like `X(a)`.
+  #
+  # ```
+  # assert_method_type("[X(a)] (X(a)) -> X(a)", ...) => compatible with [X(0)] (X(0)) -> X0
+  # ```
+  def assert_method_type: (untyped string, untyped type) -> untyped
+end
+
+module TypeErrorAssertions
+  Diagnostic: untyped
+
+  def assert_incompatible_assignment: (untyped error, rhs_type: untyped, ?node: untyped, ?lhs_type: untyped) -> untyped
+
+  def assert_no_method_error: (untyped error, ?node: untyped, ?method: untyped, ?type: untyped) -> untyped
+
+  def assert_argument_type_mismatch: (untyped error, ?expected: untyped, ?actual: untyped) -> untyped
+
+  def assert_break_type_mismatch: (untyped error, ?expected: untyped, ?actual: untyped) -> untyped
+end
+
+module ASTAssertion
+  def assert_type_var: (untyped type, ?name: untyped) -> untyped
+
+  def assert_any_type: (untyped type) -> untyped
+
+  def assert_location: (untyped located, ?name: untyped, ?start_line: untyped, ?start_column: untyped, ?end_line: untyped, ?end_column: untyped) -> untyped
+
+  def assert_instance_name_type: (untyped type, ?name: untyped) -> untyped
+
+  def assert_union_type: (untyped type) -> untyped
+
+  def assert_instance_type: (untyped type) -> untyped
+end
+
+module SubtypingHelper
+  BUILTIN: ::String
+
+  def checker: () -> untyped
+
+  def with_checker: (*untyped files, ?with_stdlib: untyped) ?{ (?) -> untyped } -> untyped
+end
+
+module ShellHelper
+  def chdir: (untyped path) -> untyped
+
+  def current_dir: () -> untyped
+
+  def push_env: (untyped env) -> untyped
+
+  def env_vars: () -> untyped
+
+  def sh: (*untyped command, **untyped opts) -> untyped
+
+  def sh3: (*untyped command) -> untyped
+
+  def sh2e: (*untyped command) -> untyped
+
+  def sh!: (*untyped command, **untyped opts) -> untyped
+
+  def in_tmpdir: () ?{ (?) -> untyped } -> untyped
+end
+
+module FactoryHelper
+  @factory: Steep::AST::Types::Factory?
+
+  # @rbs (?Hash[String, String], ?nostdlib: bool) { (AST::Types::Factory) -> void } -> void
+  def with_factory: (?Hash[String, String], ?nostdlib: bool) { (AST::Types::Factory) -> void } -> void
+
+  def factory: () -> untyped
+
+  def parse_type: (untyped string, ?factory: untyped, ?variables: untyped) -> untyped
+
+  def parse_ruby: (untyped string, ?factory: untyped) -> untyped
+
+  def parse_method_type: (untyped string, ?factory: untyped, ?variables: untyped) -> untyped
+end
+
+module LSPTestHelper
+  LSP: untyped
+
+  def reader_pipe: () -> untyped
+
+  def writer_pipe: () -> untyped
+
+  def worker_reader: () -> untyped
+
+  def worker_writer: () -> untyped
+
+  def master_writer: () -> untyped
+
+  def master_reader: () -> untyped
+
+  def with_master_read_queue: () -> untyped
+end
+
+module TypeConstructionHelper
+  Namespace: untyped
+
+  Typing: singleton(Typing)
+
+  ConstantEnv: singleton(TypeInference::ConstantEnv)
+
+  TypeEnv: singleton(TypeInference::TypeEnv)
+
+  TypeConstruction: singleton(TypeConstruction)
+
+  Annotation: singleton(AST::Annotation)
+
+  Context: singleton(TypeInference::Context)
+
+  AST: singleton(AST)
+
+  TypeInference: singleton(TypeInference)
+
+  # @rbs (Subtyping::Check, Source, ?cursor: untyped) { (TypeConstruction, Typing) -> void } -> void
+  def with_standard_construction: (Subtyping::Check, Source, ?cursor: untyped) { (TypeConstruction, Typing) -> void } -> void
+
+  def assert_no_error: (untyped typing) -> untyped
+
+  def assert_typing_error: (untyped typing, ?size: untyped) -> untyped
+end
+
+RUBY_PATH: untyped

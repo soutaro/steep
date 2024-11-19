@@ -1,0 +1,49 @@
+# Generated from test/method_params_test.rb with RBS::Inline
+
+class MethodParamsTest < Minitest::Test
+  include TestHelper
+
+  include TypeErrorAssertions
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  include TypeConstructionHelper
+
+  Namespace: untyped
+
+  MethodParams: untyped
+
+  MethodArityMismatch: untyped
+
+  MethodParameterMismatch: untyped
+
+  DifferentMethodParameterKind: untyped
+
+  def def_node: (untyped src) -> untyped
+
+  def test_empty: () -> untyped
+
+  def test_required_positional_arg: () -> untyped
+
+  def test_optional_positional_arg: () -> untyped
+
+  def test_rest_positional_arg: () -> untyped
+
+  def test_no_positional_arg: () -> untyped
+
+  def test_required_keyword_arg: () -> untyped
+
+  def test_optional_keyword_arg: () -> untyped
+
+  def test_rest_keyword_arg: () -> untyped
+
+  def test_no_keyword_arg: () -> untyped
+
+  def test_block_arg: () -> untyped
+
+  def test_forward_arg1: () -> untyped
+
+  def test_forward_arg2: () -> untyped
+end

@@ -1,0 +1,17 @@
+# Generated from test/constant_env_test.rb with RBS::Inline
+
+class ConstantEnvTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  ConstantEnv: untyped
+
+  BUILTIN: ::String
+
+  def with_constant_env: (?untyped sigs, context: untyped) -> untyped
+
+  def test_from_module: () -> untyped
+
+  def test_module_alias: () -> untyped
+end

@@ -1,0 +1,4 @@
+# Generated from test/steep_test.rb with RBS::Inline
+
+class SteepTest < Minitest::Test
+end

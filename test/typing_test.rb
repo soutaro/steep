@@ -7,6 +7,8 @@ class TypingTest < Minitest::Test
 
   include TestHelper
   include FactoryHelper
+
+  # @rbs skip
   include Minitest::Hooks
 
   def around

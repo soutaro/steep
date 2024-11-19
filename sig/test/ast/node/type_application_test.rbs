@@ -1,0 +1,15 @@
+# Generated from test/ast/node/type_application_test.rb with RBS::Inline
+
+class AST__Node__TypeApplicationTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include SubtypingHelper
+
+  def buffer: (untyped string) -> untyped
+
+  def test_one_type: () -> untyped
+
+  def test_sequence_type: () -> untyped
+end

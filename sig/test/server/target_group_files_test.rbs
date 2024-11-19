@@ -1,0 +1,41 @@
+# Generated from test/server/target_group_files_test.rb with RBS::Inline
+
+class Steep::Server::TargetGroupFilesTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include LSPTestHelper
+
+  include Steep
+
+  def default_project: () -> untyped
+
+  def setup_files: (untyped files) -> untyped
+
+  def test_files__each_library_path: () -> untyped
+
+  def test_files__each_group_signature_path__target: () -> untyped
+
+  def test_files__each_group_source_path__target: () -> untyped
+
+  def test_files__each_group_signature_path__group: () -> untyped
+
+  def test_files__each_group_source_path__group: () -> untyped
+
+  def test_files__each_target_signature_path__no_group: () -> untyped
+
+  def test_files__each_target_source_path__no_group: () -> untyped
+
+  def test_files__each_target_signature_path__group: () -> untyped
+
+  def test_files__each_target_source_path__group: () -> untyped
+
+  def test_files__each_project_signature_path__all_target: () -> untyped
+
+  def test_files__each_project_source_path__all_target: () -> untyped
+
+  def test_files__each_project_signature_path__except_target: () -> untyped
+
+  def test_files__each_project_source_path__except_target: () -> untyped
+end
