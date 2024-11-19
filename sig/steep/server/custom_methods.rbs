@@ -109,6 +109,21 @@ module Steep
 
         def self.response: (String id, result) -> untyped
       end
+
+      # Request to get the list of groups and targets in the project
+      #
+      # The result will be like the following:
+      #
+      # * `lib`, `app`, `test`: names of targets
+      # * `lib.core`, `app.frontend`, `test.unit`: names of targets and groups, concatenated by `.`
+      #
+      module Groups
+        METHOD: String
+
+        type result = Array[String]
+
+        def self.response: (String id, result) -> untyped
+      end
     end
   end
 end

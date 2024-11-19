@@ -677,6 +677,25 @@ module Steep
             }
           )
 
+        when CustomMethods::Groups::METHOD
+          groups = [] #: Array[String]
+
+          project.targets.each do |target|
+            unless target.source_pattern.empty? && target.signature_pattern.empty?
+              groups << target.name.to_s
+            end
+
+            target.groups.each do |group|
+              unless group.source_pattern.empty? && group.signature_pattern.empty?
+                groups << "#{target.name}.#{group.name}"
+              end
+            end
+          end
+
+          enqueue_write_job(SendMessageJob.to_client(
+            message: CustomMethods::Groups.response(message[:id], groups)
+          ))
+
         when "shutdown"
           start_type_checking_queue.cancel
 

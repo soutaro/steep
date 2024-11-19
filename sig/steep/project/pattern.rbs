@@ -42,6 +42,10 @@ module Steep
       def ignore?: (Pathname path) -> bool
 
       def test_string: (Pathname path, Array[String] patterns, Array[String] prefixes) -> bool
+
+      # Returns `true` if the pattern doesn't have any (positive) criteria
+      #
+      def empty?: () -> bool
     end
   end
 end

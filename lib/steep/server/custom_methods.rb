@@ -64,6 +64,14 @@ module Steep
           { id: id, result: result }
         end
       end
+
+      module Groups
+        METHOD = "$/steep/groups"
+
+        def self.response(id, result)
+          { id: id, result: result }
+        end
+      end
     end
   end
 end
