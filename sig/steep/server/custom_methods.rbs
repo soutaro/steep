@@ -55,6 +55,24 @@ module Steep
         def self.response: (String id, result) -> untyped
       end
 
+      # Notification to start type checking groups
+      #
+      # This notification is assumed to be sent from the LSP client -- an editor.
+      #
+      module TypeCheckGroups
+        METHOD: String
+
+        # Name of groups and targets to type check
+        #
+        # An empty array means every targets.
+        #
+        type params = {
+          groups: Array[String]
+        }
+
+        def self.notification: (params) -> untyped
+      end
+
       # Notification to start type checking, sent from the master to workers
       #
       module TypeCheck__Start

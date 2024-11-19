@@ -657,6 +657,18 @@ module Steep
 
           start_type_check(request: request, last_request: nil)
 
+        when CustomMethods::TypeCheckGroups::METHOD
+          params = message[:params] #: CustomMethods::TypeCheckGroups::params
+
+          groups = params.fetch(:groups)
+
+          progress = work_done_progress(SecureRandom.uuid)
+          progress.begin("Type checking #{groups.empty? ? "project" : groups.join(", ")}", request_id: fresh_request_id)
+
+          request = controller.make_group_request(groups, progress: progress)
+          request.needs_response = false
+          start_type_check(request: request, last_request: current_type_check_request, report_progress_threshold: 0)
+
         when "$/ping"
           enqueue_write_job SendMessageJob.to_client(
             message: {

@@ -254,6 +254,50 @@ module Steep
         end
       end
 
+      def make_group_request(groups, progress:)
+        TypeCheckController::Request.new(guid: progress.guid, progress: progress).tap do |request|
+          if groups.empty?
+            files.signature_paths.each do |path, target_group|
+              target_group = target_group.target if target_group.is_a?(Project::Group)
+              request.signature_paths << [target_group.name, path]
+            end
+            files.source_paths.each do |path, target_group|
+              target_group = target_group.target if target_group.is_a?(Project::Group)
+              request.code_paths << [target_group.name, path]
+            end
+          else
+            group_set = groups.map do |group_name|
+              target_name, group_name = group_name.split(".", 2)
+              target_name or raise
+
+              target_name = target_name.to_sym
+              group_name = group_name.to_sym if group_name
+
+              if group_name
+                if target = project.targets.find {|target| target.name == target_name }
+                  target.groups.find {|group| group.name == group_name }
+                end
+              else
+                project.targets.find {|target| target.name == target_name }
+              end
+            end.compact.to_set
+
+            files.signature_paths.each do |path, target_group|
+              if group_set.include?(target_group)
+                target_group = target_group.target if target_group.is_a?(Project::Group)
+                request.signature_paths << [target_group.name, path]
+              end
+            end
+            files.source_paths.each do |path, target_group|
+              if group_set.include?(target_group)
+                target_group = target_group.target if target_group.is_a?(Project::Group)
+                request.code_paths << [target_group.name, path]
+              end
+            end
+          end
+        end
+      end
+
       def make_request(guid: SecureRandom.uuid, include_unchanged: false, progress:)
         TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
           if include_unchanged

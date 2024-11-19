@@ -127,7 +127,7 @@ module Steep
                          | (close: Pathname) -> void
 
       def active_target?: (Target | Group) -> bool
-                        
+
       def push_changes_for_target: (Target | Group) -> void
 
       # Returns a TypeCheckRequest that contains all paths to be type checked
@@ -141,6 +141,9 @@ module Steep
       #
       def make_request: (?guid: String, ?include_unchanged: bool, progress: WorkDoneProgress) -> Request?
 
+      # Returns a request to type check Ruby code and RBS type signatures of given groups
+      #
+      def make_group_request: (Array[String], progress: WorkDoneProgress) -> Request
     end
   end
 end

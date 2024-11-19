@@ -29,6 +29,14 @@ module Steep
         end
       end
 
+      module TypeCheckGroups
+        METHOD = "$/steep/typecheck/groups"
+
+        def self.notification(params)
+          { method: METHOD, params: params }
+        end
+      end
+
       module TypeCheck__Start
         METHOD = "$/steep/typecheck/start"
 
