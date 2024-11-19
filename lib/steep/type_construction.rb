@@ -1436,7 +1436,7 @@ module Steep
                 # ok
               else
                 unless hint == pair.type
-                  pair.constr.typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
+                  pair.constr.typing.add_error Diagnostic::Ruby::UnannotatedEmptyCollection.new(node: node)
                 end
               end
             end
@@ -1704,7 +1704,7 @@ module Steep
                   add_typing node, type: array
                 end
               else
-                typing.add_error Diagnostic::Ruby::FallbackAny.new(node: node)
+                typing.add_error Diagnostic::Ruby::UnannotatedEmptyCollection.new(node: node)
                 add_typing node, type: AST::Builtin::Array.instance_type(AST::Builtin.any_type)
               end
             else

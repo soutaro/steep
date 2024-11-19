@@ -626,6 +626,33 @@ module Steep
         def header_line: () -> String
       end
 
+      # An empty array/hash has no type assertion
+      #
+      # They are typed as `Array[untyped]` or `Hash[untyped, untyped]`,
+      # which allows any element to be added.
+      #
+      # ```rb
+      # a = []
+      # b = {}
+      #
+      # a << 1
+      # a << ""
+      # ```
+      #
+      # Add type annotation to make your assumption explicit.
+      #
+      # ```rb
+      # a = [] #: Array[Integer]
+      # b = {} #: untyped
+      #
+      # a << 1
+      # a << ""     # => Type error
+      # ```
+      #
+      class UnannotatedEmptyCollection < Base
+        def header_line: () -> String
+      end
+
       ALL: Array[singleton(Base)]
 
       type template = Hash[singleton(Base), LSPFormatter::severity?]
