@@ -1242,25 +1242,25 @@ Test: SetValueExtractor[ArraySet]
 
         assert_any!(validator.each_error) do |error|
           assert_instance_of Diagnostic::Signature::UnsatisfiableGenericsDefaultType, error
-          assert_equal "The default type of `A_B` doesn't satisfy upper bound constarint: A_A <: ::String", error.header_line
+          assert_equal "The default type of `A_B` doesn't satisfy upper bound constraint: A_A <: ::String", error.header_line
           assert_equal "A_A", error.location.source
         end
 
         assert_any!(validator.each_error) do |error|
           assert_instance_of Diagnostic::Signature::UnsatisfiableGenericsDefaultType, error
-          assert_equal "The default type of `B_B` doesn't satisfy upper bound constarint: B_A <: ::String", error.header_line
+          assert_equal "The default type of `B_B` doesn't satisfy upper bound constraint: B_A <: ::String", error.header_line
           assert_equal "B_A", error.location.source
         end
 
         assert_any!(validator.each_error) do |error|
           assert_instance_of Diagnostic::Signature::UnsatisfiableGenericsDefaultType, error
-          assert_equal "The default type of `C_B` doesn't satisfy upper bound constarint: C_A <: ::String", error.header_line
+          assert_equal "The default type of `C_B` doesn't satisfy upper bound constraint: C_A <: ::String", error.header_line
           assert_equal "C_A", error.location.source
         end
 
         assert_any!(validator.each_error) do |error|
           assert_instance_of Diagnostic::Signature::UnsatisfiableGenericsDefaultType, error
-          assert_equal "The default type of `D_B` doesn't satisfy upper bound constarint: D_A <: ::String", error.header_line
+          assert_equal "The default type of `D_B` doesn't satisfy upper bound constraint: D_A <: ::String", error.header_line
           assert_equal "D_A", error.location.source
         end
       end
