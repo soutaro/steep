@@ -138,31 +138,22 @@ module Steep
             command.type_check_code = v ? true : false
           end
 
-          opts.on("--validate=OPTION", ["skip", "group", "target", "project", "library"], "Validation levels of signatures (default: group, options: skip,group,target,project,library)") do |level|
+          opts.on("--validate=OPTION", ["skip", "group", "project", "library"], "Validation levels of signatures (default: group, options: skip,group,project,library)") do |level|
             case level
             when "skip"
               command.validate_group_signatures = false
-              command.validate_target_signatures = false
               command.validate_project_signatures = false
               command.validate_library_signatures = false
             when "group"
               command.validate_group_signatures = true
-              command.validate_target_signatures = false
-              command.validate_project_signatures = false
-              command.validate_library_signatures = false
-            when "target"
-              command.validate_group_signatures = true
-              command.validate_target_signatures = true
               command.validate_project_signatures = false
               command.validate_library_signatures = false
             when "project"
               command.validate_group_signatures = true
-              command.validate_target_signatures = true
               command.validate_project_signatures = true
               command.validate_library_signatures = false
             when "library"
               command.validate_group_signatures = true
-              command.validate_target_signatures = true
               command.validate_project_signatures = true
               command.validate_library_signatures = true
             end

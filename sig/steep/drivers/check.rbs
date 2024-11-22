@@ -23,8 +23,6 @@ module Steep
 
       attr_accessor validate_group_signatures: bool
 
-      attr_accessor validate_target_signatures: bool
-
       attr_accessor validate_project_signatures: bool
 
       attr_accessor validate_library_signatures: bool

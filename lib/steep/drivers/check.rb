@@ -14,7 +14,6 @@ module Steep
       attr_reader :active_group_names
       attr_accessor :type_check_code
       attr_accessor :validate_group_signatures
-      attr_accessor :validate_target_signatures
       attr_accessor :validate_project_signatures
       attr_accessor :validate_library_signatures
 
@@ -29,7 +28,6 @@ module Steep
         @active_group_names = []
         @type_check_code = true
         @validate_group_signatures = true
-        @validate_target_signatures = false
         @validate_project_signatures = false
         @validate_library_signatures = false
       end
@@ -217,17 +215,15 @@ module Steep
             params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
-        if validate_target_signatures
-          if group.is_a?(Project::Group)
-            files.each_target_signature_path(target, group) do |path|
-              params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
-            end
-          end
-        end
         if validate_project_signatures
           files.each_project_signature_path(target) do |path|
             if path_target = files.signature_path_target(path)
               params[:signature_paths] << [path_target.name.to_s, target.project.absolute_path(path).to_s]
+            end
+          end
+          if group.is_a?(Project::Group)
+            files.each_target_signature_path(target, group) do |path|
+              params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
             end
           end
         end
