@@ -4763,6 +4763,15 @@ module Steep
 
     def try_tuple_type!(node, hint: nil)
       if node.type == :array
+        if node.children.size == 1 && node.children[0]&.type == :splat
+          # Skip the array construct
+          splat_node = node.children[0] or raise
+          splat_value = splat_node.children[0] or raise
+
+          type, constr = try_tuple_type!(splat_value, hint: hint)
+          _, constr = constr.add_typing(splat_node, type: AST::Types::Any.instance)
+          return constr.add_typing(node, type: type)
+        end
         if hint.nil? || hint.is_a?(AST::Types::Tuple)
           typing.new_child() do |child_typing|
             if pair = with_new_typing(child_typing).try_tuple_type(node, hint)

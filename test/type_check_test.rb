@@ -2538,4 +2538,45 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_masgn_splat
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          array = %w(a b c)
+          a, b = *//.match('hoge')
+
+          a.ffffff
+          b.ffffff
+        RUBY
+      },
+      expectations: <<~YAML
+      ---
+      - file: a.rb
+        diagnostics:
+        - range:
+            start:
+              line: 4
+              character: 2
+            end:
+              line: 4
+              character: 8
+          severity: ERROR
+          message: Type `(::String | nil)` does not have method `ffffff`
+          code: Ruby::NoMethod
+        - range:
+            start:
+              line: 5
+              character: 2
+            end:
+              line: 5
+              character: 8
+          severity: ERROR
+          message: Type `(::String | nil)` does not have method `ffffff`
+          code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
