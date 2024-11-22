@@ -3,6 +3,7 @@ module Steep
     module Utils
       module DriverHelper
         attr_accessor :steepfile
+        attr_accessor :disable_install_collection
 
         def load_config(path: steepfile || Pathname("Steepfile"))
           if path.file?
@@ -25,14 +26,44 @@ module Steep
               case result = target.options.load_collection_lock
               when nil, RBS::Collection::Config::Lockfile
                 # ok
-              else
+              when Pathname
+                # File is missing
                 if result == target.options.collection_config_path
-                  Steep.ui_logger.error { "rbs-collection setup is broken: `#{result}` is missing" }
+                  # Config file is missing
+                  Steep.ui_logger.error { "rbs-collection configuration is missing: `#{result}`" }
                 else
-                  Steep.ui_logger.error { "Run `rbs collection install` to install type definitions" }
+                  # Lockfile is missing
+                  Steep.ui_logger.error { "Run `rbs collection install` to generate missing lockfile: `#{result}`" }
+                end
+              when YAML::SyntaxError
+                # File is broken
+                Steep.ui_logger.error { "rbs-collection setup is broken:\nsyntax error #{result.inspect}" }
+              when RBS::Collection::Config::CollectionNotAvailable
+                unless disable_install_collection
+                  install_collection(target, target.options.collection_config_path || raise)
+                else
+                  Steep.ui_logger.error { "Run `rbs collection install` to set up RBS files for gems" }
                 end
               end
             end
+          end
+        end
+
+        def install_collection(target, config_path)
+          Steep.ui_logger.info { "Installing RBS files for collection: #{config_path}" }
+          lockfile_path = RBS::Collection::Config.to_lockfile_path(config_path)
+          io = StringIO.new
+          begin
+            RBS::Collection::Installer.new(lockfile_path: lockfile_path, stdout: io).install_from_lockfile()
+            target.options.load_collection_lock(force: true)
+            Steep.ui_logger.debug { "Finished setting up RBS collection: " + io.string }
+
+            result = target.options.load_collection_lock(force: true)
+            unless result.is_a?(RBS::Collection::Config::Lockfile)
+              raise "Failed to set up RBS collection: #{result.inspect}"
+            end
+          rescue => exn
+            Steep.ui_logger.error { "Failed to set up RBS collection: #{exn.inspect}" }
           end
         end
 
