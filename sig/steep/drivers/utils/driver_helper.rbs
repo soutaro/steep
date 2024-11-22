@@ -6,7 +6,12 @@ module Steep
       module DriverHelper
         attr_accessor steepfile: Pathname?
 
+        # `true` to install rbs collection automatically
+        attr_accessor disable_install_collection: bool
+
         def load_config: (?path: Pathname) -> Project
+
+        def install_collection: (Project::Target, Pathname config_path) -> void
 
         def request_id: () -> String
 
