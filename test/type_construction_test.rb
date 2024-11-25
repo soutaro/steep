@@ -1372,7 +1372,7 @@ end
           end
 
           assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::SingletonTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::ClassModuleMismatch, error
             assert_equal "::A", error.name.to_s
           end
         end
@@ -5088,7 +5088,7 @@ end
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::SingletonTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::ClassModuleMismatch, error
             assert_equal '::SampleModule', error.name.to_s
           end
         end
@@ -5113,7 +5113,7 @@ end
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::SingletonTypeMismatch, error
+            assert_instance_of Diagnostic::Ruby::ClassModuleMismatch, error
             assert_equal '::SampleClass', error.name.to_s
           end
         end

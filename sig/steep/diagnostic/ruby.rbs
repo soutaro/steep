@@ -255,10 +255,10 @@ module Steep
         def header_line: () -> ::String
       end
 
-      class SingletonTypeMismatch < Base
-        attr_reader name: untyped
+      class ClassModuleMismatch < Base
+        attr_reader name: RBS::TypeName
 
-        def initialize: (node: untyped, name: untyped) -> void
+        def initialize: (node: Parser::AST::Node, name: RBS::TypeName) -> void
 
         def header_line: () -> ::String
       end

@@ -409,16 +409,30 @@ module Steep
         end
       end
 
-      class SingletonTypeMismatch < Base
+      class ClassModuleMismatch < Base
         attr_reader :name
 
         def initialize(node:, name:)
-          super(node: node, location: node.loc.name)  # steep:ignore NoMethod
+          case node.type
+          when :module, :class
+            location = node.loc.name # steep:ignore NoMethod
+          else
+            raise "Unexpected node: #{node.type}"
+          end
+          super(node: node, location: location)   # steep:ignore NoMethod
+
           @name = name
         end
 
         def header_line
-          "Singleton object is incompatible with declaration `#{name}`"
+          case node&.type
+          when :module
+            "#{name} is declared as a class in RBS"
+          when :class
+            "#{name} is declared as a module in RBS"
+          else
+            raise
+          end
         end
       end
 
@@ -981,7 +995,7 @@ module Steep
             ReturnTypeMismatch => :error,
             SetterBodyTypeMismatch => :information,
             SetterReturnTypeMismatch => :information,
-            SingletonTypeMismatch => :error,
+            ClassModuleMismatch => :error,
             SyntaxError => :hint,
             TypeArgumentMismatchError => :hint,
             UnannotatedEmptyCollection => :warning,
@@ -1039,7 +1053,7 @@ module Steep
             ReturnTypeMismatch => :error,
             SetterBodyTypeMismatch => :error,
             SetterReturnTypeMismatch => :error,
-            SingletonTypeMismatch => :error,
+            ClassModuleMismatch => :error,
             SyntaxError => :hint,
             TypeArgumentMismatchError => :error,
             UnannotatedEmptyCollection => :error,
@@ -1097,7 +1111,7 @@ module Steep
             ReturnTypeMismatch => :warning,
             SetterBodyTypeMismatch => nil,
             SetterReturnTypeMismatch => nil,
-            SingletonTypeMismatch => nil,
+            ClassModuleMismatch => nil,
             SyntaxError => :hint,
             TypeArgumentMismatchError => nil,
             UnannotatedEmptyCollection => :hint,

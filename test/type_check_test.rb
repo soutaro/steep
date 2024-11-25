@@ -2579,4 +2579,52 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_class_module_mismatch
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+          end
+
+          module Bar
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          module Foo
+          end
+
+          class Bar
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 7
+              end:
+                line: 1
+                character: 10
+            severity: ERROR
+            message: \"::Foo is declared as a class in RBS\"
+            code: Ruby::ClassModuleMismatch
+          - range:
+              start:
+                line: 4
+                character: 6
+              end:
+                line: 4
+                character: 9
+            severity: ERROR
+            message: \"::Bar is declared as a module in RBS\"
+            code: Ruby::ClassModuleMismatch
+      YAML
+    )
+  end
 end

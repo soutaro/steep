@@ -388,7 +388,7 @@ module Steep
           )
         elsif checker.factory.definition_builder.env.normalized_class_entry(implement_module_name.name)
           typing.add_error(
-            Diagnostic::Ruby::SingletonTypeMismatch.new(node: node, name: new_module_name)
+            Diagnostic::Ruby::ClassModuleMismatch.new(node: node, name: new_module_name)
           )
         end
       end
@@ -481,7 +481,7 @@ module Steep
         if !checker.factory.definition_builder.env.normalized_class_entry(implement_module_name.name) &&
           checker.factory.definition_builder.env.normalized_module_entry(implement_module_name.name)
           typing.add_error(
-            Diagnostic::Ruby::SingletonTypeMismatch.new(node: node, name: new_class_name)
+            Diagnostic::Ruby::ClassModuleMismatch.new(node: node, name: new_class_name)
           )
         end
       else
