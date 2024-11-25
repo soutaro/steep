@@ -1057,6 +1057,19 @@ module Steep
         )
       end
 
+      def accept_one_arg?
+        return false unless params
+        return false unless params.keyword_params.requireds.empty?
+        head = params.positional_params or return false
+
+        case head.head
+        when Params::PositionalParams::Required
+          !head.tail.is_a?(Params::PositionalParams::Required)
+        else
+          true
+        end
+      end
+
       def to_s
         if params
           "#{params} -> #{return_type}"

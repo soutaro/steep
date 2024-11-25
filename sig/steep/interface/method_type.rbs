@@ -98,6 +98,10 @@ module Steep
       # * Ignores all type parameters.
       #
       def &: (MethodType other) -> MethodType?
+
+      # Returns true if the method accepts one argument, no keyword arguments, and no block
+      # 
+      def accept_one_arg?: () -> bool
     end
   end
 end

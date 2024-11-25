@@ -6950,6 +6950,62 @@ r = x.m(&:to_s)
     end
   end
 
+  def test_block_pass_and_method__valid
+    with_checker(<<-RBS) do |checker|
+class Object
+  def method: (Symbol) -> Method
+  def my_to_s: (Integer) -> String
+end
+
+class Method
+end
+    RBS
+      source = parse_ruby(<<-EOF)
+x = [1, 2, 3]
+r = x.map(&method(:my_to_s))
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Array[::String]"), pair.context.type_env[:r]
+      end
+    end
+  end
+
+  def test_block_pass_and_method__invalid
+    with_checker(<<-RBS) do |checker|
+class Object
+  def method: (Symbol) -> Method
+  def my_to_s: (String) -> String
+end
+
+class Method
+end
+    RBS
+      source = parse_ruby(<<-EOF)
+x = [1, 2, 3]
+r = x.map(&method(:my_to_s))
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_typing_error typing, size: 1 do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
+            assert /^\^\(::Integer\) -> X\(\d+\)$/ =~ error.expected.to_s
+            assert_equal parse_type("^(::String) -> ::String"), error.actual
+          end
+        end
+
+        assert_equal parse_type("::Array[untyped]"), pair.context.type_env[:r]
+      end
+    end
+  end
+
   def test_send_unsatisfiable_constraint
     with_checker(<<RBS) do |checker|
 class SendTest
