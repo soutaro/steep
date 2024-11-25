@@ -2402,14 +2402,19 @@ module Steep
               type, constr = synthesize(value_node, hint: hint)
 
               if hint.is_a?(AST::Types::Proc) && value_node.type == :send && value_node.children[1] == :method && AST::Builtin::Method.instance_type?(type)
+                receiver_node = value_node.children[0] #: Parser::AST::Node?
+                receiver_type = receiver_node ? typing.type_of(node: receiver_node) : self_type
                 method_name = value_node.children[2].children[0] #: Symbol
-                if method = calculate_interface(AST::Types::Self.instance, private: true)&.methods&.[](method_name)
-                  # TODO: select appropriate method type from `method.method_types`.
-                  type = AST::Types::Proc.new(
-                    type: method.method_types.first&.type || raise,
-                    block: nil,
-                    self_type: nil
-                  )
+                if method = calculate_interface(receiver_type, private: true)&.methods&.[](method_name)
+                  if method_type = method.method_types.find {|method_type| method_type.accept_one_arg? }
+                    if method_type.type_params.empty?
+                      type = AST::Types::Proc.new(
+                        type: method_type.type,
+                        block: method_type.block,
+                        self_type: nil
+                      )
+                    end
+                  end
                 end
               elsif hint.is_a?(AST::Types::Proc) && value_node.type == :sym
                 if hint.one_arg?

@@ -263,6 +263,17 @@ module Steep
 
       def with: (?params: Params?, ?return_type: AST::Types::t) -> Function
 
+      # Returns true if the type accept one argument
+      #
+      # ```rbs
+      # (String) -> bool            # true
+      # (String, ?untyped) -> bool  # true
+      # (*untyped) -> bool          # true
+      # (String, untyped) -> bool   # false
+      # () -> bool                  # false
+      # ```
+      def accept_one_arg?: () -> bool
+
       def to_s: () -> ::String
 
       def closed?: () -> bool

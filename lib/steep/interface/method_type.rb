@@ -320,6 +320,11 @@ module Steep
           block: block
         )
       end
+
+      def accept_one_arg?
+        return false if block && block.required?
+        type.accept_one_arg?
+      end
     end
   end
 end
