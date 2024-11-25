@@ -125,7 +125,7 @@ module Steep
           return nil unless key?(name)
 
           resolved_methods[name] ||= begin
-            entry = methods[name]
+            entry = methods.fetch(name)
             Entry.new(
               method_name: name,
               overloads: entry.overloads.map do |overload|

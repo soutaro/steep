@@ -156,7 +156,7 @@ module Steep
             case
             when target = project.target_for_source_path(job.path)
               file = service.source_files[job.path] or return
-              subtyping = service.signature_services[target.name].current_subtyping or return
+              subtyping = service.signature_services.fetch(target.name).current_subtyping or return
 
               provider = Services::CompletionProvider.new(source_text: file.content, path: job.path, subtyping: subtyping)
               items = begin
@@ -184,12 +184,12 @@ module Steep
               case sig_service.status
               when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
                 if buffer = sig_service.latest_env.buffers.find {|buf| Pathname(buf.name) == Pathname(relative_path) }
-                  dirs = sig_service.latest_env.signatures[buffer][0]
+                  dirs = sig_service.latest_env.signatures.fetch(buffer)[0]
                 else
                   dirs = [] #: Array[RBS::AST::Directives::t]
                 end
               else
-                signature = sig_service.files[relative_path].signature
+                signature = sig_service.files.fetch(relative_path).signature
                 signature.is_a?(Array) or raise
                 buffer, dirs, decls = signature
 
@@ -210,7 +210,7 @@ module Steep
                 end
               end
 
-              buffer = RBS::Buffer.new(name: relative_path, content: sig_service.files[relative_path].content)
+              buffer = RBS::Buffer.new(name: relative_path, content: sig_service.files.fetch(relative_path).content)
               prefix = Services::TypeNameCompletion::Prefix.parse(buffer, line: job.line, column: job.column)
 
               completion = Services::TypeNameCompletion.new(env: sig_service.latest_env, context: context, dirs: dirs)
@@ -451,7 +451,7 @@ module Steep
         Steep.logger.tagged("##{__method__}") do
           if target = project.target_for_source_path(job.path)
             file = service.source_files[job.path] or return
-            subtyping = service.signature_services[target.name].current_subtyping or return
+            subtyping = service.signature_services.fetch(target.name).current_subtyping or return
             source =
               Source.parse(file.content, path: file.path, factory: subtyping.factory)
                 .without_unrelated_defs(line: job.line, column: job.column)

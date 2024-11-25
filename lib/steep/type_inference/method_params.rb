@@ -469,7 +469,7 @@ module Steep
           has_error = false
 
           keywords.each do |keyword|
-            rest_types << (keyword_params.requireds[keyword] || keyword_params.optionals[keyword])
+            rest_types << (keyword_params.requireds[keyword] || keyword_params.optionals.fetch(keyword))
             has_error = true
           end
           keywords.clear
