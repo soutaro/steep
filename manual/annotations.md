@@ -142,3 +142,40 @@ This annotation tells instance variable of instance.
 
 * `@type` `instance` `ivar` *ivar* `:` *type*
 * `@type` `module` `ivar` *ivar* `:` *type*
+
+## Type assertion
+
+Type assertion allows declaring type of an expression inline, without introducing new local variable with variable type annotation.
+
+### Example
+
+```
+array = [] #: Array[String]
+
+path = nil #: Pathname?
+```
+
+##### Syntax
+
+* `#:` *type*
+
+## Type application
+
+Type application is for generic method calls.
+
+### Example
+
+```
+table = accounts.each_with_object({}) do |account, table| #$ Hash[String, Account]
+  table[account.email] = account
+end
+```
+
+The `each_with_object` method has `[T] (T) { (Account, T) -> void } -> T`,
+and the type application syntax directly specifies the type of `T`.
+
+So the resulting type is `(Hash[String, Account]) { (Account, Hash[String, Account]) -> void } -> Hash[String, Account]`.
+
+#### Syntax
+
+* `#$` *type*
