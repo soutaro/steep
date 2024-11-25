@@ -66,6 +66,7 @@ module Steep
       NilClass = Type.new("::NilClass")
       Proc = Type.new("::Proc")
       Kernel = Type.new("::Kernel")
+      Method = Type.new("::Method")
 
       def self.nil_type
         AST::Types::Nil.instance
