@@ -379,7 +379,7 @@ module Steep
       position = buffer.loc_to_pos([line, column])
 
       if heredoc_nodes = find_heredoc_nodes(line, column, position)
-        Source.each_child_node(heredoc_nodes[0]) do |child|
+        Source.each_child_node(heredoc_nodes.fetch(0)) do |child|
           if nodes = find_nodes_loc(child, position, heredoc_nodes)
             return nodes
           end

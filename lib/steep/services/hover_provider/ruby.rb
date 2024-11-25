@@ -145,8 +145,8 @@ module Steep
               result_node =
                 case parents[0]&.type
                 when :block, :numblock
-                  if node == parents[0].children[0]
-                    parents[0]
+                  if node == parents.fetch(0).children[0]
+                    parents.fetch(0)
                   else
                     node
                   end

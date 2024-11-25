@@ -249,7 +249,7 @@ module Steep
           refined_type = AST::Types::Union.build(types: pairs.map {|call, type| type || call.return_type })
 
           # Any *pure_method_call* can be used because it's *pure*
-          (call, _ = envs[0].pure_method_calls[node]) or raise
+          (call, _ = envs.fetch(0).pure_method_calls[node]) or raise
 
           hash[node] = [call, refined_type]
         end
