@@ -12,6 +12,7 @@ module Steep
       #
       # target :lib do
       #   signature "sig"
+      #   ignore_signature "sig/test"
       #
       #   check "lib"                       # Directory name
       #   check "path/to/source.rb"         # File name
@@ -31,9 +32,11 @@ module Steep
       # end
 
       # target :test do
-      #   signature "sig", "sig-private"
+      #   unreferenced!                     # Skip type checking the `lib` code when types in `test` target is changed
+      #   signature "sig/test"              # Put RBS files for tests under `sig/test`
+      #   check "test"                      # Type check Ruby scripts under `test`
       #
-      #   check "test"
+      #   configure_code_diagnostics(D::Ruby.lenient)      # Weak type checking for test code
       #
       #   # library "pathname"              # Standard libraries
       # end
