@@ -456,7 +456,7 @@ module Steep
         end
 
         def header_line
-          "The default type of `#{param_name}` doesn't satisfy upper bound constarint: #{relation}"
+          "The default type of `#{param_name}` doesn't satisfy upper bound constraint: #{relation}"
         end
       end
 

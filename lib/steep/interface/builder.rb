@@ -66,7 +66,7 @@ module Steep
       def shape(type, config)
         Steep.logger.tagged "shape(#{type})" do
           if shape = raw_shape(type, config)
-            # Optimization that skips unnecesary substittuion
+            # Optimization that skips unnecessary substitution
             if type.free_variables.include?(AST::Types::Self.instance)
               shape
             else
@@ -172,7 +172,7 @@ module Steep
           if bound = config.upper_bound(type.name)
             new_config = Config.new(self_type: bound, variable_bounds: config.variable_bounds)
             sub = Substitution.build([], self_type: type)
-            # We have to use `self_shape` insead of `raw_shape` here.
+            # We have to use `self_shape` instead of `raw_shape` here.
             # Keep the `self` types included in the `bound`'s shape, and replace it to the type variable.
             self_shape(bound, new_config)&.subst(sub, type: type)
           end
@@ -838,4 +838,3 @@ module Steep
     end
   end
 end
-
