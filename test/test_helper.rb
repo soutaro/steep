@@ -25,6 +25,26 @@ Minitest::SlowTest.long_test_time = 5
 
 Rainbow.enabled = false
 
+module PrintNames
+  def setup
+    super
+    method = self.method(self.name) #: Method
+    location = method.source_location&.join(":") || "???"
+    STDERR.puts "Start: #{self.class_name}##{self.name} #{location}"
+  end
+
+  def teardown
+    method = self.method(self.name) #: Method
+    location = method.source_location&.join(":") || "???"
+    STDERR.puts "End: #{self.class_name}##{self.name} (#{location})"
+    super
+  end
+end
+
+class Minitest::Test
+  include PrintNames if ENV["CI"]
+end
+
 module Steep::AST::Types::Name
   def self.new_singleton(name:)
     name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
