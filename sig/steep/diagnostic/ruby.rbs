@@ -255,6 +255,14 @@ module Steep
         def header_line: () -> ::String
       end
 
+      class ClassModuleMismatch < Base
+        attr_reader name: RBS::TypeName
+
+        def initialize: (node: Parser::AST::Node, name: RBS::TypeName) -> void
+
+        def header_line: () -> ::String
+      end
+
       class MethodArityMismatch < Base
         attr_reader method_type: untyped
 

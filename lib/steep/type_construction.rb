@@ -357,35 +357,40 @@ module Steep
       end
 
       if implement_module_name
-        module_entry = checker.factory.definition_builder.env.normalized_module_entry(implement_module_name.name) or raise
-
-        module_context = module_context.update(
-          instance_type: AST::Types::Intersection.build(
-            types: [
-              AST::Builtin::Object.instance_type,
-              *module_entry.self_types.map {|module_self|
-                type = case
-                       when module_self.name.interface?
-                         RBS::Types::Interface.new(
-                           name: module_self.name,
-                           args: module_self.args,
-                           location: module_self.location
-                         )
-                       when module_self.name.class?
-                         RBS::Types::ClassInstance.new(
-                           name: module_self.name,
-                           args: module_self.args,
-                           location: module_self.location
-                         )
-                       else
-                         raise
-                       end
-                checker.factory.type(type)
-              },
-              module_context.instance_type
-            ].compact
+        module_entry = checker.factory.definition_builder.env.normalized_module_entry(implement_module_name.name)
+        if module_entry
+          module_context = module_context.update(
+            instance_type: AST::Types::Intersection.build(
+              types: [
+                AST::Builtin::Object.instance_type,
+                *module_entry.self_types.map {|module_self|
+                  type = case
+                        when module_self.name.interface?
+                          RBS::Types::Interface.new(
+                            name: module_self.name,
+                            args: module_self.args,
+                            location: module_self.location
+                          )
+                        when module_self.name.class?
+                          RBS::Types::ClassInstance.new(
+                            name: module_self.name,
+                            args: module_self.args,
+                            location: module_self.location
+                          )
+                        else
+                          raise
+                        end
+                  checker.factory.type(type)
+                },
+                module_context.instance_type
+              ].compact
+            )
           )
-        )
+        elsif checker.factory.definition_builder.env.normalized_class_entry(implement_module_name.name)
+          typing.add_error(
+            Diagnostic::Ruby::ClassModuleMismatch.new(node: node, name: new_module_name)
+          )
+        end
       end
 
       if annots.instance_type
@@ -471,6 +476,13 @@ module Steep
       if implement_module_name
         if super_class_name && implement_module_name.name == absolute_name(super_class_name)
           module_context = module_context.update(instance_definition: nil, module_definition: nil)
+        end
+
+        if !checker.factory.definition_builder.env.normalized_class_entry(implement_module_name.name) &&
+          checker.factory.definition_builder.env.normalized_module_entry(implement_module_name.name)
+          typing.add_error(
+            Diagnostic::Ruby::ClassModuleMismatch.new(node: node, name: new_class_name)
+          )
         end
       else
         module_context = module_context.update(

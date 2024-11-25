@@ -409,6 +409,33 @@ module Steep
         end
       end
 
+      class ClassModuleMismatch < Base
+        attr_reader :name
+
+        def initialize(node:, name:)
+          case node.type
+          when :module, :class
+            location = node.loc.name # steep:ignore NoMethod
+          else
+            raise "Unexpected node: #{node.type}"
+          end
+          super(node: node, location: location)   # steep:ignore NoMethod
+
+          @name = name
+        end
+
+        def header_line
+          case node&.type
+          when :module
+            "#{name} is declared as a class in RBS"
+          when :class
+            "#{name} is declared as a module in RBS"
+          else
+            raise
+          end
+        end
+      end
+
       class MethodArityMismatch < Base
         attr_reader :method_type
 
@@ -968,6 +995,7 @@ module Steep
             ReturnTypeMismatch => :error,
             SetterBodyTypeMismatch => :information,
             SetterReturnTypeMismatch => :information,
+            ClassModuleMismatch => :error,
             SyntaxError => :hint,
             TypeArgumentMismatchError => :hint,
             UnannotatedEmptyCollection => :warning,
@@ -1025,6 +1053,7 @@ module Steep
             ReturnTypeMismatch => :error,
             SetterBodyTypeMismatch => :error,
             SetterReturnTypeMismatch => :error,
+            ClassModuleMismatch => :error,
             SyntaxError => :hint,
             TypeArgumentMismatchError => :error,
             UnannotatedEmptyCollection => :error,
@@ -1082,6 +1111,7 @@ module Steep
             ReturnTypeMismatch => :warning,
             SetterBodyTypeMismatch => nil,
             SetterReturnTypeMismatch => nil,
+            ClassModuleMismatch => nil,
             SyntaxError => :hint,
             TypeArgumentMismatchError => nil,
             UnannotatedEmptyCollection => :hint,
