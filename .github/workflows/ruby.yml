@@ -30,3 +30,20 @@ jobs:
         gem install bundler
         bin/setup
         bundle exec rake ${{matrix.task}}
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "3.3"
+        bundler: none
+    - name: Run generator
+      run: |
+        git config --global --add safe.directory /__w/steep/steep
+        ruby -v
+        gem install bundler
+        bin/setup
+        bundle exec ruby bin/generate-diagnostics-docs.rb
+        git diff --exit-code HEAD -- guides/src/diagnostics
+
