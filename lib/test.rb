@@ -1,5 +1,5 @@
-module Object
-end
-
-class Kernel
+class Object
+  def to_s(i)
+    
+  end
 end

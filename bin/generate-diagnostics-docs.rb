@@ -1,6 +1,7 @@
 # rbs_inline: enabled
 
 require "rbs"
+require "steep"
 
 class Visitor < RBS::AST::Visitor
   attr_reader :output #: Hash[String, String]
@@ -27,6 +28,21 @@ class Visitor < RBS::AST::Visitor
       io.puts "## Ruby::#{key}"
       io.puts
       io.puts content
+      io.puts
+
+      configs = [:all_error, :default, :strict, :lenient, :silent]
+
+      io.puts "### Severity"
+      io.puts
+      io.puts "| #{configs.map { "#{_1}" }.join(" | ")} |"
+      io.puts "| #{configs.map{"-"}.join(" | ")} |"
+
+      line = configs.map {|config|
+        hash = Steep::Diagnostic::Ruby.__send__(config) #: Hash[Class, untyped]
+        const =Steep::Diagnostic::Ruby.const_get(key.to_sym)
+        "#{hash[const] || "-"}"
+      }
+      io.puts "| #{line.join(" | ")} |"
       io.puts
     end
   end

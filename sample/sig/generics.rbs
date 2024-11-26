@@ -1,15 +1,15 @@
-module LocationHelper : _WithLocation
-  interface _WithLocation
-    def location_method: () -> String
-  end
+# module LocationHelper : _WithLocation
+#   interface _WithLocation
+#     def location_method: () -> String
+#   end
 
-  def hello: () -> void
-end
+#   def hello: () -> void
+# end
 
-class StringGeneric[X < Integer, Y < Integer = String]
-  def location_method: () -> Integer
+# class StringGeneric[X < Integer, Y < Integer = String]
+#   def location_method: () -> Integer
 
-  include LocationHelper
-  extend LocationHelper
-end
+#   include LocationHelper
+#   extend LocationHelper
+# end
 
