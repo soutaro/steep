@@ -120,7 +120,7 @@ class Email
   end
 
   def hash
-    self.class.hash ^ address.hash
+    [self.class, address].hash
   end
 end
 
@@ -144,7 +144,7 @@ class Phone
   end
 
   def hash
-    self.class.hash ^ country.hash ^ number.hash
+    [self.class, country, number].hash
   end
 end
 ```
