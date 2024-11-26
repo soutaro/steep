@@ -1,36 +1,48 @@
-# Diagnostics for Ruby
-Each error description will follow the format below.
+# Ruby Code Diagnostics
 
-````markdown
-## Error Name
+## Configuration Templates
+Steep provides several templates to configure diagnostics for Ruby code.
+You can use these templates or customize them to suit your needs via `#configure_code_diagnostics` method in `Steepfile`.
 
-**Description**: Brief error description
+The following templates are available:
 
-**Example:**
+<dl>
+<dt><code>Ruby.all_error</code></dt>
+<dd>This template reports everything as an error.
 
-```ruby
-Ruby code that detects the error
-```
+</dd>
+<dt><code>Ruby.default</code></dt>
+<dd>This template detects inconsistencies between RBS and Ruby code APIs.
 
-```
-Error messages obtained by running `steep check`
-```
+</dd>
+<dt><code>Ruby.lenient</code></dt>
+<dd>This template detects inconsistent definition in Ruby code with respect to your RBS definition.
 
-**severity**:
+</dd>
+<dt><code>Ruby.silent</code></dt>
+<dd>This template reports nothing.
 
-A table showing how the severity of the corresponding error is set in Steep's error presets
-````
+</dd>
+<dt><code>Ruby.strict</code></dt>
+<dd>This template helps you keeping your codebase (almost) type-safe.
 
+You can start with this template to review the problems reported on the project,
+and you can ignore some kind of errors.
+
+</dd>
+</dl>
 
 ## Ruby::ArgumentTypeMismatch
 
-**Description**: Occurs when the method types do not match.
+A method call has an argument that has an incompatible type to the type of the parameter.
 
-**Example**:
+### Ruby code
 
 ```ruby
 '1' + 1
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:6: [error] Cannot pass a value of type `::Integer` as an argument of type `::string`
@@ -47,51 +59,64 @@ test.rb:1:6: [error] Cannot pass a value of type `::Integer` as an argument of t
         ~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | information | nil |
+| - | - | - | - | - |
+| error | error | error | information | - |
 
 ## Ruby::BlockBodyTypeMismatch
 
-**Description**: Occurs when the return type of the block body does not match the expected type.
+The type of the block body is incompatible with the expected type.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: () { () -> Integer } -> void
+end
+```
+
+### Ruby code
 
 ```ruby
-lambda {|x| x + 1 } #: ^(Integer) -> String
+Foo.new.foo { "" }
 ```
 
+### Diagnostic
+
 ```
-test.rb:1:7: [error] Cannot allow block body have type `::Integer` because declared as type `::String`
-│   ::Integer <: ::String
-│     ::Numeric <: ::String
-│       ::Object <: ::String
-│         ::BasicObject <: ::String
+test.rb:1:12: [warning] Cannot allow block body have type `::String` because declared as type `::Integer`
+│   ::String <: ::Integer
+│     ::Object <: ::Integer
+│       ::BasicObject <: ::Integer
 │
 │ Diagnostic ID: Ruby::BlockBodyTypeMismatch
 │
-└ lambda {|x| x + 1 } #: ^(Integer) -> String
-         ~~~~~~~~~~~~
+└ Foo.new.foo { "" }
+              ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | warning | information | nil |
+| - | - | - | - | - |
+| error | error | warning | information | - |
 
 ## Ruby::BlockTypeMismatch
 
-**Description**: Occurs when the block type does not match the expected type.
+A method call passes an object as a block, but the type is incompatible with the method type.
 
-**Example**:
+### Ruby code
 
 ```ruby
 multi = ->(x, y) { x * y } #: ^(Integer, Integer) -> Integer
 [1, 2, 3].map(&multi)
 ```
+
+### Diagnostic
 
 ```
 test.rb:2:14: [error] Cannot pass a value of type `^(::Integer, ::Integer) -> ::Integer` as a block-pass-argument of type `^(::Integer) -> U(1)`
@@ -104,21 +129,24 @@ test.rb:2:14: [error] Cannot pass a value of type `^(::Integer, ::Integer) -> ::
                 ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | warning | information | nil |
+| - | - | - | - | - |
+| error | error | warning | information | - |
 
 ## Ruby::BreakTypeMismatch
 
-**Description**: Occurs when the type of `break` does not match the expected type.
+A `break` statement has a value that has an incompatible type to the type of the destination.
 
-**Example**:
+### Ruby code
 
 ```ruby
 123.tap { break "" }
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:10: [error] Cannot break with a value of type `::String` because type `::Integer` is assumed
@@ -132,73 +160,127 @@ test.rb:1:10: [error] Cannot break with a value of type `::String` because type 
             ~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | hint | nil |
+| - | - | - | - | - |
+| error | error | hint | hint | - |
 
-## Ruby::DifferentMethodParameterKind
+## Ruby::ClassModuleMismatch
 
-**Description**: Occurs when the types of method parameters do not match. This often happens when you forget to prefix optional arguments with `?`.
+A class (or module) definition in Ruby code has a module (or class) in RBS.
 
-**Example**:
+### Ruby code
 
 ```ruby
-# @type method bar: (name: String) -> void
-def bar(name: "foo")
+module Object
+end
+
+class Kernel
 end
 ```
 
+### Diagnostic
+
 ```
-test.rb:2:8: [error] The method parameter has different kind from the declaration `(name: ::String) -> void`
-│ Diagnostic ID: Ruby::DifferentMethodParameterKind
+test.rb:1:7: [error] ::Object is declared as a class in RBS
+│ Diagnostic ID: Ruby::ClassModuleMismatch
 │
-└ def bar(name: "foo")
-          ~~~~~~~~~~~
+└ module Object
+         ~~~~~~
+
+test.rb:4:6: [error] ::Kernel is declared as a module in RBS
+│ Diagnostic ID: Ruby::ClassModuleMismatch
+│
+└ class Kernel
+        ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | error | - | - |
+
+## Ruby::DifferentMethodParameterKind
+
+The method has a parameter with different kind from the RBS definition.
+
+### RBS
+
+```rbs
+class Foo
+  def foo: (String?) -> void
+end
+```
+
+### Ruby code
+
+```ruby
+class Foo
+  def foo(x=nil)
+  end
+end
+```
+
+### Diagnostic
+
+```
+test.rb:2:10: [hint] The method parameter has different kind from the declaration `((::String | nil)) -> void`
+│ Diagnostic ID: Ruby::DifferentMethodParameterKind
+│
+└   def foo(x=nil)
+            ~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::FallbackAny
 
-**Description**: Indicates that untyped is used when the type is unknown. This often occurs in implementations where a value is initialized with `[]` and then reassigned later.
+Unable to determine the type of an expression for any reason.
 
-**Example**:
+### Ruby code
 
 ```ruby
-a = []
-a << 1
+@foo
 ```
 
+### Diagnostic
+
 ```
-test.rb:1:4: [error] Cannot detect the type of the expression
+test.rb:1:0: [error] Cannot detect the type of the expression
 │ Diagnostic ID: Ruby::FallbackAny
 │
-└ a = []
-      ~~
+└ @foo
+  ~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | warning | hint | nil | nil |
+| - | - | - | - | - |
+| error | warning | hint | - | - |
 
 ## Ruby::FalseAssertion
 
-**Description**: Occurs when Steep's type assertions are incorrect.
+The type assertion cannot hold.
 
-**Example**:
+### Ruby code
 
 ```ruby
 array = [] #: Array[Integer]
 hash = array #: Hash[Symbol, String]
 ```
+
+### Diagnostic
 
 ```
 test.rb:2:7: [error] Assertion cannot hold: no relationship between inferred type (`::Array[::Integer]`) and asserted type (`::Hash[::Symbol, ::String]`)
@@ -208,52 +290,47 @@ test.rb:2:7: [error] Assertion cannot hold: no relationship between inferred typ
          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::ImplicitBreakValueMismatch
 
-**Description**: Occurs when the value of an argument-less `break` (`nil`) does not match the expected return type of the method.
+A `break` statement without a value is used to leave from a block that requires non-nil type.
 
-**Example**:
+### Ruby code
 
 ```ruby
-class Foo
-  # @rbs () { (String) -> Integer } -> String
-  def foo
-    ''
-  end
-end
-
-Foo.new.foo do |x|
-  break
-end
+123.tap { break }
 ```
 
+### Diagnostic
+
 ```
-test.rb:9:2: [error] Breaking without a value may result an error because a value of type `::String` is expected
-│   nil <: ::String
+test.rb:1:10: [error] Breaking without a value may result an error because a value of type `::Integer` is expected
+│   nil <: ::Integer
 │
 │ Diagnostic ID: Ruby::ImplicitBreakValueMismatch
 │
-└   break
-    ~~~~~
+└ 123.tap { break }
+            ~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | information | hint | nil | nil |
+| - | - | - | - | - |
+| error | information | hint | - | - |
 
 ## Ruby::IncompatibleAnnotation
 
-**Description**: Occurs when type annotations are inappropriate or do not match.
+Detected a branch local annotation is incompatible with outer context.
 
-**Example**:
+### Ruby code
 
 ```ruby
 a = [1,2,3]
@@ -263,6 +340,8 @@ if _ = 1
   a + ""
 end
 ```
+
+### Diagnostic
 
 ```
 test.rb:5:2: [error] Type annotation about `a` is incompatible since ::String <: ::Array[::Integer] doesn't hold
@@ -276,30 +355,44 @@ test.rb:5:2: [error] Type annotation about `a` is incompatible since ::String <:
     ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::IncompatibleArgumentForwarding
 
-**Description**: Occurs when forwarding method arguments using `...` and the argument types do not match.
+Argument forwarding `...` cannot be done safely, because of:
 
-**Example**:
+1. The arguments are incompatible, or
+2. The blocks are incompatible
+
+### RBS
+
+```rbs
+class Foo
+  def foo: (*Integer) -> void
+
+  def bar: (*String) -> void
+end
+```
+
+### Ruby code
 
 ```ruby
 class Foo
-  # @rbs (*Integer) -> void
   def foo(*args)
   end
 
-  # @rbs (*String) -> void
   def bar(...)
     foo(...)
   end
 end
 ```
+
+### Diagnostic
 
 ```
 test.rb:8:8: [error] Cannot forward arguments to `foo`:
@@ -313,22 +406,25 @@ test.rb:8:8: [error] Cannot forward arguments to `foo`:
           ~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | warning | information | nil |
+| - | - | - | - | - |
+| error | error | warning | information | - |
 
 ## Ruby::IncompatibleAssignment
 
-**Description**: Occurs when the type in an assignment is inappropriate or does not match.
+An assignment has a right hand side value that has an incompatible type to the type of the left hand side.
 
-**Example**:
+### Ruby code
 
 ```ruby
 # @type var x: Integer
 x = "string"
 ```
+
+### Diagnostic
 
 ```
 test.rb:2:0: [error] Cannot assign a value of type `::String` to a variable of type `::Integer`
@@ -342,26 +438,33 @@ test.rb:2:0: [error] Cannot assign a value of type `::String` to a variable of t
   ~~~~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | hint | nil |
+| - | - | - | - | - |
+| error | error | hint | hint | - |
 
 ## Ruby::InsufficientKeywordArguments
 
-**Description**: Occurs when keyword arguments are missing.
+A method call needs more keyword arguments.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: (a: untyped, b: untyped) -> void
+end
+```
+
+### Ruby code
 
 ```ruby
-class Foo
-  def foo(a:, b:)
-  end
-end
 Foo.new.foo(a: 1)
 ```
 
+### Diagnostic
+
 ```
 test.rb:5:8: [error] More keyword arguments are required: b
 │ Diagnostic ID: Ruby::InsufficientKeywordArguments
@@ -370,56 +473,67 @@ test.rb:5:8: [error] More keyword arguments are required: b
           ~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | information | nil |
+| - | - | - | - | - |
+| error | error | error | information | - |
 
 ## Ruby::InsufficientPositionalArguments
 
-**Description**: Occurs when positional arguments are missing.
+An method call needs more positional arguments.
 
-**Example**:
+### RBS
 
 ```ruby
 class Foo
-  def foo(a, b)
-  end
+  def foo: (a, b) -> void
 end
+```
+
+### Ruby code
+
+```ruby
 Foo.new.foo(1)
 ```
 
+### Diagnostic
+
 ```
-test.rb:5:8: [error] More keyword arguments are required: b
-│ Diagnostic ID: Ruby::InsufficientKeywordArguments
+test.rb:1:8: [error] More positional arguments are required
+│ Diagnostic ID: Ruby::InsufficientPositionalArguments
 │
-└ Foo.new.foo(a: 1)
-          ~~~~~~~~~
+└ Foo.new.foo(1)
+          ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | information | nil |
+| - | - | - | - | - |
+| error | error | error | information | - |
 
 ## Ruby::InsufficientTypeArgument
 
-**Description**: Occurs when type annotations for type arguments are missing.
+A type application needs more type arguments.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: [T, S] (T, S) -> [T, S]
+end
+```
+
+### Ruby code
 
 ```ruby
-class Foo
-  # @rbs [T, S] (T, S) -> [T, S]
-  def foo(x, y)
-    [x, y]
-  end
-end
-
 Foo.new.foo(1, 2) #$ Integer
 ```
+
+### Diagnostic
 
 ```
 test.rb:8:0: [error] Requires 2 types, but 1 given: `[T, S] (T, S) -> [T, S]`
@@ -429,21 +543,24 @@ test.rb:8:0: [error] Requires 2 types, but 1 given: `[T, S] (T, S) -> [T, S]`
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::InvalidIgnoreComment
 
-**Description**: Occurs when there are invalid comments, such as a `steep:ignore:start` comment without a corresponding `steep:ignore:end` comment.
+`steep:ignore` comment is invalid.
 
-**Example**:
+### Ruby code
 
 ```ruby
 # steep:ignore:start
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:0: [error] Invalid ignore comment
@@ -453,58 +570,75 @@ test.rb:1:0: [error] Invalid ignore comment
   ~~~~~~~~~~~~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | warning | warning | warning | nil |
+| - | - | - | - | - |
+| error | warning | warning | warning | - |
 
 ## Ruby::MethodArityMismatch
 
-**Description**: Occurs when the method argument types do not match, such as describing a keyword argument as a positional argument.
+The method definition has missing parameters with respect to the RBS definition.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: (String, String) -> void
+end
+```
+
+### Ruby code
 
 ```ruby
 class Foo
-  # @rbs (Integer x) -> Integer
-  def foo(x:)
-    x
+  def foo(x)
   end
 end
 ```
 
+### Diagnostic
+
 ```
-test.rb:3:9: [error] Method parameters are incompatible with declaration `(::Integer) -> ::Integer`
+test.rb:2:9: [error] Method parameters are incompatible with declaration `(::String, ::String) -> void`
 │ Diagnostic ID: Ruby::MethodArityMismatch
 │
-└   def foo(x:)
-           ~~~~
+└   def foo(x)
+           ~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | information | nil |
+| - | - | - | - | - |
+| error | error | error | information | - |
 
 ## Ruby::MethodBodyTypeMismatch
 
-**Description**: Occurs when the return type of a method does not match the expected type.
+The type of the method body has different type from the RBS definition.
 
-**Example**:
+### RBS
 
-```ruby
+```rbs
 class Foo
-  # @rbs () -> String
-  def foo
-    1
-  end
+  def foo: () -> String
 end
 ```
 
+### Ruby code
+
+```ruby
+class Foo
+  def foo = 123
+end
 ```
-test.rb:3:6: [error] Cannot allow method body have type `::Integer` because declared as type `::String`
+
+### Diagnostic
+
+```
+test.rb:2:6: [error] Cannot allow method body have type `::Integer` because declared as type `::String`
 │   ::Integer <: ::String
 │     ::Numeric <: ::String
 │       ::Object <: ::String
@@ -512,147 +646,149 @@ test.rb:3:6: [error] Cannot allow method body have type `::Integer` because decl
 │
 │ Diagnostic ID: Ruby::MethodBodyTypeMismatch
 │
-└   def foo
+└   def foo = 123
         ~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | warning | nil |
+| - | - | - | - | - |
+| error | error | error | warning | - |
 
 ## Ruby::MethodDefinitionMissing
 
-**Description**: Occurs when a method's type definition exists, but the implementation is missing.
+The class/module definition doesn't have a `def` syntax for the method.
 
-**Example**:
+### RBS
 
-```ruby
+```rbs
 class Foo
-  # @rbs!
-  #   def bar: () -> void
+  def foo: () -> String
 end
 ```
 
+### Ruby code
+
+```ruby
+class Foo
+  attr_reader :foo
+end
 ```
-test.rb:1:6: [error] Cannot find implementation of method `::Foo#bar`
+
+### Diagnostic
+
+```
+test.rb:1:6: [hint] Cannot find implementation of method `::Foo#foo`
 │ Diagnostic ID: Ruby::MethodDefinitionMissing
 │
 └ class Foo
         ~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | hint | nil | nil | nil |
+| - | - | - | - | - |
+| error | hint | - | - | - |
 
 ## Ruby::MethodParameterMismatch
 
-**Description**: Occurs when the types of method parameters do not match.
+The method definition has an extra parameter with respect to the RBS definition.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: (String) -> void
+end
+```
+
+### Ruby code
 
 ```ruby
 class Foo
-  # @rbs (Integer x) -> Integer
-  def foo(x:)
-    x
+  def foo(x, y)
   end
 end
 ```
 
+### Diagnostic
+
 ```
-test.rb:3:10: [error] The method parameter is incompatible with the declaration `(::Integer) -> ::Integer`
+test.rb:2:13: [error] The method parameter is incompatible with the declaration `(::String) -> void`
 │ Diagnostic ID: Ruby::MethodParameterMismatch
 │
-└   def foo(x:)
-            ~~
+└   def foo(x, y)
+               ~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | warning | nil |
+| - | - | - | - | - |
+| error | error | error | warning | - |
 
 ## Ruby::MethodReturnTypeAnnotationMismatch
 
-**Description**: Occurs when the return type annotation of a method does not match the expected type.
+**Deprecated** Related to the `@type method` annotation.
 
-**Example**:
 
-```ruby
-class Foo
-  # @rbs () -> String
-  def foo
-    # @type return: Integer
-    123
-  end
-end
-```
-
-```
-test.rb:3:2: [error] Annotation `@type return` specifies type `::Integer` where declared as type `::String`
-│   ::Integer <: ::String
-│     ::Numeric <: ::String
-│       ::Object <: ::String
-│         ::BasicObject <: ::String
-│
-│ Diagnostic ID: Ruby::MethodReturnTypeAnnotationMismatch
-│
-└   def foo
-    ~~~~~~~
-```
-
-**severity**:
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::MultipleAssignmentConversionError
 
-**Description**: Occurs when the conversion of multiple assignments fails.
+The `#to_ary` of RHS of multiple assignment is called, but returns not tuple nor Array.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def to_ary: () -> Integer
+end
+```
+
+### Ruby code
 
 ```ruby
-class WithToAry
-  # @rbs () -> Integer
-  def to_ary
-    1
-  end
-end
-
-a, b = WithToAry.new()
+a, b = Foo.new()
 ```
 
+### Diagnostic
+
 ```
-test.rb:8:8: [error] Cannot convert `::WithToAry` to Array or tuple (`#to_ary` returns `::Integer`)
+test.rb:1:6: [error] Cannot convert `::Foo` to Array or tuple (`#to_ary` returns `::Integer`)
 │ Diagnostic ID: Ruby::MultipleAssignmentConversionError
 │
-└ (a, b = WithToAry.new())
-          ~~~~~~~~~~~~~~~
+└ a,b = Foo.new
+        ~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::NoMethod
 
-**Description**: Occurs when a method without a type definition is called.
+A method call calls a method that is not defined on the receiver.
 
-**Example**:
+### Ruby code
 
 ```ruby
 "".non_existent_method
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:3: [error] Type `::String` does not have method `non_existent_method`
@@ -662,22 +798,28 @@ test.rb:1:3: [error] Type `::String` does not have method `non_existent_method`
      ~~~~~~~~~~~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | information | nil |
+| - | - | - | - | - |
+| error | error | error | information | - |
 
 ## Ruby::ProcHintIgnored
 
-**Description**: Occurs when type annotations related to `Proc` are ignored.
+Type hint is given to a proc/lambda but it was ignored.
 
-**Example**:
+1. Because the hint is incompatible to `::Proc` type
+2. More than one *proc type* is included in the hint
+
+### Ruby code
 
 ```ruby
 # @type var proc: (^(::Integer) -> ::String) | (^(::String, ::String) -> ::Integer)
 proc = -> (x) { x.to_s }
 ```
+
+### Diagnostic
 
 ```
 test.rb:2:7: [error] The type hint given to the block is ignored: `(^(::Integer) -> ::String | ^(::String, ::String) -> ::Integer)`
@@ -687,23 +829,26 @@ test.rb:2:7: [error] The type hint given to the block is ignored: `(^(::Integer)
          ~~~~~~~~~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | information | hint | nil | nil |
+| - | - | - | - | - |
+| error | information | hint | - | - |
 
 ## Ruby::ProcTypeExpected
 
-**Description**: Occurs when a `Proc` type is expected.
+The block parameter has non-proc type.
 
-**Example**:
+### Ruby code
 
 ```ruby
 -> (&block) do
   # @type var block: Integer
 end
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:4: [error] Proc type is expected but `::Integer` is specified
@@ -713,21 +858,24 @@ test.rb:1:4: [error] Proc type is expected but `::Integer` is specified
       ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::RBSError
 
-**Description**: Occurs when the RBS type written in type assertions or type applications causes an error.
+RBS embedded in the Ruby code has validation error.
 
-**Example**:
+### Ruby code
 
 ```ruby
 a = 1 #: Int
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:9: [error] Cannot find type `::Int`
@@ -737,54 +885,71 @@ test.rb:1:9: [error] Cannot find type `::Int`
            ~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | information | information | nil |
+| - | - | - | - | - |
+| error | error | information | information | - |
 
 ## Ruby::RequiredBlockMissing
 
-**Description**: Occurs when a required block is missing during a method call.
+A method that requires a block is called without a block.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: { () -> void } -> void
+end
+```
+
+### Ruby code
 
 ```ruby
-class Foo
-  # @rbs () { () -> void } -> void
-  def foo
-    yield
-  end
-end
 Foo.new.foo
 ```
 
+### Diagnostic
+
 ```
-test.rb:7:8: [error] The method cannot be called without a block
+test.rb:1:8: [error] The method cannot be called without a block
 │ Diagnostic ID: Ruby::RequiredBlockMissing
 │
 └ Foo.new.foo
           ~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | hint | nil |
+| - | - | - | - | - |
+| error | error | error | hint | - |
 
 ## Ruby::ReturnTypeMismatch
 
-**Description**: Occurs when the type of return does not match the method's `return` type.
+A `return` statement has a value that has an incompatible type to the return type of the method.
 
-**Example**:
+### RBS
 
-```ruby
-# @type method foo: () -> Integer
-def foo
-  return "string"
+```rbs
+class Foo
+  def foo: () -> Integer
 end
 ```
+
+### Ruby code
+
+```ruby
+class Foo
+  def foo
+    return "string"
+  end
+end
+```
+
+### Diagnostic
 
 ```
 test.rb:3:2: [error] The method cannot return a value of type `::String` because declared as type `::Integer`
@@ -798,90 +963,108 @@ test.rb:3:2: [error] The method cannot return a value of type `::String` because
     ~~~~~~~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | warning | nil |
+| - | - | - | - | - |
+| error | error | error | warning | - |
 
 ## Ruby::SetterBodyTypeMismatch
 
-**Description**: Occurs when the return type of a setter method does not match the expected type.
+Setter method, which has a name ending with `=`, has different type from the method type.
 
-**Example**:
+This is a special diagnostic for setter methods because the return value is not used with ordinal call syntax.
+
+### RBS
+
+### Ruby code
 
 ```ruby
 class Foo
-  # @rbs (String) -> String
-  def foo=(value)
-    123
+  # Assume `name=` has method type of `(String) -> String`
+  def name=(value)
+    @value = value
+    value.strip!
   end
 end
 ```
 
+### Diagnostic
+
 ```
-test.rb:3:6: [error] Setter method `foo=` cannot have type `::Integer` because declared as type `::String`
-│   ::Integer <: ::String
-│     ::Numeric <: ::String
-│       ::Object <: ::String
-│         ::BasicObject <: ::String
+test.rb:2:6: [information] Setter method `name=` cannot have type `(::String | nil)` because declared as type `::String`
+│   (::String | nil) <: ::String
+│     nil <: ::String
 │
 │ Diagnostic ID: Ruby::SetterBodyTypeMismatch
 │
-└   def foo=(value)
-        ~~~~
+└   def name=(value)
+        ~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | information | nil | nil |
+| - | - | - | - | - |
+| error | error | information | - | - |
 
 ## Ruby::SetterReturnTypeMismatch
 
-**Description**: Occurs when the `return` type of a setter method does not match the expected type.
+Setter method, which has a name ending with `=`, returns different type from the method type.
+This is a special diagnostic for setter methods because the return value is not used with ordinal call syntax.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def name=: (String) -> String
+end
+```
+
+### Ruby code
 
 ```ruby
 class Foo
-  # @rbs (String) -> String
-  def foo=(value)
-    return 123
+  def name=(value)
+    return if value.empty?
+    @value = value
   end
 end
 ```
 
+### Diagnostic
+
 ```
-test.rb:4:4: [error] The setter method `foo=` cannot return a value of type `::Integer` because declared as type `::String`
-│   ::Integer <: ::String
-│     ::Numeric <: ::String
-│       ::Object <: ::String
-│         ::BasicObject <: ::String
+test.rb:3:4: [information] The setter method `name=` cannot return a value of type `nil` because declared as type `::String`
+│   nil <: ::String
 │
 │ Diagnostic ID: Ruby::SetterReturnTypeMismatch
 │
-└     return 123
-      ~~~~~~~~~~
+└     return if value.empty?
+      ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | information | nil | nil |
+| - | - | - | - | - |
+| error | error | information | - | - |
 
 ## Ruby::SyntaxError
 
-**Description**: Occurs when a Ruby syntax error is encountered.
+The Ruby code has a syntax error.
 
-**Example**:
+### Ruby code
 
 ```ruby
 if x == 1
   puts "Hello"
 ```
+
+### Diagnostic
 
 ```
 test.rb:2:14: [error] SyntaxError: unexpected token $end
@@ -890,27 +1073,32 @@ test.rb:2:14: [error] SyntaxError: unexpected token $end
 └   puts "Hello"
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | hint | hint | hint | nil |
+| - | - | - | - | - |
+| error | hint | hint | hint | - |
 
 ## Ruby::TypeArgumentMismatchError
 
-**Description**: Occurs when the type argument does not match the expected type.
+The type application doesn't satisfy generic constraints.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: [T < Numeric] (T) -> T
+end
+```
+
+### Ruby code
 
 ```ruby
-class Foo
-  # @rbs [T < Numeric] (T) -> T
-  def foo(x)
-    x
-  end
-end
 Foo.new.foo("") #$ String
 ```
+
+### Diagnostic
 
 ```
 test.rb:7:19: [error] Cannot pass a type `::String` as a type parameter `T < ::Numeric`
@@ -924,105 +1112,164 @@ test.rb:7:19: [error] Cannot pass a type `::String` as a type parameter `T < ::N
                      ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
+
+## Ruby::UnannotatedEmptyCollection
+
+An empty array/hash has no type assertion.
+
+They are typed as `Array[untyped]` or `Hash[untyped, untyped]`,
+which allows any element to be added.
+
+```rb
+a = []
+b = {}
+
+a << 1
+a << ""
+```
+
+Add type annotation to make your assumption explicit.
+
+```rb
+a = [] #: Array[Integer]
+b = {} #: untyped
+
+a << 1
+a << ""     # => Type error
+```
+
+### Ruby code
+
+```ruby
+a = []
+b = {}
+```
+
+### Diagnostic
+
+```
+test.rb:1:4: [error] Empty array doesn't have type annotation
+│ Diagnostic ID: Ruby::UnannotatedEmptyCollection
+│
+└ a = []
+      ~~
+
+test.rb:2:4: [error] Empty hash doesn't have type annotation
+│ Diagnostic ID: Ruby::UnannotatedEmptyCollection
+│
+└ b = {}
+      ~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | error | warning | hint | - |
 
 ## Ruby::UnexpectedBlockGiven
 
-**Description**: Occurs when a block is passed in a context where it is not expected.
+A method that doesn't accept block is called with a block.
 
-**Example**:
+### RBS
 
-```ruby
-[1].at(1) { 123 }
-```
-
-```
-test.rb:1:10: [error] The method cannot be called with a block
-│ Diagnostic ID: Ruby::UnexpectedBlockGiven
-│
-└ [1].at(1) { 123 }
-            ~~~~~~~
-```
-
-**severity**:
-
-| all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | warning | hint | nil |
-
-## Ruby::UnexpectedDynamicMethod
-
-**Description**: Occurs when a dynamically defined method does not exist.
-
-**Example**:
-
-```ruby
+```rbs
 class Foo
-  # @dynamic foo
-
-  def bar
-  end
+  def foo: () -> void
 end
 ```
 
+### Ruby code
+
+```ruby
+Foo.new.foo { 123 }
 ```
-test.rb:1:6: [error] @dynamic annotation contains unknown method name `foo`
+
+### Diagnostic
+
+```
+test.rb:1:12: [warning] The method cannot be called with a block
+│ Diagnostic ID: Ruby::UnexpectedBlockGiven
+│
+└ Foo.new.foo { 123 }
+              ~~~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | error | warning | hint | - |
+
+## Ruby::UnexpectedDynamicMethod
+
+A `@dynamic` annotation has unknown method name.
+
+Note that this diagnostic emits only if the class definition in RBS has method definitions.
+
+### RBS
+
+```rbs
+class Foo
+  def foo: () -> void
+end
+```
+
+### Ruby code
+
+```ruby
+class Foo
+  # @dynamic foo, bar
+end
+```
+
+### Diagnostic
+
+```
+test.rb:1:6: [error] @dynamic annotation contains unknown method name `bar`
 │ Diagnostic ID: Ruby::UnexpectedDynamicMethod
 │
 └ class Foo
         ~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | information | hint | nil | nil |
+| - | - | - | - | - |
+| error | information | hint | - | - |
 
 ## Ruby::UnexpectedError
 
-**Description**: Occurs when an unexpected general error is encountered.
+Unexpected error is raised during type checking. Maybe a bug.
 
-**Example**:
 
-```ruby
-class Foo
-  # @rbs () -> String123
-  def foo
-  end
-end
-```
-
-```
-test.rb:1:0: [error] UnexpectedError: sig/generated/test.rbs:5:17...5:26: Could not find String123(RBS::NoTypeFoundError)
-│ ...
-│   (36 more backtrace)
-│
-│ Diagnostic ID: Ruby::UnexpectedError
-│
-└ class Foo
-  ~~~~~~~~~
-```
-
-**severity**:
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | information | hint | hint | nil |
+| - | - | - | - | - |
+| error | information | hint | hint | - |
 
 ## Ruby::UnexpectedJump
 
-**Description**: Occurs when an unexpected jump is encountered.
+Detected a `break` or `next` statement in invalid context.
 
-**Example**:
+### Ruby code
 
 ```ruby
 break
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:0: [error] Cannot jump from here
@@ -1032,23 +1279,26 @@ test.rb:1:0: [error] Cannot jump from here
   ~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::UnexpectedJumpValue
 
-**Description**: Occurs when the value passed in a jump is ignored.
+A `break` or `next` statement has a value, but the value will be ignored.
 
-**Example**:
+### Ruby code
 
 ```ruby
 while true
   next 3
 end
 ```
+
+### Diagnostic
 
 ```
 test.rb:2:2: [error] The value given to next will be ignored
@@ -1058,27 +1308,32 @@ test.rb:2:2: [error] The value given to next will be ignored
     ~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::UnexpectedKeywordArgument
 
-**Description**: Occurs when an unexpected keyword argument is passed.
+A method call has an extra keyword argument.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: (x: untyped) -> void
+end
+```
+
+### Ruby code
 
 ```ruby
-class Foo
-  # @rbs (x: Integer) -> void
-  def foo(x:)
-  end
-end
-
 Foo.new.foo(x: 1, y: 2)
 ```
+
+### Diagnostic
 
 ```
 test.rb:7:18: [error] Unexpected keyword argument
@@ -1088,27 +1343,32 @@ test.rb:7:18: [error] Unexpected keyword argument
                     ~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | information | nil |
+| - | - | - | - | - |
+| error | error | error | information | - |
 
 ## Ruby::UnexpectedPositionalArgument
 
-**Description**: Occurs when an unexpected positional argument is passed.
+A method call has an extra positional argument.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: (untyped) -> void
+end
+```
+
+### Ruby code
 
 ```ruby
-class Foo
-  # @rbs (Integer) -> void
-  def foo(x)
-  end
-end
-
 Foo.new.foo(1, 2)
 ```
+
+### Diagnostic
 
 ```
 test.rb:7:15: [error] Unexpected positional argument
@@ -1118,56 +1378,69 @@ test.rb:7:15: [error] Unexpected positional argument
                  ~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | information | nil |
+| - | - | - | - | - |
+| error | error | error | information | - |
 
 ## Ruby::UnexpectedSuper
 
-**Description**: Occurs when `super` is used in an unexpected context, such as when there is no method with the same name defined in the parent class.
+A method definition has `super` syntax while no super method is defined in RBS.
 
-**Example**:
+### RBS
 
-```ruby
+```rbs
 class Foo
-  def foo
-    super
-  end
+  def foo: () -> void
 end
 ```
 
+### Ruby code
+
+```ruby
+class Foo
+  def foo = super
+end
 ```
-test.rb:3:4: [error] No superclass method `foo` defined
+
+### Diagnostic
+
+```
+test.rb:2:12: [information] No superclass method `foo` defined
 │ Diagnostic ID: Ruby::UnexpectedSuper
 │
-└     super
-      ~~~~~
+└   def foo = super
+              ~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | information | nil | nil |
+| - | - | - | - | - |
+| error | error | information | - | - |
 
 ## Ruby::UnexpectedTypeArgument
 
-**Description**: Occurs when an unexpected type argument is passed.
+An extra type application is given to a method call.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: [T] (T) -> T
+end
+```
+
+### Ruby code
 
 ```ruby
-class Foo
-  # @rbs [T] (T) -> T
-  def foo(x)
-    x
-  end
-end
-
 Foo.new.foo(1) #$ Integer, Integer
 ```
+
+### Diagnostic
 
 ```
 test.rb:8:27: [error] Unexpected type arg is given to method type `[T] (T) -> T`
@@ -1177,50 +1450,63 @@ test.rb:8:27: [error] Unexpected type arg is given to method type `[T] (T) -> T`
                              ~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | nil | nil |
+| - | - | - | - | - |
+| error | error | hint | - | - |
 
 ## Ruby::UnexpectedYield
 
-**Description**: Occurs when `yield` is used in an unexpected context.
+A method definition without block has `yield` syntax.
 
-**Example**:
+### RBS
+
+```rbs
+class Foo
+  def foo: () -> void
+end
+```
+
+### Ruby code
 
 ```ruby
 class Foo
-  # @rbs () -> void
   def foo
     yield
   end
 end
 ```
 
+### Diagnostic
+
 ```
-test.rb:4:4: [error] No block given for `yield`
-│ Diagnostic ID: Ruby::UnexpectedYield
+test.rb:3:4: [hint] Cannot detect the type of the expression
+│ Diagnostic ID: Ruby::FallbackAny
 │
 └     yield
       ~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | warning | information | nil |
+| - | - | - | - | - |
+| error | error | warning | information | - |
 
 ## Ruby::UnknownConstant
 
-**Description**: Occurs when an unknown constant is referenced.
+A constant is not defined in the RBS definition.
 
-**Example**:
+### Ruby code
 
 ```ruby
 FOO
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:0: [error] Cannot find the declaration of constant: `FOO`
@@ -1230,21 +1516,24 @@ test.rb:1:0: [error] Cannot find the declaration of constant: `FOO`
   ~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | warning | hint | nil |
+| - | - | - | - | - |
+| error | error | warning | hint | - |
 
 ## Ruby::UnknownGlobalVariable
 
-**Description**: Occurs when an unknown global variable is referenced.
+Short explanation ending with `.`
 
-**Example**:
+### Ruby code
 
 ```ruby
 $foo
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:0: [error] Cannot find the declaration of global variable: `$foo`
@@ -1254,17 +1543,18 @@ test.rb:1:0: [error] Cannot find the declaration of global variable: `$foo`
   ~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | warning | hint | nil |
+| - | - | - | - | - |
+| error | error | warning | hint | - |
 
 ## Ruby::UnknownInstanceVariable
 
-**Description**: Occurs when an unknown instance variable is referenced.
+An instance variable is not defined in RBS definition.
 
-**Example**:
+### Ruby code
 
 ```ruby
 class Foo
@@ -1274,6 +1564,8 @@ class Foo
 end
 ```
 
+### Diagnostic
+
 ```
 test.rb:3:4: [error] Cannot find the declaration of instance variable: `@foo`
 │ Diagnostic ID: Ruby::UnknownInstanceVariable
@@ -1282,23 +1574,26 @@ test.rb:3:4: [error] Cannot find the declaration of instance variable: `@foo`
       ~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | information | hint | nil |
+| - | - | - | - | - |
+| error | error | information | hint | - |
 
 ## Ruby::UnreachableBranch
 
-**Description**: Occurs when there are unreachable branches due to `if` or `unless`.
+A conditional always/never hold.
 
-**Example**:
+### Ruby code
 
 ```ruby
 if false
   1
 end
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:0: [error] The branch is unreachable
@@ -1308,27 +1603,35 @@ test.rb:1:0: [error] The branch is unreachable
   ~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | information | hint | hint | nil |
+| - | - | - | - | - |
+| error | information | hint | hint | - |
 
 ## Ruby::UnreachableValueBranch
 
-**Description**: Occurs when there are unreachable branches due to `case when`, and the type of the branches is not `bot`.
+A branch has a type other than `bot`, but unreachable.
 
-**Example**:
+This diagnostic skips the `bot` branch because we often have `else` branch to make the code defensive.
+
+### Ruby code
 
 ```ruby
 x = 1
+
 case x
 when Integer
   "one"
 when String
   "two"
+when Symbol
+  raise "Unexpected value"
 end
 ```
+
+### Diagnostic
 
 ```
 test.rb:5:0: [error] The branch may evaluate to a value of `::String` but unreachable
@@ -1338,21 +1641,24 @@ test.rb:5:0: [error] The branch may evaluate to a value of `::String` but unreac
   ~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | warning | hint | hint | nil |
+| - | - | - | - | - |
+| error | warning | hint | hint | - |
 
 ## Ruby::UnresolvedOverloading
 
-**Description**: Occurs when the type cannot be resolved for an overloaded method.
+A method call has type errors, no more specific explanation cannot be reported.
 
-**Example**:
+### Ruby code
 
 ```ruby
 3 + "foo"
 ```
+
+### Diagnostic
 
 ```
 test.rb:1:0: [error] Cannot find compatible overloading of method `+` of type `::Integer`
@@ -1368,71 +1674,32 @@ test.rb:1:0: [error] Cannot find compatible overloading of method `+` of type `:
   ~~~~~~~~~
 ```
 
-**severity**:
+
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | error | information | nil |
+| - | - | - | - | - |
+| error | error | error | information | - |
 
 ## Ruby::UnsatisfiableConstraint
 
-**Description**: Occurs when type constraints cannot be satisfied, such as when there is a mismatch between RBS and type annotations.
+Failed to solve constraint collected from a method call typing.
 
-**Example**:
 
-```ruby
-class Foo
-  # @rbs [A, B] (A) { (A) -> void } -> B
-  def foo(x)
-  end
-end
-
-test = Foo.new
-
-test.foo(1) do |x|
-  # @type var x: String
-end
-```
-
-```
-test.rb:9:0: [error] Unsatisfiable constraint `::Integer <: A(1) <: ::String` is generated through (A(1)) { (A(1)) -> void } -> B(2)
-│   ::Integer <: ::String
-│     ::Numeric <: ::String
-│       ::Object <: ::String
-│         ::BasicObject <: ::String
-│
-│ Diagnostic ID: Ruby::UnsatisfiableConstraint
-│
-└ test.foo(1) do |x|
-  ~~~~~~~~~~~~~~~~~~
-```
-
-**severity**:
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | error | hint | hint | nil |
+| - | - | - | - | - |
+| error | error | hint | hint | - |
 
 ## Ruby::UnsupportedSyntax
 
-**Description**: Occurs when syntax that is not supported by Steep is used.
+The syntax is not currently supported by Steep.
 
-**Example**:
 
-```ruby
-(_ = []).[]=(*(_ = nil))
-```
-
-```
-test.rb:1:13: [error] Unsupported splat node occurrence
-│ Diagnostic ID: Ruby::UnsupportedSyntax
-│
-└ (_ = []).[]=(*(_ = nil))
-               ~~~~~~~~~~
-```
-
-**severity**:
+### Severity
 
 | all_error | strict | default | lenient | silent |
-| --- | --- | --- | --- | --- |
-| error | information | hint | hint | nil |
+| - | - | - | - | - |
+| error | information | hint | hint | - |
+

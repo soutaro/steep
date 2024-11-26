@@ -37,5 +37,29 @@
 			"end",
 		],
 		"description": "Insert a new test case"
+	},
+
+	"Add diagnostics docs (Ruby)": {
+		"scope": "rbs",
+		"body": [
+			"# Short explanation ending with `.`",
+			"#",
+			"# ### RBS",
+			"#",
+			"# ```rbs",
+			"# ```",
+			"#",
+			"# ### Ruby code",
+			"#",
+			"# ```ruby",
+			"# ```",
+			"#",
+			"# ### Diagnostic",
+			"#",
+			"# ```",
+			"# ```",
+			"#"
+		],
+		"description": "Insert a new diagnostics documentation"
 	}
 }

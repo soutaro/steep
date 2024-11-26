@@ -49,3 +49,14 @@ target :test do
     library "rbs"
   end
 end
+
+target :bin do
+  unreferenced!
+
+  collection_config "rbs_collection.steep.yaml"
+
+  check "bin/generate-diagnostics-docs.rb"
+  signature "tmp/rbs-inline/bin"
+
+  library "rbs"
+end
