@@ -1,3 +1,5 @@
+use Parser::AST::Node
+
 module Steep
   module Diagnostic
     module Ruby
@@ -29,21 +31,67 @@ module Steep
         def detail_lines: () -> String?
       end
 
-      class IncompatibleAssignment < Base
-        attr_reader lhs_type: untyped
+      # An assignment has a right hand side value that has an incompatible type to the type of the left hand side.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # # @type var x: Integer
+      # x = "string"
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:2:0: [error] Cannot assign a value of type `::String` to a variable of type `::Integer`
+      # │   ::String <: ::Integer
+      # │     ::Object <: ::Integer
+      # │       ::BasicObject <: ::Integer
+      # │
+      # │ Diagnostic ID: Ruby::IncompatibleAssignment
+      # │
+      # └ x = "string"
+      #   ~~~~~~~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class IncompatibleAssignment < Base
+        attr_reader lhs_type: AST::Types::t
 
-        attr_reader rhs_type: untyped
+        attr_reader rhs_type: AST::Types::t
 
-        attr_reader result: untyped
+        attr_reader result: Subtyping::Result::Base
 
         include ResultPrinter
 
-        def initialize: (node: untyped, lhs_type: untyped, rhs_type: untyped, result: untyped) -> void
+        def initialize: (node: Parser::AST::Node, lhs_type: AST::Types::t, rhs_type: AST::Types::t, result: Subtyping::Result::Base) -> void
 
         def header_line: () -> ::String
       end
 
-      class UnexpectedPositionalArgument < Base
+      # A method call has an extra positional argument.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # class Foo
+      #   def foo(x)
+      #   end
+      # end
+      #
+      # Foo.new.foo(1, 2)
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:7:15: [error] Unexpected positional argument
+      # │ Diagnostic ID: Ruby::UnexpectedPositionalArgument
+      # │
+      # └ Foo.new.foo(1, 2)
+      #                  ~
+      # ```
+      #
+      %a{diagnostic-class} class UnexpectedPositionalArgument < Base
         # Node of argument
         attr_reader node (): Parser::AST::Node
 
@@ -54,7 +102,30 @@ module Steep
         def header_line: () -> String
       end
 
-      class InsufficientPositionalArguments < Base
+      # An method call needs more positional arguments.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # class Foo
+      #   def foo(a, b)
+      #   end
+      # end
+      #
+      # Foo.new.foo(1)
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:5:8: [error] More keyword arguments are required: b
+      # │ Diagnostic ID: Ruby::InsufficientKeywordArguments
+      # │
+      # └ Foo.new.foo(a: 1)
+      #           ~~~~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class InsufficientPositionalArguments < Base
         # Send/csend node for method calls without blocks
         # block/numblock node for method calls with blocks
         attr_reader node (): Parser::AST::Node
@@ -66,7 +137,31 @@ module Steep
         def header_line: () -> String
       end
 
-      class UnexpectedKeywordArgument < Base
+      # A method call has an extra keyword argument.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # class Foo
+      #   # @rbs (x: Integer) -> void
+      #   def foo(x:)
+      #   end
+      # end
+      #
+      # Foo.new.foo(x: 1, y: 2)
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:7:18: [error] Unexpected keyword argument
+      # │ Diagnostic ID: Ruby::UnexpectedKeywordArgument
+      # │
+      # └ Foo.new.foo(x: 1, y: 2)
+      #                     ~
+      # ```
+      #
+      %a{diagnostic-class} class UnexpectedKeywordArgument < Base
         # pair/kwsplat node
         attr_reader node (): Parser::AST::Node
 
@@ -77,7 +172,30 @@ module Steep
         def header_line: () -> String
       end
 
-      class InsufficientKeywordArguments < Base
+      # A method call needs more keyword arguments.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # class Foo
+      #   def foo(a:, b:)
+      #   end
+      # end
+      #
+      # Foo.new.foo(a: 1)
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:5:8: [error] More keyword arguments are required: b
+      # │ Diagnostic ID: Ruby::InsufficientKeywordArguments
+      # │
+      # └ Foo.new.foo(a: 1)
+      #           ~~~~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class InsufficientKeywordArguments < Base
         # Send/csend node for method calls without blocks
         # block/numblock node for method calls with blocks
         attr_reader node (): Parser::AST::Node
@@ -91,7 +209,31 @@ module Steep
         def header_line: () -> String
       end
 
-      class UnresolvedOverloading < Base
+      # A method call has type errors, no more specific explanation cannot be reported.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # 3 + "foo"
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:0: [error] Cannot find compatible overloading of method `+` of type `::Integer`
+      # │ Method types:
+      # │   def +: (::Integer) -> ::Integer
+      # │        | (::Float) -> ::Float
+      # │        | (::Rational) -> ::Rational
+      # │        | (::Complex) -> ::Complex
+      # │
+      # │ Diagnostic ID: Ruby::UnresolvedOverloading
+      # │
+      # └ 3 + "foo"
+      #   ~~~~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class UnresolvedOverloading < Base
         attr_reader node (): Parser::AST::Node
 
         attr_reader receiver_type: AST::Types::t
@@ -107,7 +249,32 @@ module Steep
         def detail_lines: () -> String
       end
 
-      class ArgumentTypeMismatch < Base
+      # A method call has an argument that has an incompatible type to the type of the parameter.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # '1' + 1
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:6: [error] Cannot pass a value of type `::Integer` as an argument of type `::string`
+      # │   ::Integer <: ::string
+      # │     ::Integer <: (::String | ::_ToStr)
+      # │       ::Integer <: ::String
+      # │         ::Numeric <: ::String
+      # │           ::Object <: ::String
+      # │             ::BasicObject <: ::String
+      # │
+      # │ Diagnostic ID: Ruby::ArgumentTypeMismatch
+      # │
+      # └ '1' + 1
+      #         ~
+      # ```
+      #
+      %a{diagnostic-class} class ArgumentTypeMismatch < Base
         attr_reader node (): Parser::AST::Node
 
         attr_reader expected: AST::Types::t
@@ -123,7 +290,25 @@ module Steep
         def header_line: () -> ::String
       end
 
-      class NoMethod < Base
+      # A method call calls a method that is not defined on the receiver.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # "".non_existent_method
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:3: [error] Type `::String` does not have method `non_existent_method`
+      # │ Diagnostic ID: Ruby::NoMethod
+      # │
+      # └ "".non_existent_method
+      #      ~~~~~~~~~~~~~~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class NoMethod < Base
         attr_reader type: AST::Types::t
 
         attr_reader method: Symbol
@@ -133,18 +318,43 @@ module Steep
         def header_line: () -> ::String
       end
 
-      class ReturnTypeMismatch < Base
-        attr_reader expected: untyped
+      # A `return` statement has a value that has an incompatible type to the return type of the method.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # # @rbs () -> Integer
+      # def foo
+      #   return "string"
+      # end
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:3:2: [error] The method cannot return a value of type `::String` because declared as type `::Integer`
+      # │   ::String <: ::Integer
+      # │     ::Object <: ::Integer
+      # │       ::BasicObject <: ::Integer
+      # │
+      # │ Diagnostic ID: Ruby::ReturnTypeMismatch
+      # │
+      # └   return "string"
+      #     ~~~~~~~~~~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class ReturnTypeMismatch < Base
+        attr_reader expected: AST::Types::t
 
-        attr_reader actual: untyped
+        attr_reader actual: AST::Types::t
 
-        attr_reader result: untyped
+        attr_reader result: Subtyping::Result::Base
 
         include ResultPrinter
 
-        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+        def initialize: (node: Parser::AST::Node, expected: AST::Types::t, actual: AST::Types::t, result: Subtyping::Result::Base) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
       # Setter method, which has a name ending with `=`, returns different type from the method type
@@ -177,85 +387,282 @@ module Steep
         def header_line: () -> String
       end
 
-      class UnexpectedBlockGiven < Base
-        attr_reader method_type: untyped
 
-        def initialize: (node: untyped, method_type: untyped) -> void
+      # A method that doesn't accept block is called with a block.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # [1].at(1) { 123 }
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:10: [error] The method cannot be called with a block
+      # │ Diagnostic ID: Ruby::UnexpectedBlockGiven
+      # │
+      # └ [1].at(1) { 123 }
+      #             ~~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class UnexpectedBlockGiven < Base
+        attr_reader method_type: Interface::MethodType
 
-        def header_line: () -> "The method cannot be called with a block"
+        def initialize: (node: Parser::AST::Node, method_type: Interface::MethodType) -> void
+
+        def header_line: () -> String
       end
 
-      class RequiredBlockMissing < Base
-        attr_reader method_type: untyped
+      # A method that requires a block is called without a block.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # class Foo
+      #   # @rbs () { () -> void } -> void
+      #   def foo
+      #     yield
+      #   end
+      # end
+      #
+      # Foo.new.foo
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:7:8: [error] The method cannot be called without a block
+      # │ Diagnostic ID: Ruby::RequiredBlockMissing
+      # │
+      # └ Foo.new.foo
+      #           ~~~
+      # ```
+      #
+      %a{diagnostic-class} class RequiredBlockMissing < Base
+        attr_reader method_type: Interface::MethodType
 
-        def initialize: (node: untyped, method_type: untyped) -> void
+        def initialize: (node: Parser::AST::Node, method_type: Interface::MethodType) -> void
 
-        def header_line: () -> "The method cannot be called without a block"
+        def header_line: () -> String
       end
 
-      class BlockTypeMismatch < Base
-        attr_reader expected: untyped
+      # A method call passes an object as a block, but the type is incompatible with the method type.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # multi = ->(x, y) { x * y } #: ^(Integer, Integer) -> Integer
+      # [1, 2, 3].map(&multi)
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:2:14: [error] Cannot pass a value of type `^(::Integer, ::Integer) -> ::Integer` as a block-pass-argument of type `^(::Integer) -> U(1)`
+      # │   ^(::Integer, ::Integer) -> ::Integer <: ^(::Integer) -> U(1)
+      # │     (Params are incompatible)
+      # │
+      # │ Diagnostic ID: Ruby::BlockTypeMismatch
+      # │
+      # └ [1, 2, 3].map(&multi)
+      #                 ~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class BlockTypeMismatch < Base
+        attr_reader expected: AST::Types::t
 
-        attr_reader actual: untyped
+        attr_reader actual: AST::Types::t
 
-        attr_reader result: untyped
+        attr_reader result: Subtyping::Result::Base
 
         include ResultPrinter
 
-        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+        def initialize: (node: Node, expected: AST::Types::t, actual: AST::Types::t, result: Subtyping::Result::Base) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
-      class BlockBodyTypeMismatch < Base
-        attr_reader expected: untyped
+      # The type of the block body is incompatible with the expected type.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # proc = ->(&) { } #: ^() { () -> Integer } -> void
+      # proc[] { "" }
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:2:7: [error] Cannot allow block body have type `::String` because declared as type `::Integer`
+      # │   ::String <: ::Integer
+      # │     ::Object <: ::Integer
+      # │       ::BasicObject <: ::Integer
+      # │
+      # │ Diagnostic ID: Ruby::BlockBodyTypeMismatch
+      # │
+      # └ proc[] { "" }
+      #          ~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class BlockBodyTypeMismatch < Base
+        attr_reader expected: AST::Types::t
 
-        attr_reader actual: untyped
+        attr_reader actual: AST::Types::t
 
-        attr_reader result: untyped
+        attr_reader result: Subtyping::Result::Base
 
         include ResultPrinter
 
-        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+        def initialize: (node: Node, expected: AST::Types::t, actual: AST::Types::t, result: Subtyping::Result::Base) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
-      class BreakTypeMismatch < Base
-        attr_reader expected: untyped
+      # A `break` statement has a value that has an incompatible type to the type of the destination.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # 123.tap { break "" }
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:10: [error] Cannot break with a value of type `::String` because type `::Integer` is assumed
+      # │   ::String <: ::Integer
+      # │     ::Object <: ::Integer
+      # │       ::BasicObject <: ::Integer
+      # │
+      # │ Diagnostic ID: Ruby::BreakTypeMismatch
+      # │
+      # └ 123.tap { break "" }
+      #             ~~~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class BreakTypeMismatch < Base
+        attr_reader expected: AST::Types::t
 
-        attr_reader actual: untyped
+        attr_reader actual: AST::Types::t
 
-        attr_reader result: untyped
+        attr_reader result: Subtyping::Result::Base
 
         include ResultPrinter
 
-        def initialize: (node: untyped, expected: untyped, actual: untyped, result: untyped) -> void
+        def initialize: (node: Node, expected: AST::Types::t, actual: AST::Types::t, result: Subtyping::Result::Base) -> void
 
-        def header_line: () -> ::String
+        def header_line: () -> String
       end
 
-      class ImplicitBreakValueMismatch < Base
-        attr_reader jump_type: untyped
+      # A `break` statement without a value is used to leave from a block that requires non-nil type.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # 123.tap { break }
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:10: [error] Breaking without a value may result an error because a value of type `::Integer` is expected
+      # │   nil <: ::Integer
+      # │
+      # │ Diagnostic ID: Ruby::ImplicitBreakValueMismatch
+      # │
+      # └ 123.tap { break }
+      #             ~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class ImplicitBreakValueMismatch < Base
+        attr_reader jump_type: AST::Types::t
 
-        attr_reader result: untyped
+        attr_reader result: Subtyping::Result::Base
 
         include ResultPrinter
 
-        def initialize: (node: untyped, jump_type: untyped, result: untyped) -> void
+        def initialize: (node: Node, jump_type: AST::Types::t, result: Subtyping::Result::Base) -> void
 
         def header_line: () -> ::String
       end
 
-      class UnexpectedJump < Base
-        def header_line: () -> "Cannot jump from here"
+      # Detected a `break` or `next` statement in invalid context.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # break
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:0: [error] Cannot jump from here
+      # │ Diagnostic ID: Ruby::UnexpectedJump
+      # │
+      # └ break
+      #   ~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class UnexpectedJump < Base
+        def header_line: () -> String
       end
 
-      class UnexpectedJumpValue < Base
-        def header_line: () -> ::String
+      # A `break` or `next` statement has a value, but the value will be ignored.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # while true
+      #   next 3
+      # end
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:2:2: [error] The value given to next will be ignored
+      # │ Diagnostic ID: Ruby::UnexpectedJumpValue
+      # │
+      # └   next 3
+      #     ~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class UnexpectedJumpValue < Base
+        def header_line: () -> String
       end
 
-      class ClassModuleMismatch < Base
+      # A class (or module) definition in Ruby code has a module (or class) in RBS.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # module Object
+      # end
+      #
+      # class Kernel
+      # end
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:7: [error] ::Object is declared as a class in RBS
+      # │ Diagnostic ID: Ruby::ClassModuleMismatch
+      # │
+      # └ module Object
+      #          ~~~~~~
+
+      # test.rb:4:6: [error] ::Kernel is declared as a module in RBS
+      # │ Diagnostic ID: Ruby::ClassModuleMismatch
+      # │
+      # └ class Kernel
+      #         ~~~~~~
+      # ```
+      #
+      %a{diagnostic-class} class ClassModuleMismatch < Base
         attr_reader name: RBS::TypeName
 
         def initialize: (node: Parser::AST::Node, name: RBS::TypeName) -> void
