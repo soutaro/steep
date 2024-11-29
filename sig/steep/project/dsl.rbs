@@ -133,7 +133,7 @@ module Steep
         def configure_code_diagnostics: (?diagnostics_config hash) { (diagnostics_config) -> void } -> void
                                       | (diagnostics_config config) -> void
 
-        def group: (Symbol) ?{ (GroupDSL) [self: GroupDSL] -> void } -> void
+        def group: (interned) ?{ (GroupDSL) [self: GroupDSL] -> void } -> void
       end
 
       class GroupDSL
@@ -174,7 +174,7 @@ module Steep
         # ```rb
         # configure_code_diagnostics(nil)
         # ```
-        # 
+        #
         def configure_code_diagnostics: (?diagnostics_config hash) { (diagnostics_config) -> void } -> void
                                       | (diagnostics_config? config) -> void
       end
@@ -189,7 +189,7 @@ module Steep
 
       include LibraryOptions
 
-      def target: (Symbol name) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
+      def target: (interned name) ?{ (TargetDSL) [self: TargetDSL] -> void } -> void
     end
   end
 end

@@ -164,6 +164,7 @@ module Steep
         end
 
         def group(name, &block)
+          name = name.to_str.to_sym unless Symbol === name
           group = GroupDSL.new(name, self)
 
           Steep.logger.tagged "group=#{name}" do
@@ -230,6 +231,7 @@ module Steep
       end
 
       def target(name, &block)
+        name = name.to_str.to_sym unless Symbol === name
         dsl = TargetDSL.new(name, project: project)
 
         Steep.logger.tagged "target=#{name}" do
