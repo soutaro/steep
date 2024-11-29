@@ -32,6 +32,7 @@ and you can ignore some kind of errors.
 </dd>
 </dl>
 
+<a name='Ruby::ArgumentTypeMismatch'></a>
 ## Ruby::ArgumentTypeMismatch
 
 A method call has an argument that has an incompatible type to the type of the parameter.
@@ -66,6 +67,7 @@ test.rb:1:6: [error] Cannot pass a value of type `::Integer` as an argument of t
 | - | - | - | - | - |
 | error | error | error | information | - |
 
+<a name='Ruby::BlockBodyTypeMismatch'></a>
 ## Ruby::BlockBodyTypeMismatch
 
 The type of the block body is incompatible with the expected type.
@@ -105,6 +107,7 @@ test.rb:1:12: [warning] Cannot allow block body have type `::String` because dec
 | - | - | - | - | - |
 | error | error | warning | information | - |
 
+<a name='Ruby::BlockTypeMismatch'></a>
 ## Ruby::BlockTypeMismatch
 
 A method call passes an object as a block, but the type is incompatible with the method type.
@@ -136,6 +139,7 @@ test.rb:2:14: [error] Cannot pass a value of type `^(::Integer, ::Integer) -> ::
 | - | - | - | - | - |
 | error | error | warning | information | - |
 
+<a name='Ruby::BreakTypeMismatch'></a>
 ## Ruby::BreakTypeMismatch
 
 A `break` statement has a value that has an incompatible type to the type of the destination.
@@ -167,6 +171,7 @@ test.rb:1:10: [error] Cannot break with a value of type `::String` because type 
 | - | - | - | - | - |
 | error | error | hint | hint | - |
 
+<a name='Ruby::ClassModuleMismatch'></a>
 ## Ruby::ClassModuleMismatch
 
 A class (or module) definition in Ruby code has a module (or class) in RBS.
@@ -204,6 +209,7 @@ test.rb:4:6: [error] ::Kernel is declared as a module in RBS
 | - | - | - | - | - |
 | error | error | error | - | - |
 
+<a name='Ruby::DifferentMethodParameterKind'></a>
 ## Ruby::DifferentMethodParameterKind
 
 The method has a parameter with different kind from the RBS definition.
@@ -242,6 +248,7 @@ test.rb:2:10: [hint] The method parameter has different kind from the declaratio
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::FallbackAny'></a>
 ## Ruby::FallbackAny
 
 Unable to determine the type of an expression for any reason.
@@ -269,6 +276,7 @@ test.rb:1:0: [error] Cannot detect the type of the expression
 | - | - | - | - | - |
 | error | warning | hint | - | - |
 
+<a name='Ruby::FalseAssertion'></a>
 ## Ruby::FalseAssertion
 
 The type assertion cannot hold.
@@ -297,6 +305,7 @@ test.rb:2:7: [error] Assertion cannot hold: no relationship between inferred typ
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::ImplicitBreakValueMismatch'></a>
 ## Ruby::ImplicitBreakValueMismatch
 
 A `break` statement without a value is used to leave from a block that requires non-nil type.
@@ -326,6 +335,7 @@ test.rb:1:10: [error] Breaking without a value may result an error because a val
 | - | - | - | - | - |
 | error | information | hint | - | - |
 
+<a name='Ruby::IncompatibleAnnotation'></a>
 ## Ruby::IncompatibleAnnotation
 
 Detected a branch local annotation is incompatible with outer context.
@@ -362,6 +372,7 @@ test.rb:5:2: [error] Type annotation about `a` is incompatible since ::String <:
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::IncompatibleArgumentForwarding'></a>
 ## Ruby::IncompatibleArgumentForwarding
 
 Argument forwarding `...` cannot be done safely, because of:
@@ -413,6 +424,7 @@ test.rb:8:8: [error] Cannot forward arguments to `foo`:
 | - | - | - | - | - |
 | error | error | warning | information | - |
 
+<a name='Ruby::IncompatibleAssignment'></a>
 ## Ruby::IncompatibleAssignment
 
 An assignment has a right hand side value that has an incompatible type to the type of the left hand side.
@@ -445,6 +457,7 @@ test.rb:2:0: [error] Cannot assign a value of type `::String` to a variable of t
 | - | - | - | - | - |
 | error | error | hint | hint | - |
 
+<a name='Ruby::InsufficientKeywordArguments'></a>
 ## Ruby::InsufficientKeywordArguments
 
 A method call needs more keyword arguments.
@@ -480,6 +493,7 @@ test.rb:5:8: [error] More keyword arguments are required: b
 | - | - | - | - | - |
 | error | error | error | information | - |
 
+<a name='Ruby::InsufficientPositionalArguments'></a>
 ## Ruby::InsufficientPositionalArguments
 
 An method call needs more positional arguments.
@@ -515,6 +529,7 @@ test.rb:1:8: [error] More positional arguments are required
 | - | - | - | - | - |
 | error | error | error | information | - |
 
+<a name='Ruby::InsufficientTypeArgument'></a>
 ## Ruby::InsufficientTypeArgument
 
 A type application needs more type arguments.
@@ -550,6 +565,7 @@ test.rb:8:0: [error] Requires 2 types, but 1 given: `[T, S] (T, S) -> [T, S]`
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::InvalidIgnoreComment'></a>
 ## Ruby::InvalidIgnoreComment
 
 `steep:ignore` comment is invalid.
@@ -577,6 +593,7 @@ test.rb:1:0: [error] Invalid ignore comment
 | - | - | - | - | - |
 | error | warning | warning | warning | - |
 
+<a name='Ruby::MethodArityMismatch'></a>
 ## Ruby::MethodArityMismatch
 
 The method definition has missing parameters with respect to the RBS definition.
@@ -615,6 +632,7 @@ test.rb:2:9: [error] Method parameters are incompatible with declaration `(::Str
 | - | - | - | - | - |
 | error | error | error | information | - |
 
+<a name='Ruby::MethodBodyTypeMismatch'></a>
 ## Ruby::MethodBodyTypeMismatch
 
 The type of the method body has different type from the RBS definition.
@@ -657,6 +675,7 @@ test.rb:2:6: [error] Cannot allow method body have type `::Integer` because decl
 | - | - | - | - | - |
 | error | error | error | warning | - |
 
+<a name='Ruby::MethodDefinitionMissing'></a>
 ## Ruby::MethodDefinitionMissing
 
 The class/module definition doesn't have a `def` syntax for the method.
@@ -694,6 +713,7 @@ test.rb:1:6: [hint] Cannot find implementation of method `::Foo#foo`
 | - | - | - | - | - |
 | error | hint | - | - | - |
 
+<a name='Ruby::MethodParameterMismatch'></a>
 ## Ruby::MethodParameterMismatch
 
 The method definition has an extra parameter with respect to the RBS definition.
@@ -732,6 +752,7 @@ test.rb:2:13: [error] The method parameter is incompatible with the declaration 
 | - | - | - | - | - |
 | error | error | error | warning | - |
 
+<a name='Ruby::MethodReturnTypeAnnotationMismatch'></a>
 ## Ruby::MethodReturnTypeAnnotationMismatch
 
 **Deprecated** Related to the `@type method` annotation.
@@ -743,6 +764,7 @@ test.rb:2:13: [error] The method parameter is incompatible with the declaration 
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::MultipleAssignmentConversionError'></a>
 ## Ruby::MultipleAssignmentConversionError
 
 The `#to_ary` of RHS of multiple assignment is called, but returns not tuple nor Array.
@@ -778,6 +800,7 @@ test.rb:1:6: [error] Cannot convert `::Foo` to Array or tuple (`#to_ary` returns
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::NoMethod'></a>
 ## Ruby::NoMethod
 
 A method call calls a method that is not defined on the receiver.
@@ -805,6 +828,7 @@ test.rb:1:3: [error] Type `::String` does not have method `non_existent_method`
 | - | - | - | - | - |
 | error | error | error | information | - |
 
+<a name='Ruby::ProcHintIgnored'></a>
 ## Ruby::ProcHintIgnored
 
 Type hint is given to a proc/lambda but it was ignored.
@@ -836,6 +860,7 @@ test.rb:2:7: [error] The type hint given to the block is ignored: `(^(::Integer)
 | - | - | - | - | - |
 | error | information | hint | - | - |
 
+<a name='Ruby::ProcTypeExpected'></a>
 ## Ruby::ProcTypeExpected
 
 The block parameter has non-proc type.
@@ -865,6 +890,7 @@ test.rb:1:4: [error] Proc type is expected but `::Integer` is specified
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::RBSError'></a>
 ## Ruby::RBSError
 
 RBS embedded in the Ruby code has validation error.
@@ -892,6 +918,7 @@ test.rb:1:9: [error] Cannot find type `::Int`
 | - | - | - | - | - |
 | error | error | information | information | - |
 
+<a name='Ruby::RequiredBlockMissing'></a>
 ## Ruby::RequiredBlockMissing
 
 A method that requires a block is called without a block.
@@ -927,6 +954,7 @@ test.rb:1:8: [error] The method cannot be called without a block
 | - | - | - | - | - |
 | error | error | error | hint | - |
 
+<a name='Ruby::ReturnTypeMismatch'></a>
 ## Ruby::ReturnTypeMismatch
 
 A `return` statement has a value that has an incompatible type to the return type of the method.
@@ -970,6 +998,7 @@ test.rb:3:2: [error] The method cannot return a value of type `::String` because
 | - | - | - | - | - |
 | error | error | error | warning | - |
 
+<a name='Ruby::SetterBodyTypeMismatch'></a>
 ## Ruby::SetterBodyTypeMismatch
 
 Setter method, which has a name ending with `=`, has different type from the method type.
@@ -1010,6 +1039,7 @@ test.rb:2:6: [information] Setter method `name=` cannot have type `(::String | n
 | - | - | - | - | - |
 | error | error | information | - | - |
 
+<a name='Ruby::SetterReturnTypeMismatch'></a>
 ## Ruby::SetterReturnTypeMismatch
 
 Setter method, which has a name ending with `=`, returns different type from the method type.
@@ -1053,6 +1083,7 @@ test.rb:3:4: [information] The setter method `name=` cannot return a value of ty
 | - | - | - | - | - |
 | error | error | information | - | - |
 
+<a name='Ruby::SyntaxError'></a>
 ## Ruby::SyntaxError
 
 The Ruby code has a syntax error.
@@ -1080,6 +1111,7 @@ test.rb:2:14: [error] SyntaxError: unexpected token $end
 | - | - | - | - | - |
 | error | hint | hint | hint | - |
 
+<a name='Ruby::TypeArgumentMismatchError'></a>
 ## Ruby::TypeArgumentMismatchError
 
 The type application doesn't satisfy generic constraints.
@@ -1119,6 +1151,7 @@ test.rb:7:19: [error] Cannot pass a type `::String` as a type parameter `T < ::N
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::UnannotatedEmptyCollection'></a>
 ## Ruby::UnannotatedEmptyCollection
 
 An empty array/hash has no type assertion.
@@ -1174,6 +1207,7 @@ test.rb:2:4: [error] Empty hash doesn't have type annotation
 | - | - | - | - | - |
 | error | error | warning | hint | - |
 
+<a name='Ruby::UnexpectedBlockGiven'></a>
 ## Ruby::UnexpectedBlockGiven
 
 A method that doesn't accept block is called with a block.
@@ -1209,6 +1243,7 @@ test.rb:1:12: [warning] The method cannot be called with a block
 | - | - | - | - | - |
 | error | error | warning | hint | - |
 
+<a name='Ruby::UnexpectedDynamicMethod'></a>
 ## Ruby::UnexpectedDynamicMethod
 
 A `@dynamic` annotation has unknown method name.
@@ -1248,6 +1283,7 @@ test.rb:1:6: [error] @dynamic annotation contains unknown method name `bar`
 | - | - | - | - | - |
 | error | information | hint | - | - |
 
+<a name='Ruby::UnexpectedError'></a>
 ## Ruby::UnexpectedError
 
 Unexpected error is raised during type checking. Maybe a bug.
@@ -1259,6 +1295,7 @@ Unexpected error is raised during type checking. Maybe a bug.
 | - | - | - | - | - |
 | error | information | hint | hint | - |
 
+<a name='Ruby::UnexpectedJump'></a>
 ## Ruby::UnexpectedJump
 
 Detected a `break` or `next` statement in invalid context.
@@ -1286,6 +1323,7 @@ test.rb:1:0: [error] Cannot jump from here
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::UnexpectedJumpValue'></a>
 ## Ruby::UnexpectedJumpValue
 
 A `break` or `next` statement has a value, but the value will be ignored.
@@ -1315,6 +1353,7 @@ test.rb:2:2: [error] The value given to next will be ignored
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::UnexpectedKeywordArgument'></a>
 ## Ruby::UnexpectedKeywordArgument
 
 A method call has an extra keyword argument.
@@ -1350,6 +1389,7 @@ test.rb:7:18: [error] Unexpected keyword argument
 | - | - | - | - | - |
 | error | error | error | information | - |
 
+<a name='Ruby::UnexpectedPositionalArgument'></a>
 ## Ruby::UnexpectedPositionalArgument
 
 A method call has an extra positional argument.
@@ -1385,6 +1425,7 @@ test.rb:7:15: [error] Unexpected positional argument
 | - | - | - | - | - |
 | error | error | error | information | - |
 
+<a name='Ruby::UnexpectedSuper'></a>
 ## Ruby::UnexpectedSuper
 
 A method definition has `super` syntax while no super method is defined in RBS.
@@ -1422,6 +1463,7 @@ test.rb:2:12: [information] No superclass method `foo` defined
 | - | - | - | - | - |
 | error | error | information | - | - |
 
+<a name='Ruby::UnexpectedTypeArgument'></a>
 ## Ruby::UnexpectedTypeArgument
 
 An extra type application is given to a method call.
@@ -1457,6 +1499,7 @@ test.rb:8:27: [error] Unexpected type arg is given to method type `[T] (T) -> T`
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::UnexpectedYield'></a>
 ## Ruby::UnexpectedYield
 
 A method definition without block has `yield` syntax.
@@ -1496,6 +1539,7 @@ test.rb:3:4: [hint] Cannot detect the type of the expression
 | - | - | - | - | - |
 | error | error | warning | information | - |
 
+<a name='Ruby::UnknownConstant'></a>
 ## Ruby::UnknownConstant
 
 A constant is not defined in the RBS definition.
@@ -1523,6 +1567,7 @@ test.rb:1:0: [error] Cannot find the declaration of constant: `FOO`
 | - | - | - | - | - |
 | error | error | warning | hint | - |
 
+<a name='Ruby::UnknownGlobalVariable'></a>
 ## Ruby::UnknownGlobalVariable
 
 Short explanation ending with `.`
@@ -1550,6 +1595,7 @@ test.rb:1:0: [error] Cannot find the declaration of global variable: `$foo`
 | - | - | - | - | - |
 | error | error | warning | hint | - |
 
+<a name='Ruby::UnknownInstanceVariable'></a>
 ## Ruby::UnknownInstanceVariable
 
 An instance variable is not defined in RBS definition.
@@ -1581,6 +1627,7 @@ test.rb:3:4: [error] Cannot find the declaration of instance variable: `@foo`
 | - | - | - | - | - |
 | error | error | information | hint | - |
 
+<a name='Ruby::UnreachableBranch'></a>
 ## Ruby::UnreachableBranch
 
 A conditional always/never hold.
@@ -1610,6 +1657,7 @@ test.rb:1:0: [error] The branch is unreachable
 | - | - | - | - | - |
 | error | information | hint | hint | - |
 
+<a name='Ruby::UnreachableValueBranch'></a>
 ## Ruby::UnreachableValueBranch
 
 A branch has a type other than `bot`, but unreachable.
@@ -1648,6 +1696,7 @@ test.rb:5:0: [error] The branch may evaluate to a value of `::String` but unreac
 | - | - | - | - | - |
 | error | warning | hint | hint | - |
 
+<a name='Ruby::UnresolvedOverloading'></a>
 ## Ruby::UnresolvedOverloading
 
 A method call has type errors, no more specific explanation cannot be reported.
@@ -1681,6 +1730,7 @@ test.rb:1:0: [error] Cannot find compatible overloading of method `+` of type `:
 | - | - | - | - | - |
 | error | error | error | information | - |
 
+<a name='Ruby::UnsatisfiableConstraint'></a>
 ## Ruby::UnsatisfiableConstraint
 
 Failed to solve constraint collected from a method call typing.
@@ -1692,6 +1742,7 @@ Failed to solve constraint collected from a method call typing.
 | - | - | - | - | - |
 | error | error | hint | hint | - |
 
+<a name='Ruby::UnsupportedSyntax'></a>
 ## Ruby::UnsupportedSyntax
 
 The syntax is not currently supported by Steep.

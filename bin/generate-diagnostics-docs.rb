@@ -27,7 +27,7 @@ class RubyDiagnosticsVisitor < RBS::AST::Visitor
   # @rbs ...
   def visit_member_method_definition(node)
     if node.annotations.find { _1.string == "diagnostics--template" }
-        if node.comment
+      if node.comment
         templates[node.name] = node.comment.string
       end
     end
@@ -61,6 +61,8 @@ class RubyDiagnosticsVisitor < RBS::AST::Visitor
     classes.keys.sort.each do |key|
       content = classes[key]
 
+      # io.puts "<h2 id='Ruby::#{key}'>Ruby::#{key}</h2>"
+      io.puts "<a name='Ruby::#{key}'></a>"
       io.puts "## Ruby::#{key}"
       io.puts
       io.puts content
