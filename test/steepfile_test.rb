@@ -319,4 +319,21 @@ YAML
       end
     end
   end
+
+  def test_string
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.eval(project) do
+        target "app" do
+          group "core" do
+          end
+        end
+      end
+
+      project.targets.find {|target| target.name == :app }.tap do |target|
+        assert_equal [:core], target.groups.map(&:name)
+      end
+    end
+  end
 end
