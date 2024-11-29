@@ -583,6 +583,99 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_if_unreachable__if_void
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def void: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # Both branches are unreachable
+          if Foo.new.void
+            123
+          else
+            123
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 2
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 4
+                character: 0
+              end:
+                line: 4
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+  def test_if_unreachable__if_bot
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def bot: () -> bot
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # Both branches are unreachable
+          if Foo.new.bot
+            123
+          else
+            123
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 2
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+          - range:
+              start:
+                line: 4
+                character: 0
+              end:
+                line: 4
+                character: 4
+            severity: ERROR
+            message: The branch is unreachable
+            code: Ruby::UnreachableBranch
+      YAML
+    )
+  end
+
   def test_case_unreachable_1
     run_type_check_test(
       signatures: {

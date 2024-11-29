@@ -430,4 +430,13 @@ end
       end
     end
   end
+
+  def test_partition_union__void
+    with_factory() do |factory|
+      factory.partition_union(factory.type(parse_type("void"))).tap do |truthy, falsy|
+        assert_equal nil, truthy
+        assert_equal nil, falsy
+      end
+    end
+  end
 end
