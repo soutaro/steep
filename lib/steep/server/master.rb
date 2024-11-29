@@ -178,7 +178,6 @@ module Steep
       attr_reader :job_queue, :write_queue
 
       attr_reader :current_type_check_request
-      attr_reader :current_diagnostics
       attr_reader :controller
       attr_reader :result_controller
 
@@ -197,7 +196,6 @@ module Steep
         @commandline_args = []
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
-        @current_diagnostics = {}
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -802,15 +800,7 @@ module Steep
           Steep.logger.info "Starting new progress..."
 
           @current_type_check_request = request
-          if last_request
-            checking_paths = request.each_path.to_set
-            current_diagnostics.keep_if do |path, _|
-              checking_paths.include?(path)
-            end
-          else
-            current_diagnostics.clear
-          end
-
+          
           if progress
             # If `request:` keyword arg is not given
             request.work_done_progress.begin("Type checking", request_id: fresh_request_id)
@@ -909,15 +899,10 @@ module Steep
 
       def push_diagnostics(path, diagnostics)
         if diagnostics
-          ds = (current_diagnostics[path] ||= [])
-
-          ds.concat(diagnostics)
-          ds.uniq!
-
           write_queue.push SendMessageJob.to_client(
             message: {
               method: :"textDocument/publishDiagnostics",
-              params: { uri: Steep::PathHelper.to_uri(path).to_s, diagnostics: ds }
+              params: { uri: Steep::PathHelper.to_uri(path).to_s, diagnostics: diagnostics }
             }
           )
         end
