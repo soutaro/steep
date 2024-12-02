@@ -45,5 +45,5 @@ jobs:
         gem install bundler
         bin/setup
         bundle exec ruby bin/generate-diagnostics-docs.rb
-        git diff --exit-code HEAD -- guides/src/diagnostics
+        git diff --exit-code HEAD -- manual
 
