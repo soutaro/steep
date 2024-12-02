@@ -201,11 +201,16 @@ Generally, these are by our design.
 
 `rbs prototype` offers options: `rbi` to generate prototype from Sorbet RBI and `runtime` to generate from runtime API.
 
-## Guides
+## Docs
 
-There are some guides in the `guide` directory. I know we need more comprehensive set of documentations. Just started writing docs.
+There are some documents in the `manul` and `guide` directories.
 
 * [Guides](guides)
+* [Manual](manual)
+
+The `doc` directory contains a few internal design docs.
+
+* [Internal docs](doc)
 
 ## Examples
 
