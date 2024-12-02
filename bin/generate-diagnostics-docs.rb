@@ -99,11 +99,11 @@ class RubyDiagnosticsVisitor < RBS::AST::Visitor
 end
 
 diagnostic_dir = Pathname(__dir__ || raise) + "../sig/steep/diagnostic"
-output_dir = Pathname(__dir__ || raise) + "../guides/src/diagnostics"
+output_dir = Pathname(__dir__ || raise) + "../manual"
 
 RubyDiagnosticsVisitor.visit_file(diagnostic_dir + "ruby.rbs") do |visitor|
-  STDERR.puts ">> Writing #{output_dir + "ruby.md"}..."
-  (output_dir + "ruby.md").open("w") do |io|
+  STDERR.puts ">> Writing #{output_dir + "ruby-diagnostics.md"}..."
+  (output_dir + "ruby-diagnostics.md").open("w") do |io|
     io.puts "# Ruby Code Diagnostics"
     io.puts
     visitor.format_templates(io)
