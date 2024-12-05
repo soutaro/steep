@@ -1720,7 +1720,7 @@ module Steep
 
         attr_reader block_pair: [Interface::Block?, Interface::Block?]?
 
-        attr_reader result: Subtyping::Result::t
+        attr_reader result: Subtyping::Result::t?
 
         include ResultPrinter2
 
@@ -1734,6 +1734,7 @@ module Steep
         #
         def initialize: (node: Parser::AST::Node, method_name: Symbol, params_pair: [Interface::Function::Params, Interface::Function::Params], result: Subtyping::Result::Base) -> void
                       | (node: Parser::AST::Node, method_name: Symbol, block_pair: [Interface::Block?, Interface::Block?], result: Subtyping::Result::Base) -> void
+                      | (node: Parser::AST::Node, method_name: Symbol) -> void
 
         def header_line: () -> String
       end

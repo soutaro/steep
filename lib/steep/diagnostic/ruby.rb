@@ -883,7 +883,7 @@ module Steep
       class IncompatibleArgumentForwarding < Base
         attr_reader :method_name, :params_pair, :block_pair, :result
 
-        def initialize(method_name:, node:, params_pair: nil, block_pair: nil, result:)
+        def initialize(method_name:, node:, params_pair: nil, block_pair: nil, result: nil)
           super(node: node)
           @method_name = method_name
           @result = result
@@ -895,7 +895,7 @@ module Steep
 
         def header_line
           case
-          when params_pair
+          when params_pair, result.nil?
             "Cannot forward arguments to `#{method_name}`:"
           when block_pair
             "Cannot forward block to `#{method_name}`:"
