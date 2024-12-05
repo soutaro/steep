@@ -951,6 +951,19 @@ module Steep
         end
       end
 
+      class UnknownRecordKey < Base
+        attr_reader :key
+
+        def initialize(key:, node:)
+          super(node: node)
+          @key = key
+        end
+
+        def header_line
+          "Unknown key `#{key.inspect}` is given to a record type"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -1011,6 +1024,7 @@ module Steep
             UnexpectedYield => :warning,
             UnknownConstant => :warning,
             UnknownGlobalVariable => :warning,
+            UnknownRecordKey => :information,
             UnknownInstanceVariable => :information,
             UnreachableBranch => :hint,
             UnreachableValueBranch => :hint,
@@ -1069,6 +1083,7 @@ module Steep
             UnexpectedYield => :error,
             UnknownConstant => :error,
             UnknownGlobalVariable => :error,
+            UnknownRecordKey => :warning,
             UnknownInstanceVariable => :error,
             UnreachableBranch => :information,
             UnreachableValueBranch => :warning,
@@ -1127,6 +1142,7 @@ module Steep
             UnexpectedYield => :information,
             UnknownConstant => :hint,
             UnknownGlobalVariable => :hint,
+            UnknownRecordKey => :hint,
             UnknownInstanceVariable => :hint,
             UnreachableBranch => :hint,
             UnreachableValueBranch => :hint,

@@ -1627,6 +1627,34 @@ test.rb:3:4: [error] Cannot find the declaration of instance variable: `@foo`
 | - | - | - | - | - |
 | error | error | information | hint | - |
 
+<a name='Ruby::UnknownRecordKey'></a>
+## Ruby::UnknownRecordKey
+
+An unknown key is given to record type.
+
+### Ruby code
+
+```ruby
+{ name: "soutaro", email: "soutaro@example.com" } #: { name: String }
+```
+
+### Diagnostic
+
+```
+test.rb:1:19: [error] Unknown key `:email` is given to a record type
+│ Diagnostic ID: Ruby::UnknownRecordKey
+│
+└ { name: "soutaro", email: "soutaro@example.com" } #: { name: String }
+                     ~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | information | hint | - |
+
 <a name='Ruby::UnreachableBranch'></a>
 ## Ruby::UnreachableBranch
 

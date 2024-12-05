@@ -4975,7 +4975,15 @@ module Steep
             key_node = child.children[0] #: Parser::AST::Node
             value_node = child.children[1] #: Parser::AST::Node
 
-            key = key_node.children[0] #: AST::Types::Record::key
+            key =
+              case key_node.type
+              when :sym, :int, :str
+                key_node.children[0]
+              when :true
+                true
+              when :false
+                false
+              end #: AST::Types::Record::key
 
             _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.new(value: key))
 
@@ -4989,6 +4997,10 @@ module Steep
               when hint_type.is_a?(AST::Types::Var)
                 value_type = value_type
               end
+            else
+              typing.add_error(
+                Diagnostic::Ruby::UnknownRecordKey.new(key: key, node: key_node)
+              )
             end
 
             elems[key] = value_type
