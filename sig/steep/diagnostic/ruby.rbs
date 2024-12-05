@@ -1446,6 +1446,34 @@ module Steep
         def header_line: () -> String
       end
 
+      # A type annotation has a syntax error.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # # @type var foo: () -> 
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:2: [error] Type annotation has a syntax error: Syntax error caused by token `pEOF`
+      # │ Diagnostic ID: Ruby::AnnotationSyntaxError
+      # │
+      # └ # @type method foo: () ->
+      #     ~~~~~~~~~~~~~~~~~~~~~~~
+      # ```
+      #
+      class AnnotationSyntaxError < Base
+        attr_reader message: String
+
+        attr_reader node (): nil
+
+        def initialize: (message: String, location: location) -> void
+
+        def header_line: () -> String
+      end
+
       # The type assertion cannot hold.
       #
       # ### Ruby code
