@@ -287,7 +287,7 @@ module Steep
           SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing, ignores: ignores)
         end
       rescue AnnotationParser::SyntaxError => exn
-        error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: exn.location)
+        error = Diagnostic::Ruby::AnnotationSyntaxError.new(message: exn.message, location: exn.location)
         SourceFile.with_syntax_error(path: path, content: text, error: error)
       rescue ::Parser::SyntaxError => exn
         error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: (_ = exn).diagnostic.location)
