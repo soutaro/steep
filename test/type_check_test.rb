@@ -2488,7 +2488,7 @@ class TypeCheckTest < Minitest::Test
       signatures: {},
       code: {
         "a.rb" => <<~RUBY
-          a = { 1 => "one", "two" => 2, true => false } #: { 1 => String, "two" => Integer, true => Array[String] }
+          a = { 1 => "one", "two" => 2, true => [] } #: { 1 => String, "two" => Integer, true => Array[String] }
 
           a[1] + ""
           a["two"] + 1
@@ -2717,6 +2717,35 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: \"::Bar is declared as a module in RBS\"
             code: Ruby::ClassModuleMismatch
+      YAML
+    )
+  end
+
+  def test_unknown_record_key
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          var = { name: "soutaro", email: "soutaro@example.com" } #: { name: String }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 25
+              end:
+                line: 1
+                character: 30
+            severity: ERROR
+            message: Unknown key `:email` is given to a record type
+            code: Ruby::UnknownRecordKey
       YAML
     )
   end

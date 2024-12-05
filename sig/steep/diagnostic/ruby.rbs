@@ -1816,6 +1816,32 @@ module Steep
         def header_line: () -> String
       end
 
+      # An unknown key is given to record type.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # { name: "soutaro", email: "soutaro@example.com" } #: { name: String }
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:19: [error] Unknown key `:email` is given to a record type
+      # │ Diagnostic ID: Ruby::UnknownRecordKey
+      # │
+      # └ { name: "soutaro", email: "soutaro@example.com" } #: { name: String }
+      #                      ~~~~~
+      # ```
+      #
+      class UnknownRecordKey < Base
+        attr_reader key: AST::Types::Record::key
+
+        def initialize: (key: AST::Types::Record::key, node: Node) -> void
+
+        def header_line: () -> String
+      end
+
       ALL: Array[singleton(Base)]
 
       type template = Hash[singleton(Base), LSPFormatter::severity?]

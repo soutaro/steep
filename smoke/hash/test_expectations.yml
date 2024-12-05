@@ -67,6 +67,16 @@
             ::Object <: ::Integer
               ::BasicObject <: ::Integer
     code: Ruby::IncompatibleAssignment
+  - range:
+      start:
+        line: 5
+        character: 34
+      end:
+        line: 5
+        character: 39
+    severity: ERROR
+    message: Unknown key `:email` is given to a record type
+    code: Ruby::UnknownRecordKey
 - file: e.rb
   diagnostics:
   - range:
