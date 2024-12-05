@@ -821,6 +821,19 @@ module Steep
         end
       end
 
+      class AnnotationSyntaxError < Base
+        attr_reader :message
+
+        def initialize(message: ,location:)
+          super(node: nil, location: location)
+          @message = message
+        end
+
+        def header_line
+          "Type annotation has a syntax error: #{message}"
+        end
+      end
+
       class FalseAssertion < Base
         attr_reader :node, :assertion_type, :node_type
 
@@ -966,6 +979,7 @@ module Steep
       def self.default
         @default ||= _ = all_error.merge(
           {
+            AnnotationSyntaxError => :error,
             ArgumentTypeMismatch => :error,
             BlockBodyTypeMismatch => :warning,
             BlockTypeMismatch => :warning,
@@ -1024,6 +1038,7 @@ module Steep
       def self.strict
         @strict ||= _ = all_error.merge(
           {
+            AnnotationSyntaxError => :error,
             ArgumentTypeMismatch => :error,
             BlockBodyTypeMismatch => :error,
             BlockTypeMismatch => :error,
@@ -1082,6 +1097,7 @@ module Steep
       def self.lenient
         @lenient ||= _ = all_error.merge(
           {
+            AnnotationSyntaxError => :error,
             ArgumentTypeMismatch => :information,
             BlockBodyTypeMismatch => :information,
             BlockTypeMismatch => :information,

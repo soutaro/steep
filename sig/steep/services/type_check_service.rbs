@@ -33,7 +33,7 @@ module Steep
           errors: Array[Diagnostic::Ruby::Base]?
         ) -> void
 
-        def self.with_syntax_error: (path: Pathname, content: String, error: Diagnostic::Ruby::SyntaxError) -> SourceFile
+        def self.with_syntax_error: (path: Pathname, content: String, error: Diagnostic::Ruby::SyntaxError | Diagnostic::Ruby::AnnotationSyntaxError) -> SourceFile
 
         def self.with_typing: (path: Pathname, content: String, typing: Typing, ignores: Source::IgnoreRanges, node: Parser::AST::Node?) -> SourceFile
 
