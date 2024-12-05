@@ -32,6 +32,34 @@ and you can ignore some kind of errors.
 </dd>
 </dl>
 
+<a name='Ruby::AnnotationSyntaxError'></a>
+## Ruby::AnnotationSyntaxError
+
+A type annotation has a syntax error.
+
+### Ruby code
+
+```ruby
+# @type var foo: () -> 
+```
+
+### Diagnostic
+
+```
+test.rb:1:2: [error] Type annotation has a syntax error: Syntax error caused by token `pEOF`
+│ Diagnostic ID: Ruby::AnnotationSyntaxError
+│
+└ # @type method foo: () ->
+    ~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | error | error | error | - |
+
 <a name='Ruby::ArgumentTypeMismatch'></a>
 ## Ruby::ArgumentTypeMismatch
 
@@ -1109,7 +1137,7 @@ test.rb:2:14: [error] SyntaxError: unexpected token $end
 
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
-| error | hint | hint | hint | - |
+| error | information | information | information | - |
 
 <a name='Ruby::TypeArgumentMismatchError'></a>
 ## Ruby::TypeArgumentMismatchError
