@@ -128,10 +128,17 @@ module Steep
           end
 
           opts.on("--group=GROUP", "Specify target/group name to type check") do |arg|
-            # @type var group: String
+            # @type var arg: String
             target, group = arg.split(".")
             target or raise
-            command.active_group_names << [target.to_sym, group&.to_sym]
+            case group
+            when "*"
+              command.active_group_names << [target.to_sym, true]
+            when nil
+              command.active_group_names << [target.to_sym, nil]
+            else
+              command.active_group_names << [target.to_sym, group.to_sym]
+            end
           end
 
           opts.on("--[no-]type-check", "Type check Ruby code") do |v|

@@ -179,6 +179,58 @@ end
     end
   end
 
+  def test_check_group__group__target
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  group :foo do
+    check "foo.rb"
+  end
+
+  group :bar do
+    check "bar.rb"
+  end
+
+  check "baz.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+      (current_dir + "bar.rb").write(<<-EOF)
+1 + "2"
+      EOF
+      (current_dir + "baz.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, _ = sh(*steep, "check", "--group=app.foo")
+
+      assert_match(/^foo.rb:1:0/, stdout)
+      refute_match(/^bar.rb/, stdout)
+      refute_match(/^baz.rb/, stdout)
+
+      stdout, _ = sh(*steep, "check", "--group=app.bar")
+
+      refute_match(/^foo.rb/, stdout)
+      assert_match(/^bar.rb:1:0/, stdout)
+      refute_match(/^baz.rb/, stdout)
+
+      stdout, _ = sh(*steep, "check", "--group=app.*")
+
+      assert_match(/^foo.rb:1:0/, stdout)
+      assert_match(/^bar.rb:1:0/, stdout)
+      assert_match(/^baz.rb:1:0/, stdout)
+
+      stdout, _ = sh(*steep, "check", "--group=app")
+
+      refute_match(/^foo.rb/, stdout)
+      refute_match(/^bar.rb/, stdout)
+      assert_match(/^baz.rb:1:0/, stdout)
+    end
+  end
+
   def test_check_failure_severity_level
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
