@@ -38,12 +38,12 @@ module Steep
         case group
         when Project::Target
           active_group_names.any? {|target_name, group_name|
-            target_name == group.name && group_name == nil
+            target_name == group.name && (group_name == nil || group_name == true)
           }
         when Project::Group
           active_group_names.any? {|target_name, group_name|
             target_name == group.target.name &&
-              (group_name == group.name || group_name.nil?)
+              (group_name == group.name || group_name == true)
           }
         end
       end
@@ -206,7 +206,7 @@ module Steep
 
       def load_files(files, target, group, params:)
         if type_check_code
-          files.each_group_source_path(group) do |path|
+          files.each_group_source_path(group, true) do |path|
             params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
