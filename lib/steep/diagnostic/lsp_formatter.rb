@@ -43,11 +43,18 @@ module Steep
         if severity
           range = diagnostic.location&.as_lsp_range || raise("#{diagnostic.class} object (#{diagnostic.full_message}) instance must have `#location`")
 
+          if diagnostic.is_a?(Ruby::Base)
+            description = {
+              href: "https://github.com/soutaro/steep/tree/v#{VERSION}/manual/ruby-diagnostics.md##{URI.encode_uri_component(diagnostic.diagnostic_code)}"
+            } #: LSP::Interface::CodeDescription::json
+          end
+
           {
             message: diagnostic.full_message,
             code: diagnostic.diagnostic_code,
             severity: severity,
-            range: range
+            range: range,
+            codeDescription: description
           }
         end
       end
