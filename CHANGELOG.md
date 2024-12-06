@@ -1,5 +1,81 @@
 # CHANGELOG
 
+## 1.9.0 (2024-12-06)
+
+### Type checker core
+
+* Report diagnostic on unknown record key ([#1385](https://github.com/soutaro/steep/pull/1385))
+* Report annotation syntax error ([#1384](https://github.com/soutaro/steep/pull/1384))
+* emit UnreachableBranch to the "void" condition ([#1356](https://github.com/soutaro/steep/pull/1356))
+* Support &method(:name) call for block_pass ([#1276](https://github.com/soutaro/steep/pull/1276))
+* Emit SingletonTypeMismatch when class/module mismatch ([#1274](https://github.com/soutaro/steep/pull/1274))
+* refactor: Use Array#fetch instead of Array#[] to resolve type errors ([#1287](https://github.com/soutaro/steep/pull/1287))
+* refactor: Use Hash#fetch instead of Hash#[] to resolve type errors ([#1286](https://github.com/soutaro/steep/pull/1286))
+* Expand `array(splat(expr` node ([#1347](https://github.com/soutaro/steep/pull/1347))
+* Add `UnannotatedEmptyCollection` diagnostic ([#1338](https://github.com/soutaro/steep/pull/1338))
+* Update type checking strategy ([#1308](https://github.com/soutaro/steep/pull/1308))
+* Fix untyped hash typing ([#1299](https://github.com/soutaro/steep/pull/1299))
+* Support `implicitly-returns-nil` ([#1258](https://github.com/soutaro/steep/pull/1258))
+* Fix record shape ([#1265](https://github.com/soutaro/steep/pull/1265))
+* Remove unused rules ([#1238](https://github.com/soutaro/steep/pull/1238))
+
+### Commandline tool
+
+* Introduces a new `target.*` syntax for everything in the target ([#1387](https://github.com/soutaro/steep/pull/1387))
+* Symbolize target/group names ([#1364](https://github.com/soutaro/steep/pull/1364))
+* Update Steepfile template ([#1355](https://github.com/soutaro/steep/pull/1355))
+* Delete `target` from `--validate` option ([#1346](https://github.com/soutaro/steep/pull/1346))
+* Install rbs collection automatically ([#1345](https://github.com/soutaro/steep/pull/1345))
+
+### Language server
+
+* Add link to diagnostic manual ([#1388](https://github.com/soutaro/steep/pull/1388))
+* Stop accumulating diagnostics ([#1367](https://github.com/soutaro/steep/pull/1367))
+* Send server version to client ([#1341](https://github.com/soutaro/steep/pull/1341))
+* Add custom methods to trigger type check manually ([#1340](https://github.com/soutaro/steep/pull/1340))
+* Type check thread helpers ([#1335](https://github.com/soutaro/steep/pull/1335))
+* Use `URI::RFC2396_Parser` ([#1329](https://github.com/soutaro/steep/pull/1329))
+* Handle file deletion notification ([#1300](https://github.com/soutaro/steep/pull/1300))
+* Refactor communication between master and type check worker ([#1285](https://github.com/soutaro/steep/pull/1285))
+* Skip sending response to `$/steep/typecheck` request from `steep langserver` ([#1267](https://github.com/soutaro/steep/pull/1267))
+
+### Miscellaneous
+
+* Use rbs-3.7 ([#1383](https://github.com/soutaro/steep/pull/1383))
+* Move diagnostic docs ([#1370](https://github.com/soutaro/steep/pull/1370))
+* Add anchor ([#1359](https://github.com/soutaro/steep/pull/1359))
+* Update example to not use `^` as a hash function ([#1360](https://github.com/soutaro/steep/pull/1360))
+* doc: Add diagnostics for Ruby page ([#1249](https://github.com/soutaro/steep/pull/1249))
+* Update filename example in initial Steepfile ([#1230](https://github.com/soutaro/steep/pull/1230))
+* docs: Add document for steep:ignore comment ([#1353](https://github.com/soutaro/steep/pull/1353))
+* docs: Add document for type assertion and type application ([#1235](https://github.com/soutaro/steep/pull/1235))
+* Print test names in CI for investigation ([#1354](https://github.com/soutaro/steep/pull/1354))
+* Fix typo ([#1352](https://github.com/soutaro/steep/pull/1352))
+* Set up type checking tests ([#1339](https://github.com/soutaro/steep/pull/1339))
+* Fix typo ([#1248](https://github.com/soutaro/steep/pull/1248))
+
+## 1.8.3 (2024-10-29)
+
+### Type checker core
+
+* Fix untyped hash typing ([#1299](https://github.com/soutaro/steep/pull/1299), Backport in [#1301](https://github.com/soutaro/steep/pull/1301))
+
+### Language server
+
+* Handle file deletion notification ([#1300](https://github.com/soutaro/steep/pull/1300), Backport in [#1301](https://github.com/soutaro/steep/pull/1301))
+
+## 1.8.2 (2024-10-24)
+
+### Language server
+
+* Ignore `didChangeWatchedFiles notification` for open files ([#1290](https://github.com/soutaro/steep/pull/1290))
+
+## 1.8.1 (2024-10-08)
+
+### Language server
+
+* Skip sending response to `$/steep/typecheck` request from `steep langserver` ([#1268](https://github.com/soutaro/steep/pull/1268), backport [#1267](https://github.com/soutaro/steep/pull/1267))
+
 ## 1.8.0 (2024-09-30)
 
 ### Type checker core

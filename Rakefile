@@ -48,6 +48,7 @@ task :changelog do
     "list",
     "--json",
     "url,title,number",
+    "--limit=100",
     "--search" ,
     "milestone:\"#{milestone}\" is:merged sort:updated-desc -label:Released"
   ]
