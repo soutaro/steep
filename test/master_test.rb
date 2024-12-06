@@ -659,7 +659,7 @@ end
                 message: "Cannot find the declaration of class: `Foo`"
               }
             ],
-            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))&.map { _1.except(:codeDescription) }
           )
           assert_equal(
             [
@@ -673,7 +673,7 @@ end
                 message: "Cannot find the declaration of class: `Bar`"
               }
             ],
-            ui.diagnostics_for(project.absolute_path(Pathname("lib/bar.rb")))
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/bar.rb")))&.map { _1.except(:codeDescription) }
           )
         end
       end
@@ -731,7 +731,7 @@ end
                 message: "Cannot find the declaration of class: `Foo`"
               }
             ],
-            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))&.map { _1.except(:codeDescription) }
           )
         end
 
