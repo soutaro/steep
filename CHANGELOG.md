@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 1.8.3 (2024-10-29)
+
+### Type checker core
+
+* Fix untyped hash typing ([#1299](https://github.com/soutaro/steep/pull/1299), Backport in [#1301](https://github.com/soutaro/steep/pull/1301))
+
+### Language server
+
+* Handle file deletion notification ([#1300](https://github.com/soutaro/steep/pull/1300), Backport in [#1301](https://github.com/soutaro/steep/pull/1301))
+
+## 1.8.2 (2024-10-24)
+
+### Language server
+
+* Ignore `didChangeWatchedFiles notification` for open files ([#1290](https://github.com/soutaro/steep/pull/1290))
+
+## 1.8.1 (2024-10-08)
+
+### Language server
+
+* Skip sending response to `$/steep/typecheck` request from `steep langserver` ([#1268](https://github.com/soutaro/steep/pull/1268), backport [#1267](https://github.com/soutaro/steep/pull/1267))
+
 ## 1.8.0 (2024-09-30)
 
 ### Type checker core
