@@ -10428,16 +10428,24 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
 
           def bar(...) end
           def baz(...) end
+
+          def qux(...)
+            bar(...)
+          end
         end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _, context = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::IncompatibleArgumentForwarding, error
             assert_equal :baz, error.method_name
+          end
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleArgumentForwarding, error
+            assert_equal :bar, error.method_name
           end
         end
       end
@@ -10463,16 +10471,24 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
 
           def bar(...) end
           def baz(...) end
+
+          def qux(...)
+            bar(...)
+          end
         end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _, context = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::IncompatibleArgumentForwarding, error
             assert_equal :baz, error.method_name
+          end
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleArgumentForwarding, error
+            assert_equal :bar, error.method_name
           end
         end
       end
