@@ -11,7 +11,7 @@ class InterfaceTest < Minitest::Test
   end
 
   def subtyping
-    @subtyping ||= Subtyping::Check.new(builder: Interface::Builder.new(factory))
+    @subtyping ||= Subtyping::Check.new(builder: Interface::Builder.new(factory, implicitly_returns_nil: true))
   end
 
   def test_method_type_params_plus

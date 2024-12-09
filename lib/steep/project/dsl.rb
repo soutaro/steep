@@ -119,6 +119,7 @@ module Steep
         attr_reader :project
         attr_reader :unreferenced
         attr_reader :groups
+        attr_reader :implicitly_returns_nil
 
         def initialize(name, project:)
           @name = name
@@ -127,6 +128,7 @@ module Steep
           @project = project
           @collection_config_path = collection_config_path
           @unreferenced = false
+          @implicitly_returns_nil = false
           @groups = []
         end
 
@@ -144,11 +146,16 @@ module Steep
           @project = other.project
           @collection_config_path = other.collection_config_path
           @unreferenced = other.unreferenced
+          @implicitly_returns_nil = other.implicitly_returns_nil
           @groups = other.groups.dup
         end
 
         def unreferenced!(value = true)
           @unreferenced = value
+        end
+
+        def implicitly_returns_nil!(value = true)
+          @implicitly_returns_nil = value
         end
 
         def configure_code_diagnostics(hash = nil)
@@ -245,7 +252,8 @@ module Steep
           options: dsl.library_configured? ? dsl.to_library_options : nil,
           code_diagnostics_config: dsl.code_diagnostics_config,
           project: project,
-          unreferenced: dsl.unreferenced
+          unreferenced: dsl.unreferenced,
+          implicitly_returns_nil: dsl.implicitly_returns_nil
         )
 
         dsl.groups.each do

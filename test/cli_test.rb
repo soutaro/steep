@@ -385,6 +385,27 @@ end
     end
   end
 
+  def test_check__implicitly_returns_nil
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  implicitly_returns_nil!
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+array = [1,2,3]
+array[0] + 1
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      refute_predicate status, :success?, stdout
+      assert_includes stdout, "foo.rb:2:9: [error]"
+    end
+  end
+
   def test_check_broken
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
