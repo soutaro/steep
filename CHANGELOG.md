@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.9.1 (2024-12-09)
+
+### Type checker core
+
+* Make `implicitly-returns-nil` opt-in ([#1396](https://github.com/soutaro/steep/pull/1396))
+
 ## 1.9.0 (2024-12-06)
 
 ### Type checker core
