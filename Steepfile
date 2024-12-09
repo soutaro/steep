@@ -23,6 +23,8 @@ target :app do
   signature "sig"
   ignore_signature "sig/test"
 
+  implicitly_returns_nil!
+
   configure_code_diagnostics(D::Ruby.strict) do |hash|
   end
 
@@ -37,6 +39,7 @@ target :test do
   collection_config "rbs_collection.steep.yaml"
 
   unreferenced!
+  implicitly_returns_nil!
 
   check "test"
   signature "sig/test"
@@ -52,6 +55,7 @@ end
 
 target :bin do
   unreferenced!
+  implicitly_returns_nil!
 
   collection_config "rbs_collection.steep.yaml"
 
