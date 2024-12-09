@@ -3,5 +3,7 @@ target :test do
   signature "*.rbs"
   library "tsort"
 
+  implicitly_returns_nil! true
+
   configure_code_diagnostics(Steep::Diagnostic::Ruby.all_error)
 end

@@ -25,7 +25,7 @@ class TypeCheckTest < Minitest::Test
     typings = {}
 
     with_factory(signatures, nostdlib: false) do |factory|
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
       subtyping = Subtyping::Check.new(builder: builder)
 
       code.each do |path, content|

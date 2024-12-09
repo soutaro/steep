@@ -185,7 +185,7 @@ module Steep
         loader = Services::FileLoader.new(base_dir: project.base_dir)
 
         project.targets.each do |target|
-          signature_service = Services::SignatureService.load_from(target.new_env_loader())
+          signature_service = Services::SignatureService.load_from(target.new_env_loader(), implicitly_returns_nil: target.implicitly_returns_nil)
           files.add_library_path(target, *signature_service.env_rbs_paths.to_a)
         end
 

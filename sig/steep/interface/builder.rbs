@@ -51,7 +51,9 @@ module Steep
 
       attr_reader singleton_shape_cache: Hash[TypeName, Shape?]
 
-      def initialize: (AST::Types::Factory) -> void
+      attr_reader implicitly_returns_nil: bool
+
+      def initialize: (AST::Types::Factory, implicitly_returns_nil: bool) -> void
 
       # Returns a shape of given type with respect to Config
       #

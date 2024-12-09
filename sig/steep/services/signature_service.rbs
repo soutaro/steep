@@ -57,13 +57,15 @@ module Steep
 
         attr_reader builder: RBS::DefinitionBuilder
 
+        attr_reader implicitly_returns_nil: bool
+
         @rbs_index: Index::RBSIndex?
 
         @subtyping: Subtyping::Check?
 
         @constant_resolver: RBS::Resolver::ConstantResolver?
 
-        def initialize: (files: Hash[Pathname, FileStatus], builder: RBS::DefinitionBuilder) -> void
+        def initialize: (files: Hash[Pathname, FileStatus], builder: RBS::DefinitionBuilder, implicitly_returns_nil: bool) -> void
 
         def subtyping: () -> Subtyping::Check
 
@@ -94,9 +96,11 @@ module Steep
         ) -> void
       end
 
-      def initialize: (env: RBS::Environment) -> void
+      attr_reader implicitly_returns_nil: bool
 
-      def self.load_from: (RBS::EnvironmentLoader loader) -> SignatureService
+      def initialize: (env: RBS::Environment, implicitly_returns_nil: bool) -> void
+
+      def self.load_from: (RBS::EnvironmentLoader loader, implicitly_returns_nil: bool) -> SignatureService
 
       @env_rbs_paths: Set[Pathname]?
 

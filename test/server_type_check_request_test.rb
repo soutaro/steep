@@ -63,7 +63,7 @@ class ServerTypeCheckRequestTest < Minitest::Test
 
   def test_progress
     in_tmpdir do
-      target = Steep::Project::Target.new(name: :lib, options: nil, source_pattern: nil, signature_pattern: nil, code_diagnostics_config: nil, project: nil, unreferenced: false)
+      target = Steep::Project::Target.new(name: :lib, options: nil, source_pattern: nil, signature_pattern: nil, code_diagnostics_config: nil, project: nil, unreferenced: false, implicitly_returns_nil: true)
 
       request = Server::TypeCheckController::Request.new(guid: "guid", progress: Server::WorkDoneProgress.new("guid"))
       request.library_paths << [:lib, RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"]

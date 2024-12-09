@@ -451,7 +451,7 @@ end
     end
 
     with_factory(paths, nostdlib: !with_stdlib) do |factory|
-      builder = Steep::Interface::Builder.new(factory)
+      builder = Steep::Interface::Builder.new(factory, implicitly_returns_nil: true)
       @checker = Steep::Subtyping::Check.new(builder: builder)
       yield @checker
     ensure

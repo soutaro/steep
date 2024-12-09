@@ -79,6 +79,8 @@ module Steep
 
         attr_reader groups: Array[GroupDSL]
 
+        attr_reader implicitly_returns_nil: bool
+
         include LibraryOptions
 
         include WithPattern
@@ -94,6 +96,10 @@ module Steep
         # Use this for test targets so that editing files in this target doesn't involve type checking other targets.
         #
         def unreferenced!: (?bool) -> void
+
+        # Mark the target implicitly returns nil
+        #
+        def implicitly_returns_nil!: (?bool) -> void
 
         # Configuration of Ruby code diagnostics
         #

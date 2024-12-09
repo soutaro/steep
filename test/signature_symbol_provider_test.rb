@@ -29,7 +29,7 @@ target :lib do
 end
 EOF
 
-      service = Services::SignatureService.load_from(project.targets[0].new_env_loader())
+      service = Services::SignatureService.load_from(project.targets[0].new_env_loader(), implicitly_returns_nil: true)
       service.update(
         {
           Pathname("sig/a.rbs") => [Services::ContentChange.string(<<RBS)]
@@ -106,7 +106,7 @@ target :lib do
 end
 EOF
 
-      service = Services::SignatureService.load_from(project.targets[0].new_env_loader())
+      service = Services::SignatureService.load_from(project.targets[0].new_env_loader(), implicitly_returns_nil: true)
       service.update(
         {
           Pathname("sig/a.rbs") => [Services::ContentChange.string(<<RBS)]
@@ -215,7 +215,7 @@ target :lib do
 end
 EOF
 
-      service = Services::SignatureService.load_from(project.targets[0].new_env_loader())
+      service = Services::SignatureService.load_from(project.targets[0].new_env_loader(), implicitly_returns_nil: true)
       service.update(
         {
           Pathname("sig/a.rbs") => [Services::ContentChange.string(<<RBS)]

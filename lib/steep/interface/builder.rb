@@ -54,13 +54,14 @@ module Steep
         end
       end
 
-      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache
+      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :implicitly_returns_nil
 
-      def initialize(factory)
+      def initialize(factory, implicitly_returns_nil:)
         @factory = factory
         @object_shape_cache = {}
         @union_shape_cache = {}
         @singleton_shape_cache = {}
+        @implicitly_returns_nil = implicitly_returns_nil
       end
 
       def shape(type, config)
@@ -826,6 +827,8 @@ module Steep
       end
 
       def add_implicitly_returns_nil(annotations, method_type)
+        return method_type unless implicitly_returns_nil
+        
         if annotations.find { _1.string == "implicitly-returns-nil" }
           return_type = method_type.type.return_type
           method_type = method_type.with(

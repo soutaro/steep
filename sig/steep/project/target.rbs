@@ -11,13 +11,26 @@ module Steep
 
       attr_reader code_diagnostics_config: untyped
 
+      # Whether this target is returns optional type if `implicitly-returns-nil` annotation is given
+      #
+      attr_reader implicitly_returns_nil: bool
+
       attr_reader project: Project
 
       attr_reader unreferenced: bool
 
       attr_reader groups: Array[Group]
 
-      def initialize: (name: Symbol, options: Options?, source_pattern: Pattern, signature_pattern: Pattern, code_diagnostics_config: untyped, project: Project, unreferenced: bool) -> void
+      def initialize: (
+        name: Symbol,
+        options: Options?,
+        source_pattern: Pattern,
+        signature_pattern: Pattern,
+        code_diagnostics_config: untyped,
+        project: Project,
+        unreferenced: bool,
+        implicitly_returns_nil: bool
+      ) -> void
 
       # The options that applies to this target
       #

@@ -10,7 +10,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
   def type_check(content)
     source = Source.parse(content, path: Pathname("a.rb"), factory: factory)
-    builder = Interface::Builder.new(factory)
+    builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
     subtyping = Subtyping::Check.new(builder: builder)
     resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
     Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: nil)
