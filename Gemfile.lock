@@ -16,6 +16,7 @@ PATH
       securerandom (>= 0.1)
       strscan (>= 1.0.0)
       terminal-table (>= 2, < 4)
+      uri (>= 0.12.0)
 
 GEM
   remote: https://rubygems.org/

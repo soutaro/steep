@@ -51,4 +51,5 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "fileutils", ">= 1.1.0"
   spec.add_runtime_dependency "strscan", ">= 1.0.0"
   spec.add_runtime_dependency "csv", ">= 3.0.9"
+  spec.add_runtime_dependency "uri", ">= 0.12.0"
 end
