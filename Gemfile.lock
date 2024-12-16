@@ -21,7 +21,7 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (8.0.0.1)
+    activesupport (8.0.1)
       base64
       benchmark (>= 0.3)
       bigdecimal
@@ -85,7 +85,7 @@ GEM
       psych (>= 4.0.0)
     reline (0.5.12)
       io-console (~> 0.5)
-    securerandom (0.4.0)
+    securerandom (0.4.1)
     stackprof (0.2.26)
     stringio (3.1.2)
     strscan (3.1.1)
