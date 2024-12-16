@@ -779,6 +779,47 @@ next 123 #: Integer?
     end
   end
 
+  def test_assertion__kwargs
+    with_factory do |factory|
+      source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+        foo(
+          a: "", #: ""
+          b: [], #: Array[String]
+          c: ""
+        )
+      RUBY
+
+      _receiver, _name, *args = source.node.children
+      args[0].tap do |kwargs|
+        assert_equal :kwargs, kwargs.type
+
+        kwargs.children[0].tap do |pair|
+          assert_equal :pair, pair.type
+          key, value = pair.children
+
+          assert_equal :sym, key.type
+          assert_equal :assertion, value.type
+        end
+
+        kwargs.children[1].tap do |pair|
+          assert_equal :pair, pair.type
+          key, value = pair.children
+
+          assert_equal :sym, key.type
+          assert_equal :assertion, value.type
+        end
+
+        kwargs.children[2].tap do |pair|
+          assert_equal :pair, pair.type
+          key, value = pair.children
+
+          assert_equal :sym, key.type
+          assert_equal :str, value.type
+        end
+      end
+    end
+  end
+
   def test_tapp_send
     with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
 class Tapp

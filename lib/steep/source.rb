@@ -496,6 +496,14 @@ module Steep
             # Skip
           when :def, :defs
             # Skip
+          when :kwargs
+            # skip
+          when :pair
+            key, value = node.children
+            key = insert_type_node(key, comments.except(last_line))
+            value = insert_type_node(value, comments)
+            node = node.updated(nil, [key, value])
+            return adjust_location(node)
           when :masgn
             lhs, rhs = node.children
             node = node.updated(nil, [lhs, insert_type_node(rhs, comments)])
