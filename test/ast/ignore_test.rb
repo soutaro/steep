@@ -108,4 +108,19 @@ class AST__IgnoreTest < Minitest::Test
       assert_equal "steep:ignore Foo, Bar,", ignore.location.source
     end
   end
+
+  def test_parse_ignore__crlf
+    _, comments, buf = parse(<<~RUBY)
+      \r
+      # steep:ignore Foo
+      # steep:ignore Foo, Bar,
+    RUBY
+    Steep::AST::Ignore.parse(comments[0], buf).tap do |ignore|
+      assert_instance_of Ignore::IgnoreLine, ignore
+    end
+
+    Steep::AST::Ignore.parse(comments[1], buf).tap do |ignore|
+      assert_instance_of Ignore::IgnoreLine, ignore
+    end
+  end
 end
