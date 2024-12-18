@@ -95,7 +95,7 @@ GEM
       concurrent-ruby (~> 1.0)
     unicode-display_width (2.6.0)
     uri (1.0.2)
-    vernier (1.4.0)
+    vernier (1.5.0)
 
 PLATFORMS
   ruby
@@ -110,7 +110,7 @@ DEPENDENCIES
   rake
   stackprof
   steep!
-  vernier (~> 1.4)
+  vernier (~> 1.5)
 
 BUNDLED WITH
    2.5.17
