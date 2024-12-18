@@ -70,7 +70,7 @@ GEM
     parser (3.3.6.0)
       ast (~> 2.4.1)
       racc
-    psych (5.2.1)
+    psych (5.2.2)
       date
       stringio
     racc (1.8.1)
@@ -81,7 +81,7 @@ GEM
       ffi (~> 1.0)
     rbs (3.7.0)
       logger
-    rdoc (6.9.1)
+    rdoc (6.10.0)
       psych (>= 4.0.0)
     reline (0.6.0)
       io-console (~> 0.5)
