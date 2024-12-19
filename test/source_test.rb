@@ -975,6 +975,21 @@ super { } # $ nil
     end
   end
 
+  def test_selectorless_sendish_node_with_annotation_comment
+    with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
+      RBS
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+        proc{}.() do
+          x #: nil
+        end
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :send, node.type
+      end
+    end
+  end
+
   def test_find_comment
     with_factory() do |factory|
       source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
