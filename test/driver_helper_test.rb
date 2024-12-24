@@ -38,7 +38,7 @@ class DriverHelperTest < Minitest::Test
       RUBY
 
       Test.new.load_config(path: path)
-      refute_match /rbs collection install/, Steep.log_output.string
+      refute_match(/rbs collection install/, Steep.log_output.string)
     end
   end
 
@@ -52,7 +52,7 @@ class DriverHelperTest < Minitest::Test
       RUBY
 
       Test.new.load_config(path: path)
-      refute_match /rbs collection install/, Steep.log_output.string
+      refute_match(/rbs collection install/, Steep.log_output.string)
     end
   end
 
@@ -66,7 +66,7 @@ class DriverHelperTest < Minitest::Test
       RUBY
 
       Test.new.load_config(path: path)
-      assert_match /rbs-collection configuration is missing/, Steep.log_output.string
+      assert_match(/rbs-collection configuration is missing/, Steep.log_output.string)
     end
   end
 
@@ -81,7 +81,7 @@ class DriverHelperTest < Minitest::Test
       current_dir.join("test.yaml").write("[]")
 
       Test.new.load_config(path: path)
-      assert_match /rbs collection install/, Steep.log_output.string
+      assert_match(/rbs collection install/, Steep.log_output.string)
     end
   end
 
@@ -97,8 +97,8 @@ class DriverHelperTest < Minitest::Test
       current_dir.join("test.lock.yaml").write("[")
 
       Test.new.load_config(path: path)
-      assert_match /rbs-collection setup is broken:/, Steep.log_output.string
-      assert_match /syntax error/, Steep.log_output.string
+      assert_match(/rbs-collection setup is broken:/, Steep.log_output.string)
+      assert_match(/syntax error/, Steep.log_output.string)
     end
   end
 
@@ -138,7 +138,7 @@ class DriverHelperTest < Minitest::Test
 
       Test.new.load_config(path: path)
 
-      assert_match /Installing RBS files for collection: /, Steep.log_output.string
+      assert_match(/Installing RBS files for collection: /, Steep.log_output.string)
     end
   end
 
@@ -180,7 +180,7 @@ class DriverHelperTest < Minitest::Test
       test.disable_install_collection = true
       test.load_config(path: path)
 
-      assert_match /rbs collection install/, Steep.log_output.string
+      assert_match(/rbs collection install/, Steep.log_output.string)
     end
   end
 
@@ -221,7 +221,7 @@ class DriverHelperTest < Minitest::Test
       test = Test.new
       test.load_config(path: path)
 
-      assert_match /Failed to set up RBS collection:/, Steep.log_output.string
+      assert_match(/Failed to set up RBS collection:/, Steep.log_output.string)
     end
   end
 end

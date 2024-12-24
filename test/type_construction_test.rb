@@ -7049,7 +7049,7 @@ r = x.map(&method(:my_to_s))
         assert_typing_error typing, size: 1 do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::BlockTypeMismatch, error
-            assert /^\^\(::Integer\) -> X\(\d+\)$/ =~ error.expected.to_s
+            assert (/^\^\(::Integer\) -> X\(\d+\)$/ =~ error.expected.to_s)
             assert_equal parse_type("^(::String) -> ::String"), error.actual
           end
         end
