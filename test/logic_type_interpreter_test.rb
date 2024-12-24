@@ -96,7 +96,7 @@ end
         return_type: parse_type("::String?")
       )
 
-      typing = Typing.new(source: source, root_context: nil, cursor: nil, cursor: nil)
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), parse_type("::String?"), nil)
       typing.add_typing(dig(node, 1), parse_type("::String?"), nil)
       typing.add_typing(dig(node, 1, 0), parse_type("::Article"), nil)
