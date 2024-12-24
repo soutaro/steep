@@ -172,7 +172,7 @@ module Steep
 
         setup_jobs_for_ci(command.jobs_option)
 
-        command.command_line_patterns.push *argv
+        command.command_line_patterns.push(*argv)
       end.run
     end
 
@@ -197,7 +197,7 @@ module Steep
 
         setup_jobs_for_ci(command.jobs_option)
 
-        command.command_line_args.push *argv
+        command.command_line_args.push(*argv)
       end.run
     end
 
@@ -214,7 +214,7 @@ module Steep
 
         setup_jobs_for_ci(command.jobs_option)
 
-        command.command_line_patterns.push *argv
+        command.command_line_patterns.push(*argv)
       end.run
     end
 
@@ -230,7 +230,7 @@ module Steep
           handle_logging_options opts
         end.parse!(argv)
 
-        command.command_line_patterns.push *argv
+        command.command_line_patterns.push(*argv)
       end.run
     end
 
