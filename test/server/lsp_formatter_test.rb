@@ -241,10 +241,14 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
           ----
           ### 📚 Array#compact
 
-          Returns a new Array containing all non-`nil` elements from `self`:
+          Returns a new array containing only the non-`nil` elements from `self`;
+          element order is preserved:
 
-              a = [nil, 0, nil, 1, nil, 2, nil]
-              a.compact # => [0, 1, 2]
+              a = [nil, 0, nil, false, nil, '', nil, [], nil, {}]
+              a.compact # => [0, false, \"\", [], {}]
+
+          Related: Array#compact!; see also [Methods for
+          Deleting](rdoc-ref:Array@Methods+for+Deleting).
 
 
         MD
@@ -303,7 +307,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
         node: nil,
         method_name: MethodName("::HoverMethodCallTest#foo"),
         method_type: parse_method_type("(::String | nil) -> (::Integer | ::String)"),
-        definition: factory.definition_builder.build_instance(TypeName("::HoverMethodCallTest")).methods[:foo],
+        definition: factory.definition_builder.build_instance(RBS::TypeName.parse("::HoverMethodCallTest")).methods[:foo],
         location: nil
       )
 
@@ -342,7 +346,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
         node: nil,
         method_name: MethodName("::HoverMethodCallTest.foo"),
         method_type: parse_method_type("(::Symbol | ::String | ::Integer | nil) -> (::Integer | ::String | ::Symbol)"),
-        definition: factory.definition_builder.build_singleton(TypeName("::HoverMethodCallTest")).methods[:foo],
+        definition: factory.definition_builder.build_singleton(RBS::TypeName.parse("::HoverMethodCallTest")).methods[:foo],
         location: nil
       )
 
@@ -382,9 +386,9 @@ class ClassHover[A < String] < BasicObject
 end
 RBS
       content = Services::HoverProvider::Ruby::ConstantContent.new(
-        full_name: TypeName("::ClassHover"),
+        full_name: RBS::TypeName.parse("::ClassHover"),
         type: parse_type("singleton(::ClassHover)"),
-        decl: factory.env.class_decls[TypeName("::ClassHover")],
+        decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")],
         location: nil
       )
 
@@ -408,9 +412,9 @@ RBS
         end
       RBS
       content = Services::HoverProvider::Ruby::ConstantContent.new(
-        full_name: TypeName("::ClassHover"),
+        full_name: RBS::TypeName.parse("::ClassHover"),
         type: parse_type("singleton(::ClassHover)"),
-        decl: factory.env.class_decls[TypeName("::ClassHover")],
+        decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")],
         location: nil
       )
 
@@ -440,9 +444,9 @@ RBS
       RBS
 
       content = Services::HoverProvider::Ruby::ConstantContent.new(
-        full_name: TypeName("::ClassHover"),
+        full_name: RBS::TypeName.parse("::ClassHover"),
         type: parse_type("singleton(::ClassHover)"),
-        decl: factory.env.class_decls[TypeName("::ClassHover")],
+        decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")],
         location: nil
       )
 
@@ -473,7 +477,7 @@ RBS
       RBS
 
       Services::HoverProvider::RBS::ClassContent.new(
-        decl: factory.env.class_decls[TypeName("::HelloWorld")].primary.decl,
+        decl: factory.env.class_decls[RBS::TypeName.parse("::HelloWorld")].primary.decl,
         location: nil
       ).tap do |content|
         comment = Server::LSPFormatter.format_hover_content(content)
@@ -498,7 +502,7 @@ RBS
       RBS
 
       content = Services::HoverProvider::RBS::ClassContent.new(
-        decl: factory.env.class_decls[TypeName("::ClassHover")].primary.decl,
+        decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")].primary.decl,
         location: nil
       )
 
@@ -523,9 +527,9 @@ RBS
       RBS
 
       content = Services::HoverProvider::Ruby::ConstantContent.new(
-        full_name: TypeName("::ClassHover::VERSION"),
+        full_name: RBS::TypeName.parse("::ClassHover::VERSION"),
         type: parse_type("::String"),
-        decl: factory.env.constant_decls[TypeName("::ClassHover::VERSION")],
+        decl: factory.env.constant_decls[RBS::TypeName.parse("::ClassHover::VERSION")],
         location: nil
       )
 
@@ -589,7 +593,7 @@ RBS
       RBS
 
       Services::HoverProvider::RBS::TypeAliasContent.new(
-        decl: factory.env.type_alias_decls[TypeName("::foo")].decl,
+        decl: factory.env.type_alias_decls[RBS::TypeName.parse("::foo")].decl,
         location: nil
       ).tap do |content|
         comment = Server::LSPFormatter.format_hover_content(content)
@@ -601,7 +605,7 @@ RBS
       end
 
       Services::HoverProvider::RBS::TypeAliasContent.new(
-        decl: factory.env.type_alias_decls[TypeName("::bar")].decl,
+        decl: factory.env.type_alias_decls[RBS::TypeName.parse("::bar")].decl,
         location: nil
       ).tap do |content|
         comment = Server::LSPFormatter.format_hover_content(content)
@@ -631,7 +635,7 @@ RBS
       RBS
 
       Services::HoverProvider::RBS::InterfaceContent.new(
-        decl: factory.env.interface_decls[TypeName("::_HelloWorld")].decl,
+        decl: factory.env.interface_decls[RBS::TypeName.parse("::_HelloWorld")].decl,
         location: nil
       ).tap do |content|
         comment = Server::LSPFormatter.format_hover_content(content)
@@ -648,7 +652,7 @@ RBS
       end
 
       Services::HoverProvider::RBS::InterfaceContent.new(
-        decl: factory.env.interface_decls[TypeName("::_HelloWorld2")].decl,
+        decl: factory.env.interface_decls[RBS::TypeName.parse("::_HelloWorld2")].decl,
         location: nil
       ).tap do |content|
         comment = Server::LSPFormatter.format_hover_content(content)
@@ -701,7 +705,7 @@ RBS
         identifier: :Foo,
         range: nil,
         type: parse_type("::String | ::Symbol"),
-        full_name: TypeName("::Foo")
+        full_name: RBS::TypeName.parse("::Foo")
       ).tap do |item|
         comment = Server::LSPFormatter.format_completion_docs(item)
         assert_equal <<~MD, comment
@@ -724,7 +728,7 @@ RBS
         identifier: :Foo,
         range: nil,
         type: parse_type("::String | ::Symbol"),
-        full_name: TypeName("::Foo")
+        full_name: RBS::TypeName.parse("::Foo")
       ).tap do |item|
         comment = Server::LSPFormatter.format_completion_docs(item)
         assert_equal <<~MD, comment
@@ -756,7 +760,7 @@ RBS
         identifier: :Foo,
         range: nil,
         type: parse_type("singleton(::Foo)"),
-        full_name: TypeName("::Foo")
+        full_name: RBS::TypeName.parse("::Foo")
       ).tap do |item|
         comment = Server::LSPFormatter.format_completion_docs(item)
         assert_equal <<~MD, comment
@@ -783,7 +787,7 @@ RBS
       end
       RBS
 
-      definition = factory.definition_builder.build_instance(TypeName("::Foo"))
+      definition = factory.definition_builder.build_instance(RBS::TypeName.parse("::Foo"))
       method = definition.methods[:foo]
 
       Services::CompletionProvider::SimpleMethodNameItem.new(
@@ -814,7 +818,7 @@ RBS
       end
       RBS
 
-      definition = factory.definition_builder.build_instance(TypeName("::Foo"))
+      definition = factory.definition_builder.build_instance(RBS::TypeName.parse("::Foo"))
       method = definition.methods[:foo]
 
       Services::CompletionProvider::SimpleMethodNameItem.new(
@@ -861,21 +865,21 @@ RBS
 
       method_decls = []
 
-      factory.definition_builder.build_instance(TypeName("::Foo")).methods[:foo].defs.each do |defn|
+      factory.definition_builder.build_instance(RBS::TypeName.parse("::Foo")).methods[:foo].defs.each do |defn|
         method_decls << MethodDecl.new(
           method_name: MethodName("::Foo#foo"),
           method_def: defn
         )
       end
 
-      factory.definition_builder.build_instance(TypeName("::Bar")).methods[:foo].defs.each do |defn|
+      factory.definition_builder.build_instance(RBS::TypeName.parse("::Bar")).methods[:foo].defs.each do |defn|
         method_decls << MethodDecl.new(
           method_name: MethodName("::Bar#foo"),
           method_def: defn
         )
       end
 
-      factory.definition_builder.build_instance(TypeName("::Baz")).methods[:foo].defs.each do |defn|
+      factory.definition_builder.build_instance(RBS::TypeName.parse("::Baz")).methods[:foo].defs.each do |defn|
         method_decls << MethodDecl.new(
           method_name: MethodName("::Baz#foo"),
           method_def: defn
@@ -943,9 +947,9 @@ RBS
         end
       RBS
 
-      decl = factory.env.class_decls[TypeName("::RBSCompletionTest")].primary.decl
+      decl = factory.env.class_decls[RBS::TypeName.parse("::RBSCompletionTest")].primary.decl
 
-      comment = Server::LSPFormatter.format_rbs_completion_docs(TypeName("::RBSCompletionTest"), decl, [decl.comment])
+      comment = Server::LSPFormatter.format_rbs_completion_docs(RBS::TypeName.parse("::RBSCompletionTest"), decl, [decl.comment])
 
       assert_equal <<~MD, comment
         ```rbs

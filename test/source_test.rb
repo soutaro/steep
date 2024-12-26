@@ -55,7 +55,7 @@ Foo::Bar.new
       # module
       source.annotations(block: dig(source.node, 0),
                          factory: factory,
-                         context: [nil, TypeName("::Foo")]).yield_self do |annotations|
+                         context: [nil, RBS::TypeName.parse("::Foo")]).yield_self do |annotations|
         assert_any annotations do |a|
           a == A::VarType.new(name: :x2, type: T::Any.new)
         end
@@ -67,7 +67,7 @@ Foo::Bar.new
 
       source.annotations(block: dig(source.node, 0, 1),
                          factory: factory,
-                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
+                         context: [nil, RBS::TypeName.parse("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 5, annotations.size
         assert_equal parse_type("::String"), annotations.instance_type
         assert_equal parse_type("singleton(::String)"), annotations.module_type
@@ -77,7 +77,7 @@ Foo::Bar.new
       # def
       source.annotations(block: dig(source.node, 0, 1, 2, 0),
                          factory: factory,
-                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
+                         context: [nil, RBS::TypeName.parse("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 2, annotations.size
         assert_equal T::Any.new, annotations.var_type(lvar: :x4)
         assert_equal T::Any.new, annotations.return_type
@@ -86,7 +86,7 @@ Foo::Bar.new
       # block
       source.annotations(block: dig(source.node, 0, 1, 2, 0, 2),
                          factory: factory,
-                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
+                         context: [nil, RBS::TypeName.parse("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 2, annotations.size
         assert_equal T::Any.new, annotations.var_type(lvar: :x5)
         assert_equal parse_type("::Integer"), annotations.block_type
@@ -433,7 +433,7 @@ end
       EOF
       def_node = dig(source.node, 2)
 
-      annotations = source.annotations(block: def_node, factory: factory, context: [nil, TypeName("::A")])
+      annotations = source.annotations(block: def_node, factory: factory, context: [nil, RBS::TypeName.parse("::A")])
       assert_equal parse_type("::Integer"), annotations.var_type(lvar: :x)
     end
   end

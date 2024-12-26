@@ -22,6 +22,7 @@ require "concurrent/utility/processor_counter"
 require "terminal-table"
 
 require "rbs"
+require "steep/rbs_compat"
 
 require "steep/path_helper"
 require "steep/located_value"
