@@ -135,7 +135,7 @@ class TypeFactoryTest < Minitest::Test
         assert_equal "?{ (Integer) -> void }", type.block.to_s
       end
 
-      factory.type(RBS::Types::Variable.new(name: :T, location: nil)) do |type|
+      factory.type(RBS::Types::Variable.new(name: :T, location: nil)).yield_self do |type|
         assert_instance_of Types::Var, type
         assert_equal :T, type.name
       end
