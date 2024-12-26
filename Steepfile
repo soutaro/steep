@@ -1,3 +1,5 @@
+require "fileutils"
+
 D = Steep::Diagnostic
 
 FileUtils.mkpath("tmp")

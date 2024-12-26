@@ -47,12 +47,12 @@ end
 
 module Steep::AST::Types::Name
   def self.new_singleton(name:)
-    name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
+    name = RBS::TypeName.parse(name.to_s) unless name.is_a?(RBS::TypeName)
     Steep::AST::Types::Name::Singleton.new(name: name)
   end
 
   def self.new_instance(name:, args: [])
-    name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
+    name = RBS::TypeName.parse(name.to_s) unless name.is_a?(RBS::TypeName)
     Steep::AST::Types::Name::Instance.new(name: name, args: args)
   end
 end

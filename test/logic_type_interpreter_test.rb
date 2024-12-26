@@ -367,13 +367,13 @@ end
       interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::String"), nil],
-                   interpreter.type_case_select(parse_type("::String"), TypeName("::String"))
+                   interpreter.type_case_select(parse_type("::String"), RBS::TypeName.parse("::String"))
 
       assert_equal [parse_type("::String"), parse_type("::Integer")],
-                   interpreter.type_case_select(parse_type("::String | ::Integer"), TypeName("::String"))
+                   interpreter.type_case_select(parse_type("::String | ::Integer"), RBS::TypeName.parse("::String"))
 
       assert_equal [nil, parse_type("::String | ::Integer")],
-                   interpreter.type_case_select(parse_type("::String | ::Integer"), TypeName("::Symbol"))
+                   interpreter.type_case_select(parse_type("::String | ::Integer"), RBS::TypeName.parse("::Symbol"))
     end
   end
 
@@ -416,7 +416,7 @@ end
       interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::String"), parse_type("untyped")],
-                   interpreter.type_case_select(parse_type("untyped"), TypeName("::String"))
+                   interpreter.type_case_select(parse_type("untyped"), RBS::TypeName.parse("::String"))
     end
   end
 
@@ -425,7 +425,7 @@ end
       interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::String"), parse_type("top")],
-                   interpreter.type_case_select(parse_type("top"), TypeName("::String"))
+                   interpreter.type_case_select(parse_type("top"), RBS::TypeName.parse("::String"))
     end
   end
 
@@ -443,7 +443,7 @@ end
       interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::TestChild1"), parse_type("::String")],
-                   interpreter.type_case_select(parse_type("::TestChild1 | ::String"), TypeName("::TestParent"))
+                   interpreter.type_case_select(parse_type("::TestChild1 | ::String"), RBS::TypeName.parse("::TestParent"))
     end
   end
 
@@ -465,16 +465,16 @@ type dm = ms | ds
       interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
       assert_equal [parse_type("::M1"), parse_type("::M2 | ::M3")],
-                   interpreter.type_case_select(parse_type("::ms"), TypeName("::M1"))
+                   interpreter.type_case_select(parse_type("::ms"), RBS::TypeName.parse("::M1"))
 
       assert_equal [parse_type("::M1"), parse_type("::M2 | ::M3 | ::ds")],
-                   interpreter.type_case_select(parse_type("::dm"), TypeName("::M1"))
+                   interpreter.type_case_select(parse_type("::dm"), RBS::TypeName.parse("::M1"))
 
       assert_equal [parse_type("::M1 | ::M2 | ::M3"), parse_type("::ds")],
-                   interpreter.type_case_select(parse_type("::dm"), TypeName("::M"))
+                   interpreter.type_case_select(parse_type("::dm"), RBS::TypeName.parse("::M"))
 
       assert_equal [parse_type("::D2"), parse_type("::ms | ::D1")],
-                   interpreter.type_case_select(parse_type("::dm"), TypeName("::D2"))
+                   interpreter.type_case_select(parse_type("::dm"), RBS::TypeName.parse("::D2"))
     end
   end
 end

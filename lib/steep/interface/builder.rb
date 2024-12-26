@@ -786,7 +786,7 @@ module Steep
               RBS::BuiltinNames::Symbol.name,
               RBS::BuiltinNames::TrueClass.name,
               RBS::BuiltinNames::FalseClass.name,
-              TypeName("::NilClass")
+              RBS::TypeName.parse("::NilClass")
               # Value based type-case works on literal types which is available for String, Integer, Symbol, TrueClass, FalseClass, and NilClass
               return method_type.with(
                 type: method_type.type.with(
@@ -828,7 +828,7 @@ module Steep
 
       def add_implicitly_returns_nil(annotations, method_type)
         return method_type unless implicitly_returns_nil
-        
+
         if annotations.find { _1.string == "implicitly-returns-nil" }
           return_type = method_type.type.return_type
           method_type = method_type.with(

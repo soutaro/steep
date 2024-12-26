@@ -62,7 +62,7 @@ module Steep
       end
 
       def to_s
-        buf = ""
+        buf = +""
 
         if unchecked
           buf << "unchecked "

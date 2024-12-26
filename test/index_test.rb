@@ -39,7 +39,7 @@ HelloWorld.new()
         construction.synthesize(source.node)
         assert_no_error typing
 
-        typing.source_index.entry(constant: TypeName("::HelloWorld")).tap do |entry|
+        typing.source_index.entry(constant: RBS::TypeName.parse("::HelloWorld")).tap do |entry|
           assert_instance_of SourceIndex::ConstantEntry, entry
 
           assert_node_set entry.definitions,
@@ -50,7 +50,7 @@ HelloWorld.new()
                           [[5, 0], [5, 12]]
         end
 
-        typing.source_index.entry(constant: TypeName("::String")).tap do |entry|
+        typing.source_index.entry(constant: RBS::TypeName.parse("::String")).tap do |entry|
           assert_instance_of SourceIndex::ConstantEntry, entry
 
           assert_node_set entry.definitions
@@ -76,7 +76,7 @@ end
         construction.synthesize(source.node)
         assert_no_error typing
 
-        typing.source_index.entry(constant: TypeName("::HelloWorld")).tap do |entry|
+        typing.source_index.entry(constant: RBS::TypeName.parse("::HelloWorld")).tap do |entry|
           assert_instance_of SourceIndex::ConstantEntry, entry
 
           assert_node_set entry.definitions,
@@ -104,7 +104,7 @@ end
         construction.synthesize(source.node)
         assert_no_error typing
 
-        typing.source_index.entry(constant: TypeName("::HelloWorld::VERSION")).tap do |entry|
+        typing.source_index.entry(constant: RBS::TypeName.parse("::HelloWorld::VERSION")).tap do |entry|
           assert_instance_of SourceIndex::ConstantEntry, entry
 
           assert_node_set entry.definitions,

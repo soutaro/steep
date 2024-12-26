@@ -22,7 +22,7 @@ class AST__Node__TypeApplicationTest < Minitest::Test
       app = Steep::AST::Node::TypeApplication.parse(loc)
 
       assert_equal "Bar", app.type_str
-      app.types([nil, TypeName("::Foo")], checker, []).tap do |types|
+      app.types([nil, RBS::TypeName.parse("::Foo")], checker, []).tap do |types|
         assert_equal 1, types.size
         assert_equal parse_type("::Foo::Bar"), types[0].value
         assert_equal "Bar", types[0].location.source

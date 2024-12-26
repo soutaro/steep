@@ -536,7 +536,7 @@ a, b = []
       RUBY
 
         provider.run(line: 1, column: 17).tap do |items|
-          assert_equal [TypeName("Array")], items.map(&:relative_type_name)
+          assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
     end
@@ -549,7 +549,7 @@ a, b = []
       RUBY
 
         provider.run(line: 1, column: 12).tap do |items|
-          assert_equal [TypeName("Array")], items.map(&:relative_type_name)
+          assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
     end
@@ -563,7 +563,7 @@ a, b = []
       RUBY
 
         provider.run(line: 1, column: 33).tap do |items|
-          assert_equal [TypeName("Array")], items.map(&:relative_type_name)
+          assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
     end

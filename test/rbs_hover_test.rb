@@ -176,7 +176,7 @@ RBS
         assert_instance_of RBS::Location, content.location
         assert_equal "Object", content.location.source
         assert_instance_of RBS::AST::Declarations::Class, content.decl
-        assert_equal TypeName("::Object"), content.decl.name
+        assert_equal RBS::TypeName.parse("::Object"), content.decl.name
       end
 
       hover.content_for(target: target, path: Pathname("hello.rbs"), line: 2, column: 6).tap do |content|
@@ -184,7 +184,7 @@ RBS
         assert_instance_of RBS::Location, content.location
         assert_equal "Thread::", content.location.source
         assert_instance_of RBS::AST::Declarations::Class, content.decl
-        assert_equal TypeName("::Thread"), content.decl.name
+        assert_equal RBS::TypeName.parse("::Thread"), content.decl.name
       end
     end
   end

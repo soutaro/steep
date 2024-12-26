@@ -1004,10 +1004,10 @@ class Person end
       source = parse_ruby("class Person; end")
 
       with_standard_construction(checker, source) do |construction, typing|
-        for_class = construction.for_class(source.node, TypeName("::Person"), nil)
+        for_class = construction.for_class(source.node, RBS::TypeName.parse("::Person"), nil)
 
         assert_equal(
-          Annotation::Implements::Module.new(name: TypeName("::Person"), args: []),
+          Annotation::Implements::Module.new(name: RBS::TypeName.parse("::Person"), args: []),
           for_class.module_context.implement_name
         )
         assert_equal parse_type("::Person"), for_class.module_context.instance_type
@@ -1024,7 +1024,7 @@ end
       source = parse_ruby("class Person; end")
 
       with_standard_construction(checker, source) do |construction, typing|
-        for_class = construction.for_class(source.node, TypeName("::Person"), nil)
+        for_class = construction.for_class(source.node, RBS::TypeName.parse("::Person"), nil)
 
         assert_nil for_class.module_context.implement_name
         assert_equal parse_type("::Object"), for_class.module_context.instance_type
@@ -1043,11 +1043,11 @@ end
     EOF
       source = parse_ruby("module Steep; class Names::Module; end; end")
 
-      context = [nil, TypeName("::Steep")]
+      context = [nil, RBS::TypeName.parse("::Steep")]
       annotations = source.annotations(block: source.node, factory: checker.factory, context: context)
       const_env = ConstantEnv.new(
         factory: factory,
-        context: [nil, TypeName("::Steep")],
+        context: [nil, RBS::TypeName.parse("::Steep")],
         resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
       )
       type_env = TypeEnv.new(const_env)
@@ -1080,11 +1080,11 @@ end
                                           context: context,
                                           typing: typing)
 
-      for_module = construction.for_class(module_name_class_node, TypeName("::Steep::Names::Module"), nil)
+      for_module = construction.for_class(module_name_class_node, RBS::TypeName.parse("::Steep::Names::Module"), nil)
 
       assert_equal(
         Annotation::Implements::Module.new(
-          name: TypeName("::Steep::Names::Module"),
+          name: RBS::TypeName.parse("::Steep::Names::Module"),
           args: []
         ),
         for_module.module_context.implement_name)
@@ -1099,10 +1099,10 @@ module Steep end
       source = parse_ruby("module Steep; end")
 
       with_standard_construction(checker, source) do |construction, typing|
-        for_module = construction.for_module(source.node, TypeName("::Steep"))
+        for_module = construction.for_module(source.node, RBS::TypeName.parse("::Steep"))
 
         assert_equal(
-          Annotation::Implements::Module.new(name: TypeName("::Steep"), args: []),
+          Annotation::Implements::Module.new(name: RBS::TypeName.parse("::Steep"), args: []),
           for_module.module_context.implement_name
         )
         assert_equal parse_type("::Object & ::Steep"), for_module.module_context.instance_type
@@ -1121,7 +1121,7 @@ module Rails end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        for_module = construction.for_module(source.node, TypeName("::Steep"))
+        for_module = construction.for_module(source.node, RBS::TypeName.parse("::Steep"))
 
         assert_nil for_module.module_context.implement_name
         assert_equal parse_type("::BasicObject"), for_module.module_context.instance_type
@@ -1138,9 +1138,9 @@ class Steep end
     EOS
       source = parse_ruby("class Steep; module Printable; end; end")
 
-      context = [nil, TypeName("::Steep")]
+      context = [nil, RBS::TypeName.parse("::Steep")]
       annotations = source.annotations(block: source.node, factory: checker.factory, context: context)
-      const_env = ConstantEnv.new(factory: factory, context: [nil, TypeName("::Steep")], resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder))
+      const_env = ConstantEnv.new(factory: factory, context: [nil, RBS::TypeName.parse("::Steep")], resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder))
       type_env = TypeEnv.new(const_env)
 
       module_context = Context::ModuleContext.new(
@@ -1148,7 +1148,7 @@ class Steep end
         module_type: parse_type("singleton(::Steep)"),
         implement_name: nil,
         nesting: const_env.context,
-        class_name: TypeName("::Steep")
+        class_name: RBS::TypeName.parse("::Steep")
       )
 
       context = Context.new(
@@ -1158,7 +1158,7 @@ class Steep end
         break_context: nil,
         self_type: nil,
         type_env: type_env,
-        call_context: MethodCall::ModuleContext.new(type_name: TypeName("::Steep")),
+        call_context: MethodCall::ModuleContext.new(type_name: RBS::TypeName.parse("::Steep")),
         variable_context: Context::TypeVariableContext.empty
       )
       typing = Typing.new(source: source, root_context: context, cursor: nil)
@@ -1171,10 +1171,10 @@ class Steep end
                                           context: context,
                                           typing: typing)
 
-      for_module = construction.for_module(module_node, TypeName("::Steep::Printable"))
+      for_module = construction.for_module(module_node, RBS::TypeName.parse("::Steep::Printable"))
 
       assert_equal(
-        Annotation::Implements::Module.new(name: TypeName("::Steep::Printable"), args: []),
+        Annotation::Implements::Module.new(name: RBS::TypeName.parse("::Steep::Printable"), args: []),
         for_module.module_context.implement_name)
     end
   end
@@ -5518,7 +5518,7 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        class_constr = construction.for_class(source.node, TypeName("::WithSingleton"), nil)
+        class_constr = construction.for_class(source.node, RBS::TypeName.parse("::WithSingleton"), nil)
         type, _ = class_constr.synthesize(dig(source.node, 2, 0))
         sclass_constr = class_constr.for_sclass(dig(source.node, 2), type)
 
@@ -5585,10 +5585,10 @@ end
 
         assert_equal parse_type("::WithSingleton"), module_context.instance_type
         assert_equal parse_type("singleton(::WithSingleton)"), module_context.module_type
-        assert_equal TypeName("::Object"), module_context.class_name
+        assert_equal RBS::TypeName.parse("::Object"), module_context.class_name
         assert_nil module_context.implement_name
-        assert_equal TypeName("::WithSingleton"), module_context.module_definition.type_name
-        assert_equal TypeName("::WithSingleton"), module_context.instance_definition.type_name
+        assert_equal RBS::TypeName.parse("::WithSingleton"), module_context.module_definition.type_name
+        assert_equal RBS::TypeName.parse("::WithSingleton"), module_context.instance_definition.type_name
 
         construction.synthesize(source.node)
 

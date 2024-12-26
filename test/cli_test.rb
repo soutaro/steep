@@ -517,7 +517,7 @@ RUBY
       pid = spawn(*steep, "watch", "app/lib", out: w, chdir: current_dir.to_s)
       w.close
 
-      output = ""
+      output = +""
 
       begin
         read_thread = Thread.new do
@@ -578,7 +578,7 @@ RUBY
       pid = spawn(*steep.push("watch", "app/models/person.rb"), out: w, chdir: current_dir.to_s)
       w.close
 
-      output = ""
+      output = +""
 
       begin
         read_thread = Thread.new do

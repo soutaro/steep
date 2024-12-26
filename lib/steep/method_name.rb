@@ -28,12 +28,12 @@ module Steep
         type_name, method_name = string.split(/#/, 2)
         type_name or raise
         method_name or raise
-        InstanceMethodName.new(type_name: TypeName(type_name), method_name: method_name.to_sym)
+        InstanceMethodName.new(type_name: RBS::TypeName.parse(type_name), method_name: method_name.to_sym)
       when /\./
         type_name, method_name = string.split(/\./, 2)
         type_name or raise
         method_name or raise
-        SingletonMethodName.new(type_name: TypeName(type_name), method_name: method_name.to_sym)
+        SingletonMethodName.new(type_name: RBS::TypeName.parse(type_name), method_name: method_name.to_sym)
       else
         raise "Unexpected method name: #{string}"
       end
