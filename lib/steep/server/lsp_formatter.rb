@@ -361,7 +361,7 @@ module Steep
           "#{name}"
         else
           ps = params.each.map do |param|
-            s = ""
+            s = +""
             if param.unchecked?
               s << "unchecked "
             end
