@@ -26,9 +26,9 @@ RBS
       service.update(changes)
     end
 
-    service.latest_builder.build_instance(TypeName("::Hello"))
-    assert_operator service.latest_builder.instance_cache, :key?, TypeName("::Hello")
-    assert_operator service.latest_builder.instance_cache, :key?, TypeName("::Object")
+    service.latest_builder.build_instance(RBS::TypeName.parse("::Hello"))
+    assert_operator service.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::Hello")
+    assert_operator service.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::Object")
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
@@ -41,8 +41,8 @@ RBS
       service.update(changes)
     end
 
-    refute_operator service.latest_builder.instance_cache, :key?, TypeName("::Hello")
-    assert_operator service.latest_builder.instance_cache, :key?, TypeName("::Object")
+    refute_operator service.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::Hello")
+    assert_operator service.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::Object")
   end
 
   def test_update_nested
@@ -73,15 +73,15 @@ RBS
       controller.update(changes)
     end
 
-    controller.latest_builder.build_instance(TypeName("::A"))
-    controller.latest_builder.build_instance(TypeName("::A::B"))
-    controller.latest_builder.build_instance(TypeName("::A::C"))
-    controller.latest_builder.build_instance(TypeName("::X"))
+    controller.latest_builder.build_instance(RBS::TypeName.parse("::A"))
+    controller.latest_builder.build_instance(RBS::TypeName.parse("::A::B"))
+    controller.latest_builder.build_instance(RBS::TypeName.parse("::A::C"))
+    controller.latest_builder.build_instance(RBS::TypeName.parse("::X"))
 
-    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::A")
-    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::A::B")
-    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::A::C")
-    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::X")
+    assert_operator controller.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::A")
+    assert_operator controller.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::A::B")
+    assert_operator controller.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::A::C")
+    assert_operator controller.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::X")
 
     {}.tap do |changes|
       changes[Pathname("sig/foo.rbs")] = [
@@ -96,10 +96,10 @@ RBS
       controller.update(changes)
     end
 
-    refute_operator controller.latest_builder.instance_cache, :key?, TypeName("::A")
-    refute_operator controller.latest_builder.instance_cache, :key?, TypeName("::A::B")
-    refute_operator controller.latest_builder.instance_cache, :key?, TypeName("::A::C")
-    assert_operator controller.latest_builder.instance_cache, :key?, TypeName("::X")
+    refute_operator controller.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::A")
+    refute_operator controller.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::A::B")
+    refute_operator controller.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::A::C")
+    assert_operator controller.latest_builder.instance_cache, :key?, RBS::TypeName.parse("::X")
   end
 
   def test_update_syntax_error
@@ -228,8 +228,8 @@ RBS
       controller.update(changes)
     end
 
-    assert_operator controller.latest_env.class_decls, :key?, TypeName("::B")
-    assert_operator controller.latest_env.class_decls, :key?, TypeName("::A")
+    assert_operator controller.latest_env.class_decls, :key?, RBS::TypeName.parse("::B")
+    assert_operator controller.latest_env.class_decls, :key?, RBS::TypeName.parse("::A")
   end
 
   def test_const_decls
@@ -247,11 +247,11 @@ RBS
     end
 
     service.const_decls(paths: Set[Pathname("sig/foo.rbs")], env: service.latest_env).tap do |consts|
-      assert_equal Set[TypeName("::VERSION")], Set.new(consts.each_key)
+      assert_equal Set[RBS::TypeName.parse("::VERSION")], Set.new(consts.each_key)
     end
 
     service.const_decls(paths: Set[RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "file.rbs"], env: service.latest_env).tap do |consts|
-      assert_operator consts.each_key, :include?, TypeName("::File::PATH_SEPARATOR")
+      assert_operator consts.each_key, :include?, RBS::TypeName.parse("::File::PATH_SEPARATOR")
     end
   end
 

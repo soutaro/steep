@@ -18,7 +18,7 @@ end
 
       builder.env(env)
 
-      assert_equal 1, index.each_declaration(type_name: TypeName("::HelloWorld")).count
+      assert_equal 1, index.each_declaration(type_name: RBS::TypeName.parse("::HelloWorld")).count
     end
   end
 
@@ -33,8 +33,8 @@ module Foo = Kernel
 
       builder.env(env)
 
-      assert_equal 1, index.each_declaration(type_name: TypeName("::Foo")).count
-      assert_equal 1, index.each_reference(type_name: TypeName("::Kernel")).count {|ref| ref.is_a?(RBS::AST::Declarations::ModuleAlias) }
+      assert_equal 1, index.each_declaration(type_name: RBS::TypeName.parse("::Foo")).count
+      assert_equal 1, index.each_reference(type_name: RBS::TypeName.parse("::Kernel")).count {|ref| ref.is_a?(RBS::AST::Declarations::ModuleAlias) }
     end
   end
 
@@ -118,7 +118,7 @@ end
 
       builder.env(env)
 
-      assert_equal 1, index.each_declaration(type_name: TypeName("::_HelloStr")).count
+      assert_equal 1, index.each_declaration(type_name: RBS::TypeName.parse("::_HelloStr")).count
     end
   end
 
@@ -133,7 +133,7 @@ type num = Integer | Float | Rational
 
       builder.env(env)
 
-      assert_equal 1, index.each_declaration(type_name: TypeName("::num")).count
+      assert_equal 1, index.each_declaration(type_name: RBS::TypeName.parse("::num")).count
     end
   end
 
@@ -148,7 +148,7 @@ Version: String
 
       builder.env(env)
 
-      assert_equal 1, index.each_declaration(const_name: TypeName("::Version")).count
+      assert_equal 1, index.each_declaration(const_name: RBS::TypeName.parse("::Version")).count
     end
   end
 end

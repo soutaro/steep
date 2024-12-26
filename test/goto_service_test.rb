@@ -95,7 +95,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::ConstantQuery, query
-        assert_equal TypeName("::Customer"), query.name
+        assert_equal RBS::TypeName.parse("::Customer"), query.name
         assert_predicate query, :from_ruby?
       end
     end
@@ -104,7 +104,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::ConstantQuery, query
-        assert_equal TypeName("::Customer::VERSION"), query.name
+        assert_equal RBS::TypeName.parse("::Customer::VERSION"), query.name
         assert_predicate query, :from_ruby?
       end
     end
@@ -113,7 +113,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::ConstantQuery, query
-        assert_equal TypeName("::Customer::SIZE"), query.name
+        assert_equal RBS::TypeName.parse("::Customer::SIZE"), query.name
         assert_predicate query, :from_ruby?
       end
     end
@@ -145,7 +145,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::ConstantQuery, query
-        assert_equal TypeName("::Customer"), query.name
+        assert_equal RBS::TypeName.parse("::Customer"), query.name
         assert_predicate query, :from_rbs?
       end
     end
@@ -154,7 +154,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::ConstantQuery, query
-        assert_equal TypeName("::Customer::VERSION"), query.name
+        assert_equal RBS::TypeName.parse("::Customer::VERSION"), query.name
         assert_predicate query, :from_rbs?
       end
     end
@@ -188,7 +188,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::MethodQuery, query
-        assert_equal InstanceMethodName.new(type_name: TypeName("::Customer"), method_name: :foo), query.name
+        assert_equal InstanceMethodName.new(type_name: RBS::TypeName.parse("::Customer"), method_name: :foo), query.name
         assert_predicate query, :from_rbs?
       end
     end
@@ -197,7 +197,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::MethodQuery, query
-        assert_equal SingletonMethodName.new(type_name: TypeName("::Customer"), method_name: :bar), query.name
+        assert_equal SingletonMethodName.new(type_name: RBS::TypeName.parse("::Customer"), method_name: :bar), query.name
         assert_predicate query, :from_rbs?
       end
     end
@@ -207,13 +207,13 @@ RUBY
 
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::MethodQuery, query
-        assert_equal SingletonMethodName.new(type_name: TypeName("::Customer"), method_name: :baz), query.name
+        assert_equal SingletonMethodName.new(type_name: RBS::TypeName.parse("::Customer"), method_name: :baz), query.name
         assert_predicate query, :from_rbs?
       end
 
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::MethodQuery, query
-        assert_equal InstanceMethodName.new(type_name: TypeName("::Customer"), method_name: :baz), query.name
+        assert_equal InstanceMethodName.new(type_name: RBS::TypeName.parse("::Customer"), method_name: :baz), query.name
         assert_predicate query, :from_rbs?
       end
     end
@@ -222,7 +222,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::MethodQuery, query
-        assert_equal InstanceMethodName.new(type_name: TypeName("::Customer"), method_name: :foo), query.name
+        assert_equal InstanceMethodName.new(type_name: RBS::TypeName.parse("::Customer"), method_name: :foo), query.name
         assert_predicate query, :from_ruby?
       end
     end
@@ -231,7 +231,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::MethodQuery, query
-        assert_equal SingletonMethodName.new(type_name: TypeName("::Customer"), method_name: :bar), query.name
+        assert_equal SingletonMethodName.new(type_name: RBS::TypeName.parse("::Customer"), method_name: :bar), query.name
         assert_predicate query, :from_ruby?
       end
     end
@@ -252,7 +252,7 @@ RBS
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::TypeNameQuery, query
-        assert_equal TypeName("::String"), query.name
+        assert_equal RBS::TypeName.parse("::String"), query.name
       end
     end
 
@@ -260,7 +260,7 @@ RBS
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::TypeNameQuery, query
-        assert_equal TypeName("::string"), query.name
+        assert_equal RBS::TypeName.parse("::string"), query.name
       end
     end
   end
@@ -291,7 +291,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::MethodQuery, query
-        assert_equal InstanceMethodName.new(type_name: TypeName("::Customer"), method_name: :foo), query.name
+        assert_equal InstanceMethodName.new(type_name: RBS::TypeName.parse("::Customer"), method_name: :foo), query.name
       end
     end
 
@@ -299,7 +299,7 @@ RUBY
       assert_equal 1, qs.size
       assert_any!(qs) do |query|
         assert_instance_of Services::GotoService::MethodQuery, query
-        assert_equal SingletonMethodName.new(type_name: TypeName("::Customer"), method_name: :bar), query.name
+        assert_equal SingletonMethodName.new(type_name: RBS::TypeName.parse("::Customer"), method_name: :bar), query.name
       end
     end
 
@@ -337,7 +337,7 @@ RUBY
     end
     service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
-    service.constant_definition_in_ruby(TypeName("::Customer"), locations: []).tap do |locs|
+    service.constant_definition_in_ruby(RBS::TypeName.parse("::Customer"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
       assert_any!(locs) do |target, loc|
@@ -349,7 +349,7 @@ RUBY
       end
     end
 
-    service.constant_definition_in_rbs(TypeName("::Customer"), locations: []).tap do |locs|
+    service.constant_definition_in_rbs(RBS::TypeName.parse("::Customer"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
       assert_any!(locs) do |target, loc|
@@ -361,7 +361,7 @@ RUBY
       end
     end
 
-    service.constant_definition_in_ruby(TypeName("::Customer2"), locations: []).tap do |locs|
+    service.constant_definition_in_ruby(RBS::TypeName.parse("::Customer2"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
       assert_any!(locs) do |target, loc|
@@ -373,7 +373,7 @@ RUBY
       end
     end
 
-    service.constant_definition_in_rbs(TypeName("::Customer2"), locations: []).tap do |locs|
+    service.constant_definition_in_rbs(RBS::TypeName.parse("::Customer2"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
       assert_any!(locs) do |target, loc|
@@ -385,7 +385,7 @@ RUBY
       end
     end
 
-    service.constant_definition_in_ruby(TypeName("::Customer::NAME"), locations: []).tap do |locs|
+    service.constant_definition_in_ruby(RBS::TypeName.parse("::Customer::NAME"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
       assert_any!(locs) do |target, loc|
@@ -397,7 +397,7 @@ RUBY
       end
     end
 
-    service.constant_definition_in_rbs(TypeName("::Customer::NAME"), locations: []).tap do |locs|
+    service.constant_definition_in_rbs(RBS::TypeName.parse("::Customer::NAME"), locations: []).tap do |locs|
       assert_equal 1, locs.size
 
       assert_any!(locs) do |target, loc|
@@ -553,7 +553,7 @@ RBS
 
     service = Services::GotoService.new(type_check: type_check, assignment: assignment)
 
-    service.type_name_locations(TypeName("::Customer")).tap do |locs|
+    service.type_name_locations(RBS::TypeName.parse("::Customer")).tap do |locs|
       assert_equal 2, locs.size
 
       assert_any!(locs) do |target, loc|
@@ -573,7 +573,7 @@ RBS
       end
     end
 
-    service.type_name_locations(TypeName("::Customer::loc")).tap do |locs|
+    service.type_name_locations(RBS::TypeName.parse("::Customer::loc")).tap do |locs|
       assert_equal 1, locs.size
 
       assert_any!(locs) do |target, loc|
@@ -585,7 +585,7 @@ RBS
       end
     end
 
-    service.type_name_locations(TypeName("::Customer::_Base")).tap do |locs|
+    service.type_name_locations(RBS::TypeName.parse("::Customer::_Base")).tap do |locs|
       assert_equal 1, locs.size
 
       assert_any!(locs) do |target, loc|
