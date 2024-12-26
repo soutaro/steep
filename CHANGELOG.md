@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.9.3 (2024-12-26)
+
+### Miscellaneous
+
+* Steep 1.9.1 ([#1398](https://github.com/soutaro/steep/pull/1398))
+* Update rbs ([#1443](https://github.com/soutaro/steep/pull/1443))
+
 ## 1.9.2 (2024-12-16)
 
 ### Type checker core
