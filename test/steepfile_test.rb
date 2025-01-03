@@ -336,4 +336,28 @@ YAML
       end
     end
   end
+
+  def test_ext
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<EOF)
+target :views do
+  check "app/views"
+  ext ".erb"
+  signature "sig"
+end
+EOF
+
+      assert_equal 1, project.targets.size
+
+      project.targets.find {|target| target.name == :views }.tap do |target|
+        assert_instance_of Project::Target, target
+
+        assert_equal ["app/views"], target.source_pattern.patterns
+        assert_equal ".erb", target.source_pattern.ext
+        assert_equal ["sig"], target.signature_pattern.patterns
+      end
+    end
+  end
 end

@@ -20,3 +20,8 @@ end
 #   signature "sig/length.rbs"
 #   unreferenced!
 # end
+
+# target :templates do
+#   check "lib/templates"                       # Directory name
+#   ext ".erb"
+# end
