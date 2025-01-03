@@ -421,7 +421,7 @@ module Steep
                   end
                   target.source_pattern.prefixes.each do |pat|
                     path = project.base_dir + pat
-                    patterns << (path + "**/*.rb").to_s unless path.file?
+                    patterns << (path + "**/*#{target.source_pattern.ext}").to_s unless path.file?
                   end
                   target.signature_pattern.patterns.each do |pat|
                     path = project.base_dir + pat
@@ -800,7 +800,7 @@ module Steep
           Steep.logger.info "Starting new progress..."
 
           @current_type_check_request = request
-          
+
           if progress
             # If `request:` keyword arg is not given
             request.work_done_progress.begin("Type checking", request_id: fresh_request_id)
