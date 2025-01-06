@@ -105,12 +105,40 @@ module TestHelper
     assert collection.all?(&block)
   end
 
+  # @rbs [T] (Array[T], ?size: Integer?) { (T) -> void } -> void
   def assert_all!(collection, size: nil)
     assert_equal size, collection.count if size
 
     collection.each do |c|
       yield c
     end
+  end
+
+  # @rbs [T] (Array[T], Integer) { (T) -> boolish } -> void
+  def assert_count(collection, count, &block)
+    c = 0
+    collection.each do |item|
+      if yield item
+        c += 1
+      end
+    end
+
+    assert_equal count, c, "Expected #{count} items to satisfy the assertion, but got #{c} items: #{collection.inspect}"
+  end
+
+  # @rbs [T] (Array[T], Integer) { (T) -> void } -> void
+  def assert_count!(collection, count)
+    c = 0
+    last_error = nil #: Minitest::Assertion?
+
+    collection.each do |item|
+      yield item
+      c += 1
+    rescue Minitest::Assertion => error
+      last_error = error
+    end
+
+    assert_equal count, c, "Expected #{count} items to satisfy the assertion, but got #{c} items. Last error: #{last_error&.message}"
   end
 
   def refute_any(collection, &block)
@@ -677,6 +705,7 @@ module TypeConstructionHelper
     assert_predicate typing.errors.map {|e| e.header_line }, :empty?
   end
 
+  # @rbs (Typing, ?size: Integer) ?{ (Array[Diagnostic]) -> void } -> void
   def assert_typing_error(typing, size: nil)
     assert_instance_of Typing, typing
 

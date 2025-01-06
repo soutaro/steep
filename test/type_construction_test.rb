@@ -463,7 +463,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_incompatible_assignment(
               error,
@@ -499,12 +499,15 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        refute_empty typing.errors
-        assert_incompatible_assignment typing.errors[0],
-                                       lhs_type: parse_type("::_C"),
-                                       rhs_type: parse_type("::_A") do |error|
-          assert_equal :kwoptarg, error.node.type
-          assert_equal :y, error.node.children[0]
+        assert_typing_error(typing) do |errors|
+          assert_any!(errors) do |error|
+            assert_incompatible_assignment error,
+              lhs_type: parse_type("::_C"),
+              rhs_type: parse_type("::_A") do |error|
+              assert_equal :kwoptarg, error.node.type
+              assert_equal :y, error.node.children[0]
+            end
+          end
         end
 
         x = dig(source.node, 2, 0)
@@ -709,13 +712,19 @@ end
   end
 
   def test_return_type_annotation
-    with_checker do |checker|
+    with_checker(<<~RBS) do |checker|
+        class C
+          def foo: () -> untyped
+        end
+      RBS
       source = parse_ruby(<<-EOF)
-def foo()
-  # @type return: _A
-  # @type var a: _A
-  a = (_ = nil)
-  return a
+class C
+  def foo()
+    # @type return: _A
+    # @type var a: _A
+    a = (_ = nil)
+    return a
+  end
 end
       EOF
 
@@ -760,7 +769,9 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_all!(typing.errors) do
+          assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, _1
+        end
       end
     end
   end
@@ -909,7 +920,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
+        assert_typing_error(typing, size: 3) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
             assert_equal :ivasgn, error.node.type
@@ -1358,7 +1369,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
+        assert_typing_error(typing, size: 4) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
             assert_equal parse_type("::String"), error.rhs_type
@@ -2257,7 +2268,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_any!(typing.errors, size: 1) do |error|
+        assert_any!(typing.errors, size: 2) do |error|
           assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
           assert_equal parse_type("::String"), error.lhs_type
           assert_equal parse_type("::Array[untyped]"), error.rhs_type
@@ -2350,7 +2361,9 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_no_error(typing)
+        assert_all!(typing.errors) do |error|
+          assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, error
+        end
       end
     end
   end
@@ -3710,7 +3723,7 @@ EOF
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        assert_no_error typing
+        assert_all(typing.errors) {|error| error.is_a?(Diagnostic::Ruby::UndeclaredMethodDefinition) }
       end
     end
   end
@@ -4902,6 +4915,7 @@ WithPrivate.new.foo
   def test_private_method2
     with_checker <<-EOF do |checker|
 class WithPrivate
+  def bar: () -> void
   private
   def foo: () -> void
 end
@@ -4944,7 +4958,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_no_error typing
+        assert_typing_error typing, size: 1
       end
     end
   end
@@ -4966,7 +4980,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
+        assert_typing_error(typing, size: 3) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           end
@@ -5136,7 +5150,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
+        assert_typing_error(typing, size: 4) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           end
@@ -5172,7 +5186,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
+        assert_typing_error(typing, size: 4) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           end
@@ -5208,7 +5222,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           end
@@ -5771,8 +5785,8 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_all!(typing.errors) do |error|
-          assert_instance_of Diagnostic::Ruby::FallbackAny, error
+        assert_count!(typing.errors, 1) do |error|
+          assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, error
         end
       end
     end
@@ -7669,7 +7683,7 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnexpectedJump, error
           end
@@ -7743,7 +7757,7 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnexpectedJump, error
           end
@@ -7922,11 +7936,11 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        _type, _ = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
-          assert_all!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+        assert_typing_error(typing) do |errors|
+          assert_count(errors, 2) do |error|
+            error.instance_of? Diagnostic::Ruby::UnknownConstant
           end
         end
       end
@@ -7951,7 +7965,7 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
             assert_equal :C, error.name
@@ -8428,7 +8442,11 @@ RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
-        assert_no_error typing
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, error
+          end
+        end
       end
     end
   end
@@ -9503,7 +9521,9 @@ RUBY
 
   def test_const_inline_annotation
     with_checker(<<RBS) do |checker|
-module A end
+module A
+  def foo: () -> void
+end
 RBS
       source = parse_ruby(<<RUBY)
 module A
