@@ -2835,4 +2835,38 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_when__assertion
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = case [1,2,3].sample
+          when Integer
+            ["foo", 1] #: [String, Integer]
+          end
+
+          a.foo()  # To confirm the type of `a`
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 2
+              end:
+                line: 6
+                character: 5
+            severity: ERROR
+            message: Type `([::String, ::Integer] | nil)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
