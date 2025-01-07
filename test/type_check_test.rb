@@ -2897,4 +2897,34 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_tuple_type_assertion
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          [1, ""] #: [1, "", bool]
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 24
+            severity: ERROR
+            message: 'Assertion cannot hold: no relationship between inferred type (`[1, \"\"]`)
+              and asserted type (`[1, \"\", bool]`)'
+            code: Ruby::FalseAssertion
+      YAML
+    )
+  end
 end
