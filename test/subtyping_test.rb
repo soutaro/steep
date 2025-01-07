@@ -431,6 +431,17 @@ end
     end
   end
 
+  def test_tuple
+    with_checker do |checker|
+      assert_success_check checker, "[String]", "[untyped]"
+      assert_success_check checker, "[String]", "[top]"
+      assert_success_check checker, "[123]", "[Integer]"
+
+      assert_fail_check checker, "[String]", "[String, Integer]"
+      assert_fail_check checker, "[String, Symbol]", "[String]"
+    end
+  end
+
   def print_result(result, output, prefix: "  ")
     mark = result.success? ? "👍" : "🤦"
 

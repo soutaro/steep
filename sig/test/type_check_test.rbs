@@ -183,4 +183,6 @@ class TypeCheckTest < Minitest::Test
   def test_when__assertion: () -> untyped
 
   def test_when__type_annotation: () -> untyped
+
+  def test_tuple_type_assertion: () -> untyped
 end

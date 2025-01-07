@@ -493,7 +493,7 @@ module Steep
           end
 
         when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
-          if relation.sub_type.types.size >= relation.super_type.types.size
+          if relation.sub_type.types.size == relation.super_type.types.size
             pairs = relation.sub_type.types.take(relation.super_type.types.size).zip(relation.super_type.types)
 
             All(relation) do |result|
