@@ -977,6 +977,42 @@ module Steep
         end
       end
 
+      class UndeclaredMethodDefinition < Base
+        attr_reader :method_name, :type_name
+
+        def initialize(method_name:, type_name:, node:)
+          @method_name = method_name
+          @type_name = type_name
+          super(node: node, location: (_ = node.loc).name)
+        end
+
+        def header_line
+          name =
+              case node.type
+              when :def
+                "#{type_name}##{method_name}"
+              when :defs
+                "#{type_name}.#{method_name}"
+              else
+                raise
+              end
+          "Method `#{name}` is not declared in RBS"
+        end
+      end
+
+      class MethodDefinitionInUndeclaredModule < Base
+        attr_reader :method_name
+
+        def initialize(method_name:, node:)
+          @method_name = method_name
+          super(node: node, location: (_ = node.loc).name)
+        end
+
+        def header_line
+          "Method `#{method_name}` is defined in undeclared module"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -1010,6 +1046,7 @@ module Steep
             InvalidIgnoreComment => :warning,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
+            MethodDefinitionInUndeclaredModule => :information,
             MethodDefinitionMissing => nil,
             MethodParameterMismatch => :error,
             MethodReturnTypeAnnotationMismatch => :hint,
@@ -1026,6 +1063,7 @@ module Steep
             SyntaxError => :information,
             TypeArgumentMismatchError => :hint,
             UnannotatedEmptyCollection => :warning,
+            UndeclaredMethodDefinition => :warning,
             UnexpectedBlockGiven => :warning,
             UnexpectedDynamicMethod => :hint,
             UnexpectedError => :hint,
@@ -1070,6 +1108,7 @@ module Steep
             InvalidIgnoreComment => :warning,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
+            MethodDefinitionInUndeclaredModule => :warning,
             MethodDefinitionMissing => :hint,
             MethodParameterMismatch => :error,
             MethodReturnTypeAnnotationMismatch => :error,
@@ -1086,6 +1125,7 @@ module Steep
             SyntaxError => :information,
             TypeArgumentMismatchError => :error,
             UnannotatedEmptyCollection => :error,
+            UndeclaredMethodDefinition => :warning,
             UnexpectedBlockGiven => :error,
             UnexpectedDynamicMethod => :information,
             UnexpectedError => :information,
@@ -1130,6 +1170,7 @@ module Steep
             InvalidIgnoreComment => :warning,
             MethodArityMismatch => :information,
             MethodBodyTypeMismatch => :warning,
+            MethodDefinitionInUndeclaredModule => :hint,
             MethodDefinitionMissing => nil,
             MethodParameterMismatch => :warning,
             MethodReturnTypeAnnotationMismatch => nil,
@@ -1146,6 +1187,7 @@ module Steep
             SyntaxError => :information,
             TypeArgumentMismatchError => nil,
             UnannotatedEmptyCollection => :hint,
+            UndeclaredMethodDefinition => :information,
             UnexpectedBlockGiven => :hint,
             UnexpectedDynamicMethod => nil,
             UnexpectedError => :hint,

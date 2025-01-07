@@ -40,7 +40,7 @@ A type annotation has a syntax error.
 ### Ruby code
 
 ```ruby
-# @type var foo: () -> 
+# @type var foo: () ->
 ```
 
 ### Diagnostic
@@ -703,6 +703,36 @@ test.rb:2:6: [error] Cannot allow method body have type `::Integer` because decl
 | - | - | - | - | - |
 | error | error | error | warning | - |
 
+<a name='Ruby::MethodDefinitionInUndeclaredModule'></a>
+## Ruby::MethodDefinitionInUndeclaredModule
+
+A `def` syntax doesn't have method type because the module/class is undefined in RBS.
+
+### Ruby code
+
+```ruby
+class UndeclaredClass
+  def to_s = 123
+end
+```
+
+### Diagnostic
+
+```
+test.rb:2:6: [error] Method `to_s` is defined in undeclared module
+│ Diagnostic ID: Ruby::MethodDefinitionInUndeclaredModule
+│
+└   def to_s = 123
+        ~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | information | hint | - |
+
 <a name='Ruby::MethodDefinitionMissing'></a>
 ## Ruby::MethodDefinitionMissing
 
@@ -1234,6 +1264,43 @@ test.rb:2:4: [error] Empty hash doesn't have type annotation
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
 | error | error | warning | hint | - |
+
+<a name='Ruby::UndeclaredMethodDefinition'></a>
+## Ruby::UndeclaredMethodDefinition
+
+A `def` syntax doesn't have corresponding RBS method definition.
+
+### RBS
+
+```rbs
+class Foo
+end
+```
+
+### Ruby code
+
+```ruby
+class Foo
+  def undeclared = nil
+end
+```
+
+### Diagnostic
+
+```
+test.rb:2:6: [error] Method `::Foo#undeclared` is not declared in RBS
+│ Diagnostic ID: Ruby::UndeclaredMethodDefinition
+│
+└   def undeclared = nil
+        ~~~~~~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | warning | information | - |
 
 <a name='Ruby::UnexpectedBlockGiven'></a>
 ## Ruby::UnexpectedBlockGiven

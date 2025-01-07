@@ -2749,4 +2749,90 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_undeclared_method
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo = nil
+
+            def self.foo = nil
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 9
+            severity: ERROR
+            message: Method `::Foo#foo` is not declared in RBS
+            code: Ruby::UndeclaredMethodDefinition
+          - range:
+              start:
+                line: 4
+                character: 11
+              end:
+                line: 4
+                character: 14
+            severity: ERROR
+            message: Method `::Foo.foo` is not declared in RBS
+            code: Ruby::UndeclaredMethodDefinition
+      YAML
+    )
+  end
+
+  def test_undeclared_method2
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo = nil
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 6
+              end:
+                line: 1
+                character: 9
+            severity: ERROR
+            message: 'Cannot find the declaration of class: `Foo`'
+            code: Ruby::UnknownConstant
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 9
+            severity: ERROR
+            message: Method `foo` is defined in undeclared module
+            code: Ruby::MethodDefinitionInUndeclaredModule
+      YAML
+    )
+  end
 end

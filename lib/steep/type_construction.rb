@@ -155,13 +155,24 @@ module Steep
                                  definition.methods[method_name]&.yield_self do |method|
                                    method.method_types
                                      .map {|method_type| checker.factory.method_type(method_type) }
-                                     .select {|method_type| method_type.is_a?(Interface::MethodType) }
                                      .inject {|t1, t2| t1 + t2}
                                  end
                                end
       annotation_method_type = annotations.method_type(method_name)
 
       method_type = annotation_method_type || definition_method_type
+
+      unless method_type
+        if definition
+          typing.add_error(
+            Diagnostic::Ruby::UndeclaredMethodDefinition.new(method_name: method_name, type_name: definition.type_name, node: node)
+          )
+        else
+          typing.add_error(
+            Diagnostic::Ruby::MethodDefinitionInUndeclaredModule.new(method_name: method_name, node: node)
+          )
+        end
+      end
 
       if (annotation_return_type = annots&.return_type) && (method_type_return_type = method_type&.type&.return_type)
         check_relation(sub_type: annotation_return_type, super_type: method_type_return_type).else do |result|
