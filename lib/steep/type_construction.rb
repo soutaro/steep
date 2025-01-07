@@ -2026,8 +2026,8 @@ module Steep
                 branch_result =
                   if body
                     when_clause_constr
-                      .for_branch(body)
                       .update_type_env {|env| env.join(*body_envs) }
+                      .for_branch(body)
                       .tap {|constr| typing.cursor_context.set_node_context(body, constr.context) }
                       .synthesize(body, hint: hint)
                   else
