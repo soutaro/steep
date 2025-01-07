@@ -181,4 +181,6 @@ class TypeCheckTest < Minitest::Test
   def test_undeclared_method2: () -> untyped
 
   def test_when__assertion: () -> untyped
+
+  def test_when__type_annotation: () -> untyped
 end

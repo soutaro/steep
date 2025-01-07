@@ -2869,4 +2869,32 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_when__type_annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = [1, ""].sample
+
+          case
+          when 1.even?
+            # @type var a: String
+            a + ""
+          when 2.even?
+            # @type var a: Integer
+            a + 1
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
