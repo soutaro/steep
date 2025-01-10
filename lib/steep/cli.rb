@@ -24,12 +24,13 @@ module Steep
         opts.banner = <<~USAGE
           Usage: steep [options]
 
-          available commands: #{CLI.available_commands.join(', ')}
+          Available commands:
+              #{CLI.available_commands.join(', ')}
 
           Options:
         USAGE
 
-        opts.on("--version") do
+        opts.on("--version", "Print Steep version") do
           process_version
           exit 0
         end
@@ -58,6 +59,10 @@ module Steep
       setup_command or return 1
 
       __send__(:"process_#{command}")
+    end
+
+    def handle_steepfile_option(opts, command)
+      opts.on("--steepfile=PATH", "Specify the Steepfile path") {|path| command.steepfile = Pathname(path) }
     end
 
     def handle_logging_options(opts)
@@ -101,10 +106,16 @@ module Steep
     def process_init
       Drivers::Init.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
-          opts.banner = "Usage: steep init [options]"
+          opts.banner = <<BANNER
+Usage: steep init [options]
 
-          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
-          opts.on("--force") { command.force_write = true }
+Description:
+    Generates a Steepfile into the current working directory.
+
+Options:
+BANNER
+          handle_steepfile_option(opts, command)
+          opts.on("--force", "Overwrite the Steepfile if it already exists") { command.force_write = true }
 
           handle_logging_options opts
         end.parse!(argv)
@@ -114,9 +125,16 @@ module Steep
     def process_check
       Drivers::Check.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
-          opts.banner = "Usage: steep check [options] [sources]"
+          opts.banner = <<BANNER
+Usage: steep check [options] [sources]
 
-          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+Description:
+    Runs type checking.
+
+Options:
+BANNER
+
+          handle_steepfile_option(opts, command)
           opts.on("--with-expectations[=PATH]", "Type check with expectations saved in PATH (or steep_expectations.yml)") do |path|
             command.with_expectations_path = Pathname(path || "steep_expectations.yml")
           end
@@ -179,9 +197,18 @@ module Steep
     def process_checkfile
       Drivers::Checkfile.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
-          opts.banner = "Usage: steep checkfile [options] [files]"
+          opts.banner = <<BANNER
+Usage: steep checkfile [options] [files]
 
-          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+Description:
+    Run Type checking on the given files.
+    This command is designed to support integration with tools and outputs the
+    results in a machine-readable format.
+
+Options:
+BANNER
+
+          handle_steepfile_option(opts, command)
           opts.on("--all-rbs", "Type check all RBS files") { command.all_rbs = true }
           opts.on("--all-ruby", "Type check all Ruby files") { command.all_ruby = true }
           opts.on("--stdin", "Read files to type check from stdin") do
@@ -204,9 +231,16 @@ module Steep
     def process_stats
       Drivers::Stats.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
-          opts.banner = "Usage: steep stats [options] [sources]"
+          opts.banner = <<BANNER
+Usage: steep stats [options] [sources]
 
-          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+Description:
+    Displays statistics about the typing of method calls.
+
+Options:
+BANNER
+
+          handle_steepfile_option(opts, command)
           opts.on("--format=FORMAT", "Specify output format: csv, table") {|format| command.format = format }
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
@@ -226,7 +260,14 @@ module Steep
     def process_annotations
       Drivers::Annotations.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
-          opts.banner = "Usage: steep annotations [options] [sources]"
+          opts.banner = <<BANNER
+Usage: steep annotations [options] [sources]
+
+Description:
+    Displays a list of annotations.
+
+Options:
+BANNER
           handle_logging_options opts
         end.parse!(argv)
 
@@ -237,8 +278,15 @@ module Steep
     def process_project
       Drivers::PrintProject.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
-          opts.banner = "Usage: steep project [options]"
-          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.banner = <<BANNER
+Usage: steep project [options]
+
+Description:
+    Displays the project information defined in the Steepfile.
+
+Options:
+BANNER
+          handle_steepfile_option(opts, command)
           opts.on("--[no-]print-files", "Print files") {|v|
             command.print_files = v ? true : false
           }
@@ -250,7 +298,14 @@ module Steep
     def process_watch
       Drivers::Watch.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
-          opts.banner = "Usage: steep watch [options] [dirs]"
+          opts.banner = <<BANNER
+Usage: steep watch [options] [dirs]
+
+Description:
+    Monitors file changes and automatically type checks updated files.
+
+Options:
+BANNER
           opts.on("--severity-level=LEVEL", /^error|warning|information|hint$/, "Specify the minimum diagnostic severity to be recognized as an error (defaults: warning): error, warning, information, or hint") do |level|
             # @type var level: String
             command.severity_level = _ = level.to_sym
@@ -269,7 +324,15 @@ module Steep
     def process_langserver
       Drivers::Langserver.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
-          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.banner = <<BANNER
+Usage: steep langserver [options]
+
+Description:
+    Starts the LSP (Language Server Protocol) server for Steep.
+
+Options:
+BANNER
+          handle_steepfile_option(opts, command)
           opts.on("--refork") { command.refork = true }
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
@@ -301,8 +364,9 @@ module Steep
         opts.banner = <<BANNER
 Usage: steep binstub [options]
 
-Generate a binstub to execute Steep with setting up Bundler and rbenv/rvm.
-Use the executable for LSP integration setup.
+Description:
+    Generate a binstub to execute Steep with setting up Bundler and rbenv/rvm.
+    Use the executable for LSP integration setup.
 
 Options:
 BANNER
@@ -373,6 +437,15 @@ TEMPLATE
     end
 
     def process_version
+      OptionParser.new do |opts|
+        opts.banner = <<BANNER
+Usage: steep version [options]
+
+Description:
+    Prints Steep version.
+BANNER
+      end.parse!(argv)
+
       stdout.puts Steep::VERSION
       0
     end
@@ -385,7 +458,7 @@ TEMPLATE
 
           opts.on("--interaction") { command.worker_type = :interaction }
           opts.on("--typecheck") { command.worker_type = :typecheck }
-          opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          handle_steepfile_option(opts, command)
           opts.on("--name=NAME") {|name| command.worker_name = name }
           opts.on("--delay-shutdown") { command.delay_shutdown = true }
           opts.on("--max-index=COUNT") {|count| command.max_index = Integer(count) }
