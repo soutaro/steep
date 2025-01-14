@@ -2927,4 +2927,31 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_self_type_union_assertion
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def bar: (bool) -> self?
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def bar(var)
+              return nil if var
+              self
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
