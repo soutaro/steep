@@ -1087,7 +1087,7 @@ type c = a | b
       assert_fail_check checker, "::_A", "::_C" do |result|
         assert_instance_of Failure::UnsatisfiedConstraints, result.error
 
-        assert_match /X\(\d+\)/, result.error.var.to_s
+        assert_match(/X\(\d+\)/, result.error.var.to_s)
         assert_equal parse_type("::String", checker: checker), result.error.sub_type
         assert_equal parse_type("::Numeric & ::String", checker: checker), result.error.super_type
       end
