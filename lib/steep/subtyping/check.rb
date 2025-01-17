@@ -285,11 +285,6 @@ module Steep
             )
           end
 
-        when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
-          Expand(relation) do
-            check_type(Relation.new(sub_type: self_type, super_type: relation.super_type))
-          end
-
         when relation.sub_type.is_a?(AST::Types::Instance) && !instance_type.is_a?(AST::Types::Instance)
           Expand(relation) do
             check_type(Relation.new(sub_type: instance_type, super_type: relation.super_type))
@@ -417,6 +412,11 @@ module Steep
                 check_type(rel)
               end
             end
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
+          Expand(relation) do
+            check_type(Relation.new(sub_type: self_type, super_type: relation.super_type))
           end
 
         when relation.super_type.is_a?(AST::Types::Name::Interface)
@@ -608,7 +608,6 @@ module Steep
           Expand(relation) do
             check_type(Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type))
           end
-
         else
           Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
         end
