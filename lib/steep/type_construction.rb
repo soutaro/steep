@@ -2051,14 +2051,16 @@ module Steep
 
               if els
                 branch_results << condition_constr.synthesize(els, hint: hint)
+              else
+                branch_results << Pair.new(type: AST::Builtin.nil_type, constr: condition_constr)
+              end
+
+              branch_results.reject! do |result|
+                result.type.is_a?(AST::Types::Bot)
               end
 
               types = branch_results.map(&:type)
               envs = branch_results.map {|result| result.constr.context.type_env }
-
-              unless els
-                types << AST::Builtin.nil_type
-              end
             end
 
             constr = constr.update_type_env do |env|
