@@ -2927,4 +2927,160 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_case_when__no_subject__assignment_in_when__raise_in_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case
+          when 1
+            v = 1
+          when 2
+            v = 10
+          else
+            raise
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_case_when__no_subject__assignment_in_when__no_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case
+          when 1
+            v = 1
+          when 2
+            v = 10
+          else
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_case_when__with_subject__assignment_in_when__raise_in_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case rand(3)
+          when 1
+            v = 1
+          when 2
+            v = 10
+          else
+            raise
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_case_when__with_subject__assignment_in_when__empty_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case rand(3)
+          when 1
+            v = 1
+          when 2
+            v = 10
+          else
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_case_when__with_subject__assignment_in_when__no_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case rand(3)
+          when 1
+            v = 1
+          when 2
+            v = 10
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 8
+                character: 2
+              end:
+                line: 8
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

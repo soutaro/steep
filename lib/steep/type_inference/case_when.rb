@@ -243,6 +243,8 @@ module Steep
           end
         end
 
+        results.reject! { _1.type.is_a?(AST::Types::Bot) }
+
         types = results.map {|result| result.type }
         envs = results.map {|result| result.env }
 
