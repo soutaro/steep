@@ -36,3 +36,6 @@ gems:
   - name: digest
   - name: uri
   - name: socket
+  - name: rbs
+    ignore: true
+  - name: prism
