@@ -455,9 +455,9 @@ module Steep
                 definition.class_variables.each do |name, var|
                   if var.declared_in == definition.type_name
                     if (parent = var.parent_variable) && var.declared_in != parent.declared_in
-                      class_var = entry.decls.flat_map {|decl| decl.decl.members }.find do |member|
+                      class_var = entry.each_decl.flat_map {|decl| decl.members }.find do |member|
                         member.is_a?(RBS::AST::Members::ClassVariable) && member.name == name
-                      end
+                      end #: RBS::AST::Members::ClassVariable?
 
                       if class_var
                         loc = class_var.location #: RBS::Location[untyped, untyped]?
@@ -534,7 +534,7 @@ module Steep
           location =
             case ancestor.source
             when :super
-              primary_decl = env.class_decls.fetch(name).primary.decl
+              primary_decl = env.class_decls.fetch(name).primary_decl
               primary_decl.is_a?(RBS::AST::Declarations::Class) or raise
               if super_class = primary_decl.super_class
                 super_class.location
@@ -644,12 +644,16 @@ module Steep
       end
 
       def validate_one_alias(name, entry = env.type_alias_decls.fetch(name))
-        *, inner_most_outer_module = entry.outer
+        inner_most_outer_module =
+          if entry.context
+            entry.context[1]
+          end
         if inner_most_outer_module
-          class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name)
+          module_entry = env.class_decls.fetch(inner_most_outer_module)
+          class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module)
           instance_type = AST::Types::Name::Instance.new(
-            name: inner_most_outer_module.name,
-            args: inner_most_outer_module.type_params.map { AST::Types::Any.instance() },
+            name: inner_most_outer_module,
+            args: module_entry.type_params.map { AST::Types::Any.instance() },
           )
         end
 

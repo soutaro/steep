@@ -129,12 +129,21 @@ module Steep
 
       def each_diagnostics(&block)
         if block
-          signature_diagnostics.each do |path, diagnostics|
-            yield [path, diagnostics]
-          end
+          paths = signature_diagnostics.keys + source_files.keys
+          paths.uniq!
 
-          source_files.each_value do |file|
-            yield [file.path, file.diagnostics]
+          paths.each do |path|
+            diagnostics = [] #: Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base]
+
+            if ds = signature_diagnostics.fetch(path, nil)
+              diagnostics.concat(ds)
+            end
+
+            if ds = source_files.fetch(path, nil)
+              diagnostics.concat(ds.diagnostics)
+            end
+
+            yield [path, diagnostics]
           end
         else
           enum_for :each_diagnostics
@@ -218,6 +227,16 @@ module Steep
               diagnostics = validator.each_error.select do |error|
                 error.location or raise
                 Pathname(error.location.buffer.name) == path
+              end
+
+              service.files[path].tap do |file|
+                if file
+                  if (source = file.source).is_a?(RBS::Source::Ruby)
+                    source.diagnostics.each do
+                      diagnostics << Diagnostic::Signature::InlineDiagnostic.new(_1)
+                    end
+                  end
+                end
               end
             end
 

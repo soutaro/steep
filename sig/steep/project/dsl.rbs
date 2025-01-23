@@ -59,6 +59,8 @@ module Steep
 
         attr_reader ignored_signatures: Array[String]
 
+        # Add source
+        #
         def check: (*String args) -> void
 
         def ignore: (*String args) -> void
@@ -81,6 +83,8 @@ module Steep
 
         attr_reader implicitly_returns_nil: bool
 
+        attr_reader inline_rbs: bool
+
         include LibraryOptions
 
         include WithPattern
@@ -100,6 +104,10 @@ module Steep
         # Mark the target implicitly returns nil
         #
         def implicitly_returns_nil!: (?bool) -> void
+
+        # Enable inline RBS declarations
+        #
+        def inline_rbs!: (?bool) -> void
 
         # Configuration of Ruby code diagnostics
         #

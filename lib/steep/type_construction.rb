@@ -4711,7 +4711,7 @@ module Steep
     def validate_method_definitions(node, module_name)
       module_name_1 = module_name.name
       module_entry = checker.factory.env.normalized_module_class_entry(module_name_1) or raise
-      member_decl_count = module_entry.decls.count {|d| d.decl.each_member.count > 0 }
+      member_decl_count = module_entry.each_decl.count {|d| d.each_member.count > 0 }
 
       return unless member_decl_count == 1
 

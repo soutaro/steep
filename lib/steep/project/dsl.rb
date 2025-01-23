@@ -120,6 +120,7 @@ module Steep
         attr_reader :unreferenced
         attr_reader :groups
         attr_reader :implicitly_returns_nil
+        attr_reader :inline_rbs
 
         def initialize(name, project:)
           @name = name
@@ -130,6 +131,7 @@ module Steep
           @unreferenced = false
           @implicitly_returns_nil = false
           @groups = []
+          @inline_rbs = false
         end
 
         def initialize_copy(other)
@@ -148,6 +150,7 @@ module Steep
           @unreferenced = other.unreferenced
           @implicitly_returns_nil = other.implicitly_returns_nil
           @groups = other.groups.dup
+          @inline_rbs = other.inline_rbs
         end
 
         def unreferenced!(value = true)
@@ -156,6 +159,10 @@ module Steep
 
         def implicitly_returns_nil!(value = true)
           @implicitly_returns_nil = value
+        end
+
+        def inline_rbs!(value = true)
+          @inline_rbs = value
         end
 
         def configure_code_diagnostics(hash = nil)
@@ -253,7 +260,8 @@ module Steep
           code_diagnostics_config: dsl.code_diagnostics_config,
           project: project,
           unreferenced: dsl.unreferenced,
-          implicitly_returns_nil: dsl.implicitly_returns_nil
+          implicitly_returns_nil: dsl.implicitly_returns_nil,
+          inline_rbs: dsl.inline_rbs
         )
 
         dsl.groups.each do

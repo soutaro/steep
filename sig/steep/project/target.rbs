@@ -15,6 +15,10 @@ module Steep
       #
       attr_reader implicitly_returns_nil: bool
 
+      # Whether this target enables inline RBS declarations
+      #
+      attr_reader inline_rbs: bool
+
       attr_reader project: Project
 
       attr_reader unreferenced: bool
@@ -29,7 +33,8 @@ module Steep
         code_diagnostics_config: untyped,
         project: Project,
         unreferenced: bool,
-        implicitly_returns_nil: bool
+        implicitly_returns_nil: bool,
+        inline_rbs: bool
       ) -> void
 
       # The options that applies to this target

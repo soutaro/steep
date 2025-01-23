@@ -11,8 +11,9 @@ module Steep
       attr_reader :unreferenced
       attr_reader :groups
       attr_reader :implicitly_returns_nil
+      attr_reader :inline_rbs
 
-      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:, implicitly_returns_nil:)
+      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:, implicitly_returns_nil:, inline_rbs:)
         @name = name
         @target_options = options
         @source_pattern = source_pattern
@@ -22,6 +23,7 @@ module Steep
         @unreferenced = unreferenced
         @groups = []
         @implicitly_returns_nil = implicitly_returns_nil
+        @inline_rbs = inline_rbs
       end
 
       def options
@@ -49,7 +51,9 @@ module Steep
           return self
         end
 
-        nil
+        if inline_rbs
+          possible_source_file?(path)
+        end
       end
 
       def new_env_loader()
