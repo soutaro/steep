@@ -47,9 +47,7 @@ target :test do
 
   configure_code_diagnostics(D::Ruby.lenient)
 
-  if tmp_rbs_dir.directory?
-    signature tmp_rbs_dir.to_s
-  else
+  unless tmp_rbs_dir.directory?
     library "rbs"
   end
 end
@@ -63,9 +61,7 @@ target :bin do
   check "bin/generate-diagnostics-docs.rb"
   signature "tmp/rbs-inline/bin"
 
-  if tmp_rbs_dir.directory?
-    signature tmp_rbs_dir.to_s
-  else
+  unless tmp_rbs_dir.directory?
     library "rbs"
   end
 end
