@@ -176,24 +176,23 @@ module Steep
                 items: completion_items
               )
             when target = project.target_for_signature_path(job.path)
-              sig_service = service.signature_services[target.name] or raise
+              sig_service = service.signature_services.fetch(target.name)
               relative_path = job.path
 
               context = nil #: RBS::Resolver::context
 
               case sig_service.status
               when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
-                if buffer = sig_service.latest_env.buffers.find {|buf| Pathname(buf.name) == Pathname(relative_path) }
-                  dirs = sig_service.latest_env.signatures.fetch(buffer)[0]
+                if source = sig_service.latest_env.each_rbs_source.find {|source| source.buffer.name == Pathname(relative_path) }
+                  dirs = source.directives
                 else
                   dirs = [] #: Array[RBS::AST::Directives::t]
                 end
               else
-                signature = sig_service.files.fetch(relative_path).signature
-                signature.is_a?(Array) or raise
-                buffer, dirs, decls = signature
-
-                locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
+                source = sig_service.files.fetch(relative_path).source
+                source.is_a?(RBS::Source::RBS) or raise
+                
+                locator = RBS::Locator.new(buffer: source.buffer, dirs: source.directives, decls: source.declarations)
 
                 _hd, tail = locator.find2(line: job.line, column: job.column)
                 tail ||= [] #: Array[RBS::Locator::component]
@@ -208,6 +207,8 @@ module Steep
                     end
                   end
                 end
+
+                dirs = source.directives
               end
 
               buffer = RBS::Buffer.new(name: relative_path, content: sig_service.files.fetch(relative_path).content)
@@ -280,8 +281,15 @@ module Steep
 
           case class_entry
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            comments = class_entry.decls.map {|decl| decl.decl.comment }.compact
-            decl = class_entry.primary.decl
+            comments = class_entry.each_decl.filter_map do |decl|
+              case decl
+              when RBS::AST::Declarations::Module, RBS::AST::Declarations::Class
+                decl.comment
+              else
+                nil
+              end
+            end
+            decl = class_entry.primary_decl
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
             comments = [class_entry.decl.comment].compact
             decl = class_entry.decl

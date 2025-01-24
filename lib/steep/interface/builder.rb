@@ -240,7 +240,7 @@ module Steep
           case type
           when AST::Types::Name::Instance
             entry = factory.env.normalized_module_class_entry(type.name) or raise
-            entry.primary.decl.type_params.map { _1.name }
+            entry.primary_decl.type_params.map { _1.name }
           when AST::Types::Name::Interface
             entry = factory.env.interface_decls.fetch(type.name)
             entry.decl.type_params.map { _1.name }
@@ -412,16 +412,23 @@ module Steep
           return SingletonMethodName.new(type_name: type_name, method_name: name)
         end
 
-        case type_def.member.kind
-        when :instance
+        case type_def.member
+        when RBS::AST::Members::Base
+          case type_def.member.kind
+          when :instance
+            InstanceMethodName.new(type_name: type_name, method_name: name)
+          when :singleton
+            SingletonMethodName.new(type_name: type_name, method_name: name)
+          when :singleton_instance
+            # Assume it a instance method, because `module_function` methods are typically defined with `def`
+            InstanceMethodName.new(type_name: type_name, method_name: name)
+          else
+            raise
+          end
+        when RBS::AST::Ruby::Members::DefMember
           InstanceMethodName.new(type_name: type_name, method_name: name)
-        when :singleton
+        when RBS::AST::Ruby::Members::DefSingletonMember
           SingletonMethodName.new(type_name: type_name, method_name: name)
-        when :singleton_instance
-          # Assume it a instance method, because `module_function` methods are typically defined with `def`
-          InstanceMethodName.new(type_name: type_name, method_name: name)
-        else
-          raise
         end
       end
 

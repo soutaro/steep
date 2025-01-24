@@ -13,7 +13,11 @@ module Steep
           def comments
             case
             when decl = class_decl
-              decl.decls.map {|d| d.decl.comment }
+              decl.each_decl.filter_map do |d|
+                if d.is_a?(::RBS::AST::Declarations::Base)
+                  d.comment
+                end
+              end
             when decl = class_alias
               [decl.decl.comment]
             when decl = constant_decl

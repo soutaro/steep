@@ -87,13 +87,12 @@ class TypeNameCompletionTest < Minitest::Test
         use NoSuchClass, Object as ExistingClass
       RBS
 
-      buf = factory.env.buffers.find {|buf| File.basename(buf.name) == "a.rbs" } or raise
-      dirs, _ = factory.env.signatures[buf]
+      source = factory.env.each_rbs_source.find { _1.buffer.name.basename.to_s == "a.rbs" } or raise
 
       completion = Services::TypeNameCompletion.new(
         env: factory.env,
         context: nil,
-        dirs: dirs
+        dirs: source.directives
       )
 
       refute completion.each_type_name.include?(RBS::TypeName.parse("NoSuchClass"))
@@ -112,13 +111,12 @@ class TypeNameCompletionTest < Minitest::Test
         end
       RBS
 
-      buf = factory.env.buffers.find {|buf| File.basename(buf.name) == "a.rbs" } or raise
-      dirs, _ = factory.env.signatures[buf]
+      source = factory.env.each_rbs_source.find { _1.buffer.name.basename.to_s == "a.rbs" } or raise
 
       completion = Services::TypeNameCompletion.new(
         env: factory.env,
         context: nil,
-        dirs: dirs
+        dirs: source.directives
       )
 
       assert completion.each_type_name.include?(RBS::TypeName.parse("::Foo"))
@@ -142,13 +140,12 @@ class TypeNameCompletionTest < Minitest::Test
         end
       RBS
 
-      buf = factory.env.buffers.find {|buf| File.basename(buf.name) == "a.rbs" } or raise
-      dirs, _ = factory.env.signatures[buf]
+      source = factory.env.each_rbs_source.find { _1.buffer.name.basename.to_s == "a.rbs" } or raise
 
       completion = Services::TypeNameCompletion.new(
         env: factory.env,
         context: nil,
-        dirs: dirs
+        dirs: source.directives
       )
 
       type_names = completion.each_type_name.to_set
@@ -192,10 +189,9 @@ class TypeNameCompletionTest < Minitest::Test
         end
       RBS
 
-      buf = factory.env.buffers.find {|buf| Pathname(buf.name).basename == Pathname("a.rbs") }
-      dirs = factory.env.signatures[buf][0]
+      source = factory.env.each_rbs_source.find { _1.buffer.name.basename.to_s == "a.rbs" } or raise
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil, dirs: dirs)
+      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil, dirs: source.directives)
 
       assert_operator completion.each_type_name, :include?, RBS::TypeName.parse("Foo")
       assert_operator completion.each_type_name, :include?, RBS::TypeName.parse("String")
@@ -258,10 +254,9 @@ class TypeNameCompletionTest < Minitest::Test
         module Bar = Foo::Bar
       RBS
 
-      buf = factory.env.buffers.find {|buf| Pathname(buf.name).basename == Pathname("a.rbs") }
-      dirs = factory.env.signatures[buf][0]
+      source = factory.env.each_rbs_source.find { _1.buffer.name.basename.to_s == "a.rbs" } or raise
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: [[nil, RBS::TypeName.parse("::Foo")], RBS::TypeName.parse("::Foo::Bar")], dirs: dirs)
+      completion = Services::TypeNameCompletion.new(env: factory.env, context: [[nil, RBS::TypeName.parse("::Foo")], RBS::TypeName.parse("::Foo::Bar")], dirs: source.directives)
 
       assert_operator(
         completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Baz")),

@@ -547,17 +547,49 @@ RBS
 
       service.update(
         changes: {
-          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
-foo = 100
-foo + "ba
-RUBY
+          Pathname("hello.rb") => [ContentChange.string(<<~SRC)]
+            foo = 100
+            foo +
+          SRC
         }
       ) {}
 
       target = service.project.targets.find {|target| target.name == :lib }
       hover = HoverProvider::Ruby.new(service: service)
 
-      hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 4).tap do |content|
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 2).tap do |content|
+        assert_nil content
+      end
+    end
+  end
+
+  def test_hover__inline__ruby
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.eval(project) do
+        target :lib do
+          inline_rbs!
+          check "hello.rb"
+        end
+      end
+
+      service = Services::TypeCheckService.new(project: project)
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<~SRC)]
+            class Foo
+            end
+
+            Foo
+          SRC
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 4, column: 1).tap do |content|
         assert_nil content
       end
     end

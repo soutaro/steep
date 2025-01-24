@@ -44,4 +44,6 @@ class RubyHoverTest < Minitest::Test
   def test_type_assertion: () -> untyped
 
   def test_hover_on_syntax_error: () -> untyped
+
+  def test_hover__inline__ruby: () -> untyped
 end

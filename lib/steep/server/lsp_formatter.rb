@@ -121,7 +121,7 @@ module Steep
           decl_summary =
             case
             when decl = content.class_decl
-              declaration_summary(decl.primary.decl)
+              declaration_summary(decl.primary_decl)
             when decl = content.constant_decl
               declaration_summary(decl.decl)
             when decl = content.class_alias
@@ -181,26 +181,40 @@ module Steep
         when HoverProvider::RBS::ClassContent
           io = StringIO.new
 
+          case content.entry
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            decl = content.entry.primary_decl
+            case decl
+            when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl
+              # No comment
+            else
+              comment = decl.comment
+            end
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            decl = content.entry.decl
+            comment = decl.comment
+          end
+
           io << <<~MD
           ```rbs
-          #{declaration_summary(content.decl)}
+          #{declaration_summary(decl)}
           ```
           MD
 
-          if content.decl.comment
+          if comment
             io.puts "----"
 
             class_name =
-              case content.decl
+              case decl
               when RBS::AST::Declarations::ModuleAlias, RBS::AST::Declarations::ClassAlias
-                content.decl.new_name
+                decl.new_name
               when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
-                content.decl.name
+                decl.name
               else
                 raise
               end
 
-            io << format_comments([[class_name.relative!.to_s, content.decl.comment]])
+            io << format_comments([[class_name.relative!.to_s, comment]])
           end
 
           io.string
@@ -419,6 +433,14 @@ module Steep
           "#{decl.name}: #{decl.type}"
         when RBS::AST::Declarations::Constant
           "#{decl.name.relative!}: #{decl.type}"
+        when RBS::AST::Ruby::Declarations::ModuleDecl
+          "module #{decl.module_name.relative!}"
+        when RBS::AST::Ruby::Declarations::ClassDecl
+          if super_class = decl.super_class
+            "class #{decl.class_name.relative!} < #{super_class.class_name.relative!}"
+          else
+            "class #{decl.class_name.relative!}"
+          end
         end
       end
 

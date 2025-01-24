@@ -3,7 +3,7 @@ module Steep
     module HoverProvider
       class RBS
         TypeAliasContent = _ = Struct.new(:location, :decl, keyword_init: true)
-        ClassContent = _ = Struct.new(:location, :decl, keyword_init: true)
+        ClassContent = _ = Struct.new(:location, :entry, keyword_init: true)
         InterfaceContent = _ = Struct.new(:location, :decl, keyword_init: true)
 
         attr_reader :service
@@ -21,7 +21,9 @@ module Steep
 
           env = service.latest_env
           buffer = env.buffers.find {|buf| buf.name.to_s == path.to_s } or return
-          (dirs, decls = env.signatures[buffer]) or raise
+          source = env.each_rbs_source.find { _1.buffer.name == path } or return
+          dirs = source.directives
+          decls = source.declarations
 
           locator = ::RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
           loc_key, path = locator.find2(line: line, column: column) || return
@@ -71,15 +73,7 @@ module Steep
             InterfaceContent.new(location: location, decl: interface_decl)
           when type_name.class?
             class_entry = env.module_class_entry(type_name) or return
-
-            case class_entry
-            when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
-              class_decl = class_entry.primary.decl
-            when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
-              class_decl = class_entry.decl
-            end
-
-            ClassContent.new(location: location, decl: class_decl)
+            ClassContent.new(location: location, entry: class_entry)
           end
         end
       end
