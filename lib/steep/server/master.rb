@@ -186,7 +186,7 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
-      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
+      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new, refork: false)
         @project = project
         @reader = reader
         @writer = writer
@@ -198,6 +198,7 @@ module Steep
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
         @refork_mutex = Mutex.new
+        @need_to_refork = refork
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -806,8 +807,8 @@ module Steep
       end
 
       def refork_workers
-        return if @reforked
-        @reforked = true
+        return unless @need_to_refork
+        @need_to_refork = false
 
         Thread.new do
           Thread.current.abort_on_exception = true

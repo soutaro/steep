@@ -21,22 +21,17 @@ module Steep
       end
 
       def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, delay_shutdown: false, patterns: [])
-        begin
-          unless steep_command
-            fork_worker(
-              type,
-              name: name,
-              steepfile: steepfile,
-              index: index,
-              is_primary: index&.[](1) == 0 && index&.[](0) >= 2,
-              delay_shutdown: delay_shutdown,
-              patterns: patterns
-            )
-          else
-            # Use `#spawn_worker`
-            raise NotImplementedError
-          end
-        rescue NotImplementedError
+        if Steep.can_fork? && !steep_command
+          fork_worker(
+            type,
+            name: name,
+            steepfile: steepfile,
+            index: index,
+            is_primary: index&.[](1) == 0 && index&.[](0) >= 2,
+            delay_shutdown: delay_shutdown,
+            patterns: patterns
+          )
+        else
           spawn_worker(
             type,
             name: name,

@@ -229,6 +229,10 @@ module Steep
     end
   end
 
+  def self.can_fork?
+    defined?(fork)
+  end
+
   class Sampler
     def initialize()
       @samples = []
