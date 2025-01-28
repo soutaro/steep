@@ -7,6 +7,9 @@ module Steep
 
       attr_reader source_pattern: Pattern
 
+      # Pattern for inline-rbs sources
+      attr_reader inline_source_pattern: Pattern
+
       attr_reader signature_pattern: Pattern
 
       attr_reader target: Target
@@ -15,10 +18,12 @@ module Steep
 
       attr_reader code_diagnostics_config: diagnostics_config
 
-      def initialize: (Target, Symbol, Pattern source_pattern, Pattern signature_pattern, diagnostics_config) -> void
+      def initialize: (Target, Symbol, Pattern source_pattern, Pattern inline_source_pattern, Pattern signature_pattern, diagnostics_config) -> void
 
+      # Returns true if given path should be type checked
       def possible_source_file?: (Pathname path) -> bool
 
+      # Returns true if the given path contains type signature
       def possible_signature_file?: (Pathname path) -> bool
     end
   end

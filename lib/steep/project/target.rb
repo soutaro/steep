@@ -5,25 +5,25 @@ module Steep
       attr_reader :target_options
 
       attr_reader :source_pattern
+      attr_reader :inline_source_pattern
       attr_reader :signature_pattern
       attr_reader :code_diagnostics_config
       attr_reader :project
       attr_reader :unreferenced
       attr_reader :groups
       attr_reader :implicitly_returns_nil
-      attr_reader :inline_rbs
 
-      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:, implicitly_returns_nil:, inline_rbs:)
+      def initialize(name:, options:, source_pattern:, inline_source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:, implicitly_returns_nil:)
         @name = name
         @target_options = options
         @source_pattern = source_pattern
+        @inline_source_pattern = inline_source_pattern
         @signature_pattern = signature_pattern
         @code_diagnostics_config = code_diagnostics_config
         @project = project
         @unreferenced = unreferenced
         @groups = []
         @implicitly_returns_nil = implicitly_returns_nil
-        @inline_rbs = inline_rbs
       end
 
       def options
@@ -35,7 +35,7 @@ module Steep
           return target
         end
 
-        if source_pattern =~ path
+        if source_pattern =~ path || inline_source_pattern =~ path
           return self
         end
 
@@ -47,13 +47,11 @@ module Steep
           return target
         end
 
-        if signature_pattern =~ path
+        if signature_pattern =~ path || inline_source_pattern =~ path
           return self
         end
 
-        if inline_rbs
-          possible_source_file?(path)
-        end
+        nil
       end
 
       def new_env_loader()

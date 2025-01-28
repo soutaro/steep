@@ -70,12 +70,20 @@ module Steep
       end
 
       module WithPattern
-        def check(*args)
-          sources.concat(args)
+        def check(*args, inline_rbs: false)
+          if inline_rbs
+            inline_sources.concat(args)
+          else
+            sources.concat(args)
+          end
         end
 
-        def ignore(*args)
-          ignored_sources.concat(args)
+        def ignore(*args, inline_rbs: false)
+          if inline_rbs
+            ignore_inline_sources.concat(args)
+          else
+            ignored_sources.concat(args)
+          end
         end
 
         def signature(*args)
@@ -102,12 +110,24 @@ module Steep
           @ignored_signatures ||= []
         end
 
+        def inline_sources
+          @inline_sources ||= []
+        end
+
+        def ignore_inline_sources
+          @ignore_inline_sources ||= []
+        end
+
         def source_pattern
           Pattern.new(patterns: sources, ignores: ignored_sources, ext: ".rb")
         end
 
         def signature_pattern
           Pattern.new(patterns: signatures, ignores: ignored_signatures, ext: ".rbs")
+        end
+
+        def inline_source_pattern
+          Pattern.new(patterns: inline_sources, ignores: ignore_inline_sources, ext: ".rb")
         end
       end
 
@@ -131,7 +151,6 @@ module Steep
           @unreferenced = false
           @implicitly_returns_nil = false
           @groups = []
-          @inline_rbs = false
         end
 
         def initialize_copy(other)
@@ -150,7 +169,8 @@ module Steep
           @unreferenced = other.unreferenced
           @implicitly_returns_nil = other.implicitly_returns_nil
           @groups = other.groups.dup
-          @inline_rbs = other.inline_rbs
+          @inline_sources = other.inline_sources.dup
+          @ignore_inline_sources = other.ignore_inline_sources.dup
         end
 
         def unreferenced!(value = true)
@@ -159,10 +179,6 @@ module Steep
 
         def implicitly_returns_nil!(value = true)
           @implicitly_returns_nil = value
-        end
-
-        def inline_rbs!(value = true)
-          @inline_rbs = value
         end
 
         def configure_code_diagnostics(hash = nil)
@@ -256,16 +272,16 @@ module Steep
           name: dsl.name,
           source_pattern: dsl.source_pattern,
           signature_pattern: dsl.signature_pattern,
+          inline_source_pattern: dsl.inline_source_pattern,
           options: dsl.library_configured? ? dsl.to_library_options : nil,
           code_diagnostics_config: dsl.code_diagnostics_config,
           project: project,
           unreferenced: dsl.unreferenced,
           implicitly_returns_nil: dsl.implicitly_returns_nil,
-          inline_rbs: dsl.inline_rbs
         )
 
         dsl.groups.each do
-          group = Group.new(target, _1.name, _1.source_pattern, _1.signature_pattern, _1.code_diagnostics_config || target.code_diagnostics_config)
+          group = Group.new(target, _1.name, _1.source_pattern, _1.inline_source_pattern, _1.signature_pattern, _1.code_diagnostics_config || target.code_diagnostics_config)
           target.groups << group
         end
 

@@ -11,6 +11,8 @@ module Steep
 
       attr_reader library_paths: Hash[Symbol, Set[Pathname]]
 
+      attr_reader inline_signature_paths: Hash[Pathname, Target | Group]
+
       def initialize: (Project) -> void
 
       # Add path
@@ -30,6 +32,8 @@ module Steep
       def signature_path_target: (Pathname) -> Target?
 
       def source_path_target: (Pathname) -> Target?
+
+      def inline_signature_path_target: (Pathname) -> Target?
 
       # Yield signature paths that belongs to given target/group
       #

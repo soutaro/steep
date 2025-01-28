@@ -730,8 +730,7 @@ puts i
     project = Steep::Project.new(steepfile_path: Pathname(__dir__) + "Steepfile", base_dir: Pathname(__dir__))
     Steep::Project::DSL.eval(project) do
       target :lib do
-        inline_rbs!
-        check "lib"
+        check "lib", inline_rbs: true
       end
     end
 

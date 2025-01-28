@@ -22,7 +22,5 @@ end
 # end
 
 target :inline do
-  inline_rbs!
-
-  check "inline.rb"
+  check "inline.rb", inline_rbs: true
 end

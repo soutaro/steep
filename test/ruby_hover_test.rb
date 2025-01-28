@@ -568,8 +568,7 @@ RBS
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.eval(project) do
         target :lib do
-          inline_rbs!
-          check "hello.rb"
+          check "hello.rb", inline_rbs: true
         end
       end
 

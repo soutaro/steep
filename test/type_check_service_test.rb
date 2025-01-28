@@ -456,8 +456,7 @@ RBS
     project = Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
       Project::DSL.eval(project) do
         target :app do
-          inline_rbs!
-          check "lib/core.rb"
+          check "lib/core.rb", inline_rbs: true
         end
       end
     end
@@ -483,8 +482,7 @@ RBS
     project = Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
       Project::DSL.eval(project) do
         target :app do
-          inline_rbs!
-          check "lib/core.rb"
+          check "lib/core.rb", inline_rbs: true
         end
       end
     end
