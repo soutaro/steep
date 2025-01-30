@@ -26,8 +26,11 @@ module Steep
         # The path of library files
         attr_reader library_paths: Hash[Symbol, Set[Pathname]]
 
-        # The path of project files
-        attr_reader project_paths: Hash[Symbol, Set[Pathname]]
+        attr_reader code_paths: Set[target_and_path]
+
+        attr_reader inline_paths: Set[target_and_path]
+
+        attr_reader signature_paths: Set[target_and_path]
 
         # The path of files that are type checked already
         attr_reader checked_paths: Set[target_and_path]
@@ -49,6 +52,12 @@ module Steep
 
         def add_library_path: (Target, Pathname) -> void
 
+        def add_code_path: (Target, Pathname) -> void
+
+        def add_signature_path: (Target, Pathname) -> void
+
+        def add_inline_path: (Target, Pathname) -> void
+
         def add_project_path: (Target, Pathname) -> void
 
         private def uri: (Pathname path) -> URI::File
@@ -59,7 +68,9 @@ module Steep
         type json = {
           guid: String,
           library_uris: Hash[String, Array[String]],
-          project_uris: Hash[String, Array[String]],
+          code_uris: Array[[String, String]],
+          inline_uris: Array[[String, String]],
+          signature_uris: Array[[String, String]],
           priority_uris: Array[String],
         }
 
@@ -78,11 +89,16 @@ module Steep
         def each_path: () { (Pathname) -> void } -> void
                      | () -> Enumerator[Pathname]
 
+        # Enumerates all paths included in the request
         def each_target_path: () { (target_and_path) -> void } -> void
                             | () -> Enumerator[target_and_path]
 
         # Returns true if the path and target is included in the subject of type checking
         def checking_path?: (target_and_path) -> bool
+
+        def project_target_path?: (target_and_path) -> bool
+
+        def library_target_path?: (target_and_path) -> bool
 
         # Returns true if the path is already type checked/validated
         def type_checked?: (target_and_path) -> bool
