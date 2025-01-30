@@ -100,24 +100,38 @@ module SubtypingHelper
   def with_checker: (*untyped files, ?with_stdlib: untyped) ?{ (?) -> untyped } -> untyped
 end
 
-module ShellHelper
-  def chdir: (untyped path) -> untyped
+# @rbs module-self _Shellable
+module ShellHelper : _Shellable
+  interface _Shellable
+    def dirs: () -> Array[Pathname]
 
-  def current_dir: () -> untyped
+    def envs: () -> Array[Hash[String, String]]
+  end
 
-  def push_env: (untyped env) -> untyped
+  # @rbs [T] (Pathname) { () -> T } -> T
+  def chdir: [T] (Pathname) { () -> T } -> T
 
-  def env_vars: () -> untyped
+  def current_dir: () -> Pathname
 
-  def sh: (*untyped command, **untyped opts) -> untyped
+  # @rbs [T] (Hash[String, String]) { () -> T } -> T
+  def push_env: [T] (Hash[String, String]) { () -> T } -> T
 
-  def sh3: (*untyped command) -> untyped
+  def env_vars: () -> Hash[String, String]
 
-  def sh2e: (*untyped command) -> untyped
+  # @rbs (*String, **untyped) -> [String, Process::Status]
+  def sh: (*String, **untyped) -> [ String, Process::Status ]
 
-  def sh!: (*untyped command, **untyped opts) -> untyped
+  # @rbs (*String) -> [String, String, Process::Status]
+  def sh3: (*String) -> [ String, String, Process::Status ]
 
-  def in_tmpdir: () ?{ (?) -> untyped } -> untyped
+  # @rbs (*String) -> [String, Process::Status]
+  def sh2e: (*String) -> [ String, Process::Status ]
+
+  # @rbs (*String, **untyped) -> String
+  def sh!: (*String, **untyped) -> String
+
+  # @rbs [T] () { () -> T } -> T
+  def in_tmpdir: [T] () { () -> T } -> T
 end
 
 module FactoryHelper

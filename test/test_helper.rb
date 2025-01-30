@@ -488,7 +488,16 @@ end
   end
 end
 
+# @rbs module-self _Shellable
 module ShellHelper
+  # @rbs!
+  #   interface _Shellable
+  #     def dirs: () -> Array[Pathname]
+  #
+  #     def envs: () -> Array[Hash[String, String]]
+  #   end
+
+  # @rbs [T] (Pathname) { () -> T } -> T
   def chdir(path)
     if path.relative?
       path = current_dir + path
@@ -499,10 +508,11 @@ module ShellHelper
     dirs.pop
   end
 
-  def current_dir
-    dirs.last
+  def current_dir #: Pathname
+    dirs.last or raise
   end
 
+  # @rbs [T] (Hash[String, String]) { () -> T } -> T
   def push_env(env)
     envs.push env
     yield
@@ -510,24 +520,28 @@ module ShellHelper
     envs.pop
   end
 
-  def env_vars
-    envs.each.with_object({}) do |update_env, env_vars|
+  def env_vars #: Hash[String, String]
+    envs.each.with_object({}) do |update_env, env_vars| #$ Hash[String, String]
       env_vars.merge!(update_env)
     end
   end
 
+  # @rbs (*String, **untyped) -> [String, Process::Status]
   def sh(*command, **opts)
     Open3.capture2(env_vars, *command, chdir: current_dir.to_s, **opts)
   end
 
+  # @rbs (*String) -> [String, String, Process::Status]
   def sh3(*command)
     Open3.capture3(env_vars, *command, chdir: current_dir.to_s)
   end
 
+  # @rbs (*String) -> [String, Process::Status]
   def sh2e(*command)
     Open3.capture2e(env_vars, *command, chdir: current_dir.to_s)
   end
 
+  # @rbs (*String, **untyped) -> String
   def sh!(*command, **opts)
     stdout, status = sh(*command, **opts)
     unless status.success?
@@ -537,6 +551,7 @@ module ShellHelper
     stdout
   end
 
+  # @rbs [T] () { () -> T } -> T
   def in_tmpdir(&block)
     Dir.mktmpdir do |dir|
       chdir(Pathname(dir).realpath, &block)

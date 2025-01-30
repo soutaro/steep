@@ -13,19 +13,26 @@ class TypeCheckWorkerTest < Minitest::Test
 
   LSP: untyped
 
-  TypeCheckWorker: untyped
+  TypeCheckWorker: singleton(Server::TypeCheckWorker)
 
-  ContentChange: untyped
+  ContentChange: singleton(Services::ContentChange)
 
   include Server::CustomMethods
 
-  def dirs: () -> untyped
+  @envs: Array[Hash[String, String]]
 
-  def run_worker: (untyped worker) -> untyped
+  @dirs: Array[Pathname]
+
+  def dirs: () -> Array[Pathname]
+
+  def envs: () -> Array[Hash[String, String]]
+
+  # @rbs [A] (Server::TypeCheckWorker) { (Thread) -> A } -> A
+  def run_worker: [A] (Server::TypeCheckWorker) { (Thread) -> A } -> A
 
   def shutdown!: () -> untyped
 
-  def assignment: () -> untyped
+  def assignment: () -> Services::PathAssignment
 
   def test_worker_shutdown: () -> untyped
 

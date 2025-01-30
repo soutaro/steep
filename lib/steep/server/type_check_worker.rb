@@ -9,6 +9,7 @@ module Steep
       StatsJob = _ = Struct.new(:id, keyword_init: true)
       StartTypeCheckJob = _ = Struct.new(:guid, :changes, keyword_init: true)
       TypeCheckCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
+      TypeCheckInlineJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       class GotoJob < Struct.new(:id, :kind, :params, keyword_init: true)
@@ -162,6 +163,7 @@ module Steep
         end
 
         priority_paths = Set.new(params[:priority_uris].map {|uri| Steep::PathHelper.to_pathname!(uri) })
+
         libraries = params[:library_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
         signatures = params[:signature_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
         codes = params[:code_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]

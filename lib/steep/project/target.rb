@@ -54,6 +54,42 @@ module Steep
         nil
       end
 
+      def source_file_path?(path)
+        if group = groups.find { _1.source_pattern =~ path }
+          return group
+        end
+
+        if source_pattern =~ path
+          return self
+        end
+
+        nil
+      end
+
+      def signature_file_path?(path)
+        if group = groups.find { _1.signature_pattern =~ path }
+          return group
+        end
+
+        if signature_pattern =~ path
+          return self
+        end
+
+        nil
+      end
+
+      def inline_source_file_path?(path)
+        if group = groups.find { _1.inline_source_pattern =~ path }
+          return group
+        end
+
+        if inline_source_pattern =~ path
+          return self
+        end
+
+        nil
+      end
+
       def new_env_loader()
         Target.construct_env_loader(options: options, project: project)
       end

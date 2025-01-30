@@ -15,6 +15,8 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
   def test_files__each_library_path: () -> untyped
 
+  def test__target: () -> void
+
   def test_files__each_group_signature_path__target: () -> untyped
 
   def test_files__each_group_source_path__target: () -> untyped

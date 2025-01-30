@@ -4,8 +4,7 @@ module Steep
       class Request
         attr_reader :guid
         attr_reader :library_paths
-        attr_reader :signature_paths
-        attr_reader :code_paths
+        attr_reader :project_paths
         attr_reader :priority_paths
         attr_reader :checked_paths
         attr_reader :work_done_progress
@@ -13,17 +12,28 @@ module Steep
         attr_accessor :needs_response
         attr_reader :report_progress
 
-        def initialize(guid:, progress:)
+        def initialize(guid:, targets:, progress:)
           @guid = guid
-          @library_paths = Set[]
-          @signature_paths = Set[]
-          @code_paths = Set[]
+          @project_paths = {}
+          @library_paths = {}
+          targets.each do |target|
+            project_paths[target.name] = Set[]
+            library_paths[target.name] = Set[]
+          end
           @priority_paths = Set[]
           @checked_paths = Set[]
           @work_done_progress = progress
           @started_at = Time.now
           @needs_response = false
           @report_progress = false
+        end
+
+        def add_library_path(target, path)
+          library_paths.fetch(target.name) << path
+        end
+
+        def add_project_path(target, path)
+          project_paths.fetch(target.name) << path
         end
 
         def report_progress!(value = true)
@@ -36,25 +46,34 @@ module Steep
         end
 
         def as_json(assignment:)
+          library_uris = {} #: Hash[String, Array[String]]
+          library_paths.each do |target, paths|
+            library_uris[target.name.to_s] = assigned_uris(assignment, target, paths)
+          end
+
+          project_uris = {} #: Hash[String, Array[String]]
+          project_paths.each do |target, paths|
+            project_uris[target.name.to_s] = assigned_uris(assignment, target, paths)
+          end
+
           {
             guid: guid,
-            library_uris: assigned_uris(assignment, library_paths),
-            signature_uris: assigned_uris(assignment, signature_paths),
-            code_uris: assigned_uris(assignment, code_paths),
+            library_uris: library_uris,
+            project_uris: project_uris,
             priority_uris: priority_paths.map {|path| uri(path).to_s }
           }
         end
 
-        def assigned_uris(assignment, paths)
-          paths.filter_map do |target_path|
-            if assignment =~ target_path
-              [target_path[0].to_s, uri(target_path[1]).to_s]
+        def assigned_uris(assignment, target, paths)
+          paths.filter_map do |path|
+            if assignment =~ [target, path]
+              uri(path).to_s
             end
           end
         end
 
         def total
-          library_paths.size + signature_paths.size + code_paths.size
+          library_paths.each_value.sum(&:size) + project_paths.each_value.sum(&:size)
         end
 
         def empty?
@@ -77,18 +96,31 @@ module Steep
 
         def each_target_path(&block)
           if block
-            library_paths.each(&block)
-            signature_paths.each(&block)
-            code_paths.each(&block)
+            library_paths.each do |target, paths|
+              paths.each do |path|
+                yield [target, path]
+              end
+            end
+            project_paths.each do |target, paths|
+              paths.each do |path|
+                yield [target, path]
+              end
+            end
           else
             enum_for :each_target_path
           end
         end
 
         def checking_path?(target_path)
-          [library_paths, signature_paths, code_paths].any? do |paths|
-            paths.include?(target_path)
-          end
+          target, path = target_path
+
+          library_paths.fetch(target, Set[]).include?(path) ||
+            project_paths.fetch(target, Set[]).include?(path)
+        end
+
+        def type_checked?(target_path)
+          raise unless checking_path?(target_path)
+          checked_paths.include?(target_path)
         end
 
         def checked(path, target)
@@ -115,7 +147,7 @@ module Steep
         def each_unchecked_target_path(&block)
           if block
             each_target_path do |target_path|
-              unless checked_paths.include?(target_path)
+              unless type_checked?(target_path)
                 yield target_path
               end
             end
@@ -124,11 +156,14 @@ module Steep
           end
         end
 
-        def each_unchecked_code_target_path(&block)
+        def each_unchecked_project_target_path(&block)
           if block
-            code_paths.each do |target_path|
-              unless checked_paths.include?(target_path)
-                yield target_path
+            project_paths.each do |target, paths|
+              paths.each do |path|
+                target_path = [target, path] #: target_and_path
+                unless type_checked?(target_path)
+                  yield target_path
+                end
               end
             end
           else
@@ -138,9 +173,12 @@ module Steep
 
         def each_unchecked_library_target_path(&block)
           if block
-            library_paths.each do |target_path|
-              unless checked_paths.include?(target_path)
-                yield target_path
+            library_paths.each do |target, paths|
+              paths.each do |path|
+                target_path = [target, path] #: target_and_path
+                unless type_checked?(target_path)
+                  yield target_path
+                end
               end
             end
           else
@@ -148,22 +186,13 @@ module Steep
           end
         end
 
-        def each_unchecked_signature_target_path(&block)
-          if block
-            signature_paths.each do |target_path|
-              unless checked_paths.include?(target_path)
-                yield target_path
-              end
-            end
-          else
-            enum_for :each_unchecked_signature_target_path
-          end
-        end
-
         def merge!(request)
-          library_paths.merge(request.each_unchecked_library_target_path)
-          signature_paths.merge(request.each_unchecked_signature_target_path)
-          code_paths.merge(request.each_unchecked_code_target_path)
+          library_paths.merge!(request.library_paths) do |target, self_paths, other_paths|
+            self_paths + other_paths
+          end
+          project_paths.merge!(request.project_paths) do |target, self_paths, other_paths|
+            self_paths + other_paths
+          end
 
           self
         end
@@ -203,8 +232,9 @@ module Steep
           end
         end
 
-        changed_paths.merge(self.files.each_project_signature_path(nil))
-        changed_paths.merge(self.files.each_project_source_path(nil))
+        changed_paths.merge(self.files.signature_paths.each_project_path)
+        changed_paths.merge(self.files.source_paths.each_project_path)
+        changed_paths.merge(self.files.inline_paths.each_project_path)
 
         yield files.dup unless files.empty?
       end
@@ -219,18 +249,20 @@ module Steep
 
       def active_target?(target_group)
         priority_paths.any? do |path|
-          if open_target = files.signature_paths.fetch(path, nil) || files.source_paths.fetch(path, nil)
+          if open_target = files[path]
             open_target == target_group
           end
         end
       end
 
       def push_changes_for_target(target_group)
-        files.each_group_signature_path(target_group) do |path|
+        files.signature_paths.each_group_path(target_group) do |path|
           push_changes path
         end
-
-        files.each_group_source_path(target_group) do |path|
+        files.source_paths.each_group_path(target_group) do |path|
+          push_changes path
+        end
+        files.inline_paths.each_group_path(target_group) do |path|
           push_changes path
         end
       end
@@ -243,7 +275,7 @@ module Steep
 
         case
         when open
-          target_group = files.signature_paths.fetch(path, nil) || files.source_paths.fetch(path, nil) or return
+          target_group = files[path] or return
 
           unless active_target?(target_group)
             push_changes_for_target(target_group)
@@ -255,15 +287,16 @@ module Steep
       end
 
       def make_group_request(groups, progress:)
-        TypeCheckController::Request.new(guid: progress.guid, progress: progress).tap do |request|
+        TypeCheckController::Request.new(guid: progress.guid, targets: project.targets, progress: progress).tap do |request|
           if groups.empty?
-            files.signature_paths.each do |path, target_group|
-              target_group = target_group.target if target_group.is_a?(Project::Group)
-              request.signature_paths << [target_group.name, path]
+            files.signature_paths.each do |path, target, _group|
+              request.add_project_path(target, path)
             end
-            files.source_paths.each do |path, target_group|
-              target_group = target_group.target if target_group.is_a?(Project::Group)
-              request.code_paths << [target_group.name, path]
+            files.source_paths.each do |path, target, _group|
+              request.add_project_path(target, path)
+            end
+            files.inline_paths.each do |path, target, _group|
+              request.add_project_path(target, path)
             end
           else
             group_set = groups.filter_map do |group_name|
@@ -285,13 +318,13 @@ module Steep
             files.signature_paths.each do |path, target_group|
               if group_set.include?(target_group)
                 target_group = target_group.target if target_group.is_a?(Project::Group)
-                request.signature_paths << [target_group.name, path]
+                request.add_project_path(target_group, path)
               end
             end
             files.source_paths.each do |path, target_group|
               if group_set.include?(target_group)
                 target_group = target_group.target if target_group.is_a?(Project::Group)
-                request.code_paths << [target_group.name, path]
+                request.add_project_path(target_group, path)
               end
             end
           end
@@ -299,58 +332,54 @@ module Steep
       end
 
       def make_request(guid: SecureRandom.uuid, include_unchanged: false, progress:)
-        TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
+        TypeCheckController::Request.new(guid: guid, targets: project.targets, progress: progress).tap do |request|
           if include_unchanged
-            files.signature_paths.each do |path, target_group|
-              target_group = target_group.target if target_group.is_a?(Project::Group)
-              request.signature_paths << [target_group.name, path]
+            files.signature_paths.each do |path, target|
+              request.add_project_path(target, path)
             end
-            files.source_paths.each do |path, target_group|
-              target_group = target_group.target if target_group.is_a?(Project::Group)
-              request.code_paths << [target_group.name, path]
+            files.source_paths.each do |path, target|
+              request.add_project_path(target, path)
+            end
+            files.inline_paths.each do |path, target|
+              request.add_project_path(target, path)
             end
           else
+            signature_updated_targets = Set[] #: Set[Symbol]
+
             changed_paths.each do |path|
-              if target_group = files.signature_paths.fetch(path, nil)
-                case target_group
-                when Project::Group
-                  target = target_group.target
-
-                  files.each_group_signature_path(target_group) do |path|
-                    request.signature_paths << [target.name, path]
+              if (target, group = files.signature_paths.target_group(path))
+                if group
+                  unless target.unreferenced
+                    signature_updated_targets << target.name
+                  end
+                  files.each_group_path(group) do |path|
+                    request.add_project_path(target, path)
+                  end
+                else
+                  unless target.unreferenced
+                    signature_updated_targets << target.name
                   end
 
-                  files.each_group_source_path(target_group) do |path|
-                    request.code_paths << [target.name, path]
-                  end
-                when Project::Target
-                  files.each_target_signature_path(target_group, nil) do |path|
-                    request.signature_paths << [target_group.name, path]
-                  end
-
-                  files.each_target_source_path(target_group, nil) do |path|
-                    request.code_paths << [target_group.name, path]
+                  files.each_target_path(target) do |path|
+                    request.add_project_path(target, path)
                   end
                 end
               end
 
-              if target = files.source_path_target(path)
-                request.code_paths << [target.name, path]
+              if target = files.source_paths.target(path)
+                request.add_project_path(target, path)
               end
             end
 
-            unless request.signature_paths.empty?
-              non_unref_targets = project.targets.reject { _1.unreferenced }.map(&:name).to_set
-              if request.signature_paths.any? {|target_name, _| non_unref_targets.include?(target_name) }
-                priority_paths.each do |path|
-                  if target = files.signature_path_target(path)
-                    request.signature_paths << [target.name, path]
-                    request.priority_paths << path
-                  end
-                  if target = files.source_path_target(path)
-                    request.code_paths << [target.name, path]
-                    request.priority_paths << path
-                  end
+            unless signature_updated_targets.empty?
+              priority_paths.each do |path|
+                if target = files.signature_paths.target(path)
+                  request.add_project_path(target, path)
+                  request.priority_paths << path
+                end
+                if target = files.source_paths.target(path)
+                  request.add_project_path(target, path)
+                  request.priority_paths << path
                 end
               end
             end

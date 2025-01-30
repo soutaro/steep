@@ -11,15 +11,23 @@ class TypeCheckWorkerTest < Minitest::Test
 
   LSP = LanguageServer::Protocol::Interface
 
-  TypeCheckWorker = Server::TypeCheckWorker
-  ContentChange = Services::ContentChange
+  TypeCheckWorker = Server::TypeCheckWorker #: singleton(Server::TypeCheckWorker)
+  ContentChange = Services::ContentChange #: singleton(Services::ContentChange)
 
   include Server::CustomMethods
 
-  def dirs
+  # @rbs @dirs: Array[Pathname]
+  # @rbs @envs: Array[Hash[String, String]]
+
+  def dirs #: Array[Pathname]
     @dirs ||= []
   end
 
+  def envs #: Array[Hash[String, String]]
+    @envs ||= []
+  end
+
+  # @rbs [A] (Server::TypeCheckWorker) { (Thread) -> A } -> A
   def run_worker(worker)
     t = Thread.new do
       worker.run()
@@ -50,7 +58,7 @@ class TypeCheckWorkerTest < Minitest::Test
     )
   end
 
-  def assignment
+  def assignment #: Services::PathAssignment
     @assignment ||= Services::PathAssignment.all
   end
 

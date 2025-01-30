@@ -43,9 +43,22 @@ module Steep
       #
       def options: () -> Options
 
+      # Returns the group or target that contains the file as a Ruby code
+      #
+      # Returns for *inline* code too.
+      #
       def possible_source_file?: (Pathname path) -> (Group | Target | nil)
 
       def possible_signature_file?: (Pathname path) -> (Group | Target | nil)
+
+      # Returns group/target if the path matches the source pattern
+      def source_file_path?: (Pathname path) -> (Group | Target | nil)
+
+      # Returns group/target if the path matches the signature pattern
+      def signature_file_path?: (Pathname path) -> (Group | Target | nil)
+
+      # Returns group/target if the path matches the inline source pattern
+      def inline_source_file_path?: (Pathname path) -> (Group | Target | nil)
 
       def new_env_loader: () -> RBS::EnvironmentLoader
 
