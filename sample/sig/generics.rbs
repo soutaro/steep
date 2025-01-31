@@ -13,4 +13,6 @@ class StringGeneric[X < Integer, Y < Integer = String]
   extend LocationHelper
 end
 
-type tttt = InlineFoo
+type tt = InlineFoo
+
+type t2 = InlineFoo

@@ -263,22 +263,15 @@ module Steep
 
         when TypeCheckInlineJob
           if job.guid == current_type_check_guid
-            signature = service.signature_services.fetch(job.target.name)
-
-            if file = signature.files.fetch(job.path, nil)
-              if file.source.is_a?(RBS::Source::Ruby)
-                signature_diagnostics = file.source.diagnostics
-              end
-            end
-
             Steep.logger.info { "Processing TypeCheckInlineJob for guid=#{job.guid}, path=#{job.path}, target=#{job.target.name}" }
-            group_target = project.group_for_source_path(job.path) || job.target
+            group_target = project.group_for_inline_path(job.path) or raise
+            signature_diagnostics = service.validate_signature(path: job.path, target: job.target)
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
             typecheck_ds = service.typecheck_source(path: relative_path, target: job.target)
 
             diagnostics =
-              if signature_diagnostics && typecheck_ds
+              if typecheck_ds
                 signature_diagnostics + typecheck_ds
               end
 

@@ -1,4 +1,6 @@
 
+
+
 class InlineFoo < String
   module Bar
 
@@ -6,4 +8,4 @@ class InlineFoo < String
 end
 
 InlineFoo::Bar
-InlineFoo::Bar
+

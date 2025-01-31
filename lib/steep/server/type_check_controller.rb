@@ -359,85 +359,95 @@ module Steep
       end
 
       def make_request(guid: SecureRandom.uuid, include_unchanged: false, progress:)
-        TypeCheckController::Request.new(guid: guid, targets: project.targets, progress: progress).tap do |request|
-          if include_unchanged
-            files.signature_paths.each do |path, target|
-              request.add_signature_path(target, path)
-            end
-            files.source_paths.each do |path, target|
-              request.add_code_path(target, path)
-            end
-            files.inline_paths.each do |path, target|
-              request.add_inline_path(target, path)
-            end
-          else
-            signature_updated_targets = Set[] #: Set[Symbol]
+        Steep.logger.tagged "make_request(guid: #{guid}, include_unchanged: #{include_unchanged}, progress: #{progress.class})" do
+          Steep.logger.fatal {
+            {
+              source: files.source_paths.paths,
+              signatures: files.signature_paths.paths,
+              inlines: files.inline_paths.paths
+            }.inspect
+          }
 
-            changed_paths.each do |path|
-              if (target, group = files.signature_paths.target_group(path))
-                if group
-                  unless target.unreferenced
-                    signature_updated_targets << target.name
-                  end
-                  files.each_group_path(group) do |path|
-                    request.add_project_path(target, path)
-                  end
-                else
-                  unless target.unreferenced
-                    signature_updated_targets << target.name
-                  end
-
-                  files.each_target_path(target) do |path|
-                    request.add_project_path(target, path)
-                  end
-                end
+          TypeCheckController::Request.new(guid: guid, targets: project.targets, progress: progress).tap do |request|
+            if include_unchanged
+              files.signature_paths.each do |path, target|
+                request.add_signature_path(target, path)
               end
-
-              if (target, group = files.inline_paths.target_group(path))
-                if group
-                  unless target.unreferenced
-                    signature_updated_targets << target.name
-                  end
-                  files.each_group_path(group) do |path|
-                    request.add_project_path(target, path)
-                  end
-                else
-                  unless target.unreferenced
-                    signature_updated_targets << target.name
-                  end
-
-                  files.each_target_path(target) do |path|
-                    request.add_project_path(target, path)
-                  end
-                end
-              end
-
-              if target = files.source_paths.target(path)
+              files.source_paths.each do |path, target|
                 request.add_code_path(target, path)
               end
-            end
+              files.inline_paths.each do |path, target|
+                request.add_inline_path(target, path)
+              end
+            else
+              signature_updated_targets = Set[] #: Set[Symbol]
 
-            unless signature_updated_targets.empty?
-              priority_paths.each do |path|
-                if target = files.signature_paths.target(path)
-                  request.add_signature_path(target, path)
-                  request.priority_paths << path
+              changed_paths.each do |path|
+                if (target, group = files.signature_paths.target_group(path))
+                  if group
+                    unless target.unreferenced
+                      signature_updated_targets << target.name
+                    end
+                    files.each_group_path(group) do |path|
+                      request.add_project_path(target, path)
+                    end
+                  else
+                    unless target.unreferenced
+                      signature_updated_targets << target.name
+                    end
+
+                    files.each_target_path(target) do |path|
+                      request.add_project_path(target, path)
+                    end
+                  end
                 end
+
+                if (target, group = files.inline_paths.target_group(path))
+                  if group
+                    unless target.unreferenced
+                      signature_updated_targets << target.name
+                    end
+                    files.each_group_path(group) do |path|
+                      request.add_project_path(target, path)
+                    end
+                  else
+                    unless target.unreferenced
+                      signature_updated_targets << target.name
+                    end
+
+                    files.each_target_path(target) do |path|
+                      request.add_project_path(target, path)
+                    end
+                  end
+                end
+
                 if target = files.source_paths.target(path)
                   request.add_code_path(target, path)
-                  request.priority_paths << path
                 end
-                if target = files.inline_paths.target(path)
-                  request.add_code_path(target, path)
-                  request.priority_paths << path
+              end
+
+              unless signature_updated_targets.empty?
+                priority_paths.each do |path|
+                  if target = files.signature_paths.target(path)
+                    request.add_signature_path(target, path)
+                    request.priority_paths << path
+                  end
+                  if target = files.source_paths.target(path)
+                    request.add_code_path(target, path)
+                    request.priority_paths << path
+                  end
+                  if target = files.inline_paths.target(path)
+                    request.add_inline_path(target, path)
+                    request.priority_paths << path
+                  end
                 end
               end
             end
+
+            changed_paths.clear()
+
+            return nil if request.empty?
           end
-
-          changed_paths.clear()
-
-          return nil if request.empty?
         end
       end
     end
