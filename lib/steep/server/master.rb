@@ -835,12 +835,17 @@ module Steep
 
                   new_worker = WorkerProcess.new(reader:, writer:, stderr: nil, wait_thread:, name: "#{worker.name}-2", index: worker.index)
                   old_worker = typecheck_workers[worker.index]
+
                   typecheck_workers[new_worker.index] = new_worker
+
+                  original_old_worker = old_worker.dup
+                  old_worker.redirect_to new_worker
+
                   refork_finished << true
 
-                  result_controller << send_request(method: 'shutdown', worker: old_worker) do |handler|
+                  result_controller << send_request(method: 'shutdown', worker: original_old_worker) do |handler|
                     handler.on_completion do
-                      send_request(method: 'exit', worker: old_worker)
+                      send_request(method: 'exit', worker: original_old_worker)
                     end
                   end
 

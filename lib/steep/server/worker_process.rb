@@ -149,6 +149,10 @@ module Steep
         end
       end
 
+      def redirect_to(worker)
+        @writer = worker.writer
+      end
+
       def <<(message)
         writer.write(message)
       end
