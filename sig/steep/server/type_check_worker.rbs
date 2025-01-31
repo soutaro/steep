@@ -144,6 +144,7 @@ module Steep
       type job = WorkspaceSymbolJob
                | StartTypeCheckJob
                | TypeCheckCodeJob
+               | TypeCheckInlineJob
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
                | GotoJob

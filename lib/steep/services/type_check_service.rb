@@ -268,8 +268,9 @@ module Steep
         Steep.logger.tagged "#update_signature" do
           signature_targets = {} #: Hash[Pathname, Project::Target]
           changes.each do |path, changes|
-            target = project.targets.find { _1.possible_signature_file?(path) } or next
-            signature_targets[path] = target
+            if target = project.targets.find { _1.signature_file_path?(path) || _1.inline_source_file_path?(path) }
+              signature_targets[path] = target
+            end
           end
 
           project.targets.each do |target|
@@ -387,7 +388,15 @@ module Steep
       end
 
       def source_file?(path)
-        source_files.key?(path) || (project.target_for_source_path(path) ? true : false)
+        if source_files.key?(path)
+          return true
+        end
+
+        if project.target_for_source_path(path) || project.target_for_inline_path(path)
+          return true
+        end
+
+        false
       end
 
       def signature_file?(path)
