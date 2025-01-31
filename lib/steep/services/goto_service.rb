@@ -156,128 +156,146 @@ module Steep
         true
       end
 
+      def query_at_ruby_code(queries, target, path:, line:, column:)
+        raise unless path.relative?
+
+        source = type_check.source_files.fetch(path, nil) or return
+        typing, _signature = type_check_path(target: target, path: path, content: source.content, line: line, column: column)
+        if typing
+          node, *parents = typing.source.find_nodes(line: line, column: column)
+
+          if node && parents
+            case node.type
+            when :const, :casgn
+              named_location = (_ = node.location) #: Parser::AST::_NamedLocation
+              if test_ast_location(named_location.name, line: line, column: column)
+                if name = typing.source_index.reference(constant_node: node)
+                  queries << ConstantQuery.new(name: name, from: :ruby)
+                end
+              end
+            when :def, :defs
+              named_location = (_ = node.location) #: Parser::AST::_NamedLocation
+              if test_ast_location(named_location.name, line: line, column: column)
+                if method_context = typing.cursor_context.context&.method_context
+                  if method = method_context.method
+                    method.defs.each do |defn|
+                      singleton_method =
+                        case defn.member
+                        when RBS::AST::Members::MethodDefinition
+                          defn.member.singleton?
+                        when RBS::AST::Members::Attribute
+                          defn.member.kind == :singleton
+                        end
+
+                      name =
+                        if singleton_method
+                          SingletonMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
+                        else
+                          InstanceMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
+                        end
+
+                      queries << MethodQuery.new(name: name, from: :ruby)
+                    end
+                  end
+                end
+              end
+            when :send
+              location = (_ = node.location) #: Parser::AST::_SelectorLocation
+              if test_ast_location(location.selector, line: line, column: column)
+                if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
+                  node = parents[0]
+                end
+
+                case call = typing.call_of(node: node)
+                when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+                  call.method_decls.each do |decl|
+                    queries << MethodQuery.new(name: decl.method_name, from: :ruby)
+                  end
+                when TypeInference::MethodCall::Untyped
+                  # nop
+                when TypeInference::MethodCall::NoMethodError
+                  # nop
+                end
+              end
+            end
+          end
+        end
+      end
+
+      def query_at_inline_code(queries, target, path:, line:, column:)
+        raise unless path.relative?
+      end
+
+      def query_at_rbs(queries, target, path:, line:, column:)
+        raise unless path.relative?
+
+        signature_service = type_check.signature_services.fetch(target.name) #: SignatureService
+
+        env = signature_service.latest_env
+        source = env.each_rbs_source.find { _1.buffer.name == path } or raise
+        dirs = source.directives
+        decls = source.declarations
+
+        locator = RBS::Locator.new(buffer: source.buffer, dirs: dirs, decls: decls)
+        last, nodes = locator.find2(line: line, column: column)
+
+        nodes or raise
+
+        case nodes[0]
+        when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
+          if last == :name
+            queries << ConstantQuery.new(name: nodes[0].name, from: :rbs)
+          end
+        when RBS::AST::Declarations::Constant
+          if last == :name
+            queries << ConstantQuery.new(name: nodes[0].name, from: :rbs)
+          end
+        when RBS::AST::Members::MethodDefinition
+          if last == :name
+            parent_node = nodes[1] #: RBS::AST::Declarations::Class | RBS::AST::Declarations::Module | RBS::AST::Declarations::Interface
+            type_name = parent_node.name
+            method_name = nodes[0].name
+            if nodes[0].instance?
+              queries << MethodQuery.new(
+                name: InstanceMethodName.new(type_name: type_name, method_name: method_name),
+                from: :rbs
+              )
+            end
+            if nodes[0].singleton?
+              queries << MethodQuery.new(
+                name: SingletonMethodName.new(type_name: type_name, method_name: method_name),
+                from: :rbs
+              )
+            end
+          end
+        when RBS::AST::Members::Include, RBS::AST::Members::Extend, RBS::AST::Members::Prepend
+          if last == :name
+            queries << TypeNameQuery.new(name: nodes[0].name)
+          end
+        when RBS::Types::ClassInstance, RBS::Types::ClassSingleton, RBS::Types::Interface, RBS::Types::Alias
+          if last == :name
+            queries << TypeNameQuery.new(name: nodes[0].name)
+          end
+        when RBS::AST::Declarations::Class::Super, RBS::AST::Declarations::Module::Self
+          if last == :name
+            queries << TypeNameQuery.new(name: nodes[0].name)
+          end
+        end
+      end
+
       def query_at(path:, line:, column:)
         queries = [] #: Array[query]
 
         relative_path = project.relative_path(path)
 
         case
-        when target = type_check.project.target_for_source_path(relative_path)
-          source = type_check.source_files.fetch(relative_path, nil) or return []
-          typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
-          if typing
-            node, *parents = typing.source.find_nodes(line: line, column: column)
-
-            if node && parents
-              case node.type
-              when :const, :casgn
-                named_location = (_ = node.location) #: Parser::AST::_NamedLocation
-                if test_ast_location(named_location.name, line: line, column: column)
-                  if name = typing.source_index.reference(constant_node: node)
-                    queries << ConstantQuery.new(name: name, from: :ruby)
-                  end
-                end
-              when :def, :defs
-                named_location = (_ = node.location) #: Parser::AST::_NamedLocation
-                if test_ast_location(named_location.name, line: line, column: column)
-                  if method_context = typing.cursor_context.context&.method_context
-                    if method = method_context.method
-                      method.defs.each do |defn|
-                        singleton_method =
-                          case defn.member
-                          when RBS::AST::Members::MethodDefinition
-                            defn.member.singleton?
-                          when RBS::AST::Members::Attribute
-                            defn.member.kind == :singleton
-                          end
-
-                        name =
-                          if singleton_method
-                            SingletonMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
-                          else
-                            InstanceMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
-                          end
-
-                        queries << MethodQuery.new(name: name, from: :ruby)
-                      end
-                    end
-                  end
-                end
-              when :send
-                location = (_ = node.location) #: Parser::AST::_SelectorLocation
-                if test_ast_location(location.selector, line: line, column: column)
-                  if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
-                    node = parents[0]
-                  end
-
-                  case call = typing.call_of(node: node)
-                  when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
-                    call.method_decls.each do |decl|
-                      queries << MethodQuery.new(name: decl.method_name, from: :ruby)
-                    end
-                  when TypeInference::MethodCall::Untyped
-                    # nop
-                  when TypeInference::MethodCall::NoMethodError
-                    # nop
-                  end
-                end
-              end
-            end
-          end
-        when target_names = type_check.signature_file?(path) #: Array[Symbol]
-          target_names.each do |target_name|
-            signature_service = type_check.signature_services[target_name] #: SignatureService
-
-            env = signature_service.latest_env
-            buffer = env.buffers.find {|buf| buf.name.to_s == relative_path.to_s } or raise
-            (dirs, decls = env.signatures[buffer]) or raise
-
-            locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
-            last, nodes = locator.find2(line: line, column: column)
-
-            nodes or raise
-
-            case nodes[0]
-            when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
-              if last == :name
-                queries << ConstantQuery.new(name: nodes[0].name, from: :rbs)
-              end
-            when RBS::AST::Declarations::Constant
-              if last == :name
-                queries << ConstantQuery.new(name: nodes[0].name, from: :rbs)
-              end
-            when RBS::AST::Members::MethodDefinition
-              if last == :name
-                parent_node = nodes[1] #: RBS::AST::Declarations::Class | RBS::AST::Declarations::Module | RBS::AST::Declarations::Interface
-                type_name = parent_node.name
-                method_name = nodes[0].name
-                if nodes[0].instance?
-                  queries << MethodQuery.new(
-                    name: InstanceMethodName.new(type_name: type_name, method_name: method_name),
-                    from: :rbs
-                  )
-                end
-                if nodes[0].singleton?
-                  queries << MethodQuery.new(
-                    name: SingletonMethodName.new(type_name: type_name, method_name: method_name),
-                    from: :rbs
-                  )
-                end
-              end
-            when RBS::AST::Members::Include, RBS::AST::Members::Extend, RBS::AST::Members::Prepend
-              if last == :name
-                queries << TypeNameQuery.new(name: nodes[0].name)
-              end
-            when RBS::Types::ClassInstance, RBS::Types::ClassSingleton, RBS::Types::Interface, RBS::Types::Alias
-              if last == :name
-                queries << TypeNameQuery.new(name: nodes[0].name)
-              end
-            when RBS::AST::Declarations::Class::Super, RBS::AST::Declarations::Module::Self
-              if last == :name
-                queries << TypeNameQuery.new(name: nodes[0].name)
-              end
-            end
-          end
+        when target = project.target_for_source_path(relative_path)
+          query_at_ruby_code(queries, target, path: relative_path, line: line, column: column)
+        when target = project.target_for_signature_path(relative_path)
+          query_at_rbs(queries, target, path: relative_path, line: line, column: column)
+        when target = project.target_for_inline_path(relative_path)
+          query_at_ruby_code(queries, target, path: relative_path, line: line, column: column)
+          query_at_inline_code(queries, target, path: relative_path, line: line, column: column)
         end
 
         queries
@@ -309,9 +327,16 @@ module Steep
               locations << [target, entry.decl.location[:name]]
             end
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            entry.decls.each do |d|
-              if d.decl.location
-                locations << [target, d.decl.location[:name]]
+            entry.each_decl.each do |decl|
+              case decl
+              when RBS::AST::Declarations::Base
+                if decl.location
+                  locations << [target, decl.location[:name]]
+                end
+              when RBS::AST::Ruby::Declarations::ClassDecl
+                locations << [target, decl.class_name_location]
+              when RBS::AST::Ruby::Declarations::ModuleDecl
+                locations << [target, decl.module_name_location]
               end
             end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
@@ -428,6 +453,10 @@ module Steep
               if decl.location
                 locations << [target, decl.location[:new_name]]
               end
+            when RBS::AST::Ruby::Declarations::ClassDecl
+              locations << [target, decl.class_name_location]
+            when  RBS::AST::Ruby::Declarations::ModuleDecl
+              locations << [target, decl.module_name_location]
             else
               raise
             end

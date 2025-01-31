@@ -15,4 +15,4 @@ end
 
 type tt = InlineFoo
 
-type t2 = InlineFoo
+type t2 = InlineFoo::Bar

@@ -8,4 +8,3 @@ class InlineFoo < String
 end
 
 InlineFoo::Bar
-
