@@ -360,14 +360,6 @@ module Steep
 
       def make_request(guid: SecureRandom.uuid, include_unchanged: false, progress:)
         Steep.logger.tagged "make_request(guid: #{guid}, include_unchanged: #{include_unchanged}, progress: #{progress.class})" do
-          Steep.logger.fatal {
-            {
-              source: files.source_paths.paths,
-              signatures: files.signature_paths.paths,
-              inlines: files.inline_paths.paths
-            }.inspect
-          }
-
           TypeCheckController::Request.new(guid: guid, targets: project.targets, progress: progress).tap do |request|
             if include_unchanged
               files.signature_paths.each do |path, target|
