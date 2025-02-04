@@ -413,49 +413,7 @@ module Steep
               end
 
               if file_system_watcher_supported?
-                patterns = [] #: Array[String]
-                project.targets.each do |target|
-                  target.source_pattern.patterns.each do |pat|
-                    path = project.base_dir + pat
-                    patterns << path.to_s unless path.directory?
-                  end
-                  target.source_pattern.prefixes.each do |pat|
-                    path = project.base_dir + pat
-                    patterns << (path + "**/*.rb").to_s unless path.file?
-                  end
-                  target.signature_pattern.patterns.each do |pat|
-                    path = project.base_dir + pat
-                    patterns << path.to_s unless path.directory?
-                  end
-                  target.signature_pattern.prefixes.each do |pat|
-                    path = project.base_dir + pat
-                    patterns << (path + "**/*.rbs").to_s unless path.file?
-                  end
-                end
-                patterns.sort!
-                patterns.uniq!
-
-                Steep.logger.info { "Setting up didChangeWatchedFiles with pattern: #{patterns.inspect}" }
-
-                enqueue_write_job SendMessageJob.to_client(
-                  message: {
-                    id: SecureRandom.uuid,
-                    method: "client/registerCapability",
-                    params: {
-                      registrations: [
-                        {
-                          id: SecureRandom.uuid,
-                          method: "workspace/didChangeWatchedFiles",
-                          registerOptions: {
-                            watchers: patterns.map do |pattern|
-                              { globPattern: pattern }
-                            end
-                          }
-                        }
-                      ]
-                    }
-                  }
-                )
+                setup_file_system_watcher()
               end
 
               controller.changed_paths.clear()
@@ -635,7 +593,7 @@ module Steep
             enqueue_write_job SendMessageJob.to_client(
               message: {
                 id: message[:id],
-                result: []
+                result: [] #: Array[untyped]
               }
             )
           end
@@ -800,7 +758,7 @@ module Steep
           Steep.logger.info "Starting new progress..."
 
           @current_type_check_request = request
-          
+
           if progress
             # If `request:` keyword arg is not given
             request.work_done_progress.begin("Type checking", request_id: fresh_request_id)
@@ -906,6 +864,58 @@ module Steep
             }
           )
         end
+      end
+
+      def setup_file_system_watcher()
+        patterns = [] #: Array[String]
+
+        project.targets.each do |target|
+          patterns.concat(paths_to_watch(target.source_pattern, extname: ".rb"))
+          patterns.concat(paths_to_watch(target.signature_pattern, extname: ".rbs"))
+          target.groups.each do |group|
+            patterns.concat(paths_to_watch(group.source_pattern, extname: ".rb"))
+            patterns.concat(paths_to_watch(group.signature_pattern, extname: ".rbs"))
+          end
+        end
+        patterns.sort!
+        patterns.uniq!
+
+        Steep.logger.info { "Setting up didChangeWatchedFiles with pattern: #{patterns.inspect}" }
+
+        enqueue_write_job SendMessageJob.to_client(
+          message: {
+            id: SecureRandom.uuid,
+            method: "client/registerCapability",
+            params: {
+              registrations: [
+                {
+                  id: SecureRandom.uuid,
+                  method: "workspace/didChangeWatchedFiles",
+                  registerOptions: {
+                    watchers: patterns.map do |pattern|
+                      { globPattern: pattern }
+                    end
+                  }
+                }
+              ]
+            }
+          }
+        )
+      end
+
+      def paths_to_watch(pattern, extname:)
+        result = [] #: Array[String]
+
+        pattern.patterns.each do |pat|
+          path = project.base_dir + pat
+          result << path.to_s unless path.directory?
+        end
+        pattern.prefixes.each do |pat|
+          path = project.base_dir + pat
+          result << (path + "**/*#{extname}").to_s unless path.file?
+        end
+
+        result
       end
     end
   end
