@@ -222,6 +222,10 @@ module Steep
       # * If path is already pushed, the diagnostics will be merged
       #
       def push_diagnostics: (Pathname path, Array[LSPDiagnostic::json]? diagnostics) -> void
+
+      private def setup_file_system_watcher: () -> void
+
+      private def paths_to_watch: (Project::Pattern, extname: String) -> Array[String]
     end
   end
 end
