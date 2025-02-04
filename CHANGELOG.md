@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.9.4 (2025-02-04)
+
+### Language server
+
+* Set up file watcher for groups ([#1485](https://github.com/soutaro/steep/pull/1485), Backported)
+
+### Miscellaneous
+
+* Fix CI ([#1486](https://github.com/soutaro/steep/pull/1486), Backported)
+
 ## 1.9.3 (2024-12-26)
 
 ### Miscellaneous
