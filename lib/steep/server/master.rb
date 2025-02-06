@@ -823,8 +823,7 @@ module Steep
               stdin_in, stdin_out = IO.pipe
               stdout_in, stdout_out = IO.pipe
 
-              message = CustomMethods::Refork.request(fresh_request_id, { index: worker.index, max_index: typecheck_workers.size })
-              result_controller << ResultHandler.new(request: message).tap do |handler|
+              result_controller << send_refork_request(params: { index: worker.index, max_index: typecheck_workers.size }, worker: primary) do |handler|
                 handler.on_completion do |response|
                   writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_out)
                   reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_in)
@@ -859,9 +858,6 @@ module Steep
                     end
                   end
                 end
-
-                job = SendMessageJob.to_worker(primary, message: message)
-                job.dest << job.message
               end
 
               # The primary worker starts forking when it receives the IOs.
@@ -901,6 +897,26 @@ module Steep
         ResultHandler.new(request: message).tap do |handler|
           yield handler if block
           enqueue_write_job SendMessageJob.to_worker(worker, message: message)
+        end
+      end
+
+      # Reforking need to skip `enqueue_write_job` because it's blocking while reforking.
+      def send_refork_request(id: fresh_request_id(), params:, worker:, &block)
+        method = CustomMethods::Refork::METHOD
+        Steep.logger.info "Sending request #{method}(#{id}) to #{worker.name}"
+
+        # @type var message: lsp_request
+        message = { method: method, id: id, params: params }
+        ResultHandler.new(request: message).tap do |handler|
+          yield handler if block
+
+          job = SendMessageJob.to_worker(worker, message: message)
+          case job.dest
+          when WorkerProcess
+            job.dest << job.message
+          else
+            raise "Unexpected destination: #{job.dest}"
+          end
         end
       end
 

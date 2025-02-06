@@ -216,6 +216,11 @@ module Steep
 
       def send_request: (method: String, worker: WorkerProcess, ?id: String, ?params: untyped?) ?{ (ResultHandler) -> void } -> ResultHandler
 
+
+      # Reforking need to skip `enqueue_write_job` because it's blocking while reforking.
+      # This method is used to send a reforking request to the worker without blocking.
+      def send_refork_request: (worker: WorkerProcess, ?id: String, params: untyped) ?{ (ResultHandler) -> void } -> ResultHandler
+
       def group_request: () { (GroupHandler) -> void } -> GroupHandler
 
       def enqueue_write_job: (SendMessageJob job) -> void
