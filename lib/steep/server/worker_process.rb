@@ -27,7 +27,7 @@ module Steep
             name: name,
             steepfile: steepfile,
             index: index,
-            is_primary: index&.[](1) == 0 && index&.[](0) >= 2,
+            is_primary: index && (index[1] == 0 && index[0] >= 2),
             delay_shutdown: delay_shutdown,
             patterns: patterns
           )

@@ -133,6 +133,10 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: socket
+  version: '0'
+  source:
+    type: stdlib
 - name: stringio
   version: '0'
   source:

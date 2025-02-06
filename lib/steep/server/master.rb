@@ -814,14 +814,16 @@ module Steep
           Thread.current.abort_on_exception = true
 
           primary, *others = typecheck_workers
+          primary or raise
           others.each do |worker|
+            worker.index or raise
+
             refork_mutex.synchronize do
               refork_finished = Thread::Queue.new
               stdin_in, stdin_out = IO.pipe
               stdout_in, stdout_out = IO.pipe
 
-              params = { index: worker.index, max_index: typecheck_workers.size }
-              message = CustomMethods::Refork.request(fresh_request_id, params)
+              message = CustomMethods::Refork.request(fresh_request_id, { index: worker.index, max_index: typecheck_workers.size })
               result_controller << ResultHandler.new(request: message).tap do |handler|
                 handler.on_completion do |response|
                   writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_out)
@@ -829,14 +831,14 @@ module Steep
 
                   pid = response[:result][:pid]
                   # TODO: wait pid
-                  # @type var wait_thread: Thread & _ProcessWaitThread
+                  # @type var wait_thread: Thread & WorkerProcess::_ProcessWaitThread
                   wait_thread = _ = Thread.new { sleep }
                   wait_thread.define_singleton_method(:pid) { pid }
 
                   new_worker = WorkerProcess.new(reader:, writer:, stderr: nil, wait_thread:, name: "#{worker.name}-2", index: worker.index)
-                  old_worker = typecheck_workers[worker.index]
+                  old_worker = typecheck_workers[worker.index] or raise
 
-                  typecheck_workers[new_worker.index] = new_worker
+                  typecheck_workers[(new_worker.index or raise)] = new_worker
 
                   original_old_worker = old_worker.dup
                   old_worker.redirect_to new_worker
@@ -863,6 +865,7 @@ module Steep
               end
 
               # The primary worker starts forking when it receives the IOs.
+              primary.io_socket or raise
               primary.io_socket.send_io(stdin_in)
               primary.io_socket.send_io(stdout_out)
               stdin_in.close

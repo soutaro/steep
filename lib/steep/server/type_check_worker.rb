@@ -51,6 +51,8 @@ module Steep
 
       include ChangeBuffer
 
+      attr_reader :io_socket
+
       def initialize(project:, reader:, writer:, assignment:, commandline_args:, io_socket:, buffered_changes: nil, service: nil)
         super(project: project, reader: reader, writer: writer)
 
@@ -61,7 +63,7 @@ module Steep
         @commandline_args = commandline_args
         @current_type_check_guid = nil
         @io_socket = io_socket
-        @service = service
+        @service = service if service
 
         if io_socket
           Signal.trap "SIGCHLD" do
@@ -110,18 +112,18 @@ module Steep
         when "textDocument/typeDefinition"
           queue << GotoJob.type_definition(id: request[:id], params: request[:params])
         when CustomMethods::Refork::METHOD
-          # Jobの方でやったほうがいいかも…？
+          io_socket or raise
 
           # Receive IOs before fork to avoid receiving them from multiple processes
-          stdin = @io_socket.recv_io
-          stdout = @io_socket.recv_io
+          stdin = io_socket.recv_io
+          stdout = io_socket.recv_io
 
           if pid = fork
             stdin.close
             stdout.close
             writer.write(CustomMethods::Refork.response(request[:id], { pid: }))
           else
-            @io_socket.close
+            io_socket.close
 
             reader.close
             writer.close
