@@ -64,12 +64,12 @@ module Steep
         @current_type_check_guid = nil
         @io_socket = io_socket
         @service = service if service
+        @child_pids = []
 
         if io_socket
           Signal.trap "SIGCHLD" do
-            # TODO: check the PID is for worker processes
             while pid = Process.wait(-1, Process::WNOHANG)
-              raise "Unexpected child process exit: #{pid}"
+              raise "Unexpected worker process exit: #{pid}" if child_pids.include?(pid)
             end
           end
         end
@@ -121,14 +121,13 @@ module Steep
           if pid = fork
             stdin.close
             stdout.close
+            child_pids << pid
             writer.write(CustomMethods::Refork.response(request[:id], { pid: }))
           else
             io_socket.close
 
             reader.close
             writer.close
-
-            # TODO: Free instance variables?
 
             reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
             writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout)

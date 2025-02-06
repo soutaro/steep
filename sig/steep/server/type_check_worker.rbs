@@ -108,6 +108,8 @@ module Steep
 
       attr_reader io_socket: UNIXSocket?
 
+      attr_reader child_pids: Array[Integer]
+
       include ChangeBuffer
 
       def initialize: (

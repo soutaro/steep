@@ -829,7 +829,9 @@ module Steep
                   reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_in)
 
                   pid = response[:result][:pid]
-                  # TODO: wait pid
+                  # It does not need to wait worker process
+                  # because the primary worker monitors it instead.
+                  #
                   # @type var wait_thread: Thread & WorkerProcess::_ProcessWaitThread
                   wait_thread = _ = Thread.new { sleep }
                   wait_thread.define_singleton_method(:pid) { pid }
@@ -900,7 +902,6 @@ module Steep
         end
       end
 
-      # Reforking need to skip `enqueue_write_job` because it's blocking while reforking.
       def send_refork_request(id: fresh_request_id(), params:, worker:, &block)
         method = CustomMethods::Refork::METHOD
         Steep.logger.info "Sending request #{method}(#{id}) to #{worker.name}"
