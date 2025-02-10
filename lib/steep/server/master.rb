@@ -293,8 +293,9 @@ module Steep
           end
 
           waiter = ThreadWaiter.new(each_worker.to_a) {|worker| worker.wait_thread }
-          while th = waiter.wait_one()
-            if each_worker.any? { |worker| worker.pid == th.value }
+          # @type var th: Thread & WorkerProcess::_ProcessWaitThread
+          while th = _ = waiter.wait_one()
+            if each_worker.any? { |worker| worker.pid == th.pid }
               break # The worker unexpectedly exited
             end
           end
