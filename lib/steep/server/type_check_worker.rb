@@ -53,7 +53,7 @@ module Steep
 
       attr_reader :io_socket
 
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:, io_socket:, buffered_changes: nil, service: nil)
+      def initialize(project:, reader:, writer:, assignment:, commandline_args:, io_socket: nil, buffered_changes: nil, service: nil)
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment

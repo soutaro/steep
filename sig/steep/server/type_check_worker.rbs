@@ -118,7 +118,7 @@ module Steep
         writer: LSP::Transport::Io::Writer,
         assignment: PathAssignment,
         commandline_args: Array[String],
-        io_socket: UNIXSocket?,
+        ?io_socket: UNIXSocket?,
         ?buffered_changes: ChangeBuffer::changes?,
         ?service: TypeCheckService?,
       ) -> void
