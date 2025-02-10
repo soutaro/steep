@@ -152,8 +152,6 @@ require "steep/drivers/vendor"
 require "steep/drivers/worker"
 require "steep/drivers/diagnostic_printer"
 
-require 'steep/lsp_patch'
-
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
 end
