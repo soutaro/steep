@@ -1500,6 +1500,34 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_type_narrowing__union_send
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Object
+            def present?: () -> bool
+          end
+
+          class NilClass
+            def present?: () -> false
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = [1].first
+          a + 1 if a.present?
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+
   def test_argument_error__unexpected_unexpected_positional_argument
     run_type_check_test(
       signatures: {
