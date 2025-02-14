@@ -93,14 +93,13 @@ module Steep
       def self.parse(comment, buffer)
         return unless comment.inline?
 
-        comment_location = RBS::Location.new(buffer, comment.loc.expression.begin_pos, comment.loc.expression.end_pos)
+        begin_pos = buffer.loc_to_pos([comment.loc.line, comment.loc.column])
+        end_pos = buffer.loc_to_pos([comment.loc.last_line, comment.loc.last_column])
+        comment_location = RBS::Location.new(buffer, begin_pos, end_pos)
         scanner = BufferScanner.new(comment_location)
 
         scanner.scan(/#/)
         scanner.skip(/\s*/)
-
-        begin_pos = comment.location.expression.begin_pos
-        end_pos = comment.location.expression.end_pos
 
         case
         when loc = scanner.scan(/steep:ignore:start\b/)
