@@ -646,7 +646,7 @@ module Steep
         receiver_node, name, _, location = deconstruct_send_node!(send_node)
 
         if receiver_node
-          if location.dot
+          if location.dot && location.selector
             location.selector.line
           end
         else
