@@ -851,6 +851,8 @@ class TypeConstructionTest < Minitest::Test
 
   def test_type_narrowing_assignment: () -> untyped
 
+  def test_type_narrowing_union_send: () -> untyped
+
   def test_type_if_union_unify: () -> untyped
 
   def test_type_case_union_unify: () -> untyped

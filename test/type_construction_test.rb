@@ -9944,6 +9944,28 @@ end
     end
   end
 
+  def test_type_narrowing_union_send
+    with_checker(<<~RBS) do |checker|
+        class Object
+          def present?: () -> bool
+        end
+
+        class NilClass
+          def present?: () -> false
+        end
+      RBS
+      source = parse_ruby(<<~RUBY)
+        a = [1].first
+        a + 1 if a.present?
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_type_if_union_unify
     with_checker(<<-RBS) do |checker|
       RBS
