@@ -35,3 +35,4 @@ gems:
   - name: optparse
   - name: digest
   - name: uri
+  - name: socket

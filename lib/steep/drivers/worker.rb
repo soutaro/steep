@@ -9,6 +9,7 @@ module Steep
       attr_accessor :max_index
       attr_accessor :index
       attr_accessor :commandline_args
+      attr_accessor :io_socket
 
       include Utils::DriverHelper
 
@@ -32,6 +33,7 @@ module Steep
                      Server::TypeCheckWorker.new(project: project,
                                                  reader: reader,
                                                  writer: writer,
+                                                 io_socket:,
                                                  assignment: assignment,
                                                  commandline_args: commandline_args)
                    when :interaction

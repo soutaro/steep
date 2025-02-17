@@ -17,6 +17,7 @@ require "yaml"
 require "securerandom"
 require "base64"
 require "time"
+require 'socket'
 
 require "concurrent/utility/processor_counter"
 require "terminal-table"
@@ -224,6 +225,10 @@ module Steep
         Steep.logger.error "  #{loc}"
       end
     end
+  end
+
+  def self.can_fork?
+    defined?(fork)
   end
 
   class Sampler

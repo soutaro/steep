@@ -3,16 +3,24 @@ module LanguageServer
     module Transport
       module Io
         class Writer
+          @io: IO
+
           def initialize: (IO) -> void
 
           def write: (**untyped) -> void
                    | (Hash[Symbol, untyped]) -> void
+
+          def close: () -> void
         end
 
         class Reader
+          @io: IO
+
           def initialize: (IO) -> void
 
           def read: () { (untyped) -> void } -> bot
+
+          def close: () -> void
         end
       end
     end

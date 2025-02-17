@@ -1,0 +1,5 @@
+class UNIXSocket < BasicSocket
+  # https://github.com/ruby/rbs/pull/2264
+  def send_io: (IO) -> void
+             | ...
+end

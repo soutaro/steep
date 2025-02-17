@@ -19,6 +19,8 @@ module Steep
 
       attr_accessor commandline_args: Array[String]
 
+      attr_accessor io_socket: UNIXSocket?
+
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO, stdin: IO) -> void

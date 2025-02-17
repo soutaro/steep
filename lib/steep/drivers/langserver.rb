@@ -8,6 +8,7 @@ module Steep
       attr_reader :type_check_queue
       attr_reader :type_check_thread
       attr_reader :jobs_option
+      attr_accessor :refork
 
       include Utils::DriverHelper
 
@@ -18,6 +19,7 @@ module Steep
         @write_mutex = Mutex.new
         @type_check_queue = Queue.new
         @jobs_option = Utils::JobsOption.new(jobs_count_modifier: -1)
+        @refork = false
       end
 
       def writer
@@ -43,7 +45,8 @@ module Steep
           reader: reader,
           writer: writer,
           interaction_worker: interaction_worker,
-          typecheck_workers: typecheck_workers
+          typecheck_workers: typecheck_workers,
+          refork: refork,
         )
         master.typecheck_automatically = true
 

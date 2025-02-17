@@ -18,6 +18,8 @@ module Steep
 
   def self.log_error: (Exception exn, ?message: ::String) -> void
 
+  def self.can_fork?: () -> boolish
+
   self.@logger: (Logger & ActiveSupport::TaggedLogging)?
 
   self.@ui_logger: (Logger & ActiveSupport::TaggedLogging)?

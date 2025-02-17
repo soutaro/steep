@@ -141,6 +141,8 @@ module Steep
 
       attr_reader current_type_check_request: TypeCheckController::Request?
 
+      attr_reader refork_mutex: Mutex
+
       attr_reader controller: TypeCheckController
 
       attr_reader result_controller: ResultController
@@ -156,7 +158,9 @@ module Steep
 
       attr_reader start_type_checking_queue: DelayQueue
 
-      def initialize: (project: Project, reader: untyped, writer: untyped, interaction_worker: WorkerProcess?, typecheck_workers: Array[WorkerProcess], ?queue: Thread::Queue) -> void
+      @need_to_refork: boolish
+
+      def initialize: (project: Project, reader: untyped, writer: untyped, interaction_worker: WorkerProcess?, typecheck_workers: Array[WorkerProcess], ?queue: Thread::Queue, ?refork: boolish) -> void
 
       # Start the Steep language server
       #
@@ -202,6 +206,8 @@ module Steep
 
       def on_type_check_update: (guid: String, path: Pathname, target: Project::Target, diagnostics: Array[LSPDiagnostic::json]?) -> void
 
+      def refork_workers: () -> void
+
       def broadcast_notification: (lsp_notification message) -> void
 
       def send_notification: (lsp_notification message, worker: WorkerProcess) -> void
@@ -209,6 +215,11 @@ module Steep
       def fresh_request_id: () -> String
 
       def send_request: (method: String, worker: WorkerProcess, ?id: String, ?params: untyped?) ?{ (ResultHandler) -> void } -> ResultHandler
+
+
+      # Reforking need to skip `enqueue_write_job` because it's blocking while reforking.
+      # This method is used to send a reforking request to the worker without blocking.
+      def send_refork_request: (worker: WorkerProcess, ?id: String, params: untyped) ?{ (ResultHandler) -> void } -> ResultHandler
 
       def group_request: () { (GroupHandler) -> void } -> GroupHandler
 
