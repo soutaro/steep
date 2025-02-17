@@ -270,6 +270,7 @@ module Steep
       Drivers::Langserver.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
           opts.on("--steepfile=PATH") {|path| command.steepfile = Pathname(path) }
+          opts.on("--refork") { command.refork = true }
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
