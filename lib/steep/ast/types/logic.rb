@@ -4,7 +4,7 @@ module Steep
       module Logic
         class Base
           extend SharedInstance
-          
+
           def subst(s)
             self
           end
@@ -51,6 +51,28 @@ module Steep
         end
 
         class ArgIsAncestor < Base
+        end
+
+        class Guard < Base
+          PATTERN = /\Aguard:\s*(self)\s+(is)\s+(.*?)\s*\Z/
+
+          attr_reader :subject
+          attr_reader :operator
+          attr_reader :type
+
+          def initialize(subject:, operator:, type:)
+            @subject = subject
+            @operator = operator
+            @type = type
+          end
+
+          def ==(other)
+            super && subject == other.subject && operator == other.operator && type == other.type
+          end
+
+          def hash
+            self.class.hash ^ subject.hash ^ operator.hash ^ type.hash
+          end
         end
 
         class Env < Base

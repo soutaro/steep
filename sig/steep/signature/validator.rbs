@@ -77,11 +77,17 @@ module Steep
 
       def mixin_constraints: (RBS::Definition definition, Array[RBS::Definition::Ancestor::Instance] mixin_ancestors, immediate_self_types: Array[RBS::Definition::Ancestor::t]?) -> Array[[Subtyping::Relation[AST::Types::t], RBS::Definition::Ancestor::Instance]]
 
-      def each_method_type: (RBS::Definition) { (RBS::MethodType) -> void } -> void
+      def each_method_type: (RBS::Definition) { (RBS::Definition::Method, RBS::MethodType) -> void } -> void
 
       def each_variable_type: (RBS::Definition) { (RBS::Types::t) -> void } -> void
 
       def validate_definition_type: (RBS::Definition) -> void
+
+      def validate_method_type: (RBS::Definition, RBS::Definition::Method, RBS::MethodType) -> void
+
+      def validate_type_guard_annotation: (RBS::Definition, RBS::MethodType, RBS::AST::Annotation) -> void
+
+      def context_from: (RBS::TypeName) -> RBS::Resolver::context
 
       def validate_one_class: (RBS::TypeName) -> void
 

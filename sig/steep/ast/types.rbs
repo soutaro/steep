@@ -6,7 +6,7 @@ module Steep
            | Intersection  | Record | Tuple | Union
            | Name::Alias | Name::Instance | Name::Interface | Name::Singleton
            | Proc | Var
-           | Logic::Not | Logic::ReceiverIsNil | Logic::ReceiverIsNotNil | Logic::ReceiverIsArg | Logic::ArgIsReceiver | Logic::ArgEqualsReceiver | Logic::ArgIsAncestor | Logic::Env
+           | Logic::Not | Logic::ReceiverIsNil | Logic::ReceiverIsNotNil | Logic::ReceiverIsArg | Logic::ArgIsReceiver | Logic::ArgEqualsReceiver | Logic::ArgIsAncestor | Logic::Guard | Logic::Env
 
       # Variables and special types that is subject for substitution
       #

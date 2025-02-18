@@ -77,6 +77,14 @@ class ValidationTest < Minitest::Test
 
   def test_validate_type__generics_default_upperbound: () -> untyped
 
+  def test_validate_type_guard: () -> untyped
+
+  def test_validate_type_guard__invalid_syntax: () -> untyped
+
+  def test_validate_type_guard__unparsable_type: () -> untyped
+
+  def test_validate_type_guard__unknown_type: () -> untyped
+
   def test_validate__deprecated__type_name: () -> untyped
 
   def test_validate__deprecated__class: () -> untyped

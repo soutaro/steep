@@ -110,6 +110,10 @@ module Steep
 
       def method_name_for: (RBS::Definition::Method::TypeDef, Symbol name) -> method_name
 
+      def replace_guard_method: (RBS::Definition, RBS::Definition::Method::TypeDef, MethodType) -> MethodType
+
+      def context_from: (RBS::TypeName) -> RBS::Resolver::context
+
       def replace_primitive_method: (method_name, RBS::Definition::Method::TypeDef, MethodType) -> MethodType
 
       def replace_kernel_class: (method_name, RBS::Definition::Method::TypeDef, MethodType) { () -> AST::Types::t } -> MethodType

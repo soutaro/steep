@@ -281,6 +281,7 @@ module Steep
               overloads = method.defs.map do |type_def|
                 method_name = method_name_for(type_def, name)
                 method_type = factory.method_type(type_def.type)
+                method_type = replace_guard_method(definition, type_def, method_type)
                 method_type = replace_primitive_method(method_name, type_def, method_type)
                 method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Builtin::Class.instance_type }
                 method_type = add_implicitly_returns_nil(type_def.each_annotation, method_type)
@@ -313,6 +314,7 @@ module Steep
               overloads = method.defs.map do |type_def|
                 method_name = method_name_for(type_def, name)
                 method_type = factory.method_type(type_def.type)
+                method_type = replace_guard_method(definition, type_def, method_type)
                 method_type = replace_primitive_method(method_name, type_def, method_type)
                 if type_name.class?
                   method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Types::Name::Singleton.new(name: type_name) }
@@ -723,6 +725,35 @@ module Steep
         )
 
         shape
+      end
+
+      def replace_guard_method(definition, method_def, method_type)
+        match = method_def.member.annotations.filter_map { AST::Types::Logic::Guard::PATTERN.match(_1.string) }.first
+        if match
+          subject = match[1] or raise
+          operator = match[2] or raise
+          type_name = match[3] or raise
+
+          context = context_from(definition.type_name)
+          type = RBS::Parser.parse_type(type_name) or raise
+          type = type.map_type_name { factory.absolute_type_name(_1, context: context) or raise }
+          guard = AST::Types::Logic::Guard.new(subject: subject, operator: operator, type: type)
+
+          method_type.with(type: method_type.type.with(return_type: guard))
+        else
+          method_type
+        end
+      rescue
+        method_type
+      end
+
+      def context_from(type_name)
+        if type_name.namespace == RBS::Namespace.root
+          [nil, type_name]
+        else
+          parent = context_from(type_name.namespace.to_type_name)
+          [parent, type_name]
+        end
       end
 
       def replace_primitive_method(method_name, method_def, method_type)

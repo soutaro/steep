@@ -235,7 +235,7 @@ module Steep
         definition.methods.each_value do |method|
           if method.defined_in == type_name
             method.method_types.each do |method_type|
-              yield method_type
+              yield method, method_type
             end
           end
         end
@@ -258,7 +258,7 @@ module Steep
       end
 
       def validate_definition_type(definition)
-        each_method_type(definition) do |method_type|
+        each_method_type(definition) do |method, method_type|
           upper_bounds = method_type.type_params.each.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t?]
             hash[param.name] = factory.type_opt(param.upper_bound_type)
           end
@@ -267,11 +267,51 @@ module Steep
             method_type.each_type do |type|
               validate_type(type)
             end
+
+            validate_method_type(definition, method, method_type)
           end
         end
 
         each_variable_type(definition) do |type|
           validate_type(type)
+        end
+      end
+
+      def validate_method_type(definition, method, method_type)
+        annotations = method.defs.find { _1.type == method_type }&.member&.annotations.to_a
+        annotations.each do |annotation|
+          validate_type_guard_annotation(definition, method_type, annotation) if annotation.string.start_with?("guard:")
+        end
+      end
+
+      def validate_type_guard_annotation(definition, method_type, annotation)
+        match = AST::Types::Logic::Guard::PATTERN.match(annotation.string)
+        unless match
+          @errors << Diagnostic::Signature::TypeGuardSyntaxError.new(annotation.string, location: annotation.location)
+          return
+        end
+
+        type_name = match[3] or raise
+        type = RBS::Parser.parse_type(type_name) rescue nil
+        if type.nil?
+          @errors << Diagnostic::Signature::InvalidTypeGuardType.new(type_name, location: annotation.location)
+          return
+        end
+
+        begin
+          context = context_from(definition.type_name)
+          type = type.map_type_name { factory.absolute_type_name(_1, context: context) or raise }
+        rescue
+          @errors << Diagnostic::Signature::InvalidTypeGuardType.new(type_name, location: annotation.location)
+        end
+      end
+
+      def context_from(type_name)
+        if type_name.namespace == RBS::Namespace.root
+          [nil, type_name]
+        else
+          parent = context_from(type_name.namespace.to_type_name)
+          [parent, type_name]
         end
       end
 
