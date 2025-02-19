@@ -169,6 +169,14 @@ module Steep
               return [truthy_result, falsy_result]
             end
           else
+            receiver, *_ = node.children
+            receiver_type = typing.type_of(node: receiver) if receiver
+
+            if env[receiver] && receiver_type.is_a?(AST::Types::Union)
+              result = evaluate_union_method_call(node: node, env: env, receiver: receiver, receiver_type: receiver_type)
+              return result if result
+            end
+
             if env[node]
               truthy_type, falsy_type = factory.partition_union(type)
 
@@ -406,6 +414,48 @@ module Steep
             ]
           end
         end
+      end
+
+      def evaluate_union_method_call(node:, env:, receiver:, receiver_type:)
+        call_type = typing.call_of(node: node) rescue nil
+        return unless call_type.is_a?(Steep::TypeInference::MethodCall::Typed)
+
+        truthy_types = [] #: Array[AST::Types::t]
+        falsy_types = [] #: Array[AST::Types::t]
+
+        receiver_type.types.each do |type|
+          if shape = subtyping.builder.shape(type, config)
+            method = shape.methods[call_type.method_name] or raise
+            method_type = method.method_types.find do |method_type|
+              call_type.method_decls.any? {|decl| factory.method_type(decl.method_type) == method_type }
+            end
+            if method_type
+              return_type = method_type.type.return_type
+              truthy, falsy = factory.partition_union(return_type)
+              truthy_types << type if truthy
+              falsy_types << type if falsy
+              next
+            end
+          end
+
+          truthy_types << type
+          falsy_types << type
+        end
+
+        truthy_type = truthy_types.empty? ? BOT : AST::Types::Union.build(types: truthy_types)
+        falsy_type = falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types)
+
+        truthy_env, falsy_env = refine_node_type(
+          env: env,
+          node: receiver,
+          truthy_type: truthy_type,
+          falsy_type: falsy_type
+        )
+
+        return [
+          Result.new(type: truthy_type, env: truthy_env, unreachable: truthy_type.nil?),
+          Result.new(type: falsy_type, env: falsy_env, unreachable: falsy_type.nil?)
+        ]
       end
 
       def decompose_value(node)

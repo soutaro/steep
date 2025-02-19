@@ -98,6 +98,8 @@ class TypeCheckTest < Minitest::Test
 
   def test_type_narrowing__local_variable_safe_navigation_operator: () -> untyped
 
+  def test_type_narrowing__union_send: () -> untyped
+
   def test_argument_error__unexpected_unexpected_positional_argument: () -> untyped
 
   def test_type_assertion__type_error: () -> untyped
