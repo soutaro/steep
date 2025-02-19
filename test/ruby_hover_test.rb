@@ -563,7 +563,7 @@ RBS
     end
   end
 
-  def test_hover__inline__ruby
+  def test_hover__inline__ruby__constant
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.eval(project) do
@@ -590,6 +590,39 @@ RBS
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 4, column: 1).tap do |content|
         assert_nil content
+      end
+    end
+  end
+
+  def test_hover__inline__ruby__method
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.eval(project) do
+        target :lib do
+          check "hello.rb", inline_rbs: true
+        end
+      end
+
+      service = Services::TypeCheckService.new(project: project)
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<~SRC)]
+            class Foo
+              def bar
+              end
+            end
+
+            Foo.new.bar
+          SRC
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 6, column: 9).tap do |content|
+        assert_instance_of Services::HoverProvider::Ruby::MethodCallContent, content
       end
     end
   end

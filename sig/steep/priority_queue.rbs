@@ -1,0 +1,19 @@
+module Steep
+  class PriorityQueue[T, Priority = :HIGH | :NORMAL | :LOW]
+    attr_reader items: Hash[Priority, Array[T]]
+
+    attr_reader mutex: Mutex
+
+    attr_reader cv: ConditionVariable
+
+    attr_reader closed: bool
+
+    def initialize: (*Priority) -> void
+
+    def push: (T, priority: Priority) -> void
+
+    def pop: () -> T?
+
+    def close: () -> void
+  end
+end

@@ -1,10 +1,10 @@
 
 
 
-class InlineFoo < String
-  module Bar
-
+class InlineFoo
+  def foo()
+    123
   end
 end
 
-InlineFoo::Bar
+InlineFoo.new.foo
