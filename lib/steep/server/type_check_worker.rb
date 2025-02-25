@@ -69,7 +69,7 @@ module Steep
         if io_socket
           Signal.trap "SIGCHLD" do
             while pid = Process.wait(-1, Process::WNOHANG)
-              raise "Unexpected worker process exit: #{pid}" if child_pids.include?(pid)
+              raise "Unexpected worker process exit: #{pid}" if @child_pids.include?(pid)
             end
           end
         end
@@ -121,7 +121,7 @@ module Steep
           if pid = fork
             stdin.close
             stdout.close
-            child_pids << pid
+            @child_pids << pid
             writer.write(CustomMethods::Refork.response(request[:id], { pid: }))
           else
             io_socket.close
