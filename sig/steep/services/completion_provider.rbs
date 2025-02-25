@@ -120,7 +120,7 @@ module Steep
 
         attr_reader range: Range
 
-        attr_reader reeiver_type: AST::Types::t
+        attr_reader receiver_type: AST::Types::t
 
         attr_reader method_types: Array[RBS::MethodType]
 
@@ -150,7 +150,7 @@ module Steep
 
         attr_reader range: Range
 
-        attr_reader reeiver_type: AST::Types::t
+        attr_reader receiver_type: AST::Types::t
 
         attr_reader method_types: Array[RBS::MethodType]
 

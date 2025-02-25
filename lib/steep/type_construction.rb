@@ -2956,7 +2956,7 @@ module Steep
               nil
             ]
           else
-            # No neesting
+            # No nesting
             synthesize_constant(node, nil, constant_name, &block)
           end
         end
@@ -4453,7 +4453,7 @@ module Steep
 
       param_types = param_types_hash.each.with_object({}) do |pair, hash| #$ Hash[Symbol, [AST::Types::t, AST::Types::t?]]
         name, type = pair
-        # skip unamed arguments `*`, `**` and `&`
+        # skip unnamed arguments `*`, `**` and `&`
         next if name.nil?
         hash[name] = [type, nil]
       end

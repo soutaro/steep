@@ -119,7 +119,7 @@ module Steep
       # Yield type names defined in the environment
       #
       # * Yields an absolute type name if it is defined in the environment
-      # * Yields an relative type name if it is imported with `use` declerative
+      # * Yields an relative type name if it is imported with `use` declarative
       #
       # Alias classes/modules and types under them are yielded.
       #

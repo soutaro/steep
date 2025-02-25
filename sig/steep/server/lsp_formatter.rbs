@@ -9,7 +9,7 @@ module Steep
     # * `markup_content` translates a string to `MarkupContent` object
     # * `format_hover_content` translates a hover content to Markdown string
     # * `format_completion_docs` translates a completion item to a documentation
-    # * `format_rbs_competion_docs` generates docs for completion item of RBS
+    # * `format_rbs_completion_docs` generates docs for completion item of RBS
     #
     module LSPFormatter
       include Services

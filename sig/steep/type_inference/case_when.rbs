@@ -25,13 +25,13 @@ module Steep
 
         # The result for body of the when-clause
         #
-        # Raises an error when no patern is registered.
+        # Raises an error when no pattern is registered.
         #
         def body_result: () { (TypeEnv) -> TypeEnv? } -> [TypeConstruction, bool]
 
         # The result for next when-clause
         #
-        # Raises an error when no patern is registered.
+        # Raises an error when no pattern is registered.
         #
         def falsy_result: () -> [TypeConstruction, bool]
 

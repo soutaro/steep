@@ -51,7 +51,7 @@ module Steep
       # It works when:
       #
       # * `type1` and `type2` are equal modulo type parameters (`[A] () -> A` | `[B] () -> B` → `[A] () -> A`), or
-      # * The type parameter occurences are identical (`[A] (::Integer) -> A` | `[B] (::String) -> B` → `[A] (::Integer & ::String) -> A`)
+      # * The type parameter occurrences are identical (`[A] (::Integer) -> A` | `[B] (::String) -> B` → `[A] (::Integer & ::String) -> A`)
       #
       # Otherwise it fails (returns `nil`).
       #
@@ -69,7 +69,7 @@ module Steep
       # It works when:
       #
       # * `type1` and `type2` are equal modulo type parameters (`[A] () -> A` & `[B] () -> B` → `[A] () -> A`), or
-      # * The type parameter occurences are identical (`[A] (::Integer) -> A` & `[B] (::String) -> B` → `[A] (::Integer | ::String) -> A`)
+      # * The type parameter occurrences are identical (`[A] (::Integer) -> A` & `[B] (::String) -> B` → `[A] (::Integer | ::String) -> A`)
       #
       # Otherwise it fails (returns `nil`).
       #
@@ -100,7 +100,7 @@ module Steep
       def &: (MethodType other) -> MethodType?
 
       # Returns true if the method accepts one argument, no keyword arguments, and no block
-      # 
+      #
       def accept_one_arg?: () -> bool
     end
   end
