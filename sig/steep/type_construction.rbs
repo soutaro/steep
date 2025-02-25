@@ -80,7 +80,7 @@ module Steep
     # end
     # ```
     #
-    def no_subtyping?: (sub_type: AST::Types::t, super_type: AST::Types::t, ?constraints: Subtyping::Constraints) -> Subtyping::Result::Base?
+    def no_subtyping?: (sub_type: AST::Types::t, super_type: AST::Types::t, ?constraints: Subtyping::Constraints) -> Subtyping::Result::t?
 
     def for_new_method: (Symbol method_name, Parser::AST::Node node, args: Array[Parser::AST::Node], self_type: untyped, definition: RBS::Definition?) -> TypeConstruction
 
