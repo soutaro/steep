@@ -15,7 +15,7 @@ PATH
       rbs (~> 3.8)
       securerandom (>= 0.1)
       strscan (>= 1.0.0)
-      terminal-table (>= 2, < 4)
+      terminal-table (>= 2, < 5)
       uri (>= 0.12.0)
 
 GEM
@@ -93,11 +93,13 @@ GEM
     stackprof (0.2.27)
     stringio (3.1.5)
     strscan (3.1.2)
-    terminal-table (3.0.2)
-      unicode-display_width (>= 1.1.1, < 3)
+    terminal-table (4.0.0)
+      unicode-display_width (>= 1.1.1, < 4)
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
-    unicode-display_width (2.6.0)
+    unicode-display_width (3.1.4)
+      unicode-emoji (~> 4.0, >= 4.0.4)
+    unicode-emoji (4.0.4)
     uri (1.0.3)
     vernier (1.4.0)
 
