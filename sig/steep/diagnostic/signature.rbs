@@ -276,6 +276,22 @@ module Steep
         include ResultPrinter2
       end
 
+      class TypeGuardSyntaxError < Base
+        attr_reader predicate: String
+
+        def initialize: (String predicate, location: RBS::Location[untyped, untyped]?) -> void
+
+        def header_line: () -> String
+      end
+
+      class InvalidTypeGuardType < Base
+        attr_reader type: String
+
+        def initialize: (String type, location: RBS::Location[untyped, untyped]?) -> void
+
+        def header_line: () -> String
+      end
+
       def self.from_rbs_error: (RBS::BaseError error, factory: AST::Types::Factory) -> Base
     end
   end
