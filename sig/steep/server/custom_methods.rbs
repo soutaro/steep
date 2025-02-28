@@ -16,7 +16,7 @@ module Steep
         def self.notification: (params) -> untyped
       end
 
-      # Notification with parames of a file name and its contents, sent from master to workers
+      # Notification with params of a file name and its contents, sent from master to workers
       #
       module FileReset
         METHOD: String

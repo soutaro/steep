@@ -49,7 +49,7 @@ module Steep
       #
       # This is done by top-down manner.
       #
-      # Assignes given two types to the node when:
+      # Assigns given two types to the node when:
       #
       # * `node` is a `lvar`
       # * `node` is a `lvasgn`

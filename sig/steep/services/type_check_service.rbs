@@ -41,7 +41,7 @@ module Steep
 
         def update_content: (String content) -> SourceFile
 
-        # Diagnostics filgered by `ignores`
+        # Diagnostics filtered by `ignores`
         #
         def diagnostics: () -> Array[Diagnostic::Ruby::Base]
       end
