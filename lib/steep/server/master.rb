@@ -178,6 +178,7 @@ module Steep
       attr_reader :job_queue, :write_queue
 
       attr_reader :current_type_check_request
+      attr_reader :refork_mutex
       attr_reader :controller
       attr_reader :result_controller
 
@@ -185,7 +186,7 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
-      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
+      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new, refork: false)
         @project = project
         @reader = reader
         @writer = writer
@@ -196,6 +197,8 @@ module Steep
         @commandline_args = []
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
+        @refork_mutex = Mutex.new
+        @need_to_refork = refork
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -244,8 +247,10 @@ module Steep
                   Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
                   writer.write job.message
                 when WorkerProcess
-                  Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                  job.dest << job.message
+                  refork_mutex.synchronize do
+                    Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
+                    job.dest << job.message
+                  end
                 end
               end
             end
@@ -287,11 +292,13 @@ module Steep
             end
           end
 
-          waiter = ThreadWaiter.new
-          each_worker do |worker|
-            waiter << worker.wait_thread
+          waiter = ThreadWaiter.new(each_worker.to_a) {|worker| worker.wait_thread }
+          # @type var th: Thread & WorkerProcess::_ProcessWaitThread
+          while th = _ = waiter.wait_one()
+            if each_worker.any? { |worker| worker.pid == th.pid }
+              break # The worker unexpectedly exited
+            end
           end
-          waiter.wait_one()
 
           unless job_queue.closed?
             # Exit by error
@@ -794,6 +801,76 @@ module Steep
             if current.finished?
               finish_type_check(current)
               @current_type_check_request = nil
+              refork_workers
+            end
+          end
+        end
+      end
+
+      def refork_workers
+        return unless @need_to_refork
+        @need_to_refork = false
+
+        Thread.new do
+          Thread.current.abort_on_exception = true
+
+          primary, *others = typecheck_workers
+          primary or raise
+          others.each do |worker|
+            worker.index or raise
+
+            refork_mutex.synchronize do
+              refork_finished = Thread::Queue.new
+              stdin_in, stdin_out = IO.pipe
+              stdout_in, stdout_out = IO.pipe
+
+              result_controller << send_refork_request(params: { index: worker.index, max_index: typecheck_workers.size }, worker: primary) do |handler|
+                handler.on_completion do |response|
+                  writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_out)
+                  reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_in)
+
+                  pid = response[:result][:pid]
+                  # It does not need to wait worker process
+                  # because the primary worker monitors it instead.
+                  #
+                  # @type var wait_thread: Thread & WorkerProcess::_ProcessWaitThread
+                  wait_thread = _ = Thread.new { sleep }
+                  wait_thread.define_singleton_method(:pid) { pid }
+
+                  new_worker = WorkerProcess.new(reader:, writer:, stderr: nil, wait_thread:, name: "#{worker.name}-2", index: worker.index)
+                  old_worker = typecheck_workers[worker.index] or raise
+
+                  typecheck_workers[(new_worker.index or raise)] = new_worker
+
+                  original_old_worker = old_worker.dup
+                  old_worker.redirect_to new_worker
+
+                  refork_finished << true
+
+                  result_controller << send_request(method: 'shutdown', worker: original_old_worker) do |handler|
+                    handler.on_completion do
+                      send_request(method: 'exit', worker: original_old_worker)
+                    end
+                  end
+
+                  Thread.new do
+                    tags = Steep.logger.formatter.current_tags.dup
+                    Steep.logger.formatter.push_tags(*tags, "from-worker@#{new_worker.name}")
+                    new_worker.reader.read do |message|
+                      job_queue << ReceiveMessageJob.new(source: new_worker, message: message)
+                    end
+                  end
+                end
+              end
+
+              # The primary worker starts forking when it receives the IOs.
+              primary.io_socket or raise
+              primary.io_socket.send_io(stdin_in)
+              primary.io_socket.send_io(stdout_out)
+              stdin_in.close
+              stdout_out.close
+
+              refork_finished.pop
             end
           end
         end
@@ -823,6 +900,25 @@ module Steep
         ResultHandler.new(request: message).tap do |handler|
           yield handler if block
           enqueue_write_job SendMessageJob.to_worker(worker, message: message)
+        end
+      end
+
+      def send_refork_request(id: fresh_request_id(), params:, worker:, &block)
+        method = CustomMethods::Refork::METHOD
+        Steep.logger.info "Sending request #{method}(#{id}) to #{worker.name}"
+
+        # @type var message: lsp_request
+        message = { method: method, id: id, params: params }
+        ResultHandler.new(request: message).tap do |handler|
+          yield handler if block
+
+          job = SendMessageJob.to_worker(worker, message: message)
+          case job.dest
+          when WorkerProcess
+            job.dest << job.message
+          else
+            raise "Unexpected destination: #{job.dest}"
+          end
         end
       end
 
