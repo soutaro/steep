@@ -34,6 +34,7 @@ GEM
       rb-inotify (~> 0.9, >= 0.9.10)
     logger (1.6.6)
     minitest (5.25.4)
+    mutex_m (0.3.0)
     parser (3.3.7.1)
       ast (~> 2.4.1)
       racc
@@ -81,6 +82,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  mutex_m
   rbs-inline
   steep (~> 1.9.0)
 
