@@ -152,6 +152,8 @@ require "steep/drivers/vendor"
 require "steep/drivers/worker"
 require "steep/drivers/diagnostic_printer"
 
+require "steep/annotations_helper"
+
 if ENV["NO_COLOR"]
   Rainbow.enabled = false
 end

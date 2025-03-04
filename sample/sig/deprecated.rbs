@@ -1,0 +1,5 @@
+%a{deprecated} class Foo end
+
+class Bar
+  %a{deprecated: since v0.9} def self.bar: () -> void
+end

@@ -530,6 +530,8 @@ module Steep
     #
     def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node? receiver, Array[Parser::AST::Node] arguments) -> bool
 
+    def deprecated_send?: (TypeInference::MethodCall::Typed call) -> [RBS::AST::Annotation, String?]?
+
     def type_name: (AST::Types::t) -> RBS::TypeName?
 
     def singleton_type: (AST::Types::t) -> AST::Types::t?

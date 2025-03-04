@@ -1619,6 +1619,27 @@ module Steep
 
             if name
               typing.source_index.add_reference(constant: name, ref: node)
+
+              entry = checker.builder.factory.env.constant_entry(name)
+              annotations =
+                case entry
+                when RBS::Environment::ModuleEntry, RBS::Environment::ClassEntry
+                  entry.decls.flat_map { _1.decl.annotations }
+                when RBS::Environment::ConstantEntry, RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+                  entry.decl.annotations
+                end
+
+              if annotations
+                if (_, message = AnnotationsHelper.deprecated_annotation?(annotations))
+                  constr.typing.add_error(
+                    Diagnostic::Ruby::DeprecatedReference.new(
+                      node: node,
+                      location: node.location.expression,
+                      message: message
+                    )
+                  )
+                end
+              end
             end
 
             Pair.new(type: type, constr: constr)
@@ -3220,6 +3241,18 @@ module Steep
       end
     end
 
+    def deprecated_send?(call)
+      return unless call.node.type == :send || call.node.type == :csend
+
+      call.method_decls.each do |decl|
+        if pair = AnnotationsHelper.deprecated_annotation?(decl.method_def.each_annotation.to_a)
+          return pair
+        end
+      end
+
+      nil
+    end
+
     def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:, tapp:, hint:)
       method = interface.methods[method_name]
 
@@ -3272,6 +3305,20 @@ module Steep
                   end
                 end
               end
+            end
+
+            if (_, message = deprecated_send?(call))
+              send_node, _ = deconstruct_sendish_and_block_nodes(node)
+              send_node or raise
+              _, _, _, loc = deconstruct_send_node!(send_node)
+
+              constr.typing.add_error(
+                Diagnostic::Ruby::DeprecatedReference.new(
+                  node: node,
+                  location: loc.selector,
+                  message: message
+                )
+              )
             end
           end
 

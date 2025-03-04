@@ -1013,6 +1013,34 @@ module Steep
         end
       end
 
+      class DeprecatedReference < Base
+        attr_reader :message
+
+        def initialize(node:, location:, message:)
+          super(node: node, location: location)
+          @message = message
+        end
+
+        def header_line
+          header =
+            case node&.type
+            when :send, :csend, :block, :numblock
+              "The method is deprecated"
+            when :const
+              "The constant is deprecated"
+            else
+              raise
+            end
+
+          if message
+            header = +header
+            header.concat(": ", message)
+          end
+
+          header
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -1033,6 +1061,7 @@ module Steep
             BlockBodyTypeMismatch => :warning,
             BlockTypeMismatch => :warning,
             BreakTypeMismatch => :hint,
+            DeprecatedReference => :warning,
             DifferentMethodParameterKind => :hint,
             FallbackAny => :hint,
             FalseAssertion => :hint,
@@ -1095,6 +1124,7 @@ module Steep
             BlockBodyTypeMismatch => :error,
             BlockTypeMismatch => :error,
             BreakTypeMismatch => :error,
+            DeprecatedReference => :warning,
             DifferentMethodParameterKind => :error,
             FallbackAny => :warning,
             FalseAssertion => :error,
@@ -1157,6 +1187,7 @@ module Steep
             BlockBodyTypeMismatch => :information,
             BlockTypeMismatch => :information,
             BreakTypeMismatch => :hint,
+            DeprecatedReference => :warning,
             DifferentMethodParameterKind => nil,
             FallbackAny => nil,
             FalseAssertion => nil,

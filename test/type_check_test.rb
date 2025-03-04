@@ -3128,4 +3128,185 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_deprecated_method
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            %a{steep:deprecated} def foo: () -> void
+
+            %a{deprecated:Don't use bar} def bar: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo.new.foo()
+
+          Foo.new.bar()
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 8
+              end:
+                line: 1
+                character: 11
+            severity: ERROR
+            message: The method is deprecated
+            code: Ruby::DeprecatedReference
+          - range:
+              start:
+                line: 3
+                character: 8
+              end:
+                line: 3
+                character: 11
+            severity: ERROR
+            message: 'The method is deprecated: Don''t use bar'
+            code: Ruby::DeprecatedReference
+      YAML
+    )
+  end
+
+  def test_deprecated_method_alias
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: () -> void
+
+            %a{steep:deprecated} alias bar foo
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo.new.bar()
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 8
+              end:
+                line: 1
+                character: 11
+            severity: ERROR
+            message: The method is deprecated
+            code: Ruby::DeprecatedReference
+      YAML
+    )
+  end
+
+  def test_deprecated_method_overload
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: () -> void
+                   | %a{deprecated} (Integer) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo.new.foo()
+          Foo.new.foo(1)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 8
+              end:
+                line: 2
+                character: 11
+            severity: ERROR
+            message: The method is deprecated
+            code: Ruby::DeprecatedReference
+      YAML
+    )
+  end
+
+  def test_deprecated_class_module
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          %a{deprecated} class Foo
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 3
+            severity: ERROR
+            message: The constant is deprecated
+            code: Ruby::DeprecatedReference
+      YAML
+    )
+  end
+
+  def test_deprecated_class_module_alias
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          %a{deprecated} class Foo
+          end
+
+          class Bar = Foo
+
+          %a{deprecated} class Baz = Foo
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Bar
+          Baz
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 3
+            severity: ERROR
+            message: The constant is deprecated
+            code: Ruby::DeprecatedReference
+      YAML
+    )
+  end
 end
