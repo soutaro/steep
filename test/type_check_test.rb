@@ -3309,4 +3309,75 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_deprecated_constant
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          %a{deprecated} FOO: Integer
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          FOO
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 3
+            severity: ERROR
+            message: The constant is deprecated
+            code: Ruby::DeprecatedReference
+      YAML
+    )
+  end
+
+  def test_deprecated_global
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          %a{deprecated} $FOO: Integer
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          $FOO = 123
+          $FOO
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 4
+            severity: ERROR
+            message: The global variable is deprecated
+            code: Ruby::DeprecatedReference
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 4
+            severity: ERROR
+            message: The global variable is deprecated
+            code: Ruby::DeprecatedReference
+      YAML
+    )
+  end
 end

@@ -2421,6 +2421,9 @@ module Steep
             lhs_type = context.type_env[name]
             rhs_type, constr = synthesize(rhs, hint: lhs_type).to_ary
 
+            location = node.location #: Parser::Source::Map & Parser::AST::_Variable
+            constr.check_deprecation_global(name, node, location.name)
+
             type, constr = constr.gvasgn(node, rhs_type)
 
             constr.add_typing(node, type: type)
@@ -2429,6 +2432,9 @@ module Steep
         when :gvar
           yield_self do
             name = node.children.first
+
+            check_deprecation_global(name, node, node.location.expression)
+
             if type = context.type_env[name]
               add_typing(node, type: type)
             else
@@ -5223,6 +5229,20 @@ module Steep
       else
         if name = type_name(type)
           checker.factory.instance_type(name)
+        end
+      end
+    end
+
+    def check_deprecation_global(name, node, location)
+      if global_entry = checker.factory.env.global_decls[name]
+        if (_, message = AnnotationsHelper.deprecated_annotation?(global_entry.decl.annotations))
+          typing.add_error(
+            Diagnostic::Ruby::DeprecatedReference.new(
+              node: node,
+              location: location,
+              message: message
+            )
+          )
         end
       end
     end

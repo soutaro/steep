@@ -1028,6 +1028,8 @@ module Steep
               "The method is deprecated"
             when :const
               "The constant is deprecated"
+            when :gvar, :gvasgn
+              "The global variable is deprecated"
             else
               raise
             end

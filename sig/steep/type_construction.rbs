@@ -537,5 +537,8 @@ module Steep
     def singleton_type: (AST::Types::t) -> AST::Types::t?
 
     def instance_type: (AST::Types::t) -> AST::Types::t?
+
+    # Check if the global variable is deprecated and report diagnostic if so
+    def check_deprecation_global: (Symbol name, Parser::AST::Node, Parser::Source::Range) -> void
   end
 end
