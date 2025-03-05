@@ -1031,7 +1031,7 @@ module Steep
             when :gvar, :gvasgn
               "The global variable is deprecated"
             else
-              raise
+              raise "Unexpected node: #{node}"
             end
 
           if message

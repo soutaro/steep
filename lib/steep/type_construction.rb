@@ -1494,6 +1494,10 @@ module Steep
                   Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).class!
                 )
               end
+
+              if class_name
+                check_deprecation_constant(class_name, name_node, name_node.location.expression)
+              end
             else
               _, constr = synthesize(name_node)
             end
@@ -1548,6 +1552,10 @@ module Steep
             if name_node.type == :const
               _, constr, module_name = synthesize_constant_decl(name_node, name_node.children[0], name_node.children[1]) do
                 typing.add_error Diagnostic::Ruby::UnknownConstant.new(node: name_node, name: name_node.children[1]).module!
+              end
+
+              if module_name
+                check_deprecation_constant(module_name, name_node, name_node.location.expression)
               end
             else
               _, constr = synthesize(name_node)

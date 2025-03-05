@@ -3391,4 +3391,48 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_class_module_decl__deprecated
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          %a{deprecated} class Foo end
+          %a{deprecated} module Bar end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+          end
+          module Bar
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 6
+              end:
+                line: 1
+                character: 9
+            severity: ERROR
+            message: The constant is deprecated
+            code: Ruby::DeprecatedReference
+          - range:
+              start:
+                line: 3
+                character: 7
+              end:
+                line: 3
+                character: 10
+            severity: ERROR
+            message: The constant is deprecated
+            code: Ruby::DeprecatedReference
+      YAML
+    )
+  end
 end
