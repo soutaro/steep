@@ -1619,27 +1619,7 @@ module Steep
 
             if name
               typing.source_index.add_reference(constant: name, ref: node)
-
-              entry = checker.builder.factory.env.constant_entry(name)
-              annotations =
-                case entry
-                when RBS::Environment::ModuleEntry, RBS::Environment::ClassEntry
-                  entry.decls.flat_map { _1.decl.annotations }
-                when RBS::Environment::ConstantEntry, RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-                  entry.decl.annotations
-                end
-
-              if annotations
-                if (_, message = AnnotationsHelper.deprecated_annotation?(annotations))
-                  constr.typing.add_error(
-                    Diagnostic::Ruby::DeprecatedReference.new(
-                      node: node,
-                      location: node.location.expression,
-                      message: message
-                    )
-                  )
-                end
-              end
+              constr.check_deprecation_constant(name, node, node.location.expression)
             end
 
             Pair.new(type: type, constr: constr)
@@ -1658,6 +1638,8 @@ module Steep
 
             if constant_name
               typing.source_index.add_definition(constant: constant_name, definition: node)
+              location = node.location #: Parser::Source::Map & Parser::AST::_Variable
+              constr.check_deprecation_constant(constant_name, node, location.name)
             end
 
             value_type, constr = constr.synthesize(node.children.last, hint: constant_type)
@@ -5236,6 +5218,30 @@ module Steep
     def check_deprecation_global(name, node, location)
       if global_entry = checker.factory.env.global_decls[name]
         if (_, message = AnnotationsHelper.deprecated_annotation?(global_entry.decl.annotations))
+          typing.add_error(
+            Diagnostic::Ruby::DeprecatedReference.new(
+              node: node,
+              location: location,
+              message: message
+            )
+          )
+        end
+      end
+    end
+
+    def check_deprecation_constant(name, node, location)
+      entry = checker.builder.factory.env.constant_entry(name)
+
+      annotations =
+        case entry
+        when RBS::Environment::ModuleEntry, RBS::Environment::ClassEntry
+          entry.decls.flat_map { _1.decl.annotations }
+        when RBS::Environment::ConstantEntry, RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+          entry.decl.annotations
+        end
+
+      if annotations
+        if (_, message = AnnotationsHelper.deprecated_annotation?(annotations))
           typing.add_error(
             Diagnostic::Ruby::DeprecatedReference.new(
               node: node,

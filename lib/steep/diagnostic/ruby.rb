@@ -1026,7 +1026,7 @@ module Steep
             case node&.type
             when :send, :csend, :block, :numblock
               "The method is deprecated"
-            when :const
+            when :const, :casgn
               "The constant is deprecated"
             when :gvar, :gvasgn
               "The global variable is deprecated"

@@ -540,5 +540,8 @@ module Steep
 
     # Check if the global variable is deprecated and report diagnostic if so
     def check_deprecation_global: (Symbol name, Parser::AST::Node, Parser::Source::Range) -> void
+
+    # Check if the constant is deprecated and report diagnostic if so
+    def check_deprecation_constant: (RBS::TypeName, Parser::AST::Node, Parser::Source::Range) -> void
   end
 end

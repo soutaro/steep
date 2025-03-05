@@ -3319,6 +3319,7 @@ class TypeCheckTest < Minitest::Test
       },
       code: {
         "a.rb" => <<~RUBY
+          FOO = 123
           FOO
         RUBY
       },
@@ -3332,6 +3333,16 @@ class TypeCheckTest < Minitest::Test
                 character: 0
               end:
                 line: 1
+                character: 3
+            severity: ERROR
+            message: The constant is deprecated
+            code: Ruby::DeprecatedReference
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
                 character: 3
             severity: ERROR
             message: The constant is deprecated
