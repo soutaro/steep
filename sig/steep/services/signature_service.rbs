@@ -5,7 +5,7 @@ module Steep
     # 1. RBS files loaded from `EnvironmentLoader` -- usually type signatures of libraries
     # 2. RBS files managed in editors -- usually type signatures of the development target (app or gem)
     #
-    # The files in #2 are managed throuth `#status` and the changes are tracked.
+    # The files in #2 are managed through `#status` and the changes are tracked.
     #
     class SignatureService
       type status = SyntaxErrorStatus | AncestorErrorStatus | LoadedStatus

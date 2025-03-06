@@ -182,7 +182,7 @@ module Steep
     #
     # * `send_node` can be `:send`, `:super`, or `:zsuper`
     # * `node` can be `:send`, `:block`, `:super`, or `:zsuper`
-    # * Specify `unwrap` keyword `true` to type check safe-navigation-operator, that unwraps the type of reeiver automatically and make the return type optional
+    # * Specify `unwrap` keyword `true` to type check safe-navigation-operator, that unwraps the type of receiver automatically and make the return type optional
     #
     def type_send: (
       Parser::AST::Node node,
@@ -212,11 +212,11 @@ module Steep
       hint: Types::t?
     ) -> Pair
 
-    # The third step to type check method calls, which tries all of the overlods defined for the method
+    # The third step to type check method calls, which tries all of the overloads defined for the method
     #
     # * It receives the `Shape::Entry` object that represents an method entry of a shape
     # * Returns `nil` when it cannot find suitable one from more than one overloads
-    #   * It means the type checker can report only *no suitable overlod detected for this args* 😫
+    #   * It means the type checker can report only *no suitable overload detected for this args* 😫
     #
     def type_method_call: (
       Parser::AST::Node node,

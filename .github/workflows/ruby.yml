@@ -23,6 +23,10 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler: none
+    - name: Fix permission
+      run: |
+        gem env gemdir
+        chmod 775 `gem env gemdir`/gems
     - name: Run test
       run: |
         git config --global --add safe.directory /__w/steep/steep
@@ -38,6 +42,10 @@ jobs:
       with:
         ruby-version: "3.3"
         bundler: none
+    - name: Fix permission
+      run: |
+        gem env gemdir
+        chmod 775 `gem env gemdir`/gems
     - name: Run generator
       run: |
         git config --global --add safe.directory /__w/steep/steep

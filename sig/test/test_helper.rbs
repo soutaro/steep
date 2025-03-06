@@ -2,6 +2,16 @@
 
 use Steep::*
 
+module PrintNames
+  def setup: () -> untyped
+
+  def teardown: () -> untyped
+end
+
+class Minitest::Test
+  include PrintNames
+end
+
 module Steep::AST::Types::Name
   def self.new_singleton: (name: untyped) -> untyped
 
@@ -19,7 +29,14 @@ module TestHelper
 
   def assert_all: (untyped collection) ?{ (?) -> untyped } -> untyped
 
-  def assert_all!: (untyped collection, ?size: untyped) -> untyped
+  # @rbs [T] (Array[T], ?size: Integer?) { (T) -> void } -> void
+  def assert_all!: [T] (Array[T], ?size: Integer?) { (T) -> void } -> void
+
+  # @rbs [T] (Array[T], Integer) { (T) -> boolish } -> void
+  def assert_count: [T] (Array[T], Integer) { (T) -> boolish } -> void
+
+  # @rbs [T] (Array[T], Integer) { (T) -> void } -> void
+  def assert_count!: [T] (Array[T], Integer) { (T) -> void } -> void
 
   def refute_any: (untyped collection) ?{ (?) -> untyped } -> untyped
 
@@ -160,7 +177,8 @@ module TypeConstructionHelper
 
   def assert_no_error: (untyped typing) -> untyped
 
-  def assert_typing_error: (untyped typing, ?size: untyped) -> untyped
+  # @rbs (Typing, ?size: Integer) ?{ (Array[Diagnostic]) -> void } -> void
+  def assert_typing_error: (Typing, ?size: Integer) ?{ (Array[Diagnostic]) -> void } -> void
 end
 
 RUBY_PATH: untyped

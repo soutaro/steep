@@ -1500,6 +1500,34 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_type_narrowing__union_send
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Object
+            def present?: () -> bool
+          end
+
+          class NilClass
+            def present?: () -> false
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = [1].first
+          a + 1 if a.present?
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+
   def test_argument_error__unexpected_unexpected_positional_argument
     run_type_check_test(
       signatures: {
@@ -2553,16 +2581,6 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: Type `(::String | nil)` does not have method `+`
             code: Ruby::NoMethod
-          - range:
-              start:
-                line: 8
-                character: 8
-              end:
-                line: 8
-                character: 9
-            severity: ERROR
-            message: Type `(::Integer | nil)` does not have method `+`
-            code: Ruby::NoMethod
       YAML
     )
   end
@@ -2746,6 +2764,367 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: Unknown key `:email` is given to a record type
             code: Ruby::UnknownRecordKey
+      YAML
+    )
+  end
+
+  def test_undeclared_method
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo = nil
+
+            def self.foo = nil
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 9
+            severity: ERROR
+            message: Method `::Foo#foo` is not declared in RBS
+            code: Ruby::UndeclaredMethodDefinition
+          - range:
+              start:
+                line: 4
+                character: 11
+              end:
+                line: 4
+                character: 14
+            severity: ERROR
+            message: Method `::Foo.foo` is not declared in RBS
+            code: Ruby::UndeclaredMethodDefinition
+      YAML
+    )
+  end
+
+  def test_undeclared_method2
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo = nil
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 6
+              end:
+                line: 1
+                character: 9
+            severity: ERROR
+            message: 'Cannot find the declaration of class: `Foo`'
+            code: Ruby::UnknownConstant
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 9
+            severity: ERROR
+            message: Method `foo` is defined in undeclared module
+            code: Ruby::MethodDefinitionInUndeclaredModule
+      YAML
+    )
+  end
+
+  def test_when__assertion
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = case [1,2,3].sample
+          when Integer
+            ["foo", 1] #: [String, Integer]
+          end
+
+          a.foo()  # To confirm the type of `a`
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 2
+              end:
+                line: 6
+                character: 5
+            severity: ERROR
+            message: Type `([::String, ::Integer] | nil)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_when__type_annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = [1, ""].sample
+
+          case
+          when 1.even?
+            # @type var a: String
+            a + ""
+          when 2.even?
+            # @type var a: Integer
+            a + 1
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_tuple_type_assertion
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          [1, ""] #: [1, "", bool]
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 24
+            severity: ERROR
+            message: 'Assertion cannot hold: no relationship between inferred type (`[1, \"\"]`)
+              and asserted type (`[1, \"\", bool]`)'
+            code: Ruby::FalseAssertion
+      YAML
+    )
+  end
+
+  def test_case_when__no_subject__assignment_in_when__raise_in_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case
+          when 1
+            v = 1
+          when 2
+            v = 10
+          else
+            raise
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_self_type_union_assertion
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def bar: (bool) -> self?
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def bar(var)
+              return nil if var
+              self
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_case_when__no_subject__assignment_in_when__no_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case
+          when 1
+            v = 1
+          when 2
+            v = 10
+          else
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_case_when__with_subject__assignment_in_when__raise_in_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case rand(3)
+          when 1
+            v = 1
+          when 2
+            v = 10
+          else
+            raise
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_case_when__with_subject__assignment_in_when__empty_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case rand(3)
+          when 1
+            v = 1
+          when 2
+            v = 10
+          else
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_case_when__with_subject__assignment_in_when__no_else
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          case rand(3)
+          when 1
+            v = 1
+          when 2
+            v = 10
+          end
+
+          v + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 8
+                character: 2
+              end:
+                line: 8
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
       YAML
     )
   end

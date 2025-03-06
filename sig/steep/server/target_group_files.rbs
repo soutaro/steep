@@ -16,7 +16,7 @@ module Steep
       # Add path
       #
       # * Returns `true` if the path is under the control of the project.
-      # * Returns `false` if the path doesn't blong to the project.
+      # * Returns `false` if the path doesn't belong to the project.
       #
       def add_path: (Pathname path) -> bool
 

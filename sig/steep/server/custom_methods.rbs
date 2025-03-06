@@ -16,7 +16,7 @@ module Steep
         def self.notification: (params) -> untyped
       end
 
-      # Notification with parames of a file name and its contents, sent from master to workers
+      # Notification with params of a file name and its contents, sent from master to workers
       #
       module FileReset
         METHOD: String
@@ -121,6 +121,18 @@ module Steep
         METHOD: String
 
         type result = Array[String]
+
+        def self.response: (String id, result) -> untyped
+      end
+
+      module Refork
+        METHOD: String
+
+        type params = { index: Integer , max_index: Integer }
+
+        def self.request: (String id, params) -> untyped
+
+        type result = { pid: Integer }
 
         def self.response: (String id, result) -> untyped
       end
