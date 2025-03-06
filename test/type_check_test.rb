@@ -2581,16 +2581,6 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: Type `(::String | nil)` does not have method `+`
             code: Ruby::NoMethod
-          - range:
-              start:
-                line: 8
-                character: 8
-              end:
-                line: 8
-                character: 9
-            severity: ERROR
-            message: Type `(::Integer | nil)` does not have method `+`
-            code: Ruby::NoMethod
       YAML
     )
   end

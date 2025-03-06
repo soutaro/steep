@@ -124,12 +124,14 @@ module Steep
 
         def pure?
           method_decls.all? do |method_decl|
-            case member = method_decl.method_def.member
-            when RBS::AST::Members::MethodDefinition
-              member.annotations.any? {|annotation| annotation.string == "pure" }
+            case method_decl.method_def.member
             when RBS::AST::Members::Attribute
               # The attribute writer is not pure
               !method_decl.method_name.method_name.end_with?("=")
+            else
+              method_decl.method_def.each_annotation.any? do |annotation|
+                annotation.string == "pure"
+              end
             end
           end
         end

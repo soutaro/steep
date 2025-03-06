@@ -114,7 +114,7 @@ module Steep
 
       def replace_kernel_class: (method_name, RBS::Definition::Method::TypeDef, MethodType) { () -> AST::Types::t } -> MethodType
 
-      def add_implicitly_returns_nil: (Array[RBS::AST::Annotation], MethodType) -> MethodType
+      def add_implicitly_returns_nil: (Enumerable[RBS::AST::Annotation], MethodType) -> MethodType
 
       @subtyping: Subtyping::Check?
 
