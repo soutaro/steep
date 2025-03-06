@@ -185,7 +185,7 @@ module Steep
         loader = Services::FileLoader.new(base_dir: project.base_dir)
 
         project.targets.each do |target|
-          signature_service = Services::SignatureService.load_from(target.new_env_loader())
+          signature_service = Services::SignatureService.load_from(target.new_env_loader(), implicitly_returns_nil: target.implicitly_returns_nil)
           files.add_library_path(target, *signature_service.env_rbs_paths.to_a)
         end
 
@@ -266,7 +266,7 @@ module Steep
               request.code_paths << [target_group.name, path]
             end
           else
-            group_set = groups.map do |group_name|
+            group_set = groups.filter_map do |group_name|
               target_name, group_name = group_name.split(".", 2)
               target_name or raise
 
@@ -280,7 +280,7 @@ module Steep
               else
                 project.targets.find {|target| target.name == target_name }
               end
-            end.compact.to_set
+            end.to_set
 
             files.signature_paths.each do |path, target_group|
               if group_set.include?(target_group)

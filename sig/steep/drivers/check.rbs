@@ -17,7 +17,7 @@ module Steep
 
       attr_reader jobs_option: Utils::JobsOption
 
-      attr_reader active_group_names: Array[[Symbol, Symbol?]]
+      attr_reader active_group_names: Array[[Symbol, Symbol | true | nil]]
 
       attr_accessor type_check_code: bool
 

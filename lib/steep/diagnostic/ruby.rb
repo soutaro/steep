@@ -821,6 +821,19 @@ module Steep
         end
       end
 
+      class AnnotationSyntaxError < Base
+        attr_reader :message
+
+        def initialize(message: ,location:)
+          super(node: nil, location: location)
+          @message = message
+        end
+
+        def header_line
+          "Type annotation has a syntax error: #{message}"
+        end
+      end
+
       class FalseAssertion < Base
         attr_reader :node, :assertion_type, :node_type
 
@@ -951,6 +964,55 @@ module Steep
         end
       end
 
+      class UnknownRecordKey < Base
+        attr_reader :key
+
+        def initialize(key:, node:)
+          super(node: node)
+          @key = key
+        end
+
+        def header_line
+          "Unknown key `#{key.inspect}` is given to a record type"
+        end
+      end
+
+      class UndeclaredMethodDefinition < Base
+        attr_reader :method_name, :type_name
+
+        def initialize(method_name:, type_name:, node:)
+          @method_name = method_name
+          @type_name = type_name
+          super(node: node, location: (_ = node.loc).name)
+        end
+
+        def header_line
+          name =
+              case node.type
+              when :def
+                "#{type_name}##{method_name}"
+              when :defs
+                "#{type_name}.#{method_name}"
+              else
+                raise
+              end
+          "Method `#{name}` is not declared in RBS"
+        end
+      end
+
+      class MethodDefinitionInUndeclaredModule < Base
+        attr_reader :method_name
+
+        def initialize(method_name:, node:)
+          @method_name = method_name
+          super(node: node, location: (_ = node.loc).name)
+        end
+
+        def header_line
+          "Method `#{method_name}` is defined in undeclared module"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -966,6 +1028,7 @@ module Steep
       def self.default
         @default ||= _ = all_error.merge(
           {
+            AnnotationSyntaxError => :error,
             ArgumentTypeMismatch => :error,
             BlockBodyTypeMismatch => :warning,
             BlockTypeMismatch => :warning,
@@ -983,6 +1046,7 @@ module Steep
             InvalidIgnoreComment => :warning,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
+            MethodDefinitionInUndeclaredModule => :information,
             MethodDefinitionMissing => nil,
             MethodParameterMismatch => :error,
             MethodReturnTypeAnnotationMismatch => :hint,
@@ -996,9 +1060,10 @@ module Steep
             SetterBodyTypeMismatch => :information,
             SetterReturnTypeMismatch => :information,
             ClassModuleMismatch => :error,
-            SyntaxError => :hint,
+            SyntaxError => :information,
             TypeArgumentMismatchError => :hint,
             UnannotatedEmptyCollection => :warning,
+            UndeclaredMethodDefinition => :warning,
             UnexpectedBlockGiven => :warning,
             UnexpectedDynamicMethod => :hint,
             UnexpectedError => :hint,
@@ -1011,6 +1076,7 @@ module Steep
             UnexpectedYield => :warning,
             UnknownConstant => :warning,
             UnknownGlobalVariable => :warning,
+            UnknownRecordKey => :information,
             UnknownInstanceVariable => :information,
             UnreachableBranch => :hint,
             UnreachableValueBranch => :hint,
@@ -1024,6 +1090,7 @@ module Steep
       def self.strict
         @strict ||= _ = all_error.merge(
           {
+            AnnotationSyntaxError => :error,
             ArgumentTypeMismatch => :error,
             BlockBodyTypeMismatch => :error,
             BlockTypeMismatch => :error,
@@ -1041,6 +1108,7 @@ module Steep
             InvalidIgnoreComment => :warning,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
+            MethodDefinitionInUndeclaredModule => :warning,
             MethodDefinitionMissing => :hint,
             MethodParameterMismatch => :error,
             MethodReturnTypeAnnotationMismatch => :error,
@@ -1054,9 +1122,10 @@ module Steep
             SetterBodyTypeMismatch => :error,
             SetterReturnTypeMismatch => :error,
             ClassModuleMismatch => :error,
-            SyntaxError => :hint,
+            SyntaxError => :information,
             TypeArgumentMismatchError => :error,
             UnannotatedEmptyCollection => :error,
+            UndeclaredMethodDefinition => :warning,
             UnexpectedBlockGiven => :error,
             UnexpectedDynamicMethod => :information,
             UnexpectedError => :information,
@@ -1069,6 +1138,7 @@ module Steep
             UnexpectedYield => :error,
             UnknownConstant => :error,
             UnknownGlobalVariable => :error,
+            UnknownRecordKey => :warning,
             UnknownInstanceVariable => :error,
             UnreachableBranch => :information,
             UnreachableValueBranch => :warning,
@@ -1082,6 +1152,7 @@ module Steep
       def self.lenient
         @lenient ||= _ = all_error.merge(
           {
+            AnnotationSyntaxError => :error,
             ArgumentTypeMismatch => :information,
             BlockBodyTypeMismatch => :information,
             BlockTypeMismatch => :information,
@@ -1099,6 +1170,7 @@ module Steep
             InvalidIgnoreComment => :warning,
             MethodArityMismatch => :information,
             MethodBodyTypeMismatch => :warning,
+            MethodDefinitionInUndeclaredModule => :hint,
             MethodDefinitionMissing => nil,
             MethodParameterMismatch => :warning,
             MethodReturnTypeAnnotationMismatch => nil,
@@ -1112,9 +1184,10 @@ module Steep
             SetterBodyTypeMismatch => nil,
             SetterReturnTypeMismatch => nil,
             ClassModuleMismatch => nil,
-            SyntaxError => :hint,
+            SyntaxError => :information,
             TypeArgumentMismatchError => nil,
             UnannotatedEmptyCollection => :hint,
+            UndeclaredMethodDefinition => :information,
             UnexpectedBlockGiven => :hint,
             UnexpectedDynamicMethod => nil,
             UnexpectedError => :hint,
@@ -1127,6 +1200,7 @@ module Steep
             UnexpectedYield => :information,
             UnknownConstant => :hint,
             UnknownGlobalVariable => :hint,
+            UnknownRecordKey => :hint,
             UnknownInstanceVariable => :hint,
             UnreachableBranch => :hint,
             UnreachableValueBranch => :hint,

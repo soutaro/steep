@@ -1,7 +1,5 @@
 target :test do
   check "*.rb"
-  signature "*.rbs"
-  library "tsort"
 
   implicitly_returns_nil! true
 

@@ -152,7 +152,7 @@ RUBY
 
       service.source_files[Pathname("lib/core.rb")].tap do |file|
         assert_any!(file.errors, size: 1) do |error|
-          assert_instance_of Diagnostic::Ruby::SyntaxError, error
+          assert_instance_of Diagnostic::Ruby::AnnotationSyntaxError, error
           assert_equal "Array[", error.location.source
           assert_equal "Syntax error caused by token `pEOF`", error.message
         end

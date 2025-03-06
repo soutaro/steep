@@ -32,6 +32,34 @@ and you can ignore some kind of errors.
 </dd>
 </dl>
 
+<a name='Ruby::AnnotationSyntaxError'></a>
+## Ruby::AnnotationSyntaxError
+
+A type annotation has a syntax error.
+
+### Ruby code
+
+```ruby
+# @type var foo: () ->
+```
+
+### Diagnostic
+
+```
+test.rb:1:2: [error] Type annotation has a syntax error: Syntax error caused by token `pEOF`
+│ Diagnostic ID: Ruby::AnnotationSyntaxError
+│
+└ # @type method foo: () ->
+    ~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | error | error | error | - |
+
 <a name='Ruby::ArgumentTypeMismatch'></a>
 ## Ruby::ArgumentTypeMismatch
 
@@ -675,6 +703,36 @@ test.rb:2:6: [error] Cannot allow method body have type `::Integer` because decl
 | - | - | - | - | - |
 | error | error | error | warning | - |
 
+<a name='Ruby::MethodDefinitionInUndeclaredModule'></a>
+## Ruby::MethodDefinitionInUndeclaredModule
+
+A `def` syntax doesn't have method type because the module/class is undefined in RBS.
+
+### Ruby code
+
+```ruby
+class UndeclaredClass
+  def to_s = 123
+end
+```
+
+### Diagnostic
+
+```
+test.rb:2:6: [error] Method `to_s` is defined in undeclared module
+│ Diagnostic ID: Ruby::MethodDefinitionInUndeclaredModule
+│
+└   def to_s = 123
+        ~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | information | hint | - |
+
 <a name='Ruby::MethodDefinitionMissing'></a>
 ## Ruby::MethodDefinitionMissing
 
@@ -1109,7 +1167,7 @@ test.rb:2:14: [error] SyntaxError: unexpected token $end
 
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
-| error | hint | hint | hint | - |
+| error | information | information | information | - |
 
 <a name='Ruby::TypeArgumentMismatchError'></a>
 ## Ruby::TypeArgumentMismatchError
@@ -1206,6 +1264,43 @@ test.rb:2:4: [error] Empty hash doesn't have type annotation
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
 | error | error | warning | hint | - |
+
+<a name='Ruby::UndeclaredMethodDefinition'></a>
+## Ruby::UndeclaredMethodDefinition
+
+A `def` syntax doesn't have corresponding RBS method definition.
+
+### RBS
+
+```rbs
+class Foo
+end
+```
+
+### Ruby code
+
+```ruby
+class Foo
+  def undeclared = nil
+end
+```
+
+### Diagnostic
+
+```
+test.rb:2:6: [error] Method `::Foo#undeclared` is not declared in RBS
+│ Diagnostic ID: Ruby::UndeclaredMethodDefinition
+│
+└   def undeclared = nil
+        ~~~~~~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | warning | information | - |
 
 <a name='Ruby::UnexpectedBlockGiven'></a>
 ## Ruby::UnexpectedBlockGiven
@@ -1626,6 +1721,34 @@ test.rb:3:4: [error] Cannot find the declaration of instance variable: `@foo`
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
 | error | error | information | hint | - |
+
+<a name='Ruby::UnknownRecordKey'></a>
+## Ruby::UnknownRecordKey
+
+An unknown key is given to record type.
+
+### Ruby code
+
+```ruby
+{ name: "soutaro", email: "soutaro@example.com" } #: { name: String }
+```
+
+### Diagnostic
+
+```
+test.rb:1:19: [error] Unknown key `:email` is given to a record type
+│ Diagnostic ID: Ruby::UnknownRecordKey
+│
+└ { name: "soutaro", email: "soutaro@example.com" } #: { name: String }
+                     ~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | information | hint | - |
 
 <a name='Ruby::UnreachableBranch'></a>
 ## Ruby::UnreachableBranch

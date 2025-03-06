@@ -21,3 +21,13 @@
     severity: ERROR
     message: Cannot find implementation of method `::A.bar`
     code: Ruby::MethodDefinitionMissing
+  - range:
+      start:
+        line: 7
+        character: 6
+      end:
+        line: 7
+        character: 9
+    severity: ERROR
+    message: Method `::A#bar` is not declared in RBS
+    code: Ruby::UndeclaredMethodDefinition

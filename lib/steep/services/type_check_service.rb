@@ -82,7 +82,7 @@ module Steep
         @source_files = {}
         @signature_services = project.targets.each.with_object({}) do |target, hash| #$ Hash[Symbol, SignatureService]
           loader = Project::Target.construct_env_loader(options: target.options, project: project)
-          hash[target.name] = SignatureService.load_from(loader)
+          hash[target.name] = SignatureService.load_from(loader, implicitly_returns_nil: target.implicitly_returns_nil)
         end
         @signature_validation_diagnostics = project.targets.each.with_object({}) do |target, hash| #$ Hash[Symbol, Hash[Pathname, Array[Diagnostic::Signature::Base]]]
           hash[target.name] = {}
@@ -287,7 +287,7 @@ module Steep
           SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing, ignores: ignores)
         end
       rescue AnnotationParser::SyntaxError => exn
-        error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: exn.location)
+        error = Diagnostic::Ruby::AnnotationSyntaxError.new(message: exn.message, location: exn.location)
         SourceFile.with_syntax_error(path: path, content: text, error: error)
       rescue ::Parser::SyntaxError => exn
         error = Diagnostic::Ruby::SyntaxError.new(message: exn.message, location: (_ = exn).diagnostic.location)
@@ -302,7 +302,22 @@ module Steep
       def self.type_check(source:, subtyping:, constant_resolver:, cursor:)
         annotations = source.annotations(block: source.node, factory: subtyping.factory, context: nil)
 
-        definition = subtyping.factory.definition_builder.build_instance(AST::Builtin::Object.module_name)
+        case annotations.self_type
+        when AST::Types::Name::Instance
+          module_name = annotations.self_type.name
+          module_type = AST::Types::Name::Singleton.new(name: module_name)
+          instance_type = annotations.self_type
+        when AST::Types::Name::Singleton
+          module_name = annotations.self_type.name
+          module_type = annotations.self_type
+          instance_type = annotations.self_type
+        else
+          module_name = AST::Builtin::Object.module_name
+          module_type = AST::Builtin::Object.module_type
+          instance_type = AST::Builtin::Object.instance_type
+        end
+
+        definition = subtyping.factory.definition_builder.build_instance(module_name)
 
         const_env = TypeInference::ConstantEnv.new(
           factory: subtyping.factory,
@@ -321,17 +336,17 @@ module Steep
         context = TypeInference::Context.new(
           block_context: nil,
           module_context: TypeInference::Context::ModuleContext.new(
-            instance_type: AST::Builtin::Object.instance_type,
-            module_type: AST::Builtin::Object.module_type,
+            instance_type: instance_type,
+            module_type: module_type,
             implement_name: nil,
             nesting: nil,
-            class_name: AST::Builtin::Object.module_name,
-            instance_definition: subtyping.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),
-            module_definition: subtyping.factory.definition_builder.build_singleton(AST::Builtin::Object.module_name)
+            class_name: module_name,
+            instance_definition: subtyping.factory.definition_builder.build_instance(module_name),
+            module_definition: subtyping.factory.definition_builder.build_singleton(module_name)
           ),
           method_context: nil,
           break_context: nil,
-          self_type: AST::Builtin::Object.instance_type,
+          self_type: instance_type,
           type_env: type_env,
           call_context: TypeInference::MethodCall::TopLevelContext.new,
           variable_context: TypeInference::Context::TypeVariableContext.empty

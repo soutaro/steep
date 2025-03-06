@@ -659,7 +659,7 @@ end
                 message: "Cannot find the declaration of class: `Foo`"
               }
             ],
-            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))&.map { _1.except(:codeDescription) }
           )
           assert_equal(
             [
@@ -673,7 +673,7 @@ end
                 message: "Cannot find the declaration of class: `Bar`"
               }
             ],
-            ui.diagnostics_for(project.absolute_path(Pathname("lib/bar.rb")))
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/bar.rb")))&.map { _1.except(:codeDescription) }
           )
         end
       end
@@ -731,7 +731,7 @@ end
                 message: "Cannot find the declaration of class: `Foo`"
               }
             ],
-            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))&.map { _1.except(:codeDescription) }
           )
         end
 
@@ -1154,6 +1154,60 @@ end
       master_writer.write({ method: "exit" })
 
       main_thread.join
+    end
+  end
+
+  def test__initialize__file_system_watcher_setup
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  group :core do
+    check "lib/core"
+  end
+
+  check "lib"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+      master.assign_initialize_params(
+        DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(
+          {
+            capabilities: {
+              workspace: {
+                didChangeWatchedFiles: {
+                  dynamicRegistration: true
+                }
+              }
+            }
+          }
+        )
+      )
+
+      master.setup_file_system_watcher()
+
+      jobs = flush_queue(master.write_queue)
+
+      jobs.find { _1.message[:method] == "client/registerCapability" }.tap do |job|
+        job.message[:params][:registrations].find { _1[:method] == "workspace/didChangeWatchedFiles" }.tap do |registration|
+          watchers = registration[:registerOptions][:watchers]
+
+          assert_includes(watchers, { globPattern: "#{current_dir}/lib/**/*.rb" })
+          assert_includes(watchers, { globPattern: "#{current_dir}/lib/core/**/*.rb" })
+        end
+      end
     end
   end
 end

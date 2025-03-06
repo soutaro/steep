@@ -29,6 +29,16 @@
     code: Ruby::IncompatibleAssignment
   - range:
       start:
+        line: 16
+        character: 6
+      end:
+        line: 16
+        character: 9
+    severity: ERROR
+    message: Method `::A#bar` is not declared in RBS
+    code: Ruby::UndeclaredMethodDefinition
+  - range:
+      start:
         line: 19
         character: 4
       end:

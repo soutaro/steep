@@ -117,7 +117,7 @@ end
 
     paths["builtin.rbs"] = BUILTIN unless nostdlib
     with_factory(paths, nostdlib: true) do |factory|
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
       yield Subtyping::Check.new(builder: builder)
     end
   end
@@ -431,6 +431,30 @@ end
     end
   end
 
+  def test_tuple
+    with_checker do |checker|
+      assert_success_check checker, "[String]", "[untyped]"
+      assert_success_check checker, "[String]", "[top]"
+      assert_success_check checker, "[123]", "[Integer]"
+
+      assert_fail_check checker, "[String]", "[String, Integer]"
+      assert_fail_check checker, "[String, Symbol]", "[String]"
+    end
+  end
+
+  def test_record
+    with_checker do |checker|
+      assert_success_check checker, "{ foo: String }", "{ foo: untyped }"
+      assert_success_check checker, "{ foo: String }", "{ foo: Object }"
+
+      assert_fail_check checker, "{ foo: String, bar: Integer }", "{ foo: String }"
+      assert_fail_check checker, "{ foo: String }", "{ foo: String, bar: Integer }"
+
+      assert_success_check checker, "{ foo: String }", "{ foo: String, ?bar: Integer }"
+      assert_success_check checker, "{ foo: String }", "{ foo: String, bar: Integer? }"
+    end
+  end
+
   def print_result(result, output, prefix: "  ")
     mark = result.success? ? "👍" : "🤦"
 
@@ -732,7 +756,6 @@ type json = String | Integer | Array[json] | Hash[String, json]
 
   def test_hash
     with_checker do |checker|
-      assert_success_check checker, "{ foo: ::Integer, bar: ::String }", "{ foo: ::Integer }"
       assert_fail_check checker, "{ foo: ::String }", "{ foo: ::Integer }"
       assert_success_check checker, "{ foo: ::String, bar: ::Integer }", "{ foo: ::String, bar: ::Integer? }"
       assert_success_check checker, "{ foo: ::String, bar: nil }", "{ foo: ::String, bar: ::Integer? }"
@@ -1064,7 +1087,7 @@ type c = a | b
       assert_fail_check checker, "::_A", "::_C" do |result|
         assert_instance_of Failure::UnsatisfiedConstraints, result.error
 
-        assert_match /X\(\d+\)/, result.error.var.to_s
+        assert_match(/X\(\d+\)/, result.error.var.to_s)
         assert_equal parse_type("::String", checker: checker), result.error.sub_type
         assert_equal parse_type("::Numeric & ::String", checker: checker), result.error.super_type
       end

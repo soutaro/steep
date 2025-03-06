@@ -48,17 +48,18 @@ module Steep
       end
 
       class LoadedStatus
-        attr_reader :files, :builder
+        attr_reader :files, :builder, :implicitly_returns_nil
 
-        def initialize(files:, builder:)
+        def initialize(files:, builder:, implicitly_returns_nil:)
           @files = files
           @builder = builder
+          @implicitly_returns_nil = implicitly_returns_nil
         end
 
         def subtyping
           @subtyping ||= begin
             factory = AST::Types::Factory.new(builder: builder)
-            interface_builder = Interface::Builder.new(factory)
+            interface_builder = Interface::Builder.new(factory, implicitly_returns_nil: implicitly_returns_nil)
             Subtyping::Check.new(builder: interface_builder)
           end
         end
@@ -77,14 +78,17 @@ module Steep
 
       FileStatus = _ = Struct.new(:path, :content, :signature, keyword_init: true)
 
-      def initialize(env:)
+      attr_reader :implicitly_returns_nil
+
+      def initialize(env:, implicitly_returns_nil:)
         builder = RBS::DefinitionBuilder.new(env: env)
-        @status = LoadedStatus.new(builder: builder, files: {})
+        @status = LoadedStatus.new(builder: builder, files: {}, implicitly_returns_nil: implicitly_returns_nil)
+        @implicitly_returns_nil = implicitly_returns_nil
       end
 
-      def self.load_from(loader)
+      def self.load_from(loader, implicitly_returns_nil:)
         env = RBS::Environment.from_loader(loader).resolve_type_names
-        new(env: env)
+        new(env: env, implicitly_returns_nil: implicitly_returns_nil)
       end
 
       def env_rbs_paths
@@ -222,7 +226,7 @@ module Steep
                         )
                       when RBS::DefinitionBuilder::AncestorBuilder
                         builder2 = update_builder(ancestor_builder: result, paths: paths)
-                        LoadedStatus.new(builder: builder2, files: files)
+                        LoadedStatus.new(builder: builder2, files: files, implicitly_returns_nil: implicitly_returns_nil)
                       end
           end
         end

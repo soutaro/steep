@@ -10,8 +10,9 @@ module Steep
       attr_reader :project
       attr_reader :unreferenced
       attr_reader :groups
+      attr_reader :implicitly_returns_nil
 
-      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:)
+      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:, implicitly_returns_nil:)
         @name = name
         @target_options = options
         @source_pattern = source_pattern
@@ -20,6 +21,7 @@ module Steep
         @project = project
         @unreferenced = unreferenced
         @groups = []
+        @implicitly_returns_nil = implicitly_returns_nil
       end
 
       def options

@@ -102,12 +102,12 @@ type b = no_such_type
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal TypeName("::X::Y::Z"), error.name
+        assert_equal RBS::TypeName.parse("::X::Y::Z"), error.name
       end
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal TypeName("::no_such_type"), error.name
+        assert_equal RBS::TypeName.parse("::no_such_type"), error.name
       end
     end
   end
@@ -134,7 +134,7 @@ type broken[T] = Array[broken[Array[T]]]
       assert_operator validator, :has_error?
       assert_any!(validator.each_error, size: 1) do |error|
         assert_instance_of Diagnostic::Signature::NonregularTypeAlias, error
-        assert_equal TypeName("::broken"), error.type_name
+        assert_equal RBS::TypeName.parse("::broken"), error.type_name
         assert_equal parse_type("::broken[::Array[T]]", variables: [:T]), error.nonregular_type
       end
     end
@@ -149,7 +149,7 @@ type broken[T] = broken[Array[T]]
       assert_operator validator, :has_error?
       assert_any! validator.each_error, size: 1 do |error|
         assert_instance_of Diagnostic::Signature::RecursiveTypeAlias, error
-        assert_equal [TypeName("::broken")], error.alias_names
+        assert_equal [RBS::TypeName.parse("::broken")], error.alias_names
       end
     end
   end
@@ -185,7 +185,7 @@ end
       assert_predicate validator, :has_error?
       assert_any! validator.each_error.to_a, size: 1 do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal TypeName("Arraay"), error.name
+        assert_equal RBS::TypeName.parse("Arraay"), error.name
       end
     end
   end
@@ -331,7 +331,7 @@ end
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownMethodAlias, error
-        assert_equal TypeName("::_Hello"), error.class_name
+        assert_equal RBS::TypeName.parse("::_Hello"), error.class_name
         assert_equal :bar, error.method_name
         assert_equal "alias foo bar", error.location.source
       end
@@ -353,7 +353,7 @@ end
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::DuplicatedMethodDefinition, error
-        assert_equal TypeName("::Foo"), error.class_name
+        assert_equal RBS::TypeName.parse("::Foo"), error.class_name
         assert_equal :foo, error.method_name
       end
     end
@@ -381,7 +381,7 @@ end
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::DuplicatedMethodDefinition, error
-        assert_equal TypeName("::Foo"), error.class_name
+        assert_equal RBS::TypeName.parse("::Foo"), error.class_name
         assert_equal :foo, error.method_name
       end
     end
@@ -401,7 +401,7 @@ end
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::RecursiveAlias, error
-        assert_equal TypeName("::Foo"), error.class_name
+        assert_equal RBS::TypeName.parse("::Foo"), error.class_name
         assert_equal Set[:foo, :bar], Set.new(error.names)
       end
     end
@@ -445,13 +445,13 @@ end
     EOF
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::A"))
+        validator.validate_one_class(RBS::TypeName.parse("::A"))
 
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::B"))
+        validator.validate_one_class(RBS::TypeName.parse("::B"))
 
         assert_predicate validator, :has_error?
         assert_any!(validator.each_error, size: 1) do |error|
@@ -460,7 +460,7 @@ end
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::C"))
+        validator.validate_one_class(RBS::TypeName.parse("::C"))
 
         assert_predicate validator, :has_error?
         assert_any!(validator.each_error, size: 1) do |error|
@@ -469,13 +469,13 @@ end
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::D"))
+        validator.validate_one_class(RBS::TypeName.parse("::D"))
 
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::E"))
+        validator.validate_one_class(RBS::TypeName.parse("::E"))
 
         assert_predicate validator, :has_error?
         assert_any!(validator.each_error, size: 1) do |error|
@@ -514,19 +514,19 @@ end
     EOF
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::A"))
+        validator.validate_one_class(RBS::TypeName.parse("::A"))
 
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::B"))
+        validator.validate_one_class(RBS::TypeName.parse("::B"))
 
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::C"))
+        validator.validate_one_class(RBS::TypeName.parse("::C"))
 
         assert_predicate validator, :has_error?
         assert_any!(validator.each_error, size: 1) do |error|
@@ -563,13 +563,13 @@ class D
 end
 EOF
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::A"))
+        validator.validate_one_class(RBS::TypeName.parse("::A"))
 
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::B"))
+        validator.validate_one_class(RBS::TypeName.parse("::B"))
 
         assert_predicate validator, :has_error?
         assert_any!(validator.each_error, size: 1) do |error|
@@ -578,7 +578,7 @@ EOF
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::C"))
+        validator.validate_one_class(RBS::TypeName.parse("::C"))
 
         assert_predicate validator, :has_error?
         assert_any!(validator.each_error, size: 1) do |error|
@@ -587,7 +587,7 @@ EOF
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::D"))
+        validator.validate_one_class(RBS::TypeName.parse("::D"))
 
         assert_predicate validator, :has_error?
         assert_any!(validator.each_error, size: 1) do |error|
@@ -611,19 +611,19 @@ class C < B
 end
     EOF
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::A"))
+        validator.validate_one_class(RBS::TypeName.parse("::A"))
 
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::C"))
+        validator.validate_one_class(RBS::TypeName.parse("::C"))
 
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::B"))
+        validator.validate_one_class(RBS::TypeName.parse("::B"))
 
         assert_predicate validator, :has_error?
         assert_any!(validator.each_error, size: 1) do |error|
@@ -698,12 +698,12 @@ end
     EOF
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::Foo"))
+        validator.validate_one_class(RBS::TypeName.parse("::Foo"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::Bar"))
+        validator.validate_one_class(RBS::TypeName.parse("::Bar"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -734,17 +734,17 @@ end
 RBS
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::Base"))
+        validator.validate_one_class(RBS::TypeName.parse("::Base"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::C0"))
+        validator.validate_one_class(RBS::TypeName.parse("::C0"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::C1"))
+        validator.validate_one_class(RBS::TypeName.parse("::C1"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -755,12 +755,12 @@ RBS
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::D0"))
+        validator.validate_one_class(RBS::TypeName.parse("::D0"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::D1"))
+        validator.validate_one_class(RBS::TypeName.parse("::D1"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -791,17 +791,17 @@ end
 RBS
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::Base"))
+        validator.validate_one_class(RBS::TypeName.parse("::Base"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::M1"))
+        validator.validate_one_class(RBS::TypeName.parse("::M1"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::M2"))
+        validator.validate_one_class(RBS::TypeName.parse("::M2"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -812,12 +812,12 @@ RBS
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::M3"))
+        validator.validate_one_class(RBS::TypeName.parse("::M3"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::M4"))
+        validator.validate_one_class(RBS::TypeName.parse("::M4"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -874,22 +874,22 @@ end
 RBS
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::M"))
+        validator.validate_one_class(RBS::TypeName.parse("::M"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::N"))
+        validator.validate_one_class(RBS::TypeName.parse("::N"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::C0"))
+        validator.validate_one_class(RBS::TypeName.parse("::C0"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::C1"))
+        validator.validate_one_class(RBS::TypeName.parse("::C1"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 4) do |error|
@@ -918,12 +918,12 @@ RBS
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::D0"))
+        validator.validate_one_class(RBS::TypeName.parse("::D0"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_class(TypeName("::D1"))
+        validator.validate_one_class(RBS::TypeName.parse("::D1"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 2) do |error|
@@ -964,17 +964,17 @@ end
 RBS
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_A"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_A"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_I0"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_I0"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_I1"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_I1"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -985,12 +985,12 @@ RBS
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_J0"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_J0"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_J1"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_J1"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -1016,12 +1016,12 @@ end
     EOF
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_Foo"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_Foo"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_Bar"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_Bar"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -1047,12 +1047,12 @@ end
     EOF
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_Foo"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_Foo"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_interface(TypeName("::_Bar"))
+        validator.validate_one_interface(RBS::TypeName.parse("::_Bar"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|
@@ -1074,12 +1074,12 @@ type bar[X < String] = x[X]
     EOF
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_alias(TypeName("::foo"))
+        validator.validate_one_alias(RBS::TypeName.parse("::foo"))
         assert_predicate validator, :no_error?
       end
 
       Validator.new(checker: checker).tap do |validator|
-        validator.validate_one_alias(TypeName("::bar"))
+        validator.validate_one_alias(RBS::TypeName.parse("::bar"))
         refute_predicate validator, :no_error?
 
         assert_any!(validator.each_error, size: 1) do |error|

@@ -24,7 +24,7 @@ class InterfaceBuilderTest < Minitest::Test
           def hello: () -> [::Integer, T, self]
         end
       RBS
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("::_Foo[::String]"), config).tap do |shape|
         assert_equal parse_type("::_Foo[::String]"), shape.type
@@ -49,7 +49,7 @@ class InterfaceBuilderTest < Minitest::Test
           def self.hello: () -> [::Integer, self, instance, class]
         end
       RBS
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("singleton(::Foo)"), config).tap do |shape|
         assert_equal parse_type("singleton(::Foo)"), shape.type
@@ -79,7 +79,7 @@ class InterfaceBuilderTest < Minitest::Test
           def hello: () -> [::Integer, A, B, C, self, instance, class]
         end
       RBS
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("::Foo[::Object, ::String, ::Integer]"), config).tap do |shape|
         assert_equal parse_type("::Foo[::Object, ::String, ::Integer]"), shape.type
@@ -106,7 +106,7 @@ class InterfaceBuilderTest < Minitest::Test
 
         type bar[T] = T
       RBS
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("::bar[::_Foo]"), config).tap do |shape|
         assert_equal parse_type("::bar[::_Foo]"), shape.type
@@ -135,7 +135,7 @@ class InterfaceBuilderTest < Minitest::Test
           def itself: () -> self
         end
       RBS
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("::_Foo | ::_Bar"), config).tap do |shape|
         assert_equal parse_type("::_Foo | ::_Bar"), shape.type
@@ -156,7 +156,7 @@ class InterfaceBuilderTest < Minitest::Test
 
   def test_shape__bool
     with_factory() do
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("bool"), config).tap do |shape|
         assert_equal parse_type("bool"), shape.type
@@ -172,7 +172,7 @@ class InterfaceBuilderTest < Minitest::Test
 
   def test_shape__literal
     with_factory() do
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("1"), config).tap do |shape|
         assert_equal parse_type("1"), shape.type
@@ -200,7 +200,7 @@ interface _Bar
   def h: () -> void
 end
       RBS
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("::_Foo & ::_Bar"), config).tap do |shape|
         assert_equal parse_type("::_Foo & ::_Bar"), shape.type
@@ -228,7 +228,7 @@ end
           def special_types: () -> [self, class, instance]
         end
       RBS
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("^(::String) { (::Integer) -> void } -> ::String"), config).tap do |shape|
         assert_equal parse_type("^(::String) { (::Integer) -> void } -> ::String"), shape.type
@@ -278,7 +278,7 @@ end
 
   def test_shape__tuple
     with_factory() do
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("[::Integer, top]"), config).tap do |shape|
         assert_equal parse_type("[::Integer, top]"), shape.type
@@ -330,9 +330,11 @@ end
         end
       RBS
 
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("{ id: ::Integer, name: ::String }"), config).tap do |shape|
+        shape or raise
+
         assert_equal parse_type("{ id: ::Integer, name: ::String }"), shape.type
 
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))
@@ -396,7 +398,7 @@ class Symbol
 end
       RBS
 
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("::Integer | ::String"), config).tap do |shape|
         assert_equal(
@@ -438,7 +440,7 @@ end
         end
       RBS
 
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("A", variables: [:A]), config(variable_bounds: { A: parse_type("::_Foo[::String]") })).tap do |shape|
         assert_equal parse_type("A", variables: [:A]), shape.type
@@ -465,7 +467,7 @@ end
         type names = #{names.join(" | ")}
       RBS
 
-      builder = Interface::Builder.new(factory)
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("::names"), config).tap do |shape|
         assert_equal parse_type("::names"), shape.type

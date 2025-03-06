@@ -21,7 +21,7 @@ module Steep
 
         project.targets.each do |target|
           Steep.logger.tagged "target=#{target.name}" do
-            service = Services::SignatureService.load_from(target.new_env_loader())
+            service = Services::SignatureService.load_from(target.new_env_loader(), implicitly_returns_nil: target.implicitly_returns_nil)
 
             sigs = loader.load_changes(target.signature_pattern, changes: {})
             service.update(sigs)

@@ -46,7 +46,7 @@ end
         stdout, status = sh(*steep, command, *args)
 
         assert_predicate status, :success?, stdout
-        assert_match /No type error detected\./, stdout
+        assert_match(/No type error detected\./, stdout)
       end
     end
     sub_test.call("check", %w(-j 1))
@@ -83,7 +83,7 @@ steep $@
       end
 
       assert_predicate status, :success?, stdout
-      assert_match /No type error detected\./, stdout
+      assert_match(/No type error detected\./, stdout)
     end
   end
 
@@ -102,7 +102,7 @@ end
       stdout, status = sh(*steep, "check")
 
       assert_predicate status, :success?, stdout
-      assert_match /No type error detected\./, stdout
+      assert_match(/No type error detected\./, stdout)
     end
   end
 
@@ -121,7 +121,7 @@ end
       stdout, status = sh(*steep, "check")
 
       refute_predicate status, :success?, stdout
-      assert_match /Detected 1 problem from 1 file/, stdout
+      assert_match(/Detected 1 problem from 1 file/, stdout)
     end
   end
 
@@ -179,6 +179,58 @@ end
     end
   end
 
+  def test_check_group__group__target
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  group :foo do
+    check "foo.rb"
+  end
+
+  group :bar do
+    check "bar.rb"
+  end
+
+  check "baz.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+      (current_dir + "bar.rb").write(<<-EOF)
+1 + "2"
+      EOF
+      (current_dir + "baz.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, _ = sh(*steep, "check", "--group=app.foo")
+
+      assert_match(/^foo.rb:1:0/, stdout)
+      refute_match(/^bar.rb/, stdout)
+      refute_match(/^baz.rb/, stdout)
+
+      stdout, _ = sh(*steep, "check", "--group=app.bar")
+
+      refute_match(/^foo.rb/, stdout)
+      assert_match(/^bar.rb:1:0/, stdout)
+      refute_match(/^baz.rb/, stdout)
+
+      stdout, _ = sh(*steep, "check", "--group=app.*")
+
+      assert_match(/^foo.rb:1:0/, stdout)
+      assert_match(/^bar.rb:1:0/, stdout)
+      assert_match(/^baz.rb:1:0/, stdout)
+
+      stdout, _ = sh(*steep, "check", "--group=app")
+
+      refute_match(/^foo.rb/, stdout)
+      refute_match(/^bar.rb/, stdout)
+      assert_match(/^baz.rb:1:0/, stdout)
+    end
+  end
+
   def test_check_failure_severity_level
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -201,10 +253,10 @@ end
       stdout, status = sh(*steep, "check", "--severity-level=warning")
 
       refute_predicate status, :success?, stdout
-      assert_match /Detected 1 problem from 1 file/, stdout
+      assert_match(/Detected 1 problem from 1 file/, stdout)
 
-      assert_match /Ruby::NoMethod/, stdout
-      refute_match /Ruby::UnresolvedOverloading/, stdout
+      assert_match(/Ruby::NoMethod/, stdout)
+      refute_match(/Ruby::UnresolvedOverloading/, stdout)
     end
   end
 
@@ -222,11 +274,11 @@ end
 
       stdout, status = sh(*steep, "check", "--save-expectation=foo.yml")
       assert_predicate status, :success?
-      assert_match /Saved expectations in foo\.yml\.\.\./, stdout
+      assert_match(/Saved expectations in foo\.yml\.\.\./, stdout)
 
       stdout, status = sh(*steep, "check", "--with-expectation=foo.yml")
       assert_predicate status, :success?
-      assert_match /Expectations satisfied:/, stdout
+      assert_match(/Expectations satisfied:/, stdout)
     end
   end
 
@@ -247,7 +299,7 @@ end
 
       stdout, status = sh(*steep, "check", "--save-expectation=foo.yml")
       assert_predicate status, :success?, stdout
-      assert_match /Saved expectations in foo\.yml\.\.\./, stdout
+      assert_match(/Saved expectations in foo\.yml\.\.\./, stdout)
 
       (current_dir + "foo.rb").write(<<-EOF)
 1 + "2"
@@ -256,10 +308,10 @@ end
       stdout, status = sh(*steep, "check", "--with-expectation=foo.yml")
       refute_predicate status, :success?, stdout
 
-      assert_match /Expectations unsatisfied:/, stdout
-      assert_match /0 expected diagnostics/, stdout
-      assert_match /1 unexpected diagnostic/, stdout
-      assert_match /1 missing diagnostic/, stdout
+      assert_match(/Expectations unsatisfied:/, stdout)
+      assert_match(/0 expected diagnostics/, stdout)
+      assert_match(/1 unexpected diagnostic/, stdout)
+      assert_match(/1 missing diagnostic/, stdout)
     end
   end
 
@@ -277,7 +329,7 @@ end
 
       stdout, status = sh(*steep, "check", "--save-expectation=foo.yml")
       assert_predicate status, :success?, stdout
-      assert_match /Saved expectations in foo\.yml\.\.\./, stdout
+      assert_match(/Saved expectations in foo\.yml\.\.\./, stdout)
 
       (current_dir + "foo.rb").write(<<-EOF)
 1 + 2
@@ -286,10 +338,10 @@ end
       stdout, status = sh(*steep, "check", "--with-expectation=foo.yml")
       refute_predicate status, :success?, stdout
 
-      assert_match /Expectations unsatisfied:/, stdout
-      assert_match /0 expected diagnostics/, stdout
-      assert_match /0 unexpected diagnostics/, stdout
-      assert_match /1 missing diagnostic/, stdout
+      assert_match(/Expectations unsatisfied:/, stdout)
+      assert_match(/0 expected diagnostics/, stdout)
+      assert_match(/0 unexpected diagnostics/, stdout)
+      assert_match(/1 missing diagnostic/, stdout)
     end
   end
 
@@ -311,7 +363,7 @@ end
 
       stdout, status = sh(*steep, "check", "--save-expectation")
       assert_predicate status, :success?, stdout
-      assert_match /Saved expectations in steep_expectations\.yml\.\.\./, stdout
+      assert_match(/Saved expectations in steep_expectations\.yml\.\.\./, stdout)
 
       (current_dir + "foo.rb").write(<<-EOF)
 1 + 2
@@ -320,16 +372,37 @@ end
       stdout, status = sh(*steep, "check", "--with-expectation", "foo.rb")
       refute_predicate status, :success?, stdout
 
-      assert_match /Expectations unsatisfied:/, stdout
-      assert_match /0 expected diagnostics/, stdout
-      assert_match /0 unexpected diagnostics/, stdout
-      assert_match /1 missing diagnostic/, stdout
+      assert_match(/Expectations unsatisfied:/, stdout)
+      assert_match(/0 expected diagnostics/, stdout)
+      assert_match(/0 unexpected diagnostics/, stdout)
+      assert_match(/1 missing diagnostic/, stdout)
 
       stdout, status = sh(*steep, "check", "--with-expectation", "bar.rb")
       assert_predicate status, :success?, stdout
 
-      assert_match /Expectations satisfied:/, stdout
-      assert_match /1 expected diagnostic/, stdout
+      assert_match(/Expectations satisfied:/, stdout)
+      assert_match(/1 expected diagnostic/, stdout)
+    end
+  end
+
+  def test_check__implicitly_returns_nil
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  implicitly_returns_nil!
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+array = [1,2,3]
+array[0] + 1
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      refute_predicate status, :success?, stdout
+      assert_includes stdout, "foo.rb:2:9: [error]"
     end
   end
 
@@ -347,7 +420,10 @@ end
 
       stdout, status = sh(*steep, "check")
       refute_predicate status, :success?, stdout
-      assert_match /Syntax error: cannot start a declaration, token=/, stdout.force_encoding(Encoding::ASCII_8BIT)
+      assert_match(
+        /Unexpected error: invalid byte sequence in UTF-8/,
+        stdout.force_encoding(Encoding::ASCII_8BIT)
+      )
     end
   end
 
@@ -375,9 +451,9 @@ end
       stdout, stderr, status = sh3(*steep, 'check')
 
       assert_predicate status, :success?, stdout
-      assert_match /current directory/, stderr
-      assert_match /steep init/, stderr
-      assert_match /No type error detected\./, stdout
+      assert_match(/current directory/, stderr)
+      assert_match(/steep init/, stderr)
+      assert_match(/No type error detected\./, stdout)
     end
   end
 
@@ -444,7 +520,7 @@ RUBY
       pid = spawn(*steep, "watch", "app/lib", out: w, chdir: current_dir.to_s)
       w.close
 
-      output = ""
+      output = +""
 
       begin
         read_thread = Thread.new do
@@ -505,7 +581,7 @@ RUBY
       pid = spawn(*steep.push("watch", "app/models/person.rb"), out: w, chdir: current_dir.to_s)
       w.close
 
-      output = ""
+      output = +""
 
       begin
         read_thread = Thread.new do
@@ -715,14 +791,14 @@ GEMFILE
         ["check", "checkfile", "stats"].each do |command|
           _, stderr, status = sh3(*steep, command, "foo.rb")
           assert_predicate status, :success?
-          assert_match /CI environment is detected but no `--jobs` option is given./, stderr
+          assert_match(/CI environment is detected but no `--jobs` option is given./, stderr)
         end
 
         ["check", "checkfile", "stats"].each do |command|
           _, stderr, status = sh3(*steep, command, "--jobs=1", "foo.rb")
 
           assert_predicate status, :success?
-          refute_match /CI environment is detected but no `--jobs` option is given./, stderr
+          refute_match(/CI environment is detected but no `--jobs` option is given./, stderr)
         end
       end
     end
