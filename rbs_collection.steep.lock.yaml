@@ -90,9 +90,9 @@ gems:
   source:
     type: stdlib
 - name: mutex_m
-  version: '0'
+  version: 0.3.0
   source:
-    type: stdlib
+    type: rubygems
 - name: optparse
   version: '0'
   source:
@@ -130,6 +130,10 @@ gems:
   source:
     type: stdlib
 - name: singleton
+  version: '0'
+  source:
+    type: stdlib
+- name: socket
   version: '0'
   source:
     type: stdlib

@@ -51,15 +51,28 @@ module Steep
 
       include ChangeBuffer
 
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
+      attr_reader :io_socket
+
+      def initialize(project:, reader:, writer:, assignment:, commandline_args:, io_socket: nil, buffered_changes: nil, service: nil)
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
-        @buffered_changes = {}
+        @buffered_changes = buffered_changes || {}
         @mutex = Mutex.new()
         @queue = Queue.new
         @commandline_args = commandline_args
         @current_type_check_guid = nil
+        @io_socket = io_socket
+        @service = service if service
+        @child_pids = []
+
+        if io_socket
+          Signal.trap "SIGCHLD" do
+            while pid = Process.wait(-1, Process::WNOHANG)
+              raise "Unexpected worker process exit: #{pid}" if @child_pids.include?(pid)
+            end
+          end
+        end
       end
 
       def service
@@ -98,6 +111,39 @@ module Steep
           queue << GotoJob.implementation(id: request[:id], params: request[:params])
         when "textDocument/typeDefinition"
           queue << GotoJob.type_definition(id: request[:id], params: request[:params])
+        when CustomMethods::Refork::METHOD
+          io_socket or raise
+
+          # Receive IOs before fork to avoid receiving them from multiple processes
+          stdin = io_socket.recv_io
+          stdout = io_socket.recv_io
+
+          if pid = fork
+            stdin.close
+            stdout.close
+            @child_pids << pid
+            writer.write(CustomMethods::Refork.response(request[:id], { pid: }))
+          else
+            io_socket.close
+
+            reader.close
+            writer.close
+
+            reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
+            writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout)
+            Steep.logger.info("Reforked worker: #{Process.pid}, params: #{request[:params]}")
+            index = request[:params][:index]
+            assignment = Services::PathAssignment.new(max_index: request[:params][:max_index], index: index)
+
+            worker = self.class.new(project: project, reader: reader, writer: writer, assignment: assignment, commandline_args: commandline_args, io_socket: nil, buffered_changes: buffered_changes, service: service)
+
+            tags = Steep.logger.formatter.current_tags.dup
+            tags[tags.find_index("typecheck:typecheck@0")] = "typecheck:typecheck@#{index}-reforked"
+            Steep.logger.formatter.push_tags(tags)
+            worker.run()
+
+            raise "unreachable"
+          end
         end
       end
 

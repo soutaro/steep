@@ -135,7 +135,7 @@ class TypeFactoryTest < Minitest::Test
         assert_equal "?{ (Integer) -> void }", type.block.to_s
       end
 
-      factory.type(RBS::Types::Variable.new(name: :T, location: nil)) do |type|
+      factory.type(RBS::Types::Variable.new(name: :T, location: nil)).yield_self do |type|
         assert_instance_of Types::Var, type
         assert_equal :T, type.name
       end
@@ -154,13 +154,13 @@ class TypeFactoryTest < Minitest::Test
     with_factory() do |factory|
       factory.type(parse_type("foo")).yield_self do |type|
         assert_instance_of Types::Name::Alias, type
-        assert_equal TypeName("foo"), type.name
+        assert_equal RBS::TypeName.parse("foo"), type.name
         assert_equal [], type.args
       end
 
       factory.type(parse_type("foo[untyped]")).yield_self do |type|
         assert_instance_of Types::Name::Alias, type
-        assert_equal TypeName("foo"), type.name
+        assert_equal RBS::TypeName.parse("foo"), type.name
         assert_equal [Types::Any.new], type.args
       end
 
@@ -385,7 +385,7 @@ end
     EOF
 
       factory.type(parse_type("Bar")).tap do |type|
-        factory.absolute_type(type, context: [nil, TypeName("::Foo")]) do |absolute_type|
+        factory.absolute_type(type, context: [nil, RBS::TypeName.parse("::Foo")]) do |absolute_type|
           assert_equal factory.type(parse_type("::Foo::Bar")), absolute_type
         end
       end
@@ -434,8 +434,8 @@ end
   def test_partition_union__void
     with_factory() do |factory|
       factory.partition_union(factory.type(parse_type("void"))).tap do |truthy, falsy|
-        assert_equal nil, truthy
-        assert_equal nil, falsy
+        assert_nil nil, truthy
+        assert_nil nil, falsy
       end
     end
   end

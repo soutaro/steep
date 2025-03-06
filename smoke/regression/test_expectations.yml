@@ -11,6 +11,16 @@
     severity: ERROR
     message: 'Cannot find the declaration of class: `Foo`'
     code: Ruby::UnknownConstant
+  - range:
+      start:
+        line: 3
+        character: 6
+      end:
+        line: 3
+        character: 11
+    severity: ERROR
+    message: Method `array` is defined in undeclared module
+    code: Ruby::MethodDefinitionInUndeclaredModule
 - file: empty_yield.rb
   diagnostics:
   - range:

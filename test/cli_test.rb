@@ -420,7 +420,10 @@ end
 
       stdout, status = sh(*steep, "check")
       refute_predicate status, :success?, stdout
-      assert_match(/Syntax error: cannot start a declaration, token=/, stdout.force_encoding(Encoding::ASCII_8BIT))
+      assert_match(
+        /Unexpected error: invalid byte sequence in UTF-8/,
+        stdout.force_encoding(Encoding::ASCII_8BIT)
+      )
     end
   end
 
@@ -517,7 +520,7 @@ RUBY
       pid = spawn(*steep, "watch", "app/lib", out: w, chdir: current_dir.to_s)
       w.close
 
-      output = ""
+      output = +""
 
       begin
         read_thread = Thread.new do
@@ -578,7 +581,7 @@ RUBY
       pid = spawn(*steep.push("watch", "app/models/person.rb"), out: w, chdir: current_dir.to_s)
       w.close
 
-      output = ""
+      output = +""
 
       begin
         read_thread = Thread.new do

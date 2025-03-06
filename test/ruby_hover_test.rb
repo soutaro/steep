@@ -391,17 +391,17 @@ RBS
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 7).tap do |content|
         assert_instance_of HoverProvider::Ruby::ConstantContent, content
         assert_equal [1,6]...[1,11], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
-        assert_equal TypeName("::Hello"), content.full_name
+        assert_equal RBS::TypeName.parse("::Hello"), content.full_name
         assert_equal "singleton(::Hello)", content.type.to_s
-        assert_equal service.signature_services[:lib].latest_env.class_decls[TypeName("::Hello")], content.decl
+        assert_equal service.signature_services[:lib].latest_env.class_decls[RBS::TypeName.parse("::Hello")], content.decl
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 5).tap do |content|
         assert_instance_of HoverProvider::Ruby::ConstantContent, content
         assert_equal [2,2]...[2,7], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
-        assert_equal TypeName("::Hello::World"), content.full_name
+        assert_equal RBS::TypeName.parse("::Hello::World"), content.full_name
         assert_equal "::String", content.type.to_s
-        assert_equal service.signature_services[:lib].latest_env.constant_decls[TypeName("::Hello::World")], content.decl
+        assert_equal service.signature_services[:lib].latest_env.constant_decls[RBS::TypeName.parse("::Hello::World")], content.decl
       end
     end
   end

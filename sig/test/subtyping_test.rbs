@@ -67,6 +67,10 @@ class SubtypingTest < Minitest::Test
 
   def test_void: () -> untyped
 
+  def test_tuple: () -> untyped
+
+  def test_record: () -> untyped
+
   def print_result: (untyped result, untyped output, ?prefix: untyped) -> untyped
 
   def assert_success_check: (untyped checker, untyped sub_type, untyped super_type, ?self_type: untyped, ?instance_type: untyped, ?class_type: untyped, ?constraints: untyped) -> untyped

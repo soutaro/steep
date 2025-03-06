@@ -47,12 +47,12 @@ end
 
 module Steep::AST::Types::Name
   def self.new_singleton(name:)
-    name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
+    name = RBS::TypeName.parse(name.to_s) unless name.is_a?(RBS::TypeName)
     Steep::AST::Types::Name::Singleton.new(name: name)
   end
 
   def self.new_instance(name:, args: [])
-    name = TypeName(name.to_s) unless name.is_a?(RBS::TypeName)
+    name = RBS::TypeName.parse(name.to_s) unless name.is_a?(RBS::TypeName)
     Steep::AST::Types::Name::Instance.new(name: name, args: args)
   end
 end
@@ -105,12 +105,40 @@ module TestHelper
     assert collection.all?(&block)
   end
 
+  # @rbs [T] (Array[T], ?size: Integer?) { (T) -> void } -> void
   def assert_all!(collection, size: nil)
     assert_equal size, collection.count if size
 
     collection.each do |c|
       yield c
     end
+  end
+
+  # @rbs [T] (Array[T], Integer) { (T) -> boolish } -> void
+  def assert_count(collection, count, &block)
+    c = 0
+    collection.each do |item|
+      if yield item
+        c += 1
+      end
+    end
+
+    assert_equal count, c, "Expected #{count} items to satisfy the assertion, but got #{c} items: #{collection.inspect}"
+  end
+
+  # @rbs [T] (Array[T], Integer) { (T) -> void } -> void
+  def assert_count!(collection, count)
+    c = 0
+    last_error = nil #: Minitest::Assertion?
+
+    collection.each do |item|
+      yield item
+      c += 1
+    rescue Minitest::Assertion => error
+      last_error = error
+    end
+
+    assert_equal count, c, "Expected #{count} items to satisfy the assertion, but got #{c} items. Last error: #{last_error&.message}"
   end
 
   def refute_any(collection, &block)
@@ -624,11 +652,24 @@ module TypeConstructionHelper
 
   # @rbs (Subtyping::Check, Source, ?cursor: untyped) { (TypeConstruction, Typing) -> void } -> void
   def with_standard_construction(checker, source, cursor: nil)
-    self_type = parse_type("::Object")
-
     annotations = source.annotations(block: source.node, factory: checker.factory, context: nil)
     resolver = RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder)
     const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: resolver)
+
+    case annotations.self_type
+    when AST::Types::Name::Instance
+      module_name = annotations.self_type.name
+      module_type = AST::Types::Name::Singleton.new(name: module_name)
+      instance_type = annotations.self_type
+    when AST::Types::Name::Singleton
+      module_name = annotations.self_type.name
+      module_type = annotations.self_type
+      instance_type = annotations.self_type
+    else
+      module_name = AST::Builtin::Object.module_name
+      module_type = AST::Builtin::Object.module_type
+      instance_type = AST::Builtin::Object.instance_type
+    end
 
     rbs_env = checker.factory.env
     type_env = Steep::TypeInference::TypeEnvBuilder.new(
@@ -642,16 +683,16 @@ module TypeConstructionHelper
       block_context: nil,
       method_context: nil,
       module_context: Context::ModuleContext.new(
-        instance_type: AST::Builtin::Object.instance_type,
-        module_type: AST::Builtin::Object.module_type,
+        instance_type: instance_type,
+        module_type: module_type,
         implement_name: nil,
         nesting: nil,
-        class_name: AST::Builtin::Object.module_name,
-        instance_definition: checker.factory.definition_builder.build_instance(AST::Builtin::Object.module_name),
-        module_definition: checker.factory.definition_builder.build_singleton(AST::Builtin::Object.module_name)
+        class_name: module_name,
+        instance_definition: checker.factory.definition_builder.build_instance(module_name),
+        module_definition: checker.factory.definition_builder.build_singleton(module_name)
       ),
       break_context: nil,
-      self_type: self_type,
+      self_type: instance_type,
       type_env: type_env,
       call_context: TypeInference::MethodCall::TopLevelContext.new(),
       variable_context: Context::TypeVariableContext.empty
@@ -677,6 +718,7 @@ module TypeConstructionHelper
     assert_predicate typing.errors.map {|e| e.header_line }, :empty?
   end
 
+  # @rbs (Typing, ?size: Integer) ?{ (Array[Diagnostic]) -> void } -> void
   def assert_typing_error(typing, size: nil)
     assert_instance_of Typing, typing
 

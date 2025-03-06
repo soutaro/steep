@@ -38,7 +38,7 @@ class AST__Node__TypeAssertionTest < Minitest::Test
       assert_equal "Array[Bar]", assertion.type_str
       assert_predicate assertion, :type_syntax?
 
-      type = assertion.type([nil, TypeName("::Foo")], checker, [])
+      type = assertion.type([nil, RBS::TypeName.parse("::Foo")], checker, [])
       assert_equal parse_type("::Array[::Foo::Bar]"), type
     end
   end

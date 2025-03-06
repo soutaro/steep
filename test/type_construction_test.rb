@@ -463,7 +463,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_incompatible_assignment(
               error,
@@ -499,12 +499,15 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        refute_empty typing.errors
-        assert_incompatible_assignment typing.errors[0],
-                                       lhs_type: parse_type("::_C"),
-                                       rhs_type: parse_type("::_A") do |error|
-          assert_equal :kwoptarg, error.node.type
-          assert_equal :y, error.node.children[0]
+        assert_typing_error(typing) do |errors|
+          assert_any!(errors) do |error|
+            assert_incompatible_assignment error,
+              lhs_type: parse_type("::_C"),
+              rhs_type: parse_type("::_A") do |error|
+              assert_equal :kwoptarg, error.node.type
+              assert_equal :y, error.node.children[0]
+            end
+          end
         end
 
         x = dig(source.node, 2, 0)
@@ -709,13 +712,19 @@ end
   end
 
   def test_return_type_annotation
-    with_checker do |checker|
+    with_checker(<<~RBS) do |checker|
+        class C
+          def foo: () -> untyped
+        end
+      RBS
       source = parse_ruby(<<-EOF)
-def foo()
-  # @type return: _A
-  # @type var a: _A
-  a = (_ = nil)
-  return a
+class C
+  def foo()
+    # @type return: _A
+    # @type var a: _A
+    a = (_ = nil)
+    return a
+  end
 end
       EOF
 
@@ -760,7 +769,9 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_empty typing.errors
+        assert_all!(typing.errors) do
+          assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, _1
+        end
       end
     end
   end
@@ -909,7 +920,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
+        assert_typing_error(typing, size: 3) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
             assert_equal :ivasgn, error.node.type
@@ -1004,10 +1015,10 @@ class Person end
       source = parse_ruby("class Person; end")
 
       with_standard_construction(checker, source) do |construction, typing|
-        for_class = construction.for_class(source.node, TypeName("::Person"), nil)
+        for_class = construction.for_class(source.node, RBS::TypeName.parse("::Person"), nil)
 
         assert_equal(
-          Annotation::Implements::Module.new(name: TypeName("::Person"), args: []),
+          Annotation::Implements::Module.new(name: RBS::TypeName.parse("::Person"), args: []),
           for_class.module_context.implement_name
         )
         assert_equal parse_type("::Person"), for_class.module_context.instance_type
@@ -1024,7 +1035,7 @@ end
       source = parse_ruby("class Person; end")
 
       with_standard_construction(checker, source) do |construction, typing|
-        for_class = construction.for_class(source.node, TypeName("::Person"), nil)
+        for_class = construction.for_class(source.node, RBS::TypeName.parse("::Person"), nil)
 
         assert_nil for_class.module_context.implement_name
         assert_equal parse_type("::Object"), for_class.module_context.instance_type
@@ -1043,11 +1054,11 @@ end
     EOF
       source = parse_ruby("module Steep; class Names::Module; end; end")
 
-      context = [nil, TypeName("::Steep")]
+      context = [nil, RBS::TypeName.parse("::Steep")]
       annotations = source.annotations(block: source.node, factory: checker.factory, context: context)
       const_env = ConstantEnv.new(
         factory: factory,
-        context: [nil, TypeName("::Steep")],
+        context: [nil, RBS::TypeName.parse("::Steep")],
         resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
       )
       type_env = TypeEnv.new(const_env)
@@ -1080,11 +1091,11 @@ end
                                           context: context,
                                           typing: typing)
 
-      for_module = construction.for_class(module_name_class_node, TypeName("::Steep::Names::Module"), nil)
+      for_module = construction.for_class(module_name_class_node, RBS::TypeName.parse("::Steep::Names::Module"), nil)
 
       assert_equal(
         Annotation::Implements::Module.new(
-          name: TypeName("::Steep::Names::Module"),
+          name: RBS::TypeName.parse("::Steep::Names::Module"),
           args: []
         ),
         for_module.module_context.implement_name)
@@ -1099,10 +1110,10 @@ module Steep end
       source = parse_ruby("module Steep; end")
 
       with_standard_construction(checker, source) do |construction, typing|
-        for_module = construction.for_module(source.node, TypeName("::Steep"))
+        for_module = construction.for_module(source.node, RBS::TypeName.parse("::Steep"))
 
         assert_equal(
-          Annotation::Implements::Module.new(name: TypeName("::Steep"), args: []),
+          Annotation::Implements::Module.new(name: RBS::TypeName.parse("::Steep"), args: []),
           for_module.module_context.implement_name
         )
         assert_equal parse_type("::Object & ::Steep"), for_module.module_context.instance_type
@@ -1121,7 +1132,7 @@ module Rails end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        for_module = construction.for_module(source.node, TypeName("::Steep"))
+        for_module = construction.for_module(source.node, RBS::TypeName.parse("::Steep"))
 
         assert_nil for_module.module_context.implement_name
         assert_equal parse_type("::BasicObject"), for_module.module_context.instance_type
@@ -1138,9 +1149,9 @@ class Steep end
     EOS
       source = parse_ruby("class Steep; module Printable; end; end")
 
-      context = [nil, TypeName("::Steep")]
+      context = [nil, RBS::TypeName.parse("::Steep")]
       annotations = source.annotations(block: source.node, factory: checker.factory, context: context)
-      const_env = ConstantEnv.new(factory: factory, context: [nil, TypeName("::Steep")], resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder))
+      const_env = ConstantEnv.new(factory: factory, context: [nil, RBS::TypeName.parse("::Steep")], resolver: RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder))
       type_env = TypeEnv.new(const_env)
 
       module_context = Context::ModuleContext.new(
@@ -1148,7 +1159,7 @@ class Steep end
         module_type: parse_type("singleton(::Steep)"),
         implement_name: nil,
         nesting: const_env.context,
-        class_name: TypeName("::Steep")
+        class_name: RBS::TypeName.parse("::Steep")
       )
 
       context = Context.new(
@@ -1158,7 +1169,7 @@ class Steep end
         break_context: nil,
         self_type: nil,
         type_env: type_env,
-        call_context: MethodCall::ModuleContext.new(type_name: TypeName("::Steep")),
+        call_context: MethodCall::ModuleContext.new(type_name: RBS::TypeName.parse("::Steep")),
         variable_context: Context::TypeVariableContext.empty
       )
       typing = Typing.new(source: source, root_context: context, cursor: nil)
@@ -1171,10 +1182,10 @@ class Steep end
                                           context: context,
                                           typing: typing)
 
-      for_module = construction.for_module(module_node, TypeName("::Steep::Printable"))
+      for_module = construction.for_module(module_node, RBS::TypeName.parse("::Steep::Printable"))
 
       assert_equal(
-        Annotation::Implements::Module.new(name: TypeName("::Steep::Printable"), args: []),
+        Annotation::Implements::Module.new(name: RBS::TypeName.parse("::Steep::Printable"), args: []),
         for_module.module_context.implement_name)
     end
   end
@@ -1358,7 +1369,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
+        assert_typing_error(typing, size: 4) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
             assert_equal parse_type("::String"), error.rhs_type
@@ -2257,7 +2268,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_any!(typing.errors, size: 1) do |error|
+        assert_any!(typing.errors, size: 2) do |error|
           assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
           assert_equal parse_type("::String"), error.lhs_type
           assert_equal parse_type("::Array[untyped]"), error.rhs_type
@@ -2350,7 +2361,9 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
 
-        assert_no_error(typing)
+        assert_all!(typing.errors) do |error|
+          assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, error
+        end
       end
     end
   end
@@ -3710,7 +3723,7 @@ EOF
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        assert_no_error typing
+        assert_all(typing.errors) {|error| error.is_a?(Diagnostic::Ruby::UndeclaredMethodDefinition) }
       end
     end
   end
@@ -4902,6 +4915,7 @@ WithPrivate.new.foo
   def test_private_method2
     with_checker <<-EOF do |checker|
 class WithPrivate
+  def bar: () -> void
   private
   def foo: () -> void
 end
@@ -4944,7 +4958,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_no_error typing
+        assert_typing_error typing, size: 1
       end
     end
   end
@@ -4966,7 +4980,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
+        assert_typing_error(typing, size: 3) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           end
@@ -5136,7 +5150,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
+        assert_typing_error(typing, size: 4) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           end
@@ -5172,7 +5186,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 3) do |errors|
+        assert_typing_error(typing, size: 4) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           end
@@ -5208,7 +5222,7 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
           end
@@ -5518,7 +5532,7 @@ end
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        class_constr = construction.for_class(source.node, TypeName("::WithSingleton"), nil)
+        class_constr = construction.for_class(source.node, RBS::TypeName.parse("::WithSingleton"), nil)
         type, _ = class_constr.synthesize(dig(source.node, 2, 0))
         sclass_constr = class_constr.for_sclass(dig(source.node, 2), type)
 
@@ -5585,10 +5599,10 @@ end
 
         assert_equal parse_type("::WithSingleton"), module_context.instance_type
         assert_equal parse_type("singleton(::WithSingleton)"), module_context.module_type
-        assert_equal TypeName("::Object"), module_context.class_name
+        assert_equal RBS::TypeName.parse("::Object"), module_context.class_name
         assert_nil module_context.implement_name
-        assert_equal TypeName("::WithSingleton"), module_context.module_definition.type_name
-        assert_equal TypeName("::WithSingleton"), module_context.instance_definition.type_name
+        assert_equal RBS::TypeName.parse("::WithSingleton"), module_context.module_definition.type_name
+        assert_equal RBS::TypeName.parse("::WithSingleton"), module_context.instance_definition.type_name
 
         construction.synthesize(source.node)
 
@@ -5771,8 +5785,8 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_all!(typing.errors) do |error|
-          assert_instance_of Diagnostic::Ruby::FallbackAny, error
+        assert_count!(typing.errors, 1) do |error|
+          assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, error
         end
       end
     end
@@ -7669,7 +7683,7 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnexpectedJump, error
           end
@@ -7743,7 +7757,7 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnexpectedJump, error
           end
@@ -7922,11 +7936,11 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        _type, _ = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
-          assert_all!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::UnknownConstant, error
+        assert_typing_error(typing) do |errors|
+          assert_count(errors, 2) do |error|
+            error.instance_of? Diagnostic::Ruby::UnknownConstant
           end
         end
       end
@@ -7951,7 +7965,7 @@ RUBY
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
+        assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UnknownConstant, error
             assert_equal :C, error.name
@@ -8428,7 +8442,11 @@ RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
         type, _ = construction.synthesize(source.node)
-        assert_no_error typing
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_all!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, error
+          end
+        end
       end
     end
   end
@@ -9503,7 +9521,9 @@ RUBY
 
   def test_const_inline_annotation
     with_checker(<<RBS) do |checker|
-module A end
+module A
+  def foo: () -> void
+end
 RBS
       source = parse_ruby(<<RUBY)
 module A
