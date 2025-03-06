@@ -1,0 +1,2 @@
+class InvalidTypeApplicationClass < String[String]
+end
