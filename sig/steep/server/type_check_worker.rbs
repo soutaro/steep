@@ -106,6 +106,10 @@ module Steep
 
       attr_reader mutex: Mutex
 
+      attr_reader io_socket: UNIXSocket?
+
+      attr_reader child_pids: Array[Integer]
+
       include ChangeBuffer
 
       def initialize: (
@@ -113,7 +117,10 @@ module Steep
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
         assignment: PathAssignment,
-        commandline_args: Array[String]
+        commandline_args: Array[String],
+        ?io_socket: UNIXSocket?,
+        ?buffered_changes: ChangeBuffer::changes?,
+        ?service: TypeCheckService?,
       ) -> void
 
       def handle_request: (untyped request) -> void

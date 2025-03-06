@@ -55,7 +55,7 @@ Foo::Bar.new
       # module
       source.annotations(block: dig(source.node, 0),
                          factory: factory,
-                         context: [nil, TypeName("::Foo")]).yield_self do |annotations|
+                         context: [nil, RBS::TypeName.parse("::Foo")]).yield_self do |annotations|
         assert_any annotations do |a|
           a == A::VarType.new(name: :x2, type: T::Any.new)
         end
@@ -67,7 +67,7 @@ Foo::Bar.new
 
       source.annotations(block: dig(source.node, 0, 1),
                          factory: factory,
-                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
+                         context: [nil, RBS::TypeName.parse("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 5, annotations.size
         assert_equal parse_type("::String"), annotations.instance_type
         assert_equal parse_type("singleton(::String)"), annotations.module_type
@@ -77,7 +77,7 @@ Foo::Bar.new
       # def
       source.annotations(block: dig(source.node, 0, 1, 2, 0),
                          factory: factory,
-                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
+                         context: [nil, RBS::TypeName.parse("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 2, annotations.size
         assert_equal T::Any.new, annotations.var_type(lvar: :x4)
         assert_equal T::Any.new, annotations.return_type
@@ -86,7 +86,7 @@ Foo::Bar.new
       # block
       source.annotations(block: dig(source.node, 0, 1, 2, 0, 2),
                          factory: factory,
-                         context: [nil, TypeName("::Foo::Bar")]).yield_self do |annotations|
+                         context: [nil, RBS::TypeName.parse("::Foo::Bar")]).yield_self do |annotations|
         assert_equal 2, annotations.size
         assert_equal T::Any.new, annotations.var_type(lvar: :x5)
         assert_equal parse_type("::Integer"), annotations.block_type
@@ -433,7 +433,7 @@ end
       EOF
       def_node = dig(source.node, 2)
 
-      annotations = source.annotations(block: def_node, factory: factory, context: [nil, TypeName("::A")])
+      annotations = source.annotations(block: def_node, factory: factory, context: [nil, RBS::TypeName.parse("::A")])
       assert_equal parse_type("::Integer"), annotations.var_type(lvar: :x)
     end
   end
@@ -779,6 +779,47 @@ next 123 #: Integer?
     end
   end
 
+  def test_assertion__kwargs
+    with_factory do |factory|
+      source = Steep::Source.parse(<<~RUBY, path: Pathname("foo.rb"), factory: factory)
+        foo(
+          a: "", #: ""
+          b: [], #: Array[String]
+          c: ""
+        )
+      RUBY
+
+      _receiver, _name, *args = source.node.children
+      args[0].tap do |kwargs|
+        assert_equal :kwargs, kwargs.type
+
+        kwargs.children[0].tap do |pair|
+          assert_equal :pair, pair.type
+          key, value = pair.children
+
+          assert_equal :sym, key.type
+          assert_equal :assertion, value.type
+        end
+
+        kwargs.children[1].tap do |pair|
+          assert_equal :pair, pair.type
+          key, value = pair.children
+
+          assert_equal :sym, key.type
+          assert_equal :assertion, value.type
+        end
+
+        kwargs.children[2].tap do |pair|
+          assert_equal :pair, pair.type
+          key, value = pair.children
+
+          assert_equal :sym, key.type
+          assert_equal :str, value.type
+        end
+      end
+    end
+  end
+
   def test_tapp_send
     with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
 class Tapp
@@ -930,6 +971,21 @@ super { } # $ nil
 
       source.node.children[1].tap do |node|
         assert_equal :block, node.type
+      end
+    end
+  end
+
+  def test_selectorless_sendish_node_with_annotation_comment
+    with_factory({ Pathname("foo.rbs") => <<-RBS }) do |factory|
+      RBS
+      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+        proc{}.() do
+          x #: nil
+        end
+      EOF
+
+      source.node.children[0].tap do |node|
+        assert_equal :send, node.type
       end
     end
   end

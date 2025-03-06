@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 1.9.3 (2024-12-26)
+
+### Miscellaneous
+
+* Steep 1.9.1 ([#1398](https://github.com/soutaro/steep/pull/1398))
+* Update rbs ([#1443](https://github.com/soutaro/steep/pull/1443))
+
+## 1.9.2 (2024-12-16)
+
+### Type checker core
+
+* Attach type assertion to keyword args ([#1410](https://github.com/soutaro/steep/pull/1410))
+
+### Miscellaneous
+
+* deps: Add uri gem to dependencies list ([#1402](https://github.com/soutaro/steep/pull/1402))
+
 ## 1.9.1 (2024-12-09)
 
 ### Type checker core

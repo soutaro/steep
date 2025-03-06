@@ -48,22 +48,22 @@ end
   end
 
   def test_from_module
-    with_constant_env({ "foo.rbs" => <<-EOS }, context: [nil, TypeName("::A")]) do |env|
+    with_constant_env({ "foo.rbs" => <<-EOS }, context: [nil, RBS::TypeName.parse("::A")]) do |env|
 module A end
 module A::String end
     EOS
-      assert_equal TypeName("::A::String"), env.resolve(:String)[1]
-      assert_equal TypeName("::String"), env.toplevel(:String)[1]
+      assert_equal RBS::TypeName.parse("::A::String"), env.resolve(:String)[1]
+      assert_equal RBS::TypeName.parse("::String"), env.toplevel(:String)[1]
     end
   end
 
   def test_module_alias
-    with_constant_env({ "foo.rbs" => <<-EOS }, context: [nil, TypeName("::A")]) do |env|
+    with_constant_env({ "foo.rbs" => <<-EOS }, context: [nil, RBS::TypeName.parse("::A")]) do |env|
 module A end
 module B = A
     EOS
-      assert_equal TypeName("::A"), env.resolve(:A)[1]
-      assert_equal TypeName("::B"), env.toplevel(:B)[1]
+      assert_equal RBS::TypeName.parse("::A"), env.resolve(:A)[1]
+      assert_equal RBS::TypeName.parse("::B"), env.toplevel(:B)[1]
     end
   end
 

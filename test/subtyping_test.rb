@@ -431,6 +431,30 @@ end
     end
   end
 
+  def test_tuple
+    with_checker do |checker|
+      assert_success_check checker, "[String]", "[untyped]"
+      assert_success_check checker, "[String]", "[top]"
+      assert_success_check checker, "[123]", "[Integer]"
+
+      assert_fail_check checker, "[String]", "[String, Integer]"
+      assert_fail_check checker, "[String, Symbol]", "[String]"
+    end
+  end
+
+  def test_record
+    with_checker do |checker|
+      assert_success_check checker, "{ foo: String }", "{ foo: untyped }"
+      assert_success_check checker, "{ foo: String }", "{ foo: Object }"
+
+      assert_fail_check checker, "{ foo: String, bar: Integer }", "{ foo: String }"
+      assert_fail_check checker, "{ foo: String }", "{ foo: String, bar: Integer }"
+
+      assert_success_check checker, "{ foo: String }", "{ foo: String, ?bar: Integer }"
+      assert_success_check checker, "{ foo: String }", "{ foo: String, bar: Integer? }"
+    end
+  end
+
   def print_result(result, output, prefix: "  ")
     mark = result.success? ? "👍" : "🤦"
 
@@ -732,7 +756,6 @@ type json = String | Integer | Array[json] | Hash[String, json]
 
   def test_hash
     with_checker do |checker|
-      assert_success_check checker, "{ foo: ::Integer, bar: ::String }", "{ foo: ::Integer }"
       assert_fail_check checker, "{ foo: ::String }", "{ foo: ::Integer }"
       assert_success_check checker, "{ foo: ::String, bar: ::Integer }", "{ foo: ::String, bar: ::Integer? }"
       assert_success_check checker, "{ foo: ::String, bar: nil }", "{ foo: ::String, bar: ::Integer? }"

@@ -333,6 +333,8 @@ end
       builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
 
       builder.shape(parse_type("{ id: ::Integer, name: ::String }"), config).tap do |shape|
+        shape or raise
+
         assert_equal parse_type("{ id: ::Integer, name: ::String }"), shape.type
 
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))

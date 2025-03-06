@@ -469,6 +469,10 @@ class TypeConstructionTest < Minitest::Test
 
   def test_module_self_call: () -> untyped
 
+  def test_module_type_mismatch: () -> untyped
+
+  def test_class_type_mismatch: () -> untyped
+
   def test_module_no_rbs: () -> untyped
 
   def test_class_no_rbs: () -> untyped
@@ -614,6 +618,10 @@ class TypeConstructionTest < Minitest::Test
   def test_send_concrete_receiver_receiving_block_with_blockarg: () -> untyped
 
   def test_block_pass_and_untyped: () -> untyped
+
+  def test_block_pass_and_method__valid: () -> untyped
+
+  def test_block_pass_and_method__invalid: () -> untyped
 
   def test_send_unsatisfiable_constraint: () -> untyped
 

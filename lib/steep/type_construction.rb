@@ -155,13 +155,24 @@ module Steep
                                  definition.methods[method_name]&.yield_self do |method|
                                    method.method_types
                                      .map {|method_type| checker.factory.method_type(method_type) }
-                                     .select {|method_type| method_type.is_a?(Interface::MethodType) }
                                      .inject {|t1, t2| t1 + t2}
                                  end
                                end
       annotation_method_type = annotations.method_type(method_name)
 
       method_type = annotation_method_type || definition_method_type
+
+      unless method_type
+        if definition
+          typing.add_error(
+            Diagnostic::Ruby::UndeclaredMethodDefinition.new(method_name: method_name, type_name: definition.type_name, node: node)
+          )
+        else
+          typing.add_error(
+            Diagnostic::Ruby::MethodDefinitionInUndeclaredModule.new(method_name: method_name, node: node)
+          )
+        end
+      end
 
       if (annotation_return_type = annots&.return_type) && (method_type_return_type = method_type&.type&.return_type)
         check_relation(sub_type: annotation_return_type, super_type: method_type_return_type).else do |result|
@@ -1385,10 +1396,10 @@ module Steep
           add_typing(node, type: AST::Builtin::Float.instance_type)
 
         when :rational
-          add_typing(node, type: AST::Types::Name::Instance.new(name: TypeName("::Rational"), args: []))
+          add_typing(node, type: AST::Types::Name::Instance.new(name: RBS::TypeName.parse("::Rational"), args: []))
 
         when :complex
-          add_typing(node, type: AST::Types::Name::Instance.new(name: TypeName("::Complex"), args: []))
+          add_typing(node, type: AST::Types::Name::Instance.new(name: RBS::TypeName.parse("::Complex"), args: []))
 
         when :nil
           add_typing(node, type: AST::Builtin.nil_type)
@@ -2015,8 +2026,8 @@ module Steep
                 branch_result =
                   if body
                     when_clause_constr
-                      .for_branch(body)
                       .update_type_env {|env| env.join(*body_envs) }
+                      .for_branch(body)
                       .tap {|constr| typing.cursor_context.set_node_context(body, constr.context) }
                       .synthesize(body, hint: hint)
                   else
@@ -2040,14 +2051,16 @@ module Steep
 
               if els
                 branch_results << condition_constr.synthesize(els, hint: hint)
+              else
+                branch_results << Pair.new(type: AST::Builtin.nil_type, constr: condition_constr)
+              end
+
+              branch_results.reject! do |result|
+                result.type.is_a?(AST::Types::Bot)
               end
 
               types = branch_results.map(&:type)
               envs = branch_results.map {|result| result.constr.context.type_env }
-
-              unless els
-                types << AST::Builtin.nil_type
-              end
             end
 
             constr = constr.update_type_env do |env|
@@ -2943,7 +2956,7 @@ module Steep
               nil
             ]
           else
-            # No neesting
+            # No nesting
             synthesize_constant(node, nil, constant_name, &block)
           end
         end
@@ -4440,7 +4453,7 @@ module Steep
 
       param_types = param_types_hash.each.with_object({}) do |pair, hash| #$ Hash[Symbol, [AST::Types::t, AST::Types::t?]]
         name, type = pair
-        # skip unamed arguments `*`, `**` and `&`
+        # skip unnamed arguments `*`, `**` and `&`
         next if name.nil?
         hash[name] = [type, nil]
       end
