@@ -58,7 +58,7 @@ module Steep
       # Returns a shape of given type with respect to Config
       #
       # * If `self` occurs in the given type, it returns types with `self`
-      # * If `self` doesn't occur in the given type, it returns type withohut `self`, that is resolved to `config.self_type`
+      # * If `self` doesn't occur in the given type, it returns type without `self`, that is resolved to `config.self_type`
       #
       def shape: (AST::Types::t, Config) -> Shape?
 
@@ -114,7 +114,7 @@ module Steep
 
       def replace_kernel_class: (method_name, RBS::Definition::Method::TypeDef, MethodType) { () -> AST::Types::t } -> MethodType
 
-      def add_implicitly_returns_nil: (Array[RBS::AST::Annotation], MethodType) -> MethodType
+      def add_implicitly_returns_nil: (Enumerable[RBS::AST::Annotation], MethodType) -> MethodType
 
       @subtyping: Subtyping::Check?
 

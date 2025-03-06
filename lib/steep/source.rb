@@ -498,6 +498,8 @@ module Steep
             # Skip
           when :kwargs
             # skip
+          when :when
+            # skip
           when :pair
             key, value = node.children
             key = insert_type_node(key, comments.except(last_line))

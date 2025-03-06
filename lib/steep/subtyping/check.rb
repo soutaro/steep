@@ -285,11 +285,6 @@ module Steep
             )
           end
 
-        when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
-          Expand(relation) do
-            check_type(Relation.new(sub_type: self_type, super_type: relation.super_type))
-          end
-
         when relation.sub_type.is_a?(AST::Types::Instance) && !instance_type.is_a?(AST::Types::Instance)
           Expand(relation) do
             check_type(Relation.new(sub_type: instance_type, super_type: relation.super_type))
@@ -419,6 +414,11 @@ module Steep
             end
           end
 
+        when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
+          Expand(relation) do
+            check_type(Relation.new(sub_type: self_type, super_type: relation.super_type))
+          end
+
         when relation.super_type.is_a?(AST::Types::Name::Interface)
           Expand(relation) do
             check_interface(
@@ -493,7 +493,7 @@ module Steep
           end
 
         when relation.sub_type.is_a?(AST::Types::Tuple) && relation.super_type.is_a?(AST::Types::Tuple)
-          if relation.sub_type.types.size >= relation.super_type.types.size
+          if relation.sub_type.types.size == relation.super_type.types.size
             pairs = relation.sub_type.types.take(relation.super_type.types.size).zip(relation.super_type.types)
 
             All(relation) do |result|
@@ -541,21 +541,28 @@ module Steep
 
         when relation.sub_type.is_a?(AST::Types::Record) && relation.super_type.is_a?(AST::Types::Record)
           All(relation) do |result|
-            relation.super_type.elements.each_key do |key|
-              super_element_type = relation.super_type.elements[key]
+            unchecked_keys = Set.new(relation.sub_type.elements.each_key)
 
-              if relation.sub_type.elements.key?(key)
-                sub_element_type = relation.sub_type.elements[key]
+            relation.super_type.elements.each_key do |key|
+              super_element_type = relation.super_type.elements.fetch(key) #: AST::Types::t
+              sub_element_type = relation.sub_type.elements.fetch(key, nil) #: AST::Types::t?
+
+              if relation.super_type.required?(key)
+                rel = Relation.new(sub_type: sub_element_type || AST::Builtin.nil_type, super_type: super_element_type)
+                result.add(rel) { check_type(rel) }
               else
-                if relation.super_type.required?(key)
-                  sub_element_type = AST::Builtin.nil_type
+                # If the key is optional, it's okay to not have the key
+                if sub_element_type
+                  rel = Relation.new(sub_type: sub_element_type, super_type: super_element_type)
+                  result.add(rel) { check_type(rel) }
                 end
               end
 
-              if sub_element_type
-                rel = Relation.new(sub_type: sub_element_type, super_type: super_element_type)
-                result.add(rel) { check_type(rel) }
-              end
+              unchecked_keys.delete(key)
+            end
+
+            unless unchecked_keys.empty?
+              return Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
             end
           end
 
@@ -601,7 +608,6 @@ module Steep
           Expand(relation) do
             check_type(Relation.new(sub_type: relation.sub_type.back_type, super_type: relation.super_type))
           end
-
         else
           Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
         end

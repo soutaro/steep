@@ -1,3 +1,5 @@
+require "fileutils"
+
 D = Steep::Diagnostic
 
 FileUtils.mkpath("tmp")
@@ -11,7 +13,6 @@ if (source = rbs_dep&.source).is_a?(Bundler::Source::Path)
   end
 else
   FileUtils.rm_f(tmp_rbs_dir)
-  library "rbs"
 end
 
 target :app do
@@ -62,5 +63,9 @@ target :bin do
   check "bin/generate-diagnostics-docs.rb"
   signature "tmp/rbs-inline/bin"
 
-  library "rbs"
+  if tmp_rbs_dir.directory?
+    signature tmp_rbs_dir.to_s
+  else
+    library "rbs"
+  end
 end

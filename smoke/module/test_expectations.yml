@@ -51,6 +51,18 @@
     severity: ERROR
     message: Cannot find implementation of method `::X#foo`
     code: Ruby::MethodDefinitionMissing
+- file: e.rb
+  diagnostics:
+  - range:
+      start:
+        line: 10
+        character: 6
+      end:
+        line: 10
+        character: 9
+    severity: ERROR
+    message: Method `::A#foo` is not declared in RBS
+    code: Ruby::UndeclaredMethodDefinition
 - file: f.rb
   diagnostics:
   - range:

@@ -1156,4 +1156,58 @@ end
       main_thread.join
     end
   end
+
+  def test__initialize__file_system_watcher_setup
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  group :core do
+    check "lib/core"
+  end
+
+  check "lib"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+      master.assign_initialize_params(
+        DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(
+          {
+            capabilities: {
+              workspace: {
+                didChangeWatchedFiles: {
+                  dynamicRegistration: true
+                }
+              }
+            }
+          }
+        )
+      )
+
+      master.setup_file_system_watcher()
+
+      jobs = flush_queue(master.write_queue)
+
+      jobs.find { _1.message[:method] == "client/registerCapability" }.tap do |job|
+        job.message[:params][:registrations].find { _1[:method] == "workspace/didChangeWatchedFiles" }.tap do |registration|
+          watchers = registration[:registerOptions][:watchers]
+
+          assert_includes(watchers, { globPattern: "#{current_dir}/lib/**/*.rb" })
+          assert_includes(watchers, { globPattern: "#{current_dir}/lib/core/**/*.rb" })
+        end
+      end
+    end
+  end
 end

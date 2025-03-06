@@ -1,1 +1,13 @@
---- []
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 8
+        character: 6
+      end:
+        line: 8
+        character: 9
+    severity: ERROR
+    message: Method `::A#foo` is not declared in RBS
+    code: Ruby::UndeclaredMethodDefinition

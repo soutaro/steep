@@ -104,7 +104,7 @@ module Steep
           name = match[:name] or raise
           type = parse_type(match, location: location)
 
-          AST::Annotation::ConstType.new(name: TypeName(name), type: type, location: location)
+          AST::Annotation::ConstType.new(name: RBS::TypeName.parse(name), type: type, location: location)
         end
 
       when keyword_subject_type("ivar", IVAR_NAME)
@@ -184,7 +184,7 @@ module Steep
       when /@implements\s+(?<name>#{CONST_NAME})#{TYPE_PARAMS}$/
         Regexp.last_match.yield_self do |match|
           match or raise
-          type_name = TypeName(match[:name] || raise)
+          type_name = RBS::TypeName.parse(match[:name] || raise)
           params = match[:params]&.yield_self {|params| params.split(/,/).map {|param| param.strip.to_sym } } || []
 
           name = AST::Annotation::Implements::Module.new(name: type_name, args: params)

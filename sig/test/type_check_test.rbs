@@ -44,6 +44,10 @@ class TypeCheckTest < Minitest::Test
 
   def test_if_unreachable__unless_else: () -> untyped
 
+  def test_if_unreachable__if_void: () -> untyped
+
+  def test_if_unreachable__if_bot: () -> untyped
+
   def test_case_unreachable_1: () -> untyped
 
   def test_case_unreachable_2: () -> untyped
@@ -93,6 +97,8 @@ class TypeCheckTest < Minitest::Test
   def test_type_inference__nested_block_free_variable: () -> untyped
 
   def test_type_narrowing__local_variable_safe_navigation_operator: () -> untyped
+
+  def test_type_narrowing__union_send: () -> untyped
 
   def test_argument_error__unexpected_unexpected_positional_argument: () -> untyped
 
@@ -163,4 +169,22 @@ class TypeCheckTest < Minitest::Test
   def test_implicitly_returns_nil: () -> untyped
 
   def test_untyped_hash: () -> untyped
+
+  def test_empty_collection: () -> untyped
+
+  def test_masgn_splat: () -> untyped
+
+  def test_class_module_mismatch: () -> untyped
+
+  def test_unknown_record_key: () -> untyped
+
+  def test_undeclared_method: () -> untyped
+
+  def test_undeclared_method2: () -> untyped
+
+  def test_when__assertion: () -> untyped
+
+  def test_when__type_annotation: () -> untyped
+
+  def test_tuple_type_assertion: () -> untyped
 end

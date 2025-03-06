@@ -33,6 +33,16 @@
     code: Ruby::UnknownConstant
   - range:
       start:
+        line: 10
+        character: 6
+      end:
+        line: 10
+        character: 12
+    severity: ERROR
+    message: Method `to_int` is defined in undeclared module
+    code: Ruby::MethodDefinitionInUndeclaredModule
+  - range:
+      start:
         line: 12
         character: 20
       end:
@@ -61,6 +71,16 @@
     severity: ERROR
     message: 'Cannot find the declaration of class: `WithToI`'
     code: Ruby::UnknownConstant
+  - range:
+      start:
+        line: 16
+        character: 6
+      end:
+        line: 16
+        character: 10
+    severity: ERROR
+    message: Method `to_i` is defined in undeclared module
+    code: Ruby::MethodDefinitionInUndeclaredModule
   - range:
       start:
         line: 18

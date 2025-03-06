@@ -1451,7 +1451,7 @@ module Steep
       # ### Ruby code
       #
       # ```ruby
-      # # @type var foo: () -> 
+      # # @type var foo: () ->
       # ```
       #
       # ### Diagnostic
@@ -1838,6 +1838,75 @@ module Steep
         attr_reader key: AST::Types::Record::key
 
         def initialize: (key: AST::Types::Record::key, node: Node) -> void
+
+        def header_line: () -> String
+      end
+
+      # A `def` syntax doesn't have corresponding RBS method definition.
+      #
+      # ### RBS
+      #
+      # ```rbs
+      # class Foo
+      # end
+      # ```
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # class Foo
+      #   def undeclared = nil
+      # end
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:2:6: [error] Method `::Foo#undeclared` is not declared in RBS
+      # │ Diagnostic ID: Ruby::UndeclaredMethodDefinition
+      # │
+      # └   def undeclared = nil
+      #         ~~~~~~~~~~
+      # ```
+      #
+      class UndeclaredMethodDefinition < Base
+        attr_reader method_name: Symbol
+
+        attr_reader type_name: RBS::TypeName
+
+        attr_reader node (): Node
+
+        def initialize: (method_name: Symbol, type_name: RBS::TypeName, node: Node) -> void
+
+        def header_line: () -> String
+      end
+
+      # A `def` syntax doesn't have method type because the module/class is undefined in RBS.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # class UndeclaredClass
+      #   def to_s = 123
+      # end
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:2:6: [error] Method `to_s` is defined in undeclared module
+      # │ Diagnostic ID: Ruby::MethodDefinitionInUndeclaredModule
+      # │
+      # └   def to_s = 123
+      #         ~~~~
+      # ```
+      #
+      class MethodDefinitionInUndeclaredModule < Base
+        attr_reader method_name: Symbol
+
+        attr_reader node (): Node
+
+        def initialize: (method_name: Symbol, node: Node) -> void
 
         def header_line: () -> String
       end

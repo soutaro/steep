@@ -5,7 +5,7 @@ module Steep
   module TypeInference
     # A MethodParams object provides the information of parameters from MethodType and nodes
     #
-    # It primarly provides a mapping from a local variable (method parameter) to its type.
+    # It primarily provides a mapping from a local variable (method parameter) to its type.
     #
     class MethodParams
       class BaseParameter

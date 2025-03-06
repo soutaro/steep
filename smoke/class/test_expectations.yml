@@ -28,6 +28,16 @@
     code: Ruby::MethodBodyTypeMismatch
   - range:
       start:
+        line: 18
+        character: 6
+      end:
+        line: 18
+        character: 12
+    severity: ERROR
+    message: Method `::A#to_str` is not declared in RBS
+    code: Ruby::UndeclaredMethodDefinition
+  - range:
+      start:
         line: 22
         character: 11
       end:
