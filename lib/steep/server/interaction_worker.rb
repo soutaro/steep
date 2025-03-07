@@ -355,6 +355,11 @@ module Steep
 
           detail = LSPFormatter.declaration_summary(item.decl)
 
+          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
+          if item.deprecated?
+            tags << LSP::Constant::CompletionItemTag::DEPRECATED
+          end
+
           LSP::Interface::CompletionItem.new(
             label: item.identifier.to_s,
             kind: kind,
@@ -363,15 +368,22 @@ module Steep
             text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: item.identifier.to_s
-            )
+            ),
+            tags: tags
           )
         when Services::CompletionProvider::SimpleMethodNameItem
+          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
+          if item.deprecated
+            tags << LSP::Constant::CompletionItemTag::DEPRECATED
+          end
+
           LSP::Interface::CompletionItem.new(
             label: item.identifier.to_s,
             kind: LSP::Constant::CompletionItemKind::FUNCTION,
             label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.method_name.relative.to_s),
             insert_text: item.identifier.to_s,
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
+            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
+            tags: tags
           )
         when Services::CompletionProvider::ComplexMethodNameItem
           method_names = item.method_names.map(&:relative).uniq

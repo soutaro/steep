@@ -79,6 +79,8 @@ module Steep
                         | RBS::AST::Declarations::ModuleAlias
 
         def decl: () -> const_decl
+
+        def deprecated?: () -> bool
       end
 
       # Method name completion item with *simple* receiver type
@@ -99,13 +101,16 @@ module Steep
 
         attr_reader method_member: RBS::Definition::Method::method_member
 
+        attr_reader deprecated: bool
+
         def initialize: (
           identifier: Symbol,
           range: Range,
           receiver_type: AST::Types::Name::Instance | AST::Types::Name::Interface | AST::Types::Name::Singleton,
           method_name: method_name,
           method_types: Array[RBS::MethodType],
-          method_member: RBS::Definition::Method::method_member
+          method_member: RBS::Definition::Method::method_member,
+          deprecated: bool
         ) -> void
 
         %a{pure} def comment: () -> RBS::AST::Comment?

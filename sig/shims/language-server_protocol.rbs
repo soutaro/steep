@@ -59,7 +59,7 @@ module LanguageServer
       module CompletionItemTag
         type t = Integer
 
-        Deprecated: Integer
+        DEPRECATED: Integer
       end
 
       module InsertTextFormat
