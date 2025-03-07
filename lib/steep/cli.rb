@@ -62,7 +62,7 @@ module Steep
     end
 
     def handle_steepfile_option(opts, command)
-      opts.on("--steepfile=PATH", "Specify the Steepfile path") {|path| command.steepfile = Pathname(path) }
+      opts.on("--steepfile=PATH", "Specify path to Steepfile") {|path| command.steepfile = Pathname(path) }
     end
 
     def handle_logging_options(opts)
@@ -110,7 +110,7 @@ module Steep
 Usage: steep init [options]
 
 Description:
-    Generates a Steepfile into the current working directory.
+    Generates a Steepfile at specified path.
 
 Options:
 BANNER
@@ -126,10 +126,13 @@ BANNER
       Drivers::Check.new(stdout: stdout, stderr: stderr).tap do |command|
         OptionParser.new do |opts|
           opts.banner = <<BANNER
-Usage: steep check [options] [sources]
+Usage: steep check [options] [paths]
 
 Description:
-    Runs type checking.
+    Type check the program.
+
+    If paths are specified, it type checks and validates the files at the given path.
+    Otherwise, it type checks and validates all files in the project or the groups if specified.
 
 Options:
 BANNER
@@ -201,9 +204,7 @@ BANNER
 Usage: steep checkfile [options] [files]
 
 Description:
-    Run Type checking on the given files.
-    This command is designed to support integration with tools and outputs the
-    results in a machine-readable format.
+    Deprecated: Use `steep check` instead.
 
 Options:
 BANNER
@@ -264,7 +265,7 @@ BANNER
 Usage: steep annotations [options] [sources]
 
 Description:
-    Displays a list of annotations.
+    Prints the type annotations in the Ruby code.
 
 Options:
 BANNER
@@ -282,7 +283,7 @@ BANNER
 Usage: steep project [options]
 
 Description:
-    Displays the project information defined in the Steepfile.
+    Prints the project configuration.
 
 Options:
 BANNER
@@ -303,6 +304,7 @@ Usage: steep watch [options] [dirs]
 
 Description:
     Monitors file changes and automatically type checks updated files.
+    Using LSP is recommended for better performance and more features.
 
 Options:
 BANNER
@@ -328,7 +330,7 @@ BANNER
 Usage: steep langserver [options]
 
 Description:
-    Starts the LSP (Language Server Protocol) server for Steep.
+    Starts language server, which is assumed to be invoked from language client.
 
 Options:
 BANNER
@@ -365,8 +367,7 @@ BANNER
 Usage: steep binstub [options]
 
 Description:
-    Generate a binstub to execute Steep with setting up Bundler and rbenv/rvm.
-    Use the executable for LSP integration setup.
+    Generate a binstub which set up ruby executables and bundlers.
 
 Options:
 BANNER
