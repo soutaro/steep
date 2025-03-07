@@ -49,13 +49,24 @@ module Steep
             } #: LSP::Interface::CodeDescription::json
           end
 
-          {
+          tags = [] #: Array[LSP::Constant::DiagnosticTag::t]
+
+          case diagnostic
+          when Ruby::DeprecatedReference
+            tags << LSP::Constant::DiagnosticTag::DEPRECATED
+          end
+
+          json = {
             message: diagnostic.full_message,
             code: diagnostic.diagnostic_code,
             severity: severity,
             range: range,
-            codeDescription: description
-          }
+            codeDescription: description,
+          } #: LSP::Interface::Diagnostic::json
+
+          json[:tags] = tags unless tags.empty?
+
+          json
         end
       end
 

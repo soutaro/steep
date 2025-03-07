@@ -237,6 +237,52 @@ test.rb:4:6: [error] ::Kernel is declared as a module in RBS
 | - | - | - | - | - |
 | error | error | error | - | - |
 
+<a name='Ruby::DeprecatedReference'></a>
+## Ruby::DeprecatedReference
+
+Method call or constant reference is deprecated.
+
+### RBS
+
+```rbs
+%a{deprecated} class Foo end
+
+class Bar
+  %a{deprecated: since v0.9} def self.bar: () -> void
+end
+```
+
+### Ruby code
+
+```ruby
+Foo
+
+Bar.bar()
+```
+
+### Diagnostic
+
+```
+lib/deprecated.rb:1:0: [warning] The constant is deprecated
+│ Diagnostic ID: Ruby::DeprecatedReference
+│
+└ Foo
+  ~~~
+
+lib/deprecated.rb:3:4: [warning] The method is deprecated: since v0.9
+│ Diagnostic ID: Ruby::DeprecatedReference
+│
+└ Bar.bar()
+      ~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | warning | warning | - |
+
 <a name='Ruby::DifferentMethodParameterKind'></a>
 ## Ruby::DifferentMethodParameterKind
 

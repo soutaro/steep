@@ -1,0 +1,11 @@
+%a{deprecated} class Foo end
+
+class Bar
+  # Original bar
+  def self.bar: %a{deprecated: since v0.9} () -> void
+
+  # Overloading bar
+  def self.bar: (String) -> String | ...
+end
+
+%a{deprecated} $test: untyped

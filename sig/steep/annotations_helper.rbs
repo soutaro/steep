@@ -1,0 +1,13 @@
+use RBS::AST::Annotation
+
+module Steep
+  # This module provides helper functiona around RBS annotations
+  #
+  module AnnotationsHelper
+    # Returns true if the array of annotations declared *deprecated*
+    #
+    # Returns the pair of the annotation and given message.
+    #
+    def self?.deprecated_annotation?: (Array[Annotation]) -> [Annotation, String?]?
+  end
+end

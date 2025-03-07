@@ -661,4 +661,67 @@ puts i
       end
     end
   end
+
+  def test_constant__deprecated
+    with_checker(<<~RBS) do
+        %a{deprecated} class Foo
+        end
+
+        %a{deprecated} class Bar = Foo
+
+        %a{deprecated} BAZ: String
+      RBS
+      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        Foo
+        Bar
+        BAZ
+      EOR
+
+
+        items = provider.run(line: 1, column: 3)
+        items.find {|item| item.is_a?(CompletionProvider::ConstantItem) && item.full_name.to_s == "::Foo" }.tap do |item|
+          assert_predicate item, :deprecated?
+        end
+
+        items = provider.run(line: 2, column: 3)
+        items.find {|item| item.is_a?(CompletionProvider::ConstantItem) && item.full_name.to_s == "::Foo" }.tap do |item|
+          assert_predicate item, :deprecated?
+        end
+
+        items = provider.run(line: 3, column: 3)
+        items.find {|item| item.is_a?(CompletionProvider::ConstantItem) && item.full_name.to_s == "::Foo" }.tap do |item|
+          assert_predicate item, :deprecated?
+        end
+      end
+    end
+  end
+
+  def test_method__deprecated
+    with_checker(<<~RBS) do
+        class Foo
+          def m1: () -> void
+
+          %a{deprecated} def m2: () -> void
+
+          %a{deprecated} alias m3 m1
+        end
+      RBS
+      CompletionProvider.new(source_text: <<~EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+        Foo.new.m
+      EOR
+
+        items = provider.run(line: 1, column: 9)
+
+        items.find {|item| item.identifier == :m1 }.tap do |item|
+          refute_operator item, :deprecated
+        end
+        items.find {|item| item.identifier == :m2 }.tap do |item|
+          assert_operator item, :deprecated
+        end
+        items.find {|item| item.identifier == :m3 }.tap do |item|
+          assert_operator item, :deprecated
+        end
+      end
+    end
+  end
 end
