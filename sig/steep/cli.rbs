@@ -20,6 +20,14 @@ module Steep
 
     def run: () -> Integer
 
+    interface _CommandWithSteepfile
+      def steepfile: () -> Pathname?
+
+      def steepfile=: (Pathname?) -> Pathname?
+    end
+
+    def handle_steepfile_option: (OptionParser opts, _CommandWithSteepfile) -> void
+
     def handle_logging_options: (OptionParser opts) -> void
 
     def handle_jobs_option: (Drivers::Utils::JobsOption jobs_option, OptionParser opts) -> void
