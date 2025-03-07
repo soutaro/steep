@@ -27,6 +27,8 @@ module Steep
         def map_type: () { (t) -> t } -> Tuple
 
         def level: () -> Array[Integer]
+
+        def with_location: (untyped) -> Tuple
       end
     end
   end

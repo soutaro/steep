@@ -77,6 +77,8 @@ module Steep
 
     def call_of: (node: Parser::AST::Node) -> TypeInference::MethodCall::t
 
+    def block_range: (Parser::AST::Node node) -> Range[Integer]
+
     def dump: (untyped io) -> untyped
 
     def self.summary: (untyped node) -> ::String
