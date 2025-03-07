@@ -1939,7 +1939,7 @@ module Steep
       # │
       # └ Foo
       #   ~~~
-
+      #
       # lib/deprecated.rb:3:4: [warning] The method is deprecated: since v0.9
       # │ Diagnostic ID: Ruby::DeprecatedReference
       # │
