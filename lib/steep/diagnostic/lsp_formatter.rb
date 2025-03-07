@@ -56,14 +56,17 @@ module Steep
             tags << LSP::Constant::DiagnosticTag::DEPRECATED
           end
 
-          {
+          json = {
             message: diagnostic.full_message,
             code: diagnostic.diagnostic_code,
             severity: severity,
             range: range,
             codeDescription: description,
-            tags: tags
-          }
+          } #: LSP::Interface::Diagnostic::json
+
+          json[:tags] = tags unless tags.empty?
+
+          json
         end
       end
 
