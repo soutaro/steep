@@ -52,6 +52,20 @@ RUBY
 MESSAGE
   end
 
+  def test_single_line_message_with_github_actions_formatter
+    printer = DiagnosticPrinter.new(stdout: io, buffer: buffer, formatter: "github")
+    printer.print({
+                    code: "Error",
+                    range: {
+                      start: { line: 5, character: 4 },
+                      end: { line: 5, character: 9 }
+                    },
+                    severity: LSP::Constant::DiagnosticSeverity::ERROR,
+                    message: "Instance variable @name is not defined"
+                  })
+    assert_equal "::error file=a.rb,line=6,endLine=6,col=4,endColumn=9::[Error] Instance variable @name is not defined", io.string
+  end
+
   def test_multiline_message
     printer = DiagnosticPrinter.new(stdout: io, buffer: buffer)
 
@@ -76,6 +90,25 @@ MESSAGE
 MESSAGE
   end
 
+  def test_multiline_message_with_github_actions_formatter
+    printer = DiagnosticPrinter.new(stdout: io, buffer: buffer, formatter: "github")
+
+    printer.print({
+                    code: "Error",
+                    range: {
+                      start: { line: 5, character: 4 },
+                      end: { line: 5, character: 9 }
+                    },
+                    severity: LSP::Constant::DiagnosticSeverity::ERROR,
+                    message: [
+                      "Instance variable @name is not defined",
+                      "Attribute declarations or `@name: untyped` will solve the issue."
+                    ].join("\n")
+                  })
+
+    assert_equal "::error file=a.rb,line=6,endLine=6,col=4,endColumn=9::[Error] Instance variable @name is not defined%0AAttribute declarations or `@name: untyped` will solve the issue.", io.string
+  end
+
   def test_multiline_source
     printer = DiagnosticPrinter.new(stdout: io, buffer: buffer)
 
@@ -94,5 +127,21 @@ MESSAGE
 └   #{Rainbow("def initialize(name:, year:)").yellow}
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 MESSAGE
+  end
+
+  def test_multiline_source_with_github_actions_formatter
+    printer = DiagnosticPrinter.new(stdout: io, buffer: buffer, formatter: "github")
+
+    printer.print({
+                    code: "Error",
+                    range: {
+                      start: { line: 4, character: 2 },
+                      end: { line: 7, character: 7 }
+                    },
+                    severity: LSP::Constant::DiagnosticSeverity::WARNING,
+                    message: "Duplicated method definition"
+                  })
+
+    assert_equal "::warning file=a.rb,line=5,endLine=8,col=2,endColumn=7::[Error] Duplicated method definition", io.string
   end
 end

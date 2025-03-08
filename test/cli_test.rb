@@ -125,6 +125,25 @@ end
     end
   end
 
+  def test_check_failure_with_formatter
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, status = sh(*steep, "check", "--format", "github")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/^::error file=foo.rb,line=1,endLine=1,col=0,endColumn=7/, stdout)
+    end
+  end
+
   def test_check_group__target
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
