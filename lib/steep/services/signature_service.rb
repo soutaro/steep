@@ -294,7 +294,7 @@ module Steep
           end
 
           unless errors.empty?
-            # Builder won't be used.
+            errors.uniq! { |e| [e.class, e.message] }
             factory = AST::Types::Factory.new(builder: RBS::DefinitionBuilder.new(env: env, ancestor_builder: builder))
             return errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
           end
