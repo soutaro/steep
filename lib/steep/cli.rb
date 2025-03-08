@@ -187,6 +187,10 @@ BANNER
             end
           end
 
+          opts.on("--format=FORMATTER", ["code", "github"], "Output formatters (default: code, options: code,github)") do |formatter|
+            command.formatter = formatter
+          end
+
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)

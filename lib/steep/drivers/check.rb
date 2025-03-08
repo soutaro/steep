@@ -16,6 +16,7 @@ module Steep
       attr_accessor :validate_group_signatures
       attr_accessor :validate_project_signatures
       attr_accessor :validate_library_signatures
+      attr_accessor :formatter
 
       include Utils::DriverHelper
 
@@ -30,6 +31,7 @@ module Steep
         @validate_group_signatures = true
         @validate_project_signatures = false
         @validate_library_signatures = false
+        @formatter = 'code'
       end
 
       def active_group?(group)
@@ -322,7 +324,7 @@ module Steep
           errors.each do |notification|
             path = Steep::PathHelper.to_pathname(notification[:uri]) or raise
             buffer = RBS::Buffer.new(name: project.relative_path(path), content: path.read)
-            printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout)
+            printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout, formatter: formatter)
 
             notification[:diagnostics].each do |diag|
               printer.print(diag)

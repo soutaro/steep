@@ -151,6 +151,9 @@ require "steep/drivers/init"
 require "steep/drivers/vendor"
 require "steep/drivers/worker"
 require "steep/drivers/diagnostic_printer"
+require "steep/drivers/diagnostic_printer/base_formatter"
+require "steep/drivers/diagnostic_printer/code_formatter"
+require "steep/drivers/diagnostic_printer/github_actions_formatter"
 
 require "steep/annotations_helper"
 
