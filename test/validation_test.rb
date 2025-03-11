@@ -1266,4 +1266,199 @@ Test: SetValueExtractor[ArraySet]
       end
     end
   end
+
+  def test_validate__deprecated__type_name
+    with_checker <<~RBS do |checker|
+        %a{deprecated} class Foo end
+
+        %a{deprecated} module Bar end
+
+        %a{deprecated} class Foo1 = Foo
+
+        %a{deprecated} module Bar1 = Bar
+
+        %a{deprecated} type baz = untyped
+
+        class DeprecatedReference
+          def foo: () -> Foo
+                 | () -> Bar
+
+          def baz: () -> Array[Foo1 | Bar1]
+
+          type t = baz
+        end
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator, :has_error?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::Foo` is deprecated", error.header_line
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::Bar` is deprecated", error.header_line
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::Foo1` is deprecated", error.header_line
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::Bar1` is deprecated", error.header_line
+        end
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::baz` is deprecated", error.header_line
+        end
+      end
+    end
+  end
+
+  def test_validate__deprecated__class
+    with_checker <<~RBS do |checker|
+        %a{deprecated} class Foo end
+
+        %a{deprecated} module M end
+
+        %a{deprecated} interface _Foo end
+
+        class Bar < Foo
+          include M
+          include _Foo
+        end
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator, :has_error?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::Foo` is deprecated", error.header_line
+        end
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::M` is deprecated", error.header_line
+        end
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::_Foo` is deprecated", error.header_line
+        end
+      end
+    end
+  end
+
+  def test_validate__deprecated__module
+    with_checker <<~RBS do |checker|
+        %a{deprecated} class Foo end
+
+        %a{deprecated} module M end
+
+        %a{deprecated} interface _Foo end
+
+        module Bar : Foo, _Foo, M
+        end
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator, :has_error?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::Foo` is deprecated", error.header_line
+        end
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::M` is deprecated", error.header_line
+        end
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::_Foo` is deprecated", error.header_line
+        end
+      end
+    end
+  end
+
+  def test_validate__deprecated__class_alias
+    with_checker <<~RBS do |checker|
+        %a{deprecated} class Foo end
+
+        %a{deprecated} module M end
+
+        class Bar = Foo
+
+        module N = M
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator, :has_error?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::Foo` is deprecated", error.header_line
+        end
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::M` is deprecated", error.header_line
+        end
+      end
+    end
+  end
+
+  def test_validate__deprecated__generic
+    with_checker <<~RBS do |checker|
+        %a{deprecated} class Foo end
+
+        %a{deprecated} module M end
+
+        class Bar[A < Foo, B = M]
+        end
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator, :has_error?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::Foo` is deprecated", error.header_line
+        end
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::M` is deprecated", error.header_line
+        end
+      end
+    end
+  end
+
+  def test_validate__deprecated__namespace
+    with_checker <<~RBS do |checker|
+        %a{deprecated} module M end
+
+        module M
+          class Foo
+          end
+        end
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator, :has_error?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::DeprecatedTypeName, error
+          assert_equal "Type `::M` is deprecated", error.header_line
+        end
+      end
+    end
+  end
 end

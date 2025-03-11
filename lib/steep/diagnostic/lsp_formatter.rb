@@ -52,7 +52,7 @@ module Steep
           tags = [] #: Array[LSP::Constant::DiagnosticTag::t]
 
           case diagnostic
-          when Ruby::DeprecatedReference
+          when Ruby::DeprecatedReference, Signature::DeprecatedTypeName
             tags << LSP::Constant::DiagnosticTag::DEPRECATED
           end
 

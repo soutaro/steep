@@ -144,17 +144,60 @@ module Steep
             validate_type_application_constraints(name, type_params, type_args, location: type.location)
           end
         end
-
-        type.each_type do |child|
-          validate_type_application(child)
-        end
       end
 
       def validate_type(type)
         Steep.logger.debug { "#{Location.to_string type.location}: Validating #{type}..." }
 
         validator.validate_type(type, context: nil)
+        validate_type_0(type)
+      end
+
+      def validate_type_0(type)
         validate_type_application(type)
+
+        case type
+        when RBS::Types::ClassInstance, RBS::Types::Interface, RBS::Types::ClassSingleton, RBS::Types::Alias
+          type_name = type.name
+          if type.location
+            location = type.location[:name]
+          end
+        end
+
+        if type_name && location
+          validate_type_name_deprecation(type_name, location)
+        end
+
+        type.each_type do |child|
+          validate_type_0(child)
+        end
+      end
+
+      def validate_type_name_deprecation(type_name, location)
+        annotations =
+          case
+          when type_name.class?
+            case
+            when decl = env.class_decls.fetch(type_name, nil)
+              decl.decls.flat_map { _1.decl.annotations }
+            when decl = env.class_alias_decls.fetch(type_name, nil)
+              decl.decl.annotations
+            end
+          when type_name.interface?
+            if decl = env.interface_decls.fetch(type_name, nil)
+              decl.decl.annotations
+            end
+          when type_name.alias?
+            if decl = env.type_alias_decls.fetch(type_name, nil)
+              decl.decl.annotations
+            end
+          end
+
+        if annotations
+          if (_, message = AnnotationsHelper.deprecated_annotation?(annotations))
+            @errors << Diagnostic::Signature::DeprecatedTypeName.new(type_name, message, location: location)
+          end
+        end
       end
 
       def ancestor_to_type(ancestor)
@@ -269,6 +312,9 @@ module Steep
           type_params.each do |type_param|
             param = checker.factory.type_param(type_param)
 
+            validate_type(type_param.upper_bound_type) if type_param.upper_bound_type
+            validate_type(type_param.default_type) if type_param.default_type
+
             default_type = param.default_type or next
             upper_bound = param.upper_bound or next
 
@@ -295,6 +341,16 @@ module Steep
             name: name,
             args: entry.type_params.map { AST::Types::Any.instance() }
           )
+
+          entry.decls.each do |decl|
+            ast = decl.decl
+
+            unless AnnotationsHelper.deprecated_annotation?(ast.annotations)
+              if location = ast.location
+                validate_type_name_deprecation(name, location[:name])
+              end
+            end
+          end
 
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
@@ -353,6 +409,20 @@ module Steep
                     case ancestor
                     when RBS::Definition::Ancestor::Instance
                       validate_ancestor_application(name, ancestor)
+                      location =
+                        case ancestor.source
+                        when :super
+                          if (primary_decl = entry.primary.decl).is_a?(RBS::AST::Declarations::Class)
+                            primary_decl.super_class&.location
+                          end
+                        when nil
+                          # skip
+                        else
+                          ancestor.source.location
+                        end
+                      if location
+                        validate_type_name_deprecation(ancestor.name, location)
+                      end
                     end
                   end
 
@@ -632,6 +702,9 @@ module Steep
         rescue_validation_errors(name) do
           Steep.logger.debug "Validating class/module alias `#{name}`..."
           validator.validate_class_alias(entry: entry)
+          if location = entry.decl.location
+            validate_type_name_deprecation(entry.decl.old_name, location[:old_name])
+          end
         end
       end
 

@@ -460,6 +460,26 @@ module Steep
         end
       end
 
+      class DeprecatedTypeName < Base
+        attr_reader :type_name
+        attr_reader :message
+
+        def initialize(type_name, message, location:)
+          super(location: location)
+          @type_name = type_name
+          @message = message
+        end
+
+        def header_line
+          buffer = "Type `#{type_name}` is deprecated"
+          if message
+            buffer = +buffer
+            buffer << ": " << message
+          end
+          buffer
+        end
+      end
+
 
       def self.from_rbs_error(error, factory:)
         case error

@@ -1,4 +1,4 @@
-%a{deprecated} class Foo end
+%a{deprecated: Use Bar instead} class Foo end
 
 class Bar
   # Original bar
@@ -6,6 +6,9 @@ class Bar
 
   # Overloading bar
   def self.bar: (String) -> String | ...
+
+  def hogehoge: (String) -> void
+              | %a{deprecated: Pass an positional argument} (string: String) -> void
 end
 
 %a{deprecated} $test: untyped
