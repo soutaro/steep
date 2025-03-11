@@ -3467,4 +3467,35 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_argument_forwarding__dynamic
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: (?) -> void
+
+            def bar: (Integer) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(...)
+              bar(...)
+            end
+
+            def bar(x)
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

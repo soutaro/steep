@@ -3864,26 +3864,36 @@ module Steep
       if forwarded_args
         method_name or raise "method_name cannot be nil if `forwarded_args` is given, because proc/block doesn't support `...` arg"
 
-        (params, block = context.method_context&.forward_arg_type) or raise
+        method_context = context.method_context or raise
+        forward_arg_type = method_context.forward_arg_type
 
-        checker.with_context(self_type: self_type, instance_type: context.module_context.instance_type, class_type: context.module_context.module_type, constraints: constraints) do
-          result = checker.check_method_params(
-            :"... (argument forwarding)",
-            Subtyping::Relation.new(
-              sub_type: forwarded_args.params,
-              super_type: params
-            )
-          )
+        case forward_arg_type
+        when nil
+          raise "Method context must have `forwarded_arg_type` if `...` node appears in it"
+        when true
+          # Skip type checking forwarded argument because the method is untyped function
+        else
+          params, _block = forward_arg_type
 
-          if result.failure?
-            errors.push(
-              Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
-                method_name: method_name,
-                node: forwarded_args.node,
-                params_pair: [params, forwarded_args.params],
-                result: result
+          checker.with_context(self_type: self_type, instance_type: context.module_context.instance_type, class_type: context.module_context.module_type, constraints: constraints) do
+            result = checker.check_method_params(
+              :"... (argument forwarding)",
+              Subtyping::Relation.new(
+                sub_type: forwarded_args.params,
+                super_type: params
               )
             )
+
+            if result.failure?
+              errors.push(
+                Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
+                  method_name: method_name,
+                  node: forwarded_args.node,
+                  params_pair: [params, forwarded_args.params],
+                  result: result
+                )
+              )
+            end
           end
         end
       end

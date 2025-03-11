@@ -23,7 +23,7 @@ module Steep
         attr_reader super_method: RBS::Definition::Method?
 
         # The type of forwarding params when `...` is given
-        attr_reader forward_arg_type: [Params, Block?]?
+        attr_reader forward_arg_type: [Params, Block?] | true | nil
 
         def initialize: (
           name: Symbol,
@@ -31,7 +31,7 @@ module Steep
           method_type: Interface::MethodType?,
           return_type: AST::Types::t,
           super_method: RBS::Definition::Method?,
-          forward_arg_type: [Params, Block?]?
+          forward_arg_type: [Params, Block?] | true | nil
         ) -> void
 
         # Type of the block of the current method type
