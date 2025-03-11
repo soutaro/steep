@@ -174,29 +174,8 @@ module Steep
       end
 
       def validate_type_name_deprecation(type_name, location)
-        annotations =
-          case
-          when type_name.class?
-            case
-            when decl = env.class_decls.fetch(type_name, nil)
-              decl.decls.flat_map { _1.decl.annotations }
-            when decl = env.class_alias_decls.fetch(type_name, nil)
-              decl.decl.annotations
-            end
-          when type_name.interface?
-            if decl = env.interface_decls.fetch(type_name, nil)
-              decl.decl.annotations
-            end
-          when type_name.alias?
-            if decl = env.type_alias_decls.fetch(type_name, nil)
-              decl.decl.annotations
-            end
-          end
-
-        if annotations
-          if (_, message = AnnotationsHelper.deprecated_annotation?(annotations))
-            @errors << Diagnostic::Signature::DeprecatedTypeName.new(type_name, message, location: location)
-          end
+        if (_, message = AnnotationsHelper.deprecated_type_name?(type_name, env))
+          @errors << Diagnostic::Signature::DeprecatedTypeName.new(type_name, message, location: location)
         end
       end
 

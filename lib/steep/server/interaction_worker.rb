@@ -268,6 +268,11 @@ module Steep
 
         type_name = sig_service.latest_env.normalize_type_name(type_name)
 
+        tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
+        if AnnotationsHelper.deprecated_type_name?(type_name, sig_service.latest_env)
+          tags << LSP::Constant::CompletionItemTag::DEPRECATED
+        end
+
         case type_name.kind
         when :class
           env = sig_service.latest_env
@@ -290,7 +295,8 @@ module Steep
               range: range,
               new_text: complete_text
             ),
-            kind: LSP::Constant::CompletionItemKind::CLASS
+            kind: LSP::Constant::CompletionItemKind::CLASS,
+            tags: tags
           )
         when :alias
           alias_decl = sig_service.latest_env.type_alias_decls[type_name]&.decl or raise
@@ -303,7 +309,8 @@ module Steep
               new_text: complete_text
             ),
             documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, alias_decl, [alias_decl.comment].compact) },
-            kind: LSP::Constant::CompletionItemKind::FIELD
+            kind: LSP::Constant::CompletionItemKind::FIELD,
+            tags: tags
           )
         when :interface
           interface_decl = sig_service.latest_env.interface_decls[type_name]&.decl or raise
@@ -316,7 +323,8 @@ module Steep
               new_text: complete_text
             ),
             documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, interface_decl, [interface_decl.comment].compact) },
-            kind: LSP::Constant::CompletionItemKind::INTERFACE
+            kind: LSP::Constant::CompletionItemKind::INTERFACE,
+            tags: tags
           )
         else
           raise
@@ -435,6 +443,12 @@ module Steep
             when item.absolute_type_name.alias?
               LSP::Constant::CompletionItemKind::FIELD
             end
+
+          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
+          if AnnotationsHelper.deprecated_type_name?(item.absolute_type_name, item.env)
+            tags << LSP::Constant::CompletionItemTag::DEPRECATED
+          end
+
           LSP::Interface::CompletionItem.new(
             label: item.relative_type_name.to_s,
             kind: kind,
@@ -443,7 +457,8 @@ module Steep
             text_edit: LSP::Interface::TextEdit.new(
               range: range,
               new_text: item.relative_type_name.to_s
-            )
+            ),
+            tags: tags
           )
           when Services::CompletionProvider::TextItem
             LSP::Interface::CompletionItem.new(

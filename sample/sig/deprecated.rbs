@@ -11,4 +11,6 @@ class Bar
               | %a{deprecated: Pass an positional argument} (string: String) -> void
 end
 
+type t = Foo
+
 %a{deprecated} $test: untyped

@@ -53,19 +53,7 @@ module Steep
         end
 
         def deprecated?
-          annotations =
-            case entry = env.constant_entry(full_name)
-            when RBS::Environment::ConstantEntry
-              entry.decl.annotations
-            when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-              entry.decls.flat_map { _1.decl.annotations }
-            when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-              entry.decl.annotations
-            else
-              raise
-            end
-            
-          if AnnotationsHelper.deprecated_annotation?(annotations)
+          if AnnotationsHelper.deprecated_type_name?(full_name, env)
             true
           else
             false
