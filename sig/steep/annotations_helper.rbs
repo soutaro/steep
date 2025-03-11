@@ -9,5 +9,9 @@ module Steep
     # Returns the pair of the annotation and given message.
     #
     def self?.deprecated_annotation?: (Array[Annotation]) -> [Annotation, String?]?
+
+    # Returns truthy if the type name is declared *deprecated*
+    #
+    def self?.deprecated_type_name?: (RBS::TypeName, RBS::Environment) -> [Annotation, String?]?
   end
 end

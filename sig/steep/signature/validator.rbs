@@ -49,11 +49,29 @@ module Steep
       #
       def validate_type_params: (RBS::TypeName, Array[RBS::AST::TypeParam]) -> void
 
-      def validate_type_application_constraints: (RBS::TypeName type_name, Array[RBS::AST::TypeParam] type_params, Array[RBS::Types::t] type_args, location: RBS::Location[untyped, untyped]?) -> void
+      # Validate type application constraints
+      #
+      # Doesn't validate descendant types.
+      #
+      private def validate_type_application_constraints: (RBS::TypeName type_name, Array[RBS::AST::TypeParam] type_params, Array[RBS::Types::t] type_args, location: RBS::Location[untyped, untyped]?) -> void
 
-      def validate_type_application: (RBS::Types::t) -> void
+      # Validate type application
+      #
+      # Doesn't validate descendant types.
+      #
+      private def validate_type_application: (RBS::Types::t) -> void
 
+      # Validate if type name is deprecated
+      #
+      private def validate_type_name_deprecation: (RBS::TypeName, RBS::Location[untyped, untyped]) -> void
+
+      # Validate a type and its descendants
+      #
       def validate_type: (RBS::Types::t `type`) -> void
+
+      # Validate a type, and calls the method with its descendants
+      #
+      def validate_type_0: (RBS::Types::t) -> void
 
       def ancestor_to_type: (RBS::Definition::Ancestor::t ancestor) -> (AST::Types::Name::Interface | AST::Types::Name::Instance)
 

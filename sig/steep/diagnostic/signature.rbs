@@ -276,6 +276,16 @@ module Steep
         include ResultPrinter2
       end
 
+      class DeprecatedTypeName < Base
+        attr_reader type_name: RBS::TypeName
+
+        attr_reader message: String?
+
+        def initialize: (RBS::TypeName type_name, String? message, location: RBS::Location[untyped, untyped]?) -> void
+
+        def header_line: () -> String
+      end
+
       def self.from_rbs_error: (RBS::BaseError error, factory: AST::Types::Factory) -> Base
     end
   end

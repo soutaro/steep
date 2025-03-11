@@ -54,6 +54,9 @@ module Steep
           case diagnostic
           when Ruby::DeprecatedReference
             tags << LSP::Constant::DiagnosticTag::DEPRECATED
+          when Signature::DeprecatedTypeName
+            tags << LSP::Constant::DiagnosticTag::DEPRECATED
+            severity = LSP::Constant::DiagnosticSeverity::WARNING
           end
 
           json = {
