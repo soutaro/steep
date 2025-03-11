@@ -100,7 +100,9 @@ module Steep
 
       # The type of `...`
       #
-      # `nil` if the node doesn't have it.
+      # * A pair of `Params` and `Block` the type of the parameter is known
+      # * `nil` if the node doesn't have `...` parameter
+      # * `true` if the node has `...` parameter, but the type of the method is `(?)`
       #
       attr_reader forward_arg_type: [Params, Block?] | true | nil
 

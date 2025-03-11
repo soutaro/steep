@@ -556,6 +556,10 @@ class MethodParamsTest < Minitest::Test
         assert_equal "()", params.forward_arg_type[0].to_s
         assert_equal "{ () -> void }", params.forward_arg_type[1].to_s
       end
+
+      MethodParams.build(node: node, method_type: parse_method_type("(?) -> void")).tap do |params|
+        assert_equal true, params.forward_arg_type
+      end
     end
   end
 
