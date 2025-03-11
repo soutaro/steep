@@ -45,7 +45,7 @@ module Steep
 
       def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node]) -> [Result, Result]?
 
-      def evaluate_union_method_call: (node: Parser::AST::Node, env: TypeEnv, receiver: Parser::AST::Node, receiver_type: AST::Types::Union) -> [Result, Result]?
+      def evaluate_union_method_call: (node: Parser::AST::Node, type: AST::Types::t, env: TypeEnv, receiver: Parser::AST::Node, receiver_type: AST::Types::Union) -> [Result, Result]?
 
       # Apply type refinement to `node` as `truthy_type` and `falsy_type`.
       #
