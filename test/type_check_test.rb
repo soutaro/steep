@@ -1527,6 +1527,38 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_type_narrowing__union_send2
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            attr_reader foo: String?
+
+            def foo!: () -> void
+          end
+
+          class Bar
+            attr_reader foo: nil
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          foo = rand > 0.1 ? Foo.new : Bar.new
+          if x = foo.foo
+            foo.foo!
+            x + ""
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
 
   def test_argument_error__unexpected_unexpected_positional_argument
     run_type_check_test(
