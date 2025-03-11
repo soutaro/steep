@@ -3498,4 +3498,39 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_argument_forwarding__undeclared
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(...)
+              1.to_s(...)
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 9
+            severity: ERROR
+            message: Method `::Foo#foo` is not declared in RBS
+            code: Ruby::UndeclaredMethodDefinition
+      YAML
+    )
+  end
 end

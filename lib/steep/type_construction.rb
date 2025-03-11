@@ -3869,7 +3869,11 @@ module Steep
 
         case forward_arg_type
         when nil
-          raise "Method context must have `forwarded_arg_type` if `...` node appears in it"
+          if context.method_context.method_type
+            raise "Method context must have `forwarded_arg_type` if `...` node appears in it"
+          else
+            # Skips type checking forwarded argument because the method type is not given
+          end
         when true
           # Skip type checking forwarded argument because the method is untyped function
         else
@@ -4247,18 +4251,29 @@ module Steep
 
             case
             when forwarded_args_node = args.forwarded_args_node
-              (_, block = method_context!.forward_arg_type) or raise
+              case forward_arg_type = method_context!.forward_arg_type
+              when nil
+                if method_context!.method_type
+                  raise "Method context must have `forwarded_arg_type` if `...` node appears in it"
+                else
+                  # Skips type checking forwarded argument because the method type is not given
+                end
+              when true
+                # Skip type checking because it's untyped function
+              else
+                _, block = forward_arg_type
 
-              method_block_type = method_type.block&.to_proc_type || AST::Builtin.nil_type
-              forwarded_block_type = block&.to_proc_type || AST::Builtin.nil_type
+                method_block_type = method_type.block&.to_proc_type || AST::Builtin.nil_type
+                forwarded_block_type = block&.to_proc_type || AST::Builtin.nil_type
 
-              if result = constr.no_subtyping?(sub_type: forwarded_block_type, super_type: method_block_type)
-                errors << Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
-                  method_name: method_name,
-                  node: forwarded_args_node,
-                  block_pair: [block, method_type.block],
-                  result: result
-                )
+                if result = constr.no_subtyping?(sub_type: forwarded_block_type, super_type: method_block_type)
+                  errors << Diagnostic::Ruby::IncompatibleArgumentForwarding.new(
+                    method_name: method_name,
+                    node: forwarded_args_node,
+                    block_pair: [block, method_type.block],
+                    result: result
+                  )
+                end
               end
 
             when arg.compatible?
