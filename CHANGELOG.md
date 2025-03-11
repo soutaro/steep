@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 1.10.0.pre.1 (2025-03-11)
+
+### Type checker core
+
+* Skip type checking forwarded argument if the method is undeclared ([#1519](https://github.com/soutaro/steep/pull/1519))
+* Dedup error message on ancestors check ([#1515](https://github.com/soutaro/steep/pull/1515))
+* Add deprecation validation on RBS ([#1518](https://github.com/soutaro/steep/pull/1518))
+* Fix union self type refinement based on method call ([#1517](https://github.com/soutaro/steep/pull/1517))
+* Check deprecations in Ruby code ([#1513](https://github.com/soutaro/steep/pull/1513))
+* Support `InvalidTypeApplication` on `#update_env` ([#1507](https://github.com/soutaro/steep/pull/1507))
+* Fix Source.parse crashes with selector-less sendish node ([#1433](https://github.com/soutaro/steep/pull/1433))
+* Fix steep:ignore does not work with CR/LF ([#1406](https://github.com/soutaro/steep/pull/1406))
+* Fix self union type checking ([#1467](https://github.com/soutaro/steep/pull/1467))
+* Type narrowing union types via return type of method call ([#1497](https://github.com/soutaro/steep/pull/1497))
+* Fix `else` clause of `case-when` syntax typing ([#1475](https://github.com/soutaro/steep/pull/1475))
+* Strict record and tuple subtyping ([#1460](https://github.com/soutaro/steep/pull/1460))
+* Allow to annotate "self" on toplevel ([#1455](https://github.com/soutaro/steep/pull/1455))
+* Let annotations in `when` clause without `cond` expression work ([#1459](https://github.com/soutaro/steep/pull/1459))
+* Fix `RuntimeError` on `when` clause with assertion ([#1458](https://github.com/soutaro/steep/pull/1458))
+* Add diagnostic for method definition without types ([#1457](https://github.com/soutaro/steep/pull/1457))
+
+### Commandline tool
+
+* Implement GitHub formatter ([#1516](https://github.com/soutaro/steep/pull/1516))
+* Refine `--help` messages ([#1463](https://github.com/soutaro/steep/pull/1463))
+
+### Language server
+
+* Reforking steep ([#1492](https://github.com/soutaro/steep/pull/1492))
+* Set up file watcher for groups ([#1485](https://github.com/soutaro/steep/pull/1485))
+
+### Miscellaneous
+
+* Fix a runtime warning for ambiguous `/`; wrap regexp in parentheses or add a space after `/` operator ([#1438](https://github.com/soutaro/steep/pull/1438))
+* Fix a runtime warning for ambiguous `*` has been interpreted as an argument prefix ([#1439](https://github.com/soutaro/steep/pull/1439))
+* Fix a runtime warning for key :cursor is duplicated and overwritten on line 99 ([#1440](https://github.com/soutaro/steep/pull/1440))
+* Use release version of RBS ([#1511](https://github.com/soutaro/steep/pull/1511))
+* Prepare for rbs-3.9 ([#1510](https://github.com/soutaro/steep/pull/1510))
+* Fix typos ([#1506](https://github.com/soutaro/steep/pull/1506))
+* Fix CI ([#1486](https://github.com/soutaro/steep/pull/1486))
+
 ## 1.9.3 (2024-12-26)
 
 ### Miscellaneous
