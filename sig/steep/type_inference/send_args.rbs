@@ -199,7 +199,7 @@ module Steep
 
         def pair: () -> [Parser::AST::Node, Interface::Function]?
 
-        def node_type: () -> AST::Types::t
+        %a{pure} def node_type: () -> AST::Types::t
       end
 
       class ForwardedArgs
