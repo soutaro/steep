@@ -273,6 +273,30 @@ module Steep
         end
       end
 
+      class VariableDuplicationError < Base
+        attr_reader :type_name
+        attr_reader :variable_name
+        attr_reader :location
+
+        def initialize(type_name:, variable_name:, location:)
+          @type_name = type_name
+          @variable_name = variable_name
+          @location = location
+        end
+      end
+
+      class InstanceVariableDuplicationError < VariableDuplicationError
+        def header_line
+          "Duplicated instance variable name `#{variable_name}` in `#{type_name}`"
+        end
+      end
+
+      class ClassInstanceVariableDuplicationError < VariableDuplicationError
+        def header_line
+          "Duplicated class instance variable name `#{variable_name}` in `#{type_name}`"
+        end
+      end
+
       class ClassVariableDuplicationError < Base
         attr_reader :class_name
         attr_reader :other_class_name
@@ -581,6 +605,10 @@ module Steep
           Diagnostic::Signature::CyclicClassAliasDefinitionError.new(decl: error.alias_entry.decl)
         when RBS::TypeParamDefaultReferenceError
           Diagnostic::Signature::TypeParamDefaultReferenceError.new(error.type_param, location: error.location)
+        when RBS::InstanceVariableDuplicationError
+          Diagnostic::Signature::InstanceVariableDuplicationError.new(type_name: error.type_name, variable_name: error.variable_name, location: error.location)
+        when RBS::ClassInstanceVariableDuplicationError
+          Diagnostic::Signature::ClassInstanceVariableDuplicationError.new(type_name: error.type_name, variable_name: error.variable_name, location: error.location)
         else
           raise error
         end

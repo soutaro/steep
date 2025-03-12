@@ -1,0 +1,24 @@
+class Instance
+  @i: Integer
+  @i: Integer
+end
+
+class ClassInstance
+  self.@ci: Integer
+  self.@ci: Integer
+end
+
+class InstanceClassInstanceNoError
+  @i: Integer
+  self.@i: Integer
+end
+
+class Inherit
+  @i: Integer
+  self.@ci: Integer
+end
+
+class InheritNoError < Inherit
+  @i: Integer
+  self.@ci: Integer
+end

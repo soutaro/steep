@@ -322,3 +322,25 @@
     severity: ERROR
     message: Cannot find type `ZZZ`
     code: RBS::UnknownTypeName
+- file: variable-duplication.rbs
+  diagnostics:
+  - range:
+      start:
+        line: 3
+        character: 2
+      end:
+        line: 3
+        character: 13
+    severity: ERROR
+    message: Duplicated instance variable name `@i` in `::Instance`
+    code: RBS::InstanceVariableDuplicationError
+  - range:
+      start:
+        line: 8
+        character: 2
+      end:
+        line: 8
+        character: 19
+    severity: ERROR
+    message: Duplicated class instance variable name `@ci` in `::ClassInstance`
+    code: RBS::ClassInstanceVariableDuplicationError
