@@ -3533,4 +3533,33 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_type_check_untyped_calls_with_blocks
+    run_type_check_test(
+      signatures: {
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo
+            .foo {}
+            .foo {}
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 3
+            severity: ERROR
+            message: 'Cannot find the declaration of constant: `Foo`'
+            code: Ruby::UnknownConstant
+      YAML
+    )
+  end
 end

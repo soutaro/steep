@@ -3458,7 +3458,7 @@ module Steep
             block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
             block_params or raise
 
-            constr = constr.synthesize_children(node.children[0])
+            constr = constr.synthesize_children(node.children[0], skips: [receiver])
 
             constr.type_block_without_hint(
               node: node,
