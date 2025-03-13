@@ -3562,4 +3562,47 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_generics_optional_arg #: void
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Test
+            def foo: [T] (?T) { () -> T } -> T
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Test.new.foo(1) { 1 }.fooo
+          Test.new.foo() { 1 }.fooo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 22
+              end:
+                line: 1
+                character: 26
+            severity: ERROR
+            message: Type `::Integer` does not have method `fooo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 2
+                character: 21
+              end:
+                line: 2
+                character: 25
+            severity: ERROR
+            message: Type `::Integer` does not have method `fooo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

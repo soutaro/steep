@@ -4119,6 +4119,15 @@ module Steep
 
                 fvs_.merge(method_type.type.params.free_variables) if method_type.type.params
                 fvs_.merge(method_type.block.type.params.free_variables) if method_type.block.type.params
+                (method_type.type.return_type.free_variables + method_type.block.type.return_type.free_variables).each do |var|
+                  if var.is_a?(Symbol)
+                    if constraints.unknown?(var)
+                      unless constraints.has_constraint?(var)
+                        fvs_.delete(var)
+                      end
+                    end
+                  end
+                end
 
                 constraints.solution(checker, variables: fvs_, context: ccontext)
               }
