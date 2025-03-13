@@ -225,4 +225,10 @@ class TypeCheckTest < Minitest::Test
   def test_type_check_untyped_calls_with_blocks: () -> untyped
 
   def test_generics_optional_arg: () -> void
+
+  def test_self_type__block_hint: () -> untyped
+
+  def test_self_type__block_annotation: () -> untyped
+
+  def test_self_type__lambda_hint: () -> untyped
 end
