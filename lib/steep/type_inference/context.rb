@@ -155,6 +155,10 @@ module Steep
         @type_env = type_env
         @call_context = call_context
         @variable_context = variable_context
+
+        if self_type.free_variables.include?(AST::Types::Self.instance)
+          raise "Context#self_type cannot contain `self`"
+        end
       end
 
       def with(method_context: self.method_context,

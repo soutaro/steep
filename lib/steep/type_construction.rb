@@ -4139,7 +4139,7 @@ module Steep
                 block_constr = block_constr.update_type_env {|env| env.subst(s) }
                 block_constr = block_constr.update_context {|context|
                   context.with(
-                    self_type: method_type.block.self_type || context.self_type,
+                    self_type: context.self_type.subst(s),
                     type_env: context.type_env.subst(s),
                     block_context: context.block_context&.subst(s),
                     break_context: context.break_context&.subst(s)
@@ -4584,17 +4584,21 @@ module Steep
         next_type: block_context.body_type || AST::Builtin.any_type
       )
 
-      self_type = block_annotations.self_type || block_self_hint || self.self_type
+      self_type = block_self_hint || self.self_type
       module_context = self.module_context
 
       if implements = block_annotations.implement_module_annotation
         module_context = default_module_context(implements.name, nesting: nesting)
-
         self_type = module_context.module_type
       end
 
       if annotation_self_type = block_annotations.self_type
         self_type = annotation_self_type
+      end
+
+      # self_type here means the top-level `self` type because of the `Interface::Builder` implementation
+      if self_type
+        self_type = expand_self(self_type)
       end
 
       self.class.new(

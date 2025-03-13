@@ -202,7 +202,7 @@ module Steep
         ?block_context: BlockContext?,
         ?break_context: BreakContext?,
         ?module_context: ModuleContext,
-        ?self_type: AST::Types::t,
+        ?self_type: AST::Types::t?,
         ?type_env: TypeEnv,
         ?call_context: MethodCall::context,
         ?variable_context: TypeVariableContext

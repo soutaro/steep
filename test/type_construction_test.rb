@@ -1076,7 +1076,7 @@ end
         method_context: nil,
         module_context: module_context,
         break_context: nil,
-        self_type: nil,
+        self_type: parse_type("::Steep"),
         type_env: type_env,
         call_context: MethodCall::TopLevelContext.new,
         variable_context: Context::TypeVariableContext.empty
@@ -1167,7 +1167,7 @@ class Steep end
         method_context: nil,
         module_context: module_context,
         break_context: nil,
-        self_type: nil,
+        self_type: parse_type("::Steep"),
         type_env: type_env,
         call_context: MethodCall::ModuleContext.new(type_name: RBS::TypeName.parse("::Steep")),
         variable_context: Context::TypeVariableContext.empty

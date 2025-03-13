@@ -3605,4 +3605,115 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_self_type__block_hint
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Test
+            def self.foo: () { () [self: self] -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Test
+            # @dynamic self.foo
+
+            foo { no_such_method }
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 8
+              end:
+                line: 4
+                character: 22
+            severity: ERROR
+            message: Type `singleton(::Test)` does not have method `no_such_method`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_self_type__block_annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Test
+            def self.foo: () { () [self: self] -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Test
+            # @dynamic self.foo
+
+            foo do
+              # @type self: singleton(Test)
+              no_such_method
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 4
+              end:
+                line: 6
+                character: 18
+            severity: ERROR
+            message: Type `singleton(::Test)` does not have method `no_such_method`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_self_type__lambda_hint
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Test
+            def self.foo: (^() [self: self] -> void) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Test
+            # @dynamic self.foo
+
+            foo(-> { no_such_method })
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 11
+              end:
+                line: 4
+                character: 25
+            severity: ERROR
+            message: Type `singleton(::Test)` does not have method `no_such_method`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
