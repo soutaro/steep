@@ -15,7 +15,13 @@ class DiagnosticsPrinterTest < Minitest::Test
 
   def test_single_line_message: () -> untyped
 
+  def test_single_line_message_with_github_actions_formatter: () -> untyped
+
   def test_multiline_message: () -> untyped
 
+  def test_multiline_message_with_github_actions_formatter: () -> untyped
+
   def test_multiline_source: () -> untyped
+
+  def test_multiline_source_with_github_actions_formatter: () -> untyped
 end

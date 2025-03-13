@@ -100,6 +100,8 @@ class TypeCheckTest < Minitest::Test
 
   def test_type_narrowing__union_send: () -> untyped
 
+  def test_type_narrowing__union_send2: () -> untyped
+
   def test_argument_error__unexpected_unexpected_positional_argument: () -> untyped
 
   def test_type_assertion__type_error: () -> untyped
@@ -187,4 +189,38 @@ class TypeCheckTest < Minitest::Test
   def test_when__type_annotation: () -> untyped
 
   def test_tuple_type_assertion: () -> untyped
+
+  def test_case_when__no_subject__assignment_in_when__raise_in_else: () -> untyped
+
+  def test_self_type_union_assertion: () -> untyped
+
+  def test_case_when__no_subject__assignment_in_when__no_else: () -> untyped
+
+  def test_case_when__with_subject__assignment_in_when__raise_in_else: () -> untyped
+
+  def test_case_when__with_subject__assignment_in_when__empty_else: () -> untyped
+
+  def test_case_when__with_subject__assignment_in_when__no_else: () -> untyped
+
+  def test_deprecated_method: () -> untyped
+
+  def test_deprecated_method_alias: () -> untyped
+
+  def test_deprecated_method_overload: () -> untyped
+
+  def test_deprecated_class_module: () -> untyped
+
+  def test_deprecated_class_module_alias: () -> untyped
+
+  def test_deprecated_constant: () -> untyped
+
+  def test_deprecated_global: () -> untyped
+
+  def test_class_module_decl__deprecated: () -> untyped
+
+  def test_argument_forwarding__dynamic: () -> untyped
+
+  def test_argument_forwarding__undeclared: () -> untyped
+
+  def test_type_check_untyped_calls_with_blocks: () -> untyped
 end

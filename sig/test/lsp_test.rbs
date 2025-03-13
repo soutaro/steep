@@ -22,4 +22,8 @@ class LSPTest < Minitest::Test
   def test_goto_definition: () -> untyped
 
   def test_goto_implementation: () -> untyped
+
+  def test_type_check_groups: () -> untyped
+
+  def test_type_check_groups__all: () -> untyped
 end

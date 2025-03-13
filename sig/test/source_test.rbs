@@ -71,6 +71,8 @@ class SourceTest < Minitest::Test
 
   def test_assertion__defs: () -> untyped
 
+  def test_assertion__kwargs: () -> untyped
+
   def test_tapp_send: () -> untyped
 
   def test_tapp_csend: () -> untyped
@@ -80,6 +82,8 @@ class SourceTest < Minitest::Test
   def test_tapp_numblock: () -> untyped
 
   def test_tapp_skip: () -> untyped
+
+  def test_selectorless_sendish_node_with_annotation_comment: () -> untyped
 
   def test_find_comment: () -> untyped
 end

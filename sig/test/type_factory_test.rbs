@@ -44,4 +44,6 @@ class TypeFactoryTest < Minitest::Test
   def test_partition_union__boolish: () -> untyped
 
   def test_partition_union__bool_union: () -> untyped
+
+  def test_partition_union__void: () -> untyped
 end

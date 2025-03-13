@@ -35,6 +35,8 @@ class LogicTypeInterpreterTest < Minitest::Test
 
   def test_type_case_select: () -> untyped
 
+  def test_call_void: () -> untyped
+
   def test_type_case_select_untyped: () -> untyped
 
   def test_type_case_select_top: () -> untyped

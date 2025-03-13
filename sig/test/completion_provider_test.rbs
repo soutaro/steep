@@ -70,4 +70,8 @@ class CompletionProviderTest < Minitest::Test
   def test_comment__type: () -> untyped
 
   def test_self_receiver_call_type: () -> untyped
+
+  def test_constant__deprecated: () -> untyped
+
+  def test_method__deprecated: () -> untyped
 end

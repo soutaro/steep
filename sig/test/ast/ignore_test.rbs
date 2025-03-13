@@ -16,4 +16,6 @@ class AST__IgnoreTest < Minitest::Test
   def test_parse_ignore__all: () -> untyped
 
   def test_parse_ignore__diagnostics: () -> untyped
+
+  def test_parse_ignore__crlf: () -> untyped
 end
