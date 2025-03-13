@@ -27,5 +27,9 @@ class DriverHelperTest < Minitest::Test
 
   def test_load_config_error__lock_file_is_broken: () -> untyped
 
-  def test_load_config_error__collection_not_installed: () -> untyped
+  def test_load_config__install_from_lockfile: () -> untyped
+
+  def test_load_config__install_from_lockfile__disabled: () -> untyped
+
+  def test_load_config__install_from_lockfile__failure: () -> untyped
 end

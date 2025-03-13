@@ -34,4 +34,6 @@ class SteepfileTest < Minitest::Test
   def test_target_unreferenced: () -> untyped
 
   def test_group: () -> untyped
+
+  def test_string: () -> untyped
 end

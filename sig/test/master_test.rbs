@@ -58,4 +58,6 @@ class MasterTest < Minitest::Test
   def test_type_check_request__empty: () -> untyped
 
   def test_type_check_request__type_check: () -> untyped
+
+  def test__initialize__file_system_watcher_setup: () -> untyped
 end

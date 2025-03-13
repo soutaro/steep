@@ -224,3 +224,26 @@ NOTES
     end
   end
 end
+
+namespace :rbs do
+  task :watch do
+    require "listen"
+    listener = Listen.to('test') do |modified, added, removed|
+      paths = (modified + added).map do
+        Pathname(_1).relative_path_from(Pathname.pwd)
+      end
+      sh "rbs-inline", "--opt-out", "--output=sig", *paths.map(&:to_s)
+    end
+    listener.start
+    begin
+      sleep
+    rescue Interrupt
+      listener.stop
+    end
+  end
+
+  task :generate do
+    sh "rbs-inline --opt-out --output=sig test"
+    sh "rbs-inline --opt-out --output=tmp/rbs-inline bin/generate-diagnostics-docs.rb"
+  end
+end

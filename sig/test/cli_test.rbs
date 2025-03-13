@@ -21,9 +21,13 @@ class CLITest < Minitest::Test
 
   def test_check_failure: () -> untyped
 
+  def test_check_failure_with_formatter: () -> untyped
+
   def test_check_group__target: () -> untyped
 
   def test_check_group__group: () -> untyped
+
+  def test_check_group__group__target: () -> untyped
 
   def test_check_failure_severity_level: () -> untyped
 
@@ -34,6 +38,8 @@ class CLITest < Minitest::Test
   def test_check_expectations_fail: () -> untyped
 
   def test_check_expectations_fail2: () -> untyped
+
+  def test_check__implicitly_returns_nil: () -> untyped
 
   def test_check_broken: () -> untyped
 
