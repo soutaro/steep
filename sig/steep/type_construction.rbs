@@ -338,7 +338,7 @@ module Steep
     # * `body_node` Block body node
     # * `block_params` BlockParams object
     # * `block_param_hint` Type hint of the block parameters
-    # * `block_type_hint` Type hint of the block body
+    # * `block_next_type` Type of `next` from the block
     # * `block_block_hint` Type hint of the block that will be given to the block
     # * `block_annotations` Annotations given to the block body
     # * `node_type_hint` Type hint of block call node
@@ -347,7 +347,7 @@ module Steep
         Parser::AST::Node? body_node,
         block_params: TypeInference::BlockParams,
         block_param_hint: Interface::Function::Params?,
-        block_type_hint: AST::Types::t?,
+        block_next_type: AST::Types::t?,
         block_block_hint: Interface::Block?,
         block_annotations: AST::Annotation::Collection,
         node_type_hint: AST::Types::t?,

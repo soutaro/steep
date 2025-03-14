@@ -3108,7 +3108,7 @@ module Steep
         body_node,
         block_params: params,
         block_param_hint: params_hint,
-        block_type_hint: return_hint,
+        block_next_type: return_hint,
         block_block_hint: block_hint,
         block_annotations: block_annotations,
         block_self_hint: self_hint,
@@ -4064,7 +4064,7 @@ module Steep
                 block_body,
                 block_params: block_params_,
                 block_param_hint: method_type.block.type.params,
-                block_type_hint: method_type.block.type.return_type,
+                block_next_type: method_type.block.type.return_type,
                 block_block_hint: nil,
                 block_annotations: block_annotations,
                 block_self_hint: method_type.block.self_type,
@@ -4435,7 +4435,7 @@ module Steep
         block_body,
         block_params: block_params,
         block_param_hint: nil,
-        block_type_hint: nil,
+        block_next_type: nil,
         block_block_hint: nil,
         block_annotations: block_annotations,
         block_self_hint: nil,
@@ -4488,7 +4488,7 @@ module Steep
       end
     end
 
-    def for_block(body_node, block_params:, block_param_hint:, block_type_hint:, block_block_hint:, block_annotations:, node_type_hint:, block_self_hint:)
+    def for_block(body_node, block_params:, block_param_hint:, block_next_type:, block_block_hint:, block_annotations:, node_type_hint:, block_self_hint:)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint, factory: checker.factory)
 
       # @type var param_types_hash: Hash[Symbol?, AST::Types::t]
@@ -4577,11 +4577,11 @@ module Steep
                    end
 
       block_context = TypeInference::Context::BlockContext.new(
-        body_type: block_annotations.block_type || block_type_hint
+        body_type: block_annotations.block_type
       )
       break_context = TypeInference::Context::BreakContext.new(
         break_type: break_type || AST::Builtin.any_type,
-        next_type: block_context.body_type || AST::Builtin.any_type
+        next_type: block_next_type || AST::Builtin.any_type
       )
 
       self_type = block_self_hint || self.self_type
@@ -4622,6 +4622,20 @@ module Steep
     def synthesize_block(node:, block_type_hint:, block_body:)
       if block_body
         body_type, _, context = synthesize(block_body, hint: block_context&.body_type || block_type_hint)
+
+        if annotated_body_type = block_context&.body_type
+          if result = no_subtyping?(sub_type: body_type, super_type: annotated_body_type)
+            typing.add_error(
+              Diagnostic::Ruby::BlockBodyTypeMismatch.new(
+                node: node,
+                expected: annotated_body_type,
+                actual: body_type,
+                result: result
+              )
+            )
+          end
+          body_type = annotated_body_type
+        end
 
         range = block_body.loc.expression.end_pos..node.loc.end.begin_pos
         typing.cursor_context.set(range, context)

@@ -136,18 +136,14 @@ class TypeCheckTest < Minitest::Test
           - range:
               start:
                 line: 4
-                character: 11
+                character: 4
               end:
                 line: 4
-                character: 23
+                character: 47
             severity: ERROR
-            message: |-
-              Cannot allow block body have type `::Integer` because declared as type `::String`
-                ::Integer <: ::String
-                  ::Numeric <: ::String
-                    ::Object <: ::String
-                      ::BasicObject <: ::String
-            code: Ruby::BlockBodyTypeMismatch
+            message: 'Assertion cannot hold: no relationship between inferred type (`^(::Integer)
+              -> ::Integer`) and asserted type (`^(::Integer) -> ::String`)'
+            code: Ruby::FalseAssertion
       YAML
     )
   end
@@ -3712,6 +3708,138 @@ class TypeCheckTest < Minitest::Test
                 character: 25
             severity: ERROR
             message: Type `singleton(::Test)` does not have method `no_such_method`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_block_type_comment__call
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          [1,2,3].map do |x|
+            # @type block: String
+            123
+          end.ffffffffff
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 12
+              end:
+                line: 4
+                character: 3
+            severity: ERROR
+            message: |-
+              Cannot allow block body have type `::Integer` because declared as type `::String`
+                ::Integer <: ::String
+                  ::Numeric <: ::String
+                    ::Object <: ::String
+                      ::BasicObject <: ::String
+            code: Ruby::BlockBodyTypeMismatch
+          - range:
+              start:
+                line: 4
+                character: 4
+              end:
+                line: 4
+                character: 14
+            severity: ERROR
+            message: Type `::Array[::String]` does not have method `ffffffffff`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_block_type_comment__untyped
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          (_ = 123).foo do
+            # @type block: String
+            123
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 14
+              end:
+                line: 4
+                character: 3
+            severity: ERROR
+            message: |-
+              Cannot allow block body have type `::Integer` because declared as type `::String`
+                ::Integer <: ::String
+                  ::Numeric <: ::String
+                    ::Object <: ::String
+                      ::BasicObject <: ::String
+            code: Ruby::BlockBodyTypeMismatch
+      YAML
+    )
+  end
+
+  def test_block_type_comment__lambda
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = -> do
+            # @type block: String
+            123
+          end
+          x.ffffffffff
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 7
+              end:
+                line: 4
+                character: 3
+            severity: ERROR
+            message: |-
+              Cannot allow block body have type `::Integer` because declared as type `::String`
+                ::Integer <: ::String
+                  ::Numeric <: ::String
+                    ::Object <: ::String
+                      ::BasicObject <: ::String
+            code: Ruby::BlockBodyTypeMismatch
+          - range:
+              start:
+                line: 5
+                character: 2
+              end:
+                line: 5
+                character: 12
+            severity: ERROR
+            message: Type `^() -> ::String` does not have method `ffffffffff`
             code: Ruby::NoMethod
       YAML
     )

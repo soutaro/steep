@@ -86,4 +86,6 @@ class SourceTest < Minitest::Test
   def test_selectorless_sendish_node_with_annotation_comment: () -> untyped
 
   def test_find_comment: () -> untyped
+
+  def test_annotation_attached_to_block: () -> untyped
 end

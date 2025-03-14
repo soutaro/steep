@@ -231,4 +231,10 @@ class TypeCheckTest < Minitest::Test
   def test_self_type__block_annotation: () -> untyped
 
   def test_self_type__lambda_hint: () -> untyped
+
+  def test_block_type_comment__call: () -> untyped
+
+  def test_block_type_comment__untyped: () -> untyped
+
+  def test_block_type_comment__lambda: () -> untyped
 end
