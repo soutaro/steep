@@ -1004,4 +1004,31 @@ super { } # $ nil
       assert_equal "# comment 3", source.find_comment(line: 3, column: 13).text
     end
   end
+
+  def test_annotation_attached_to_block
+    with_factory do |factory|
+      code = <<~RUBY
+        [1,2,3].map do
+          # @type block: String
+          _1 + 2
+        end.ffffffffff
+      RUBY
+
+      source = Steep::Source.parse(code, path: Pathname("foo.rb"), factory: factory)
+
+      source.node.tap do |send|
+        assert_equal :send, send.type
+        source.annotations(block: send, factory: factory, context: nil).tap do |annotations|
+          assert_empty annotations.annotations
+        end
+
+        send.children[0].tap do |numblock|
+          assert_equal :numblock, numblock.type
+          source.annotations(block: numblock, factory: factory, context: nil).tap do |annotations|
+            refute_nil annotations.block_type_annotation
+          end
+        end
+      end
+    end
+  end
 end

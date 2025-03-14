@@ -257,7 +257,7 @@ module Steep
         annot.line or next
 
         case node.type
-        when :def, :module, :class, :block, :ensure, :defs, :resbody
+        when :def, :module, :class, :block, :numblock, :ensure, :defs, :resbody
           location = node.loc
           location.line <= annot.line && annot.line < location.last_line
         else
