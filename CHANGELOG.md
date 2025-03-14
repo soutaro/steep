@@ -1,6 +1,12 @@
 # CHANGELOG
 
-## 3.10.0.pre.2 (2025-03-14)
+## 1.10.0.pre.3 (2025-03-14)
+
+### Type checker core
+
+* Fix block type checking ([#1534](https://github.com/soutaro/steep/pull/1534))
+
+## 1.10.0.pre.2 (2025-03-14)
 
 ### Type checker core
 
