@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 3.10.0.pre.2 (2025-03-14)
+
+### Type checker core
+
+* Fix `self` type handling at block-self-hint ([#1531](https://github.com/soutaro/steep/pull/1531))
+* Delay type variable resolution on method call with blocks ([#1530](https://github.com/soutaro/steep/pull/1530))
+* Fix type checking block calls on `untyped` receiver ([#1528](https://github.com/soutaro/steep/pull/1528))
+* Catch the message of VariableDuplicationError ([#1521](https://github.com/soutaro/steep/pull/1521))
+
 ## 1.10.0.pre.1 (2025-03-11)
 
 ### Type checker core
