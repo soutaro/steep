@@ -152,6 +152,8 @@ This kind of annotations should be written in the method context using annotatio
 Supported annotations are:
 
 * `pure`: The method is a [pure method](https://github.com/soutaro/steep/wiki/Release-Note-1.1#type-narrowing-on-method-calls-590).  This means the method will return a value of the same type during the block.  Note that there is no validation, enforcement, or proof that the implementations of *pure* methods are actually pure.
+* `deprecated`: The method is deprecated.  This means that the method is no longer recommended for use, and may be removed in the future.  Developers can add the description to the annotation (ex. `%a{deprecated: since v0.9}`).
+* `steep:deprecated`: Same as `deprecated`.
 
 ### Example
 
