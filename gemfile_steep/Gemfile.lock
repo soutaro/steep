@@ -82,7 +82,7 @@ PLATFORMS
 
 DEPENDENCIES
   mutex_m
-  steep (~> 1.10.0.pre)
+  steep (~> 1.10.0)
 
 BUNDLED WITH
    2.5.17
