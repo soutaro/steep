@@ -97,7 +97,7 @@ GEM
       io-console (~> 0.5)
     securerandom (0.4.1)
     stackprof (0.2.27)
-    stringio (3.1.5)
+    stringio (3.1.6)
     strscan (3.1.2)
     terminal-table (4.0.0)
       unicode-display_width (>= 1.1.1, < 4)
