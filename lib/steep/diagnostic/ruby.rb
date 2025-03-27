@@ -1043,6 +1043,22 @@ module Steep
         end
       end
 
+      class InsufficientTypeGuard < Base
+        attr_reader :super_type
+        attr_reader :sub_type
+
+        def initialize(node:, super_type:, sub_type:)
+          @super_type = super_type
+          @sub_type = sub_type
+
+          super(node: node)
+        end
+
+        def header_line
+          "Cannot narrow the type: #{super_type} is not a subtype of #{sub_type}"
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass

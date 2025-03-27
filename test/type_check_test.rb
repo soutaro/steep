@@ -1555,6 +1555,155 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_type_guard__self_is_TYPE
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Object
+            %a{guard:self is Integer}
+            def integer?: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var a: Object
+          a = (_ = nil)
+
+          if a.integer?
+            a + 1
+          else
+            a.succ
+          end
+
+          a + 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 7
+                character: 4
+              end:
+                line: 7
+                character: 8
+            severity: ERROR
+            message: Type `::Object` does not have method `succ`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 10
+                character: 2
+              end:
+                line: 10
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | ::Object)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_guard__self_is_TYPE_no_subtyping
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Object
+            %a{guard:self is String}
+            def string?: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = 1
+
+          if a.string?
+            a.reverse
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 3
+              end:
+                line: 3
+                character: 4
+            severity: ERROR
+            message: 'Cannot narrow the type: ::Integer is not a subtype of ::String'
+            code: Ruby::InsufficientTypeGuard
+          - range:
+              start:
+                line: 4
+                character: 4
+              end:
+                line: 4
+                character: 11
+            severity: ERROR
+            message: Type `::Integer` does not have method `reverse`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_guard__self_is_TYPE_singleton
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Object
+            %a{guard:self is singleton(String)}
+            def self.string?: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          cls = Object
+
+          if cls.string?
+            cls.new + ""
+          else
+            cls.new.succ
+          end
+
+          cls.new + ""
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 10
+              end:
+                line: 6
+                character: 14
+            severity: ERROR
+            message: Type `::Object` does not have method `succ`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 9
+                character: 8
+              end:
+                line: 9
+                character: 9
+            severity: ERROR
+            message: Type `(::String | ::Object)` does not have method `+`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 
   def test_argument_error__unexpected_unexpected_positional_argument
     run_type_check_test(
