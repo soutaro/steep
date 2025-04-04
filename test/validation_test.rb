@@ -1267,6 +1267,81 @@ Test: SetValueExtractor[ArraySet]
     end
   end
 
+  def test_validate_type_guard
+    with_checker <<-RBS do |checker|
+class Foo
+  %a{guard: self is Integer}
+  def foo: () -> bool
+
+  %a{guard: self is Hash[Symbol, Integer]}
+  def bar: () -> bool
+end
+      RBS
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_predicate validator, :no_error?
+    end
+  end
+
+  def test_validate_type_guard__invalid_syntax
+    with_checker <<-RBS do |checker|
+class Foo
+  %a{guard: invalid syntax}
+  def foo: () -> bool
+end
+      RBS
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any validator.each_error do |error|
+        error.is_a?(Diagnostic::Signature::TypeGuardSyntaxError) &&
+          error.predicate == "guard: invalid syntax"
+      end
+    end
+  end
+
+  def test_validate_type_guard__unparsable_type
+    with_checker <<-RBS do |checker|
+class Foo
+  %a{guard: self is Array[Integer}
+  def foo: () -> bool
+end
+      RBS
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any validator.each_error do |error|
+        error.is_a?(Diagnostic::Signature::InvalidTypeGuardType) &&
+          error.type == "Array[Integer"
+      end
+    end
+  end
+
+  def test_validate_type_guard__unknown_type
+    with_checker <<-RBS do |checker|
+class Foo
+  %a{guard: self is Unknown}
+  def foo: () -> bool
+end
+      RBS
+
+      validator = Validator.new(checker: checker)
+      validator.validate_decl
+
+      assert_operator validator, :has_error?
+      assert_any validator.each_error do |error|
+        error.is_a?(Diagnostic::Signature::InvalidTypeGuardType) &&
+          error.type == "Unknown"
+      end
+    end
+  end
+
   def test_validate__deprecated__type_name
     with_checker <<~RBS do |checker|
         %a{deprecated} class Foo end

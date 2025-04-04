@@ -282,6 +282,20 @@ module Steep
         attr_reader message: String?
 
         def initialize: (RBS::TypeName type_name, String? message, location: RBS::Location[untyped, untyped]?) -> void
+      end
+
+      class TypeGuardSyntaxError < Base
+        attr_reader predicate: String
+
+        def initialize: (String predicate, location: RBS::Location[untyped, untyped]?) -> void
+
+        def header_line: () -> String
+      end
+
+      class InvalidTypeGuardType < Base
+        attr_reader type: String
+
+        def initialize: (String type, location: RBS::Location[untyped, untyped]?) -> void
 
         def header_line: () -> String
       end
