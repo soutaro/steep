@@ -35,14 +35,18 @@ module Steep
           pats = commandline_patterns.empty? ? pattern.patterns : commandline_patterns
 
           pats.each do |path|
-            Pathname.glob((base_dir + path).to_s).each do |absolute_path|
+            # Escape special characters {}[]*? by prefixing with \ 
+            escaped_base_dir = Pathname(base_dir.to_s.gsub(/[\{\}\[\]\*\?]/) { |x| "\\#{x}" })
+            Pathname.glob((escaped_base_dir + path).to_s).each do |absolute_path|
               if absolute_path.file?
                 relative_path = absolute_path.relative_path_from(base_dir)
                 if pattern =~ relative_path
                   yield relative_path
                 end
               else
-                files = Pathname.glob("#{absolute_path}/**/*#{pattern.ext}")
+                # Escape special characters {}[]*? by prefixing with \ 
+                escaped_absolute_path = Pathname(absolute_path.to_s.gsub(/[\{\}\[\]\*\?]/) { |x| "\\#{x}" })
+                files = Pathname.glob("#{escaped_absolute_path}/**/*#{pattern.ext}")
 
                 files.sort.each do |source_path|
                   if source_path.file?
