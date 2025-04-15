@@ -38,6 +38,7 @@ GEM
     parser (3.3.8.0)
       ast (~> 2.4.1)
       racc
+    prism (1.2.0)
     racc (1.8.1)
     rainbow (3.1.1)
     rb-fsevent (0.11.2)
@@ -45,6 +46,9 @@ GEM
       ffi (~> 1.0)
     rbs (3.9.2)
       logger
+    rbs-inline (0.11.0)
+      prism (>= 0.29, < 1.3)
+      rbs (>= 3.5.0)
     securerandom (0.4.1)
     steep (1.10.0)
       activesupport (>= 5.1)
@@ -82,6 +86,7 @@ PLATFORMS
 
 DEPENDENCIES
   mutex_m
+  rbs-inline
   steep (~> 1.10.0.pre)
 
 BUNDLED WITH
