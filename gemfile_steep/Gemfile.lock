@@ -21,12 +21,21 @@ GEM
     concurrent-ruby (1.3.5)
     connection_pool (2.5.0)
     csv (3.3.4)
+    date (3.4.1)
+    debug (1.10.0)
+      irb (~> 1.10)
+      reline (>= 0.3.8)
     drb (2.2.1)
     ffi (1.17.1-arm64-darwin)
     ffi (1.17.1-x86_64-linux-gnu)
     fileutils (1.7.3)
     i18n (1.14.7)
       concurrent-ruby (~> 1.0)
+    io-console (0.8.0)
+    irb (1.15.2)
+      pp (>= 0.6.0)
+      rdoc (>= 4.0.0)
+      reline (>= 0.4.2)
     json (2.10.2)
     language_server-protocol (3.17.0.4)
     listen (3.9.0)
@@ -38,7 +47,13 @@ GEM
     parser (3.3.8.0)
       ast (~> 2.4.1)
       racc
+    pp (0.6.2)
+      prettyprint
+    prettyprint (0.2.0)
     prism (1.2.0)
+    psych (5.2.3)
+      date
+      stringio
     racc (1.8.1)
     rainbow (3.1.1)
     rb-fsevent (0.11.2)
@@ -49,7 +64,17 @@ GEM
     rbs-inline (0.11.0)
       prism (>= 0.29, < 1.3)
       rbs (>= 3.5.0)
+    rdoc (6.13.1)
+      psych (>= 4.0.0)
+    reline (0.6.1)
+      io-console (~> 0.5)
+    ruby-lsp (0.23.14)
+      language_server-protocol (~> 3.17.0)
+      prism (>= 1.2, < 2.0)
+      rbs (>= 3, < 4)
+      sorbet-runtime (>= 0.5.10782)
     securerandom (0.4.1)
+    sorbet-runtime (0.5.12016)
     steep (1.10.0)
       activesupport (>= 5.1)
       concurrent-ruby (>= 1.1.10)
@@ -67,6 +92,7 @@ GEM
       strscan (>= 1.0.0)
       terminal-table (>= 2, < 5)
       uri (>= 0.12.0)
+    stringio (3.1.6)
     strscan (3.1.3)
     terminal-table (4.0.0)
       unicode-display_width (>= 1.1.1, < 4)
@@ -85,8 +111,11 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  debug
+  minitest
   mutex_m
   rbs-inline
+  ruby-lsp
   steep (~> 1.10.0.pre)
 
 BUNDLED WITH
