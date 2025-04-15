@@ -1,4 +1,4 @@
-class RBS::Location[in RK, in OK]
+class RBS::Location[in RK = untyped, in OK = untyped]
   def as_lsp_range: () -> LanguageServer::Protocol::Interface::Range::json
 end
 
