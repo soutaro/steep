@@ -1,3 +1,12 @@
+GIT
+  remote: https://github.com/ruby/rbs.git
+  revision: 0a1bb2f5144b0a9b5de9709b21980fc26711e80a
+  branch: master
+  specs:
+    rbs (4.0.0.dev)
+      logger
+      prism (>= 1.3.0)
+
 PATH
   remote: .
   specs:
@@ -13,7 +22,7 @@ PATH
       mutex_m (>= 0.3.0)
       parser (>= 3.1)
       rainbow (>= 2.2.2, < 4.0)
-      rbs (~> 3.9)
+      rbs (~> 4.0.0.dev)
       securerandom (>= 0.1)
       strscan (>= 1.0.0)
       terminal-table (>= 2, < 5)
@@ -76,7 +85,7 @@ GEM
     pp (0.6.2)
       prettyprint
     prettyprint (0.2.0)
-    prism (1.2.0)
+    prism (1.4.0)
     psych (5.2.3)
       date
       stringio
@@ -86,11 +95,6 @@ GEM
     rb-fsevent (0.11.2)
     rb-inotify (0.11.1)
       ffi (~> 1.0)
-    rbs (3.9.2)
-      logger
-    rbs-inline (0.11.0)
-      prism (>= 0.29, < 1.3)
-      rbs (>= 3.5.0)
     rdoc (6.13.1)
       psych (>= 4.0.0)
     reline (0.6.1)
@@ -120,7 +124,7 @@ DEPENDENCIES
   minitest-hooks
   minitest-slow_test
   rake
-  rbs-inline
+  rbs!
   stackprof
   steep!
   vernier (~> 1.5)

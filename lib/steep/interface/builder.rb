@@ -240,7 +240,7 @@ module Steep
           case type
           when AST::Types::Name::Instance
             entry = factory.env.normalized_module_class_entry(type.name) or raise
-            entry.primary.decl.type_params.map { _1.name }
+            entry.primary_decl.type_params.map { _1.name }
           when AST::Types::Name::Interface
             entry = factory.env.interface_decls.fetch(type.name)
             entry.decl.type_params.map { _1.name }

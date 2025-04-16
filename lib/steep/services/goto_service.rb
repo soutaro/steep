@@ -229,8 +229,10 @@ module Steep
             signature_service = type_check.signature_services[target_name] #: SignatureService
 
             env = signature_service.latest_env
-            buffer = env.buffers.find {|buf| buf.name.to_s == relative_path.to_s } or raise
-            (dirs, decls = env.signatures[buffer]) or raise
+            source = env.each_rbs_source.find {|src| src.buffer.name == relative_path } or raise
+            buffer = source.buffer
+            dirs = source.directives
+            decls = source.declarations
 
             locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
             last, nodes = locator.find2(line: line, column: column)
@@ -309,9 +311,11 @@ module Steep
               locations << [target, entry.decl.location[:name]]
             end
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            entry.decls.each do |d|
-              if d.decl.location
-                locations << [target, d.decl.location[:name]]
+            entry.each_decl do |decl|
+              if decl.is_a?(RBS::AST::Declarations::Base)
+                if decl.location
+                  locations << [target, decl.location[:name]]
+                end
               end
             end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
