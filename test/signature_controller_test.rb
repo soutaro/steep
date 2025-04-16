@@ -214,7 +214,7 @@ RBS
 class A
 end
 RBS
-      assert_instance_of RBS::AST::Declarations::Class, file.signature[2][0]
+      assert_instance_of RBS::AST::Declarations::Class, file.source.declarations[0]
     end
 
     {}.tap do |changes|
@@ -269,8 +269,44 @@ RBS
       service.update(changes)
     end
 
-    service.global_decls(paths: Set[Pathname("sig/foo.rbs")]).tap do |consts|
-      assert_equal Set[:$VERSION], Set.new(consts.each_key)
+    service.global_decls(paths: Set[Pathname("sig/foo.rbs")]).tap do |globals|
+      assert_equal Set[:$VERSION], Set.new(globals.each_key)
     end
+  end
+
+  def test_update__ruby
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    assert_operator service.latest_env, :module_name?, RBS::TypeName.parse("::Object")
+    refute_operator service.latest_env, :module_name?, RBS::TypeName.parse("::Hello")
+
+    {}.tap do |changes|
+      changes[Pathname("lib/foo.rb")] = [
+        ContentChange.new(range: nil, text: <<RUBY)
+class Hello
+end
+RUBY
+      ]
+      service.update(changes)
+    end
+
+    assert_operator service.latest_env, :module_name?, RBS::TypeName.parse("::Object")
+    assert_operator service.latest_env, :module_name?, RBS::TypeName.parse("::Hello")
+
+    {}.tap do |changes|
+      changes[Pathname("lib/foo.rb")] = [
+        ContentChange.new(range: nil, text: <<RBS)
+class World
+end
+RBS
+      ]
+      service.update(changes)
+    end
+
+    assert_operator service.latest_env, :module_name?, RBS::TypeName.parse("::Object")
+    refute_operator service.latest_env, :module_name?, RBS::TypeName.parse("::Hello")
+    assert_operator service.latest_env, :module_name?, RBS::TypeName.parse("::World")
   end
 end

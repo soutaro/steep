@@ -23,22 +23,19 @@ module Steep
 
         attr_reader work_done_progress: WorkDoneProgress
 
-        type target_and_path = [Symbol, Pathname]
+        # The path of library files
+        attr_reader library_paths: Hash[Symbol, Set[Pathname]]
 
-        # The path of RBS files of libraries
-        attr_reader library_paths: Set[target_and_path]
-
-        # The path of signature files
-        attr_reader signature_paths: Set[target_and_path]
-
-        # The path of Ruby code files
         attr_reader code_paths: Set[target_and_path]
 
-        # The path of files that is opened by the editor
-        attr_reader priority_paths: Set[Pathname]
+        attr_reader inline_paths: Set[target_and_path]
+
+        attr_reader signature_paths: Set[target_and_path]
 
         # The path of files that are type checked already
         attr_reader checked_paths: Set[target_and_path]
+
+        attr_reader priority_paths: Set[Pathname]
 
         attr_reader started_at: Time
 
@@ -51,13 +48,31 @@ module Steep
         #
         attr_accessor needs_response: bool
 
-        def initialize: (guid: String, progress: WorkDoneProgress) -> void
+        def initialize: (guid: String, targets: Array[Target], progress: WorkDoneProgress) -> void
+
+        def add_library_path: (Target, Pathname) -> void
+
+        def add_code_path: (Target, Pathname) -> void
+
+        def add_signature_path: (Target, Pathname) -> void
+
+        def add_inline_path: (Target, Pathname) -> void
+
+        def add_project_path: (Target, Pathname) -> void
 
         private def uri: (Pathname path) -> URI::File
 
-        type target_path_string = [String, String]
+        # A pair of target name and path
+        type target_and_path = [Symbol, Pathname]
 
-        type json = { guid: String, library_uris: Array[target_path_string], signature_uris: Array[target_path_string], code_uris: Array[target_path_string], priority_uris: Array[String] }
+        type json = {
+          guid: String,
+          library_uris: Hash[String, Array[String]],
+          code_uris: Array[[String, String]],
+          inline_uris: Array[[String, String]],
+          signature_uris: Array[[String, String]],
+          priority_uris: Array[String],
+        }
 
         def as_json: (assignment: Services::PathAssignment) -> json
 
@@ -74,10 +89,19 @@ module Steep
         def each_path: () { (Pathname) -> void } -> void
                      | () -> Enumerator[Pathname]
 
+        # Enumerates all paths included in the request
         def each_target_path: () { (target_and_path) -> void } -> void
                             | () -> Enumerator[target_and_path]
 
+        # Returns true if the path and target is included in the subject of type checking
         def checking_path?: (target_and_path) -> bool
+
+        def project_target_path?: (target_and_path) -> bool
+
+        def library_target_path?: (target_and_path) -> bool
+
+        # Returns true if the path is already type checked/validated
+        def type_checked?: (target_and_path) -> bool
 
         # Mark a path is type checked
         def checked: (Pathname path, Target) -> void
@@ -90,13 +114,10 @@ module Steep
         def each_unchecked_target_path: () { (target_and_path) -> void } -> void
                                       | () -> Enumerator[target_and_path]
 
-        def each_unchecked_code_target_path: () { (target_and_path) -> void } -> void
-                                           | () -> Enumerator[target_and_path]
-
         def each_unchecked_library_target_path: () { (target_and_path) -> void } -> void
                                               | () -> Enumerator[target_and_path]
 
-        def each_unchecked_signature_target_path: () { (target_and_path) -> void } -> void
+        def each_unchecked_project_target_path: () { (target_and_path) -> void } -> void
                                                 | () -> Enumerator[target_and_path]
 
         # Set `#report_progress` and return self, defaults to `true`
@@ -106,7 +127,7 @@ module Steep
         # Merges another request into this request
         def merge!: (Request) -> self
 
-        private def assigned_uris: (Services::PathAssignment, Set[target_and_path]) -> Array[target_path_string]
+        private def assigned_uris: (Services::PathAssignment, Symbol target, Set[Pathname] paths) -> Array[String]
       end
 
       attr_reader project: Project

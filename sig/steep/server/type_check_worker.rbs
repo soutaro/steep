@@ -48,6 +48,7 @@ module Steep
         def initialize: (guid: String, changes: ChangeBuffer::changes) -> void
       end
 
+      # Type check Ruby file
       class TypeCheckCodeJob
         attr_reader guid: String
 
@@ -58,6 +59,18 @@ module Steep
         def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
+      # Type check Ruby file with inline RBS declaration
+      class TypeCheckInlineJob
+        attr_reader guid: String
+
+        attr_reader path: Pathname
+
+        attr_reader target: Project::Target
+
+        def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
+      end
+
+      # Validate a project RBS file
       class ValidateAppSignatureJob
         attr_reader guid: String
 
@@ -68,6 +81,7 @@ module Steep
         def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
+      # Validate a library RBS file
       class ValidateLibrarySignatureJob
         attr_reader guid: String
 
@@ -130,6 +144,7 @@ module Steep
       type job = WorkspaceSymbolJob
                | StartTypeCheckJob
                | TypeCheckCodeJob
+               | TypeCheckInlineJob
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
                | GotoJob

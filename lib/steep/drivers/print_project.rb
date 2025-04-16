@@ -30,6 +30,7 @@ module Steep
         json = {
           "name" => target.name.to_s,
           "source_pattern" => pattern_as_json(target.source_pattern),
+          "inline_pattern" => pattern_as_json(target.inline_source_pattern),
           "signature_pattern" => pattern_as_json(target.signature_pattern),
           "groups" => target.groups.map do |group|
             group_as_json(group)
@@ -52,11 +53,14 @@ module Steep
         } #: target_json
 
         if files
-          files.each_group_signature_path(target, true) do |path|
+          files.signature_paths.each_group_path(target) do |path|
             (json["signature_paths"] ||= []) << path.to_s
           end
-          files.each_group_source_path(target, true) do |path|
+          files.source_paths.each_group_path(target) do |path|
             (json["source_paths"] ||= []) << path.to_s
+          end
+          files.inline_paths.each_group_path(target) do |path|
+            (json["inline_paths"] ||= []) << path.to_s
           end
         end
 
@@ -67,16 +71,19 @@ module Steep
         json = {
           "name" => group.name.to_s,
           "source_pattern" => pattern_as_json(group.source_pattern),
+          "inline_pattern" => pattern_as_json(group.inline_source_pattern),
           "signature_pattern" => pattern_as_json(group.signature_pattern)
         } #: group_json
 
         if files
-          files.each_group_signature_path(group, true) do |path|
+          files.signature_paths.each_group_path(group) do |path|
             (json["signature_paths"] ||= []) << path.to_s
-
           end
-          files.each_group_source_path(group, true) do |path|
+          files.source_paths.each_group_path(group) do |path|
             (json["source_paths"] ||= []) << path.to_s
+          end
+          files.inline_paths.each_group_path(group) do |path|
+            (json["inline_paths"] ||= []) << path.to_s
           end
         end
 

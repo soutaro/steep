@@ -33,7 +33,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
       target :test do
         unreferenced!
 
-        check "test"
+        check "test", inline_rbs: true
         signature "sig/test"
       end
     end
@@ -58,7 +58,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
     files.add_path(Pathname("/app/sig/app/server/server.rbs"))
     files.add_path(Pathname("/app/sig/app/main/main.rbs"))
     files.add_path(Pathname("/app/sig/app/cli.rbs"))
-    files.add_path(Pathname("/app/sig/test/lib_test.rbs"))
+    files.add_path(Pathname("/app/sig/test/test_helper.rbs"))
   end
 
   def test_files__each_library_path
@@ -70,6 +70,15 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
     assert_equal Set[Pathname("/rbs/core/object.rbs"), Pathname("/rbs/core/string.rbs")], files.each_library_path(project.targets.find { _1.name == :lib }).to_set
     assert_equal Set[Pathname("/rbs/core/object.rbs"), Pathname("/rbs/core/string.rbs")], files.each_library_path(project.targets.find { _1.name == :app }).to_set
     assert_equal Set[Pathname("/rbs/core/object.rbs"), Pathname("/rbs/core/string.rbs"), Pathname("/rbs/stdlib/test_unit.rbs")], files.each_library_path(project.targets.find { _1.name == :test }).to_set
+  end
+
+  def test__target #: void
+    project = default_project()
+
+    files = Server::TargetGroupFiles.new(project)
+    setup_files(files)
+
+    assert_equal :app, files.source_paths.target(Pathname("/app/app/server/server.rb")).name
   end
 
   def test_files__each_group_signature_path__target

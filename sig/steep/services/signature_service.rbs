@@ -85,15 +85,17 @@ module Steep
 
         attr_reader content: String
 
-        type signature = [RBS::Buffer, Array[RBS::AST::Directives::t], Array[RBS::AST::Declarations::t]]
+        type source = RBS::Source::RBS | RBS::Source::Ruby
 
-        attr_reader signature: signature | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
+        attr_reader source: source | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
 
         def initialize: (
           path: Pathname,
           content: String,
-          signature: signature | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
+          source: source | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
         ) -> void
+
+        def has_error?: () -> (Diagnostic::Signature::UnexpectedError | RBS::ParsingError | nil)
       end
 
       attr_reader implicitly_returns_nil: bool
@@ -144,13 +146,13 @@ module Steep
 
       def update_builder: (ancestor_builder: RBS::DefinitionBuilder::AncestorBuilder, paths: Set[Pathname]) -> RBS::DefinitionBuilder
 
+      # Returns a set of type names that is defined in given `paths`
+      #
       def type_names: (paths: Set[Pathname], env: RBS::Environment) -> Set[RBS::TypeName]
 
       def const_decls: (paths: Set[Pathname], env: RBS::Environment) -> Hash[RBS::TypeName, RBS::Environment::ConstantEntry]
 
       def global_decls: (paths: Set[Pathname], ?env: RBS::Environment) -> Hash[Symbol, RBS::Environment::GlobalEntry]
-
-      def type_name_from_decl: (RBS::AST::Declarations::t decl, set: Set[RBS::TypeName]) -> void
 
       def add_descendants: (graph: RBS::AncestorGraph, names: Set[RBS::TypeName], set: Set[RBS::TypeName]) -> void
 

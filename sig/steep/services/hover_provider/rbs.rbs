@@ -13,13 +13,14 @@ module Steep
         end
 
         class ClassContent
-          attr_reader location: Location[untyped, untyped]
+          attr_reader location: Location
 
-          type decl = Declarations::Class | Declarations::Module | Declarations::ClassAlias | Declarations::ModuleAlias
+          type entry = Environment::ClassEntry | Environment::ModuleEntry
+                     | Environment::ClassAliasEntry | Environment::ModuleAliasEntry
 
-          attr_reader decl: decl
+          attr_reader entry: entry
 
-          def initialize: (location: Location[untyped, untyped], decl: decl) -> void
+          def initialize: (location: Location, entry: entry) -> void
         end
 
         class InterfaceContent

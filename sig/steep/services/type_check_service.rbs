@@ -58,8 +58,8 @@ module Steep
       #
       # * Signature diagnostics contains everything reported to each target
       #
-      def each_diagnostics: () { ([Pathname, Array[Diagnostic::Ruby::Base] | Array[Diagnostic::Signature::Base]]) -> void } -> void
-                          | () -> Enumerator[[Pathname, Array[Diagnostic::Ruby::Base] | Array[Diagnostic::Signature::Base]], void]
+      def each_diagnostics: () { ([Pathname, Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base]]) -> void } -> void
+                          | () -> Enumerator[[Pathname, Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base]], void]
 
       # Record the changes to the files managed by the service
       #

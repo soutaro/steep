@@ -208,23 +208,26 @@ module Steep
 
       def load_files(files, target, group, params:)
         if type_check_code
-          files.each_group_source_path(group, true) do |path|
+          files.source_paths.each_group_path(group) do |path|
             params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+          end
+          files.inline_paths.each_group_path(group) do |path|
+            params[:inline_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
         if validate_group_signatures
-          files.each_group_signature_path(group) do |path|
+          files.signature_paths.each_group_path(group) do |path|
             params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
         if validate_project_signatures
-          files.each_project_signature_path(target) do |path|
-            if path_target = files.signature_path_target(path)
+          files.signature_paths.each_project_path(except: target) do |path|
+            if path_target = files.signature_paths.target(path)
               params[:signature_paths] << [path_target.name.to_s, target.project.absolute_path(path).to_s]
             end
           end
           if group.is_a?(Project::Group)
-            files.each_target_signature_path(target, group) do |path|
+            files.signature_paths.each_target_path(target, except: group) do |path|
               params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
             end
           end

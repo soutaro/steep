@@ -25,5 +25,7 @@ class RBSHoverTest < Minitest::Test
 
   def test_hover_comment_on_rbs: () -> untyped
 
-  def test_hover_use: () -> untyped
+  RBSProvider: class
+
+  def test_hover_use: () -> void
 end

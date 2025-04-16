@@ -609,17 +609,22 @@ module Steep
           id = message[:id]
           params = message[:params] #: CustomMethods::TypeCheck::params
 
-          request = TypeCheckController::Request.new(guid: id, progress: work_done_progress(id))
+          request = TypeCheckController::Request.new(guid: id, targets: project.targets, progress: work_done_progress(id))
           request.needs_response = true
 
+          targets = {} #: Hash[Symbol, Project::Target]
+          project.targets.each do |target|
+            targets[target.name] = target
+          end
+
           params[:code_paths].each do |target_name, path|
-            request.code_paths << [target_name.to_sym, Pathname(path)]
+            request.add_project_path(targets.fetch(target_name.to_sym), Pathname(path))
           end
           params[:signature_paths].each do |target_name, path|
-            request.signature_paths << [target_name.to_sym, Pathname(path)]
+            request.add_project_path(targets.fetch(target_name.to_sym), Pathname(path))
           end
           params[:library_paths].each do |target_name, path|
-            request.library_paths << [target_name.to_sym, Pathname(path)]
+            request.add_library_path(targets.fetch(target_name.to_sym), Pathname(path))
           end
 
           start_type_check(request: request, last_request: nil)
@@ -791,7 +796,7 @@ module Steep
           if current.guid == guid
             current.checked(path, target)
 
-            Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.each_unchecked_code_target_path.size}, diagnostics=#{diagnostics&.size}" }
+            Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.each_unchecked_path.to_a.count}, diagnostics=#{diagnostics&.size}" }
 
             percentage = current.percentage
             current.work_done_progress.report(percentage, "#{current.checked_paths.size}/#{current.total}") if current.report_progress

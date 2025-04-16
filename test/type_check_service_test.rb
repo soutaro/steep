@@ -4,10 +4,10 @@ class TypeCheckServiceTest < Minitest::Test
   include Steep
   include TestHelper
 
-  ContentChange = Services::ContentChange
-  TypeCheckService = Services::TypeCheckService
+  ContentChange = Services::ContentChange #: singleton(Steep::Services::ContentChange)
+  TypeCheckService = Services::TypeCheckService #: singleton(Steep::Services::TypeCheckService)
 
-  def project
+  def project #: Steep::Project
     @project ||= Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
       Project::DSL.eval(project) do
         target :core do
@@ -449,6 +449,68 @@ RBS
         [Diagnostic::Ruby::NoMethod, Diagnostic::Ruby::InvalidIgnoreComment, Diagnostic::Ruby::InvalidIgnoreComment],
         service.diagnostics[Pathname("lib/core.rb")].map {|d| d.class }
       )
+    end
+  end
+
+  def test_update__inline_rbs__ruby
+    project = Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
+      Project::DSL.eval(project) do
+        target :app do
+          check "lib/core.rb", inline_rbs: true
+        end
+      end
+    end
+
+    service = Services::TypeCheckService.new(project: project)
+    app_signature = service.signature_services.fetch(:app)
+
+    assert_operator app_signature.latest_env, :class_decl?, RBS::TypeName.parse("::Object")
+
+    {
+      Pathname("lib/core.rb") => [ContentChange.string(<<RBS)],
+class Core
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+    end
+
+    assert_operator app_signature.latest_env, :class_decl?, RBS::TypeName.parse("::Core")
+  end
+
+  def test_validate__signature__inline
+    project = Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
+      Project::DSL.eval(project) do
+        target :app do
+          check "lib/core.rb", inline_rbs: true
+        end
+      end
+    end
+
+    service = Services::TypeCheckService.new(project: project)
+
+    service.update(changes: reset_changes)
+
+    {
+      Pathname("lib/core.rb") => [ContentChange.string(<<RUBY)],
+class Foo < c::Object
+  public :foo
+end
+RUBY
+    }.tap do |changes|
+      service.update(changes: changes)
+      service.validate_signature(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :app })
+
+      service.diagnostics[Pathname("lib/core.rb")].tap do |errors|
+        assert_any!(errors) do |error|
+          assert_instance_of Diagnostic::Signature::InlineDiagnostic, error
+          assert_equal "c::Object", error.location.source
+        end
+        assert_any!(errors) do |error|
+          assert_instance_of Diagnostic::Signature::InlineDiagnostic, error
+          assert_equal ":foo", error.location.source
+        end
+      end
     end
   end
 end

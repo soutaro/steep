@@ -13,7 +13,9 @@ class ServerTypeCheckControllerTest < Minitest::Test
 
   WorkDoneProgress: untyped
 
-  def dirs: () -> untyped
+  def dirs: () -> Array[Pathname]
+
+  def envs: () -> Array[Hash[String, String]]
 
   def test_initialize: () -> untyped
 

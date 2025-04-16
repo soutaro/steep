@@ -16,7 +16,5 @@ group :development, optional: true do
   gem "majo"
 end
 
-gem "rbs-inline", require: false
-
-# gem "rbs", path: "../rbs"
+gem "rbs", path: "../rbs", require: false
 # gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"

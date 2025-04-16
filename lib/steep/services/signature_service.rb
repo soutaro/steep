@@ -76,7 +76,13 @@ module Steep
         end
       end
 
-      FileStatus = _ = Struct.new(:path, :content, :signature, keyword_init: true)
+      FileStatus = _ = Struct.new(:path, :content, :source, keyword_init: true)
+      class FileStatus
+        def has_error?
+          return source if source.is_a?(RBS::ParsingError)
+          return source if source.is_a?(Diagnostic::Signature::Base)
+        end
+      end
 
       attr_reader :implicitly_returns_nil
 
@@ -165,15 +171,27 @@ module Steep
 
                 update[path] =
                   begin
-                    FileStatus.new(path: path, content: content, signature: RBS::Parser.parse_signature(buffer))
+                    case path.extname
+                    when ".rbs"
+                      _, dirs, decls = RBS::Parser.parse_signature(buffer)
+                      source = RBS::Source::RBS.new(buffer, dirs, decls)
+                    when ".rb"
+                      prism = Prism.parse(content, filepath: path.to_s)
+                      result = RBS::InlineParser.parse(buffer, prism)
+                      source = RBS::Source::Ruby.new(buffer, prism, result.declarations, result.diagnostics)
+                    end
+
+                    source or raise "Unexpected source path: #{path}"
+
+                    FileStatus.new(path: path, content: content, source: source)
                   rescue ArgumentError => exn
                     error = Diagnostic::Signature::UnexpectedError.new(
                       message: exn.message,
                       location: RBS::Location.new(buffer: buffer, start_pos: 0, end_pos: content.size)
                     )
-                    FileStatus.new(path: path, content: content, signature: error)
+                    FileStatus.new(path: path, content: content, source: error)
                   rescue RBS::ParsingError => exn
-                    FileStatus.new(path: path, content: content, signature: exn)
+                    FileStatus.new(path: path, content: content, source: exn)
                   end
               end
             end
@@ -187,18 +205,18 @@ module Steep
           paths = Set.new(updates.each_key)
           paths.merge(pending_changed_paths)
 
-          if updates.each_value.any? {|file| !file.signature.is_a?(Array) }
+          if updates.each_value.any? { _1.has_error? }
             diagnostics = [] #: Array[Diagnostic::Signature::Base]
 
             updates.each_value do |file|
-              unless file.signature.is_a?(Array)
-                diagnostic = if file.signature.is_a?(Diagnostic::Signature::Base)
-                               file.signature
-                             else
-                               # factory is not used here because the error is a syntax error.
-                               Diagnostic::Signature.from_rbs_error(file.signature, factory: _ = nil)
-                             end
-                diagnostics << diagnostic
+              if error = file.has_error?
+                case error
+                when Diagnostic::Signature::Base
+                  diagnostics << error
+                when RBS::ParsingError
+                  # factory is not used here because the error is a syntax error.
+                  diagnostics << Diagnostic::Signature.from_rbs_error(error, factory: _ = nil)
+                end
               end
             end
 
@@ -235,7 +253,7 @@ module Steep
       def update_env(updated_files, paths:)
         Steep.logger.tagged "#update_env" do
           errors = [] #: Array[RBS::BaseError]
-          new_decls = Set[].compare_by_identity #: Set[RBS::AST::Declarations::t]
+          new_decls = Set[].compare_by_identity #: Set[RBS::AST::Declarations::t | RBS::AST::Ruby::Declarations::t]
 
           env =
             Steep.measure "Deleting out of date decls" do
@@ -245,16 +263,15 @@ module Steep
 
           Steep.measure "Loading new decls" do
             updated_files.each_value do |content|
-              case content.signature
+              case content.source
               when RBS::ParsingError
-                errors << content.signature
+                errors << content.source
               when Diagnostic::Signature::UnexpectedError
-                return [content.signature]
+                return [content.source]
               else
                 begin
-                  buffer, dirs, decls = content.signature
-                  env.add_signature(buffer: buffer, directives: dirs, decls: decls)
-                  new_decls.merge(decls)
+                  env.add_signature(content.source)
+                  new_decls.merge(content.source.declarations)
                 rescue RBS::LoadingError => exn
                   errors << exn
                 end
@@ -339,13 +356,23 @@ module Steep
       end
 
       def type_names(paths:, env:)
-        env.declarations.each.with_object(Set[]) do |decl, set|
-          if decl.location
-            if paths.include?(Pathname(decl.location.buffer.name))
-              type_name_from_decl(decl, set: set)
-            end
+        type_names = Set[] #: Set[RBS::TypeName]
+
+        env.each_rbs_source do |source|
+          next unless paths.include?(source.buffer.name)
+          source.each_type_name do |name|
+            type_names << name
           end
         end
+
+        env.each_ruby_source do |source|
+          next unless paths.include?(source.buffer.name)
+          source.each_type_name do |name|
+            type_names << name
+          end
+        end
+
+        type_names
       end
 
       def const_decls(paths:, env:)
@@ -361,23 +388,6 @@ module Steep
           if location = entry.decl.location
             paths.include?(Pathname(location.buffer.name))
           end
-        end
-      end
-
-      def type_name_from_decl(decl, set:)
-        case decl
-        when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module, RBS::AST::Declarations::Interface
-          set << decl.name
-
-          decl.members.each do |member|
-            if member.is_a?(RBS::AST::Declarations::Base)
-              type_name_from_decl(member, set: set)
-            end
-          end
-        when RBS::AST::Declarations::TypeAlias
-          set << decl.name
-        when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
-          set << decl.new_name
         end
       end
 

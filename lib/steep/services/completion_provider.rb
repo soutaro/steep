@@ -31,7 +31,14 @@ module Steep
           when RBS::Environment::ConstantEntry
             [entry.decl.comment]
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            entry.decls.map {|d| d.decl.comment }
+            entry.each_decl.filter_map do |decl|
+              case decl
+              when RBS::AST::Declarations::Module, RBS::AST::Declarations::Class
+                decl.comment
+              else
+                nil
+              end
+            end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
             [entry.decl.comment]
           else
@@ -44,7 +51,7 @@ module Steep
           when RBS::Environment::ConstantEntry
             entry.decl
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            entry.primary.decl
+            entry.primary_decl
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
             entry.decl
           else

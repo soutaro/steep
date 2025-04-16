@@ -5,6 +5,7 @@ module Steep
       attr_reader :target_options
 
       attr_reader :source_pattern
+      attr_reader :inline_source_pattern
       attr_reader :signature_pattern
       attr_reader :code_diagnostics_config
       attr_reader :project
@@ -12,10 +13,11 @@ module Steep
       attr_reader :groups
       attr_reader :implicitly_returns_nil
 
-      def initialize(name:, options:, source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:, implicitly_returns_nil:)
+      def initialize(name:, options:, source_pattern:, inline_source_pattern:, signature_pattern:, code_diagnostics_config:, project:, unreferenced:, implicitly_returns_nil:)
         @name = name
         @target_options = options
         @source_pattern = source_pattern
+        @inline_source_pattern = inline_source_pattern
         @signature_pattern = signature_pattern
         @code_diagnostics_config = code_diagnostics_config
         @project = project
@@ -33,7 +35,7 @@ module Steep
           return target
         end
 
-        if source_pattern =~ path
+        if source_pattern =~ path || inline_source_pattern =~ path
           return self
         end
 
@@ -45,7 +47,43 @@ module Steep
           return target
         end
 
+        if signature_pattern =~ path || inline_source_pattern =~ path
+          return self
+        end
+
+        nil
+      end
+
+      def source_file_path?(path)
+        if group = groups.find { _1.source_pattern =~ path }
+          return group
+        end
+
+        if source_pattern =~ path
+          return self
+        end
+
+        nil
+      end
+
+      def signature_file_path?(path)
+        if group = groups.find { _1.signature_pattern =~ path }
+          return group
+        end
+
         if signature_pattern =~ path
+          return self
+        end
+
+        nil
+      end
+
+      def inline_source_file_path?(path)
+        if group = groups.find { _1.inline_source_pattern =~ path }
+          return group
+        end
+
+        if inline_source_pattern =~ path
           return self
         end
 

@@ -2,18 +2,35 @@ use Steep::Project::Target, Steep::Project::Group
 
 module Steep
   module Server
+    # TargetGroupFiles keeps track of the project files and their targets/groups
+    #
+    # ```rb
+    # files = TargetGroupFiles.new(project)
+    #
+    # files.add_path(Pathname("lib/foo.rb"))
+    # files.add_path(Pathname("lib/bar.rb"))
+    # files.add_path(Pathname("sig/foo.rbs"))
+    #
+    # files.library_path?(path)
+    # files.source_path_target(Pathname("lib/foo.rb"))
+    # files.signature_path_target(Pathname("lib/bar.rb"))
+    # files.inline_path_target(Pathname("sig/foo.rbs"))
+    # ```
+    #
     class TargetGroupFiles
       attr_reader project: Project
 
-      attr_reader source_paths: Hash[Pathname, Target | Group]
+      attr_reader source_paths: PathEnumerator
 
-      attr_reader signature_paths: Hash[Pathname, Target | Group]
+      attr_reader signature_paths: PathEnumerator
+
+      attr_reader inline_paths: PathEnumerator
 
       attr_reader library_paths: Hash[Symbol, Set[Pathname]]
 
       def initialize: (Project) -> void
 
-      # Add path
+      # Add project file path
       #
       # * Returns `true` if the path is under the control of the project.
       # * Returns `false` if the path doesn't belong to the project.
@@ -27,52 +44,64 @@ module Steep
 
       def library_path?: (Pathname) -> bool
 
-      def signature_path_target: (Pathname) -> Target?
+      def []: (Pathname) -> (Target | Group | nil)
 
-      def source_path_target: (Pathname) -> Target?
+      def path_target: (Pathname) -> Target?
 
-      # Yield signature paths that belongs to given target/group
-      #
-      def each_group_signature_path: (Target | Group, ?bool no_group) { (Pathname) -> void } -> void
-                                   | (Target | Group, ?bool no_group) -> Enumerator[Pathname]
+      def target_group_for_path: (Pathname) -> [Target, Group?]?
 
-      # Yields signature paths that belongs to given target
-      #
-      # Skips yielding signature paths that belongs to group, if given.
-      #
-      def each_target_signature_path: (Target, Group? skip) { (Pathname) -> void } -> void
-                                    | (Target, Group? skip) -> Enumerator[Pathname]
+      def each_group_path: (Target | Group) { (Pathname) -> void } -> void
+                         | (Target | Group) -> Enumerator[Pathname]
 
-      # Yields signature paths that belongs to the project
-      #
-      # * Skips yielding signature paths that belongs to target, if given.
-      # * Skips yielding signature paths that belongs to *unreferenced* target.
-      #
-      def each_project_signature_path: (Target? skip) { (Pathname) -> void } -> void
-                                     | (Target? skip) -> Enumerator[Pathname]
+      def each_target_path: (Target, ?except: Group?) { (Pathname) -> void } -> void
+                          | (Target, ?except: Group?) -> Enumerator[Pathname]
 
-      # Yield source paths that belongs to given target/group
-      #
-      def each_group_source_path: (Target | Group, ?bool no_group) { (Pathname) -> void } -> void
-                                | (Target | Group, ?bool no_group) -> Enumerator[Pathname]
+      class PathEnumerator
+        attr_reader files: Hash[Pathname, Target | Group]
 
-      # Yield source paths that belongs to given target
-      #
-      # Skips yielding source paths that belongs to group, if given.
-      #
-      def each_target_source_path: (Target, Group?) { (Pathname) -> void } -> void
-                                 | (Target, Group?) -> Enumerator[Pathname]
+        def initialize: () -> void
 
-      # Yield source paths that belongs to project
-      #
-      # Skip yielding source paths that belongs to target, if given.
-      #
-      def each_project_source_path: (Target?) { (Pathname) -> void } -> void
-                                  | (Target?) -> Enumerator[Pathname]
+        def empty?: () -> bool
 
-      def target_group_for_source_path: (Pathname) -> [Target, Group?]?
+        def []=: (Pathname, Target | Group) -> (Target | Group)
 
-      def target_group_for_signature_path: (Pathname) -> [Target, Group?]?
+        def []: (Pathname) -> (Target | Group | nil)
+
+        def paths: () -> Array[Pathname]
+
+        def each: () { ([Pathname, Target, Group?]) -> void } -> void
+                | () -> Enumerator[[Pathname, Target, Group?]]
+
+        # Returns the target associated to the path
+        def target: (Pathname) -> Target?
+
+        # Returns a pair of target and group associated to the path
+        def target_group: (Pathname) -> [Target, Group?]?
+
+        # Yields all files from the collection
+        #
+        def each_project_path: (?except: Target?) { (Pathname) -> void } -> void
+                            | (?except: Target?) -> Enumerator[Pathname]
+
+        # Yields files that belongs to the target
+        #
+        # It also yields files that belongs to the sub-groups of the target.
+        # When `except:` is given, files that belongs to the group are skipped.
+        #
+        def each_target_path: (Target, ?except: Group?) { (Pathname) -> void } -> void
+                            | (Target, ?except: Group?) -> Enumerator[Pathname]
+
+        # Yields files that belongs to the group or the target
+        #
+        # Files in the sub-groups of the target are skipped.
+        #
+        def each_group_path: (Target | Group) { (Pathname) -> void } -> void
+                           | (Target | Group) -> Enumerator[Pathname]
+
+        private def target_of: (Target | Group) -> Target
+
+        private def group_of: (Target | Group) -> Group?
+      end
     end
   end
 end

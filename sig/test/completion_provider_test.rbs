@@ -7,6 +7,8 @@ class CompletionProviderTest < Minitest::Test
 
   include SubtypingHelper
 
+  include ShellHelper
+
   include Steep
 
   CompletionProvider: untyped
@@ -74,4 +76,6 @@ class CompletionProviderTest < Minitest::Test
   def test_constant__deprecated: () -> untyped
 
   def test_method__deprecated: () -> untyped
+                             
+  def test_completion__inline: () -> untyped
 end

@@ -4,6 +4,7 @@ class CompletionProviderTest < Minitest::Test
   include TestHelper
   include FactoryHelper
   include SubtypingHelper
+  include ShellHelper
 
   include Steep
   CompletionProvider = Services::CompletionProvider
@@ -720,6 +721,74 @@ puts i
         end
         items.find {|item| item.identifier == :m3 }.tap do |item|
           assert_operator item, :deprecated
+        end
+      end
+    end
+  end
+
+  def test_completion__inline
+    project = Steep::Project.new(steepfile_path: Pathname(__dir__) + "Steepfile", base_dir: Pathname(__dir__))
+    Steep::Project::DSL.eval(project) do
+      target :lib do
+        check "lib", inline_rbs: true
+      end
+    end
+
+    env = RBS::Environment.new()
+
+    target = project.targets[0] or raise
+    target.new_env_loader().load(env: env)
+    env = env.resolve_type_names
+
+    signature = Steep::Services::SignatureService.new(env: env, implicitly_returns_nil: true)
+    signature.current_subtyping or raise
+
+    signature.update(
+      {
+        Pathname("lib/foo.rb") => [
+          Steep::Services::ContentChange.new(text: <<~RUBY)
+            class Inline
+              class Test
+                def test_method = 123
+              end
+            end
+          RUBY
+        ]
+      }
+    )
+
+    subtyping = signature.current_subtyping or raise
+
+    CompletionProvider.new(source_text: <<~RUBY, path: Pathname("lib/bar.rb"), subtyping: subtyping).tap do |provider|
+      Inli
+      Inline::T
+    RUBY
+      provider.run(line: 1, column: 4).tap do |completions|
+        assert_equal 1, completions.size
+
+        assert_any!(completions) do |item|
+          assert_instance_of Steep::Services::CompletionProvider::ConstantItem, item
+          assert_equal "::Inline", item.full_name.to_s
+        end
+      end
+
+      provider.run(line: 2, column: 9).tap do |completions|
+        assert_equal 1, completions.size
+
+        assert_any!(completions) do |item|
+          assert_instance_of Steep::Services::CompletionProvider::ConstantItem, item
+          assert_equal "::Inline::Test", item.full_name.to_s
+        end
+      end
+    end
+
+    CompletionProvider.new(source_text: <<~RUBY, path: Pathname("lib/bar.rb"), subtyping: subtyping).tap do |provider|
+      Inline::
+    RUBY
+      provider.run(line: 1, column: 8).tap do |completions|
+        assert_any!(completions) do |item|
+          assert_instance_of Steep::Services::CompletionProvider::ConstantItem, item
+          assert_equal "::Inline::Test", item.full_name.to_s
         end
       end
     end

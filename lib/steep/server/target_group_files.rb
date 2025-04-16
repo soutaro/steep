@@ -3,15 +3,19 @@ module Steep
     class TargetGroupFiles
       attr_reader :project
 
-      attr_reader :source_paths, :signature_paths
+      attr_reader :source_paths, :signature_paths, :inline_paths
 
       attr_reader :library_paths
 
       def initialize(project)
         @project = project
-        @source_paths = {}
-        @signature_paths = {}
+        @source_paths = PathEnumerator.new()
+        @signature_paths = PathEnumerator.new()
+        @inline_paths = PathEnumerator.new()
         @library_paths = {}
+        project.targets.each do |target|
+          library_paths[target.name] = Set[]
+        end
       end
 
       def add_path(path)
@@ -23,12 +27,16 @@ module Steep
           source_paths[path] = target_group
           return true
         end
+        if target_group = project.group_for_inline_path(path)
+          inline_paths[path] = target_group
+          return true
+        end
 
         false
       end
 
       def add_library_path(target, *paths)
-        (library_paths[target.name] ||= Set[]).merge(paths)
+        library_paths.fetch(target.name).merge(paths)
       end
 
       def each_library_path(target, &block)
@@ -43,161 +51,150 @@ module Steep
         library_paths.each_value.any? { _1.include?(path) }
       end
 
-      def signature_path_target(path)
-        case target_group = signature_paths.fetch(path, nil)
-        when Project::Target
-          target_group
-        when Project::Group
-          target_group.target
-        end
+      def path_target(path)
+        signature_paths.target(path) || source_paths.target(path) || inline_paths.target(path)
       end
 
-      def source_path_target(path)
-        case target_group = source_paths.fetch(path, nil)
-        when Project::Target
-          target_group
-        when Project::Group
-          target_group.target
-        end
+      def target_group_for_path(path)
+        signature_paths.target_group(path) || source_paths.target_group(path) || inline_paths.target_group(path)
       end
 
-      def target_group_for_source_path(path)
-        ret = source_paths.fetch(path, nil)
-        case ret
-        when Project::Group
-          [ret.target, ret]
-        when Project::Target
-          [ret, nil]
-        end
+      def [](path)
+        signature_paths[path] || source_paths[path] || inline_paths[path]
       end
 
-      def target_group_for_signature_path(path)
-        ret = signature_paths.fetch(path, nil)
-        case ret
-        when Project::Group
-          [ret.target, ret]
-        when Project::Target
-          [ret, nil]
-        end
-      end
-
-      def each_group_signature_path(target, no_group = false, &block)
+      def each_group_path(group, &block)
         if block
-          signature_paths.each_key do |path|
-            t, g = target_group_for_signature_path(path)
+          signature_paths.each_group_path(group, &block)
+          source_paths.each_group_path(group, &block)
+          inline_paths.each_group_path(group, &block)
+        else
+          enum_for(_ = __method__, group)
+        end
+      end
 
-            if target.is_a?(Project::Target)
-              if no_group
-                yield path if t == target && g == nil
+      def each_target_path(target, except: nil, &block)
+        if block
+          signature_paths.each_target_path(target, except: except, &block)
+          source_paths.each_target_path(target, except: except, &block)
+          inline_paths.each_target_path(target, except: except, &block)
+        else
+          enum_for(_ = __method__, target, except: except)
+        end
+      end
+
+      class PathEnumerator
+        attr_reader :files
+
+        def initialize()
+          @files = {}
+        end
+
+        def []=(path, target_or_group)
+          files[path] = target_or_group
+        end
+
+        def paths
+          files.keys
+        end
+
+        def empty?
+          files.empty?
+        end
+
+        def [](path)
+          files.fetch(path, nil)
+        end
+
+        def each(&block)
+          if block
+            files.each do |path, group|
+              target = target_of(group)
+              group = group_of(group)
+              yield [path, target, group]
+            end
+          else
+            enum_for(_ = __method__)
+          end
+        end
+
+        def target(path)
+          if group = files.fetch(path, nil)
+            target_of(group)
+          end
+        end
+
+        def target_group(path)
+          case target_or_group = files.fetch(path, nil)
+          when Project::Target
+            [target_or_group, nil]
+          when Project::Group
+            [target_or_group.target, target_or_group]
+          end
+        end
+
+        def target_of(target_or_group)
+          case target_or_group
+          when Project::Group
+            target_or_group.target
+          when Project::Target
+            target_or_group
+          end
+        end
+
+        def group_of(target_or_group)
+          case target_or_group
+          when Project::Group
+            target_or_group
+          when Project::Target
+            nil
+          end
+        end
+
+        def each_project_path(except: nil, &block)
+          if block
+            files.each do |path, target|
+              if except
+                target = target_of(target)
+                next if except == target
+              end
+              yield path
+            end
+          else
+            enum_for(_ = __method__, except: except)
+          end
+        end
+
+        def each_target_path(target, except: nil, &block)
+          if block
+            files.each do |path, path_group_target|
+              if path_group_target.is_a?(Project::Group)
+                path_target = path_group_target.target
+                path_group = path_group_target
               else
-                yield path if t == target
-              end
-            else
-              yield path if g == target
-            end
-          end
-        else
-          enum_for(_ = __method__, target, no_group)
-        end
-      end
-
-      def each_target_signature_path(target, group, &block)
-        raise unless group.target == target if group
-
-        if block
-          signature_paths.each_key do |path|
-            t, g = target_group_for_signature_path(path)
-
-            next unless target == t
-            next if group && group == g
-
-            yield path
-          end
-        else
-          enum_for(_ = __method__, target, group)
-        end
-      end
-
-      def each_project_signature_path(target, &block)
-        if block
-          signature_paths.each do |path, target_group|
-            t =
-              case target_group
-              when Project::Target
-                target_group
-              when Project::Group
-                target_group.target
+                path_target = path_group_target
+                path_group = Object.new  # A dummy value that cannot be equal to any possible `except:` value
               end
 
-            if target
-              next if t.unreferenced
-              next if t == target
+              next unless target == path_target
+              next if except == path_group
+
+              yield path
             end
-
-            yield path
+          else
+            enum_for(_ = __method__, target, except: except)
           end
-        else
-          enum_for(_ = __method__, target)
         end
-      end
 
-      def each_group_source_path(target, no_group = false, &block)
-        if block
-          source_paths.each_key do |path|
-            t, g = target_group_for_source_path(path)
-
-            if target.is_a?(Project::Target)
-              if no_group
-                yield path if t == target && g == nil
-              else
-                yield path if t == target
-              end
-            else
-              yield path if g == target
+        def each_group_path(group, &block)
+          if block
+            files.each do |path, path_group_target|
+              next unless group == path_group_target
+              yield path
             end
+          else
+            enum_for(_ = __method__, group)
           end
-        else
-          enum_for(_ = __method__, target, no_group)
-        end
-      end
-
-      def each_target_source_path(target, group, &block)
-        raise unless group.target == target if group
-
-        if block
-          source_paths.each_key do |path|
-            t, g = target_group_for_source_path(path)
-
-            next unless target == t
-            next if group && group == g
-
-            yield path
-          end
-        else
-          enum_for(_ = __method__, target, group)
-        end
-      end
-
-      def each_project_source_path(target, &block)
-        if block
-          source_paths.each do |path, target_group|
-            t =
-              case target_group
-              when Project::Target
-                target_group
-              when Project::Group
-                target_group.target
-              end
-
-            if target
-              next if t.unreferenced
-              next if t == target
-            end
-
-            yield path
-          end
-        else
-          enum_for(_ = __method__, target)
         end
       end
     end

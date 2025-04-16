@@ -30,11 +30,13 @@ module Steep
         "name" => String,
         "source_pattern" => pattern_json,
         "signature_pattern" => pattern_json,
+        "inline_pattern" => pattern_json,
         "groups" => Array[group_json],
         "unreferenced" => bool,
         "libraries" => Array[library_json],
         ?"signature_paths" => Array[String],
         ?"source_paths" => Array[String],
+        ?"inline_paths" => Array[String],
       }
 
       def target_as_json: (Project::Target) -> target_json
@@ -42,9 +44,11 @@ module Steep
       type group_json = {
         "name" => String,
         "source_pattern" => pattern_json,
+        "inline_pattern" => pattern_json,
         "signature_pattern" => pattern_json,
         ?"signature_paths" => Array[String],
         ?"source_paths" => Array[String],
+        ?"inline_paths" => Array[String],
       }
 
       def group_as_json: (Project::Group) -> group_json

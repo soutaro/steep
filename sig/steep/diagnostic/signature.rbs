@@ -286,6 +286,14 @@ module Steep
         def header_line: () -> String
       end
 
+      class InlineDiagnostic < Base
+        attr_reader diagnostic: RBS::InlineParser::Diagnostics::t
+
+        def initialize: (RBS::InlineParser::Diagnostics::t) -> void
+
+        def header_line: () -> String
+      end
+
       def self.from_rbs_error: (RBS::BaseError error, factory: AST::Types::Factory) -> Base
     end
   end

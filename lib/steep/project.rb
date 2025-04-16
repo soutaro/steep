@@ -34,20 +34,29 @@ module Steep
     def group_for_source_path(path)
       path = relative_path(path)
       targets.each do |target|
-        ret = target.possible_source_file?(path)
+        ret = target.source_file_path?(path)
         return ret if ret
       end
       nil
     end
 
     def group_for_path(path)
-      group_for_source_path(path) || group_for_signature_path(path)
+      group_for_source_path(path) || group_for_signature_path(path) || group_for_inline_path(path)
     end
 
     def group_for_signature_path(path)
       relative = relative_path(path)
       targets.each do
-        ret = _1.possible_signature_file?(relative)
+        ret = _1.signature_file_path?(relative)
+        return ret if ret
+      end
+      nil
+    end
+
+    def group_for_inline_path(path)
+      relative = relative_path(path)
+      targets.each do
+        ret = _1.inline_source_file_path?(relative)
         return ret if ret
       end
       nil
@@ -71,8 +80,17 @@ module Steep
       end
     end
 
+    def target_for_inline_path(path)
+      case group = group_for_inline_path(path)
+      when Target
+        group
+      when Group
+        group.target
+      end
+    end
+
     def target_for_path(path)
-      target_for_source_path(path) || target_for_signature_path(path)
+      target_for_source_path(path) || target_for_signature_path(path) || target_for_inline_path(path)
     end
   end
 end

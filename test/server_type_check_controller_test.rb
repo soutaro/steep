@@ -9,8 +9,12 @@ class ServerTypeCheckControllerTest < Minitest::Test
   TypeCheckController = Server::TypeCheckController
   WorkDoneProgress = Server::WorkDoneProgress
 
-  def dirs
+  def dirs #: Array[Pathname]
     @dirs ||= []
+  end
+
+  def envs #: Array[Hash[String, String]]
+    @envs ||= []
   end
 
   def test_initialize
@@ -32,9 +36,9 @@ end
       assert_equal Set[], controller.priority_paths
       assert_equal Set[], controller.changed_paths
 
-      assert_equal({}, controller.files.library_paths)
-      assert_equal({}, controller.files.source_paths)
-      assert_equal({}, controller.files.signature_paths)
+      assert_equal({ lib: Set[] }, controller.files.library_paths)
+      assert_empty controller.files.source_paths
+      assert_empty controller.files.signature_paths
     end
   end
 
@@ -44,6 +48,10 @@ end
       Project::DSL.eval(project) do
         target :lib do
           check "lib"
+          ignore "lib/app.rb"
+
+          check "lib/app.rb", inline_rbs: true
+
           signature "sig"
         end
       end
@@ -51,6 +59,10 @@ end
       (current_dir + "lib").mkdir
       (current_dir + "lib/customer.rb").write(<<-RUBY)
 class Customer
+end
+      RUBY
+      (current_dir + "lib/app.rb").write(<<-RUBY)
+class App
 end
       RUBY
 
@@ -64,8 +76,9 @@ end
       controller.load(command_line_args: []) {}
 
       assert_equal [:lib], controller.files.library_paths.keys
-      assert_equal Set[current_dir + "lib/customer.rb"], controller.files.source_paths.keys.to_set
-      assert_equal Set[current_dir + "sig/customer.rbs"], controller.files.signature_paths.keys.to_set
+      assert_equal Set[current_dir + "lib/customer.rb"], controller.files.source_paths.paths.to_set
+      assert_equal Set[current_dir + "lib/app.rb"], controller.files.inline_paths.paths.to_set
+      assert_equal Set[current_dir + "sig/customer.rbs"], controller.files.signature_paths.paths.to_set
     end
   end
 
@@ -96,8 +109,8 @@ end
       controller.load(command_line_args: []) {}
 
       assert_equal [:lib], controller.files.library_paths.keys
-      assert_equal Set[current_dir + "lib/customer.rb", current_dir + "lib/core.rb"], controller.files.source_paths.keys.to_set
-      assert_equal Set[current_dir + "sig/customer.rbs", current_dir + "sig/core.rbs"], controller.files.signature_paths.keys.to_set
+      assert_equal Set[current_dir + "lib/customer.rb", current_dir + "lib/core.rb"], controller.files.source_paths.paths.to_set
+      assert_equal Set[current_dir + "sig/customer.rbs", current_dir + "sig/core.rbs"], controller.files.signature_paths.paths.to_set
     end
   end
 
@@ -127,8 +140,8 @@ end
       controller.push_changes(current_dir + "sig/customer.rbs")
       controller.push_changes(current_dir + "test/customer_test.rb")
 
-      assert_equal Set[current_dir + "lib/customer.rb"], controller.files.source_paths.keys.to_set
-      assert_equal Set[current_dir + "sig/customer.rbs"], controller.files.signature_paths.keys.to_set
+      assert_equal Set[current_dir + "lib/customer.rb"], controller.files.source_paths.paths.to_set
+      assert_equal Set[current_dir + "sig/customer.rbs"], controller.files.signature_paths.paths.to_set
 
       assert_equal Set[current_dir + "lib/customer.rb", current_dir + "sig/customer.rbs"],
                    controller.changed_paths
@@ -238,19 +251,36 @@ end
       controller.files.add_path(current_dir + "sig/test/customer_test.rbs")
       controller.files.add_path(current_dir + "sig/test/account_test.rbs")
 
-      request = controller.make_request(progress: nil, include_unchanged: true)
+      request = controller.make_request(progress: nil, include_unchanged: true) or raise
 
-      assert_equal Set[], request.library_paths
-      assert_equal Set[
-        [:app, current_dir + "sig/core/customer.rbs"], [:app, current_dir + "sig/core/account.rbs"],
-        [:app, current_dir + "sig/app/customer_service.rbs"], [:app, current_dir + "sig/app/account_service.rbs"],
-        [:test, current_dir + "sig/test/customer_test.rbs"], [:test, current_dir + "sig/test/account_test.rbs"]
-      ], request.signature_paths
-      assert_equal Set[
-        [:app, current_dir + "lib/core/customer.rb"], [:app, current_dir + "lib/core/account.rb"],
-        [:app, current_dir + "lib/app/customer_service.rb"], [:app, current_dir + "lib/app/account_service.rb"],
-        [:test, current_dir + "test/customer_test.rb"], [:test, current_dir + "test/account_test.rb"]
-      ], request.code_paths
+      assert_equal(
+        {
+          app: Set[],
+          test: Set[]
+        },
+        request.library_paths
+      )
+      assert_equal(
+        {
+          app: Set[
+            current_dir + "sig/core/customer.rbs",
+            current_dir + "sig/core/account.rbs",
+            current_dir + "sig/app/customer_service.rbs",
+            current_dir + "sig/app/account_service.rbs",
+            current_dir + "lib/core/customer.rb",
+            current_dir + "lib/core/account.rb",
+            current_dir + "lib/app/customer_service.rb",
+            current_dir + "lib/app/account_service.rb",
+          ],
+          test: Set[
+            current_dir + "sig/test/customer_test.rbs",
+            current_dir + "sig/test/account_test.rbs",
+            current_dir + "test/customer_test.rb",
+            current_dir + "test/account_test.rb",
+          ]
+        },
+        request.project_paths
+      )
     end
   end
 
@@ -304,11 +334,22 @@ end
       controller.push_changes(current_dir + "lib/core/customer.rb")
       request = controller.make_request(progress: nil)
 
-      assert_equal Set[], request.library_paths
-      assert_equal Set[], request.signature_paths
-      assert_equal Set[
-        [:app, current_dir + "lib/core/customer.rb"],
-      ], request.code_paths
+      assert_equal(
+        {
+          app: Set[],
+          test: Set[]
+        },
+        request.library_paths
+      )
+      assert_equal(
+        {
+          app: Set[
+            current_dir + "lib/core/customer.rb"
+          ],
+          test: Set[]
+        },
+        request.project_paths
+      )
     end
   end
 
@@ -360,15 +401,27 @@ end
       controller.files.add_path(current_dir + "sig/test/account_test.rbs")
 
       controller.push_changes(current_dir + "sig/app/customer_service.rbs")
-      request = controller.make_request(progress: nil)
+      request = controller.make_request(progress: nil) or raise
 
-      assert_equal Set[], request.library_paths
-      assert_equal Set[
-        [:app, current_dir + "sig/app/customer_service.rbs"], [:app, current_dir + "sig/app/account_service.rbs"],
-      ], request.signature_paths
-      assert_equal Set[
-        [:app, current_dir + "lib/app/customer_service.rb"], [:app, current_dir + "lib/app/account_service.rb"],
-      ], request.code_paths
+      assert_equal(
+        {
+          app: Set[],
+          test: Set[]
+        },
+        request.library_paths
+      )
+      assert_equal(
+        {
+          app: Set[
+            current_dir + "sig/app/customer_service.rbs",
+            current_dir + "sig/app/account_service.rbs",
+            current_dir + "lib/app/customer_service.rb",
+            current_dir + "lib/app/account_service.rb",
+          ],
+          test: Set[]
+        },
+        request.project_paths
+      )
     end
   end
 
@@ -421,18 +474,30 @@ end
 
       controller.update_priority(open: current_dir + "lib/app/customer_service.rb")
       controller.make_request(progress: nil)
-      
-      controller.push_changes(current_dir + "sig/core/customer.rbs")
-      request = controller.make_request(progress: nil)
 
-      assert_equal Set[], request.library_paths
-      assert_equal Set[
-        [:app, current_dir + "sig/core/customer.rbs"], [:app, current_dir + "sig/core/account.rbs"],
-      ], request.signature_paths
-      assert_equal Set[
-        [:app, current_dir + "lib/core/customer.rb"], [:app, current_dir + "lib/core/account.rb"],
-        [:app, current_dir + "lib/app/customer_service.rb"],
-      ], request.code_paths
+      controller.push_changes(current_dir + "sig/core/customer.rbs")
+      request = controller.make_request(progress: nil) or raise
+
+      assert_equal(
+        {
+          app: Set[],
+          test: Set[]
+        },
+        request.library_paths
+      )
+      assert_equal(
+        {
+          app: Set[
+            current_dir + "sig/core/customer.rbs",
+            current_dir + "sig/core/account.rbs",
+            current_dir + "lib/core/customer.rb",
+            current_dir + "lib/core/account.rb",
+            current_dir + "lib/app/customer_service.rb"
+          ],
+          test: Set[]
+        },
+        request.project_paths
+      )
     end
   end
 
@@ -487,15 +552,27 @@ end
       controller.make_request(progress: nil)
 
       controller.push_changes(current_dir + "sig/test/customer_test.rbs")
-      request = controller.make_request(progress: nil)
+      request = controller.make_request(progress: nil) or raise
 
-      assert_equal Set[], request.library_paths
-      assert_equal Set[
-        [:test, current_dir + "sig/test/customer_test.rbs"], [:test, current_dir + "sig/test/account_test.rbs"],
-      ], request.signature_paths
-      assert_equal Set[
-        [:test, current_dir + "test/customer_test.rb"], [:test, current_dir + "test/account_test.rb"],
-      ], request.code_paths
+      assert_equal(
+        {
+          app: Set[],
+          test: Set[]
+        },
+        request.library_paths
+      )
+      assert_equal(
+        {
+          app: Set[],
+          test: Set[
+            current_dir + "sig/test/customer_test.rbs",
+            current_dir + "sig/test/account_test.rbs",
+            current_dir + "test/customer_test.rb",
+            current_dir + "test/account_test.rb"
+          ]
+        },
+        request.project_paths
+      )
     end
   end
 end

@@ -5,11 +5,11 @@ class TypeCheckServiceTest < Minitest::Test
 
   include TestHelper
 
-  ContentChange: untyped
+  ContentChange: singleton(Steep::Services::ContentChange)
 
-  TypeCheckService: untyped
+  TypeCheckService: singleton(Steep::Services::TypeCheckService)
 
-  def project: () -> untyped
+  def project: () -> Steep::Project
 
   def reset_changes: () -> untyped
 
@@ -44,4 +44,8 @@ class TypeCheckServiceTest < Minitest::Test
   def test_typecheck__ignore: () -> untyped
 
   def test_typecheck__ignore_error: () -> untyped
+
+  def test_update__inline_rbs__ruby: () -> untyped
+
+  def test_validate__signature__inline: () -> untyped
 end
