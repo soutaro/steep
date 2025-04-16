@@ -19,6 +19,14 @@ namespace :test do
   task :output do
     sh "ruby", "bin/output_test.rb"
   end
+
+  namespace :output do
+    desc "Run current output test"
+    task :current do
+      puts ">> Running `steep check` in #{ENV["PWD"]}"
+      sh "steep", "check", "--with-expectations=test_expectations.yml", chdir: ENV["PWD"]
+    end
+  end
 end
 
 Rake::Task[:release].enhance do
