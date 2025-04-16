@@ -276,7 +276,6 @@ module Steep
       class VariableDuplicationError < Base
         attr_reader :type_name
         attr_reader :variable_name
-        attr_reader :location
 
         def initialize(type_name:, variable_name:, location:)
           @type_name = type_name
@@ -572,7 +571,7 @@ module Steep
         when RBS::SuperclassMismatchError
           Diagnostic::Signature::SuperclassMismatch.new(
             name: error.name,
-            location: error.entry.primary.decl.location
+            location: error.entry.primary_decl.location
           )
         when RBS::InvalidVarianceAnnotationError
           Diagnostic::Signature::InvalidVarianceAnnotation.new(

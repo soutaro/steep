@@ -1,4 +1,6 @@
-use RBS::Location, RBS::AST::Declarations, RBS::AST::Directives, RBS::TypeName, RBS::Environment
+use RBS::Location, RBS::TypeName, RBS::Environment
+use RBS::AST::Ruby as RubyAST
+use RBS::AST
 
 module Steep
   module Services
@@ -7,15 +9,17 @@ module Steep
         class TypeAliasContent
           attr_reader location: Location[untyped, untyped]
 
-          attr_reader decl: Declarations::TypeAlias
+          attr_reader decl: AST::Declarations::TypeAlias
 
-          def initialize: (location: Location[untyped, untyped], decl: Declarations::TypeAlias) -> void
+          def initialize: (location: Location[untyped, untyped], decl: AST::Declarations::TypeAlias) -> void
         end
 
         class ClassContent
           attr_reader location: Location[untyped, untyped]
 
-          type decl = Declarations::Class | Declarations::Module | Declarations::ClassAlias | Declarations::ModuleAlias
+          type decl = AST::Declarations::Class | AST::Declarations::Module
+                    | AST::Declarations::ClassAlias | AST::Declarations::ModuleAlias
+                    | RubyAST::Declarations::ClassDecl | RubyAST::Declarations::ModuleDecl
 
           attr_reader decl: decl
 
@@ -25,9 +29,9 @@ module Steep
         class InterfaceContent
           attr_reader location: Location[untyped, untyped]
 
-          attr_reader decl: Declarations::Interface
+          attr_reader decl: AST::Declarations::Interface
 
-          def initialize: (location: Location[untyped, untyped], decl: Declarations::Interface) -> void
+          def initialize: (location: Location[untyped, untyped], decl: AST::Declarations::Interface) -> void
         end
 
         type content = TypeAliasContent | ClassContent | InterfaceContent

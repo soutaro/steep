@@ -321,12 +321,12 @@ module Steep
             args: entry.type_params.map { AST::Types::Any.instance() }
           )
 
-          entry.decls.each do |decl|
-            ast = decl.decl
-
-            unless AnnotationsHelper.deprecated_annotation?(ast.annotations)
-              if location = ast.location
-                validate_type_name_deprecation(name, location[:name])
+          entry.each_decl do |decl|
+            if decl.is_a?(RBS::AST::Declarations::Base)
+              unless AnnotationsHelper.deprecated_annotation?(decl.annotations)
+                if location = decl.location
+                  validate_type_name_deprecation(name, location[:name])
+                end
               end
             end
           end
@@ -391,7 +391,7 @@ module Steep
                       location =
                         case ancestor.source
                         when :super
-                          if (primary_decl = entry.primary.decl).is_a?(RBS::AST::Declarations::Class)
+                          if (primary_decl = entry.primary_decl).is_a?(RBS::AST::Declarations::Class)
                             primary_decl.super_class&.location
                           end
                         when nil
@@ -455,7 +455,13 @@ module Steep
                 definition.class_variables.each do |name, var|
                   if var.declared_in == definition.type_name
                     if (parent = var.parent_variable) && var.declared_in != parent.declared_in
-                      class_var = entry.decls.flat_map {|decl| decl.decl.members }.find do |member|
+                      members = entry.each_decl.flat_map do |decl|
+                        case decl
+                        when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
+                          decl.members
+                        end
+                      end
+                      class_var = members.find do |member|
                         member.is_a?(RBS::AST::Members::ClassVariable) && member.name == name
                       end
 
@@ -534,7 +540,7 @@ module Steep
           location =
             case ancestor.source
             when :super
-              primary_decl = env.class_decls.fetch(name).primary.decl
+              primary_decl = env.class_decls.fetch(name).primary_decl
               primary_decl.is_a?(RBS::AST::Declarations::Class) or raise
               if super_class = primary_decl.super_class
                 super_class.location
@@ -644,13 +650,17 @@ module Steep
       end
 
       def validate_one_alias(name, entry = env.type_alias_decls.fetch(name))
-        *, inner_most_outer_module = entry.outer
-        if inner_most_outer_module
-          class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name)
-          instance_type = AST::Types::Name::Instance.new(
-            name: inner_most_outer_module.name,
-            args: inner_most_outer_module.type_params.map { AST::Types::Any.instance() },
-          )
+        inner_most_outer_module_name = entry.context&.last
+
+        if inner_most_outer_module_name
+          inner_most_outer_module = env.normalized_module_class_entry(inner_most_outer_module_name)
+          if inner_most_outer_module
+            class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name)
+            instance_type = AST::Types::Name::Instance.new(
+              name: inner_most_outer_module.name,
+              args: inner_most_outer_module.type_params.map { AST::Types::Any.instance() },
+            )
+          end
         end
 
         push_context(class_type: class_type, instance_type: instance_type, self_type: nil) do

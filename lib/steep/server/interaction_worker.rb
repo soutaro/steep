@@ -183,8 +183,8 @@ module Steep
 
               case sig_service.status
               when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
-                if buffer = sig_service.latest_env.buffers.find {|buf| Pathname(buf.name) == Pathname(relative_path) }
-                  dirs = sig_service.latest_env.signatures.fetch(buffer)[0]
+                if source = sig_service.latest_env.each_rbs_source.find { _1.buffer.name == relative_path }
+                  dirs = source.directives
                 else
                   dirs = [] #: Array[RBS::AST::Directives::t]
                 end
@@ -280,8 +280,8 @@ module Steep
 
           case class_entry
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            comments = class_entry.decls.map {|decl| decl.decl.comment }.compact
-            decl = class_entry.primary.decl
+            comments = class_entry.each_decl.map {|decl| decl.is_a?(RBS::AST::Declarations::Base) ? decl.comment : nil }.compact
+            decl = class_entry.primary_decl
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
             comments = [class_entry.decl.comment].compact
             decl = class_entry.decl

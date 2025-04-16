@@ -249,7 +249,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
         Related: Array#compact!; see also [Methods for
         Deleting](rdoc-ref:Array@Methods+for+Deleting).
-        
+
       MD
     end
   end
@@ -476,7 +476,7 @@ RBS
       RBS
 
       Services::HoverProvider::RBS::ClassContent.new(
-        decl: factory.env.class_decls[RBS::TypeName.parse("::HelloWorld")].primary.decl,
+        decl: factory.env.class_decls[RBS::TypeName.parse("::HelloWorld")].primary_decl,
         location: nil
       ).tap do |content|
         comment = Server::LSPFormatter.format_hover_content(content)
@@ -501,7 +501,7 @@ RBS
       RBS
 
       content = Services::HoverProvider::RBS::ClassContent.new(
-        decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")].primary.decl,
+        decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")].primary_decl,
         location: nil
       )
 
@@ -946,7 +946,7 @@ RBS
         end
       RBS
 
-      decl = factory.env.class_decls[RBS::TypeName.parse("::RBSCompletionTest")].primary.decl
+      decl = factory.env.class_decls[RBS::TypeName.parse("::RBSCompletionTest")].primary_decl
 
       comment = Server::LSPFormatter.format_rbs_completion_docs(RBS::TypeName.parse("::RBSCompletionTest"), decl, [decl.comment])
 

@@ -54,6 +54,8 @@ module Steep
                              | RBS::AST::Declarations::ModuleAlias
                              | RBS::AST::Declarations::Global
                              | RBS::AST::Declarations::Constant
+                             | RBS::AST::Ruby::Declarations::ClassDecl
+                             | RBS::AST::Ruby::Declarations::ModuleDecl
 
       def self?.declaration_summary: (summarizable_decl) -> String
 
