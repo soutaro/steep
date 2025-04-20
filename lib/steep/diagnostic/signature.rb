@@ -503,6 +503,32 @@ module Steep
         end
       end
 
+      class TypeGuardSyntaxError < Base
+        attr_reader :predicate
+
+        def initialize(predicate, location:)
+          super(location: location)
+          @predicate = predicate
+        end
+
+        def header_line
+          "Type guard `#{predicate}` is invalid"
+        end
+      end
+
+      class InvalidTypeGuardType < Base
+        attr_reader :type
+
+        def initialize(type, location:)
+          super(location: location)
+          @type = type
+        end
+
+        def header_line
+          "Type guard `#{type}` is invalid"
+        end
+      end
+
 
       def self.from_rbs_error(error, factory:)
         case error

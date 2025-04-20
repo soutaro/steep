@@ -102,6 +102,14 @@ class TypeCheckTest < Minitest::Test
 
   def test_type_narrowing__union_send2: () -> untyped
 
+  def test_type_guard__self_is_TYPE: () -> untyped
+
+  def test_type_guard__self_is_TYPE_no_subtyping: () -> untyped
+
+  def test_type_guard__self_is_TYPE_unknown: () -> untyped
+
+  def test_type_guard__self_is_TYPE_singleton: () -> untyped
+
   def test_argument_error__unexpected_unexpected_positional_argument: () -> untyped
 
   def test_type_assertion__type_error: () -> untyped
