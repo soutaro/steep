@@ -3,14 +3,16 @@ module Steep
     class Group
       attr_reader :name
       attr_reader :source_pattern
+      attr_reader :inline_source_pattern
       attr_reader :signature_pattern
       attr_reader :target
       attr_reader :code_diagnostics_config
 
-      def initialize(target, name, source_pattern, signature_pattern, code_diagnostics_config)
+      def initialize(target, name, source_pattern, inline_source_pattern, signature_pattern, code_diagnostics_config)
         @target = target
         @name = name
         @source_pattern = source_pattern
+        @inline_source_pattern = inline_source_pattern
         @signature_pattern = signature_pattern
         @code_diagnostics_config = code_diagnostics_config
       end
@@ -25,6 +27,10 @@ module Steep
 
       def possible_signature_file?(path)
         signature_pattern =~ path
+      end
+
+      def possible_inline_source_file?(path)
+        inline_source_pattern =~ path
       end
     end
   end

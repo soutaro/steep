@@ -30,6 +30,7 @@ module Steep
         json = {
           "name" => target.name.to_s,
           "source_pattern" => pattern_as_json(target.source_pattern),
+          "inline_source_pattern" => pattern_as_json(target.inline_source_pattern),
           "signature_pattern" => pattern_as_json(target.signature_pattern),
           "groups" => target.groups.map do |group|
             group_as_json(group)

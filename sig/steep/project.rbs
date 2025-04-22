@@ -20,10 +20,26 @@ module Steep
 
     def group_for_signature_path: (Pathname path) -> (Target | Group | nil)
 
+    def group_for_inline_source_path: (Pathname path) -> (Target | Group | nil)
+
+    # Returns the target for the given path
+    #
+    # Returns the target of the group if the path is belonging to a group.
+    #
     def target_for_path: (Pathname) -> Target?
 
+    # Returns the target for the given path
+    #
+    # Returns the target of the group if the path is belonging to a group.
+    #
     def target_for_source_path: (Pathname path) -> Target?
 
+    # Returns the target for the given path
+    #
+    # Returns the target of the group if the path is belonging to a group.
+    #
     def target_for_signature_path: (Pathname path) -> Target?
+
+    def target_for_inline_source_path: (Pathname path) -> Target?
   end
 end
