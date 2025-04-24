@@ -11,6 +11,8 @@ class SteepfileTest < Minitest::Test
 
   def test_config: () -> untyped
 
+  def test_config_inline: () -> void
+
   def test_repo_path: () -> untyped
 
   def test_diagnostics: () -> untyped

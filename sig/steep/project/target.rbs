@@ -7,6 +7,8 @@ module Steep
 
       attr_reader source_pattern: Pattern
 
+      attr_reader inline_source_pattern: Pattern
+
       attr_reader signature_pattern: Pattern
 
       attr_reader code_diagnostics_config: untyped
@@ -25,6 +27,7 @@ module Steep
         name: Symbol,
         options: Options?,
         source_pattern: Pattern,
+        inline_source_pattern: Pattern,
         signature_pattern: Pattern,
         code_diagnostics_config: untyped,
         project: Project,
@@ -41,6 +44,8 @@ module Steep
       def possible_source_file?: (Pathname path) -> (Group | Target | nil)
 
       def possible_signature_file?: (Pathname path) -> (Group | Target | nil)
+
+      def possible_inline_source_file?: (Pathname path) -> (Group | Target | nil)
 
       def new_env_loader: () -> RBS::EnvironmentLoader
 

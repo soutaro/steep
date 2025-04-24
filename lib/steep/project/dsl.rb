@@ -70,12 +70,20 @@ module Steep
       end
 
       module WithPattern
-        def check(*args)
-          sources.concat(args)
+        def check(*args, inline: false)
+          if inline
+            inline_sources.concat(args)
+          else
+            sources.concat(args)
+          end
         end
 
-        def ignore(*args)
-          ignored_sources.concat(args)
+        def ignore(*args, inline: false)
+          if inline
+            ignored_inline_sources.concat(args)
+          else
+            ignored_sources.concat(args)
+          end
         end
 
         def signature(*args)
@@ -94,6 +102,14 @@ module Steep
           @ignored_sources ||= []
         end
 
+        def inline_sources
+          @inline_sources ||= []
+        end
+
+        def ignored_inline_sources
+          @ignored_inline_sources ||= []
+        end
+
         def signatures
           @signatures ||= []
         end
@@ -108,6 +124,10 @@ module Steep
 
         def signature_pattern
           Pattern.new(patterns: signatures, ignores: ignored_signatures, ext: ".rbs")
+        end
+
+        def inline_source_pattern
+          Pattern.new(patterns: inline_sources, ignores: ignored_inline_sources, ext: ".rb")
         end
       end
 
@@ -248,6 +268,7 @@ module Steep
         target = Project::Target.new(
           name: dsl.name,
           source_pattern: dsl.source_pattern,
+          inline_source_pattern: dsl.inline_source_pattern,
           signature_pattern: dsl.signature_pattern,
           options: dsl.library_configured? ? dsl.to_library_options : nil,
           code_diagnostics_config: dsl.code_diagnostics_config,
@@ -257,7 +278,7 @@ module Steep
         )
 
         dsl.groups.each do
-          group = Group.new(target, _1.name, _1.source_pattern, _1.signature_pattern, _1.code_diagnostics_config || target.code_diagnostics_config)
+          group = Group.new(target, _1.name, _1.source_pattern, _1.inline_source_pattern, _1.signature_pattern, _1.code_diagnostics_config || target.code_diagnostics_config)
           target.groups << group
         end
 

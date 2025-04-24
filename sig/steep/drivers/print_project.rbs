@@ -29,6 +29,7 @@ module Steep
       type target_json = {
         "name" => String,
         "source_pattern" => pattern_json,
+        "inline_source_pattern" => pattern_json,
         "signature_pattern" => pattern_json,
         "groups" => Array[group_json],
         "unreferenced" => bool,
