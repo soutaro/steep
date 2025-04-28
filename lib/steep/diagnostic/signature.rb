@@ -503,6 +503,18 @@ module Steep
         end
       end
 
+      class InlineDiagnostic < Base
+        attr_reader :diagnostic
+
+        def initialize(diagnostic)
+          super(location: diagnostic.location)
+          @diagnostic = diagnostic
+        end
+
+        def header_line
+          diagnostic.message
+        end
+      end
 
       def self.from_rbs_error(error, factory:)
         case error
