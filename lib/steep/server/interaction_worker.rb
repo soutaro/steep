@@ -189,9 +189,13 @@ module Steep
                   dirs = [] #: Array[RBS::AST::Directives::t]
                 end
               else
-                signature = sig_service.files.fetch(relative_path).signature
-                signature.is_a?(Array) or raise
-                buffer, dirs, decls = signature
+                file = sig_service.files.fetch(relative_path)
+                file.is_a?(Services::SignatureService::RBSFileStatus) or raise
+                source = file.source
+                source.is_a?(RBS::Source::RBS) or raise
+                buffer = source.buffer
+                dirs = source.directives
+                decls = source.declarations
 
                 locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
 
