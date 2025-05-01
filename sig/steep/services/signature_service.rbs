@@ -13,7 +13,7 @@ module Steep
       attr_reader status: status
 
       class SyntaxErrorStatus
-        attr_reader files: Hash[Pathname, FileStatus]
+        attr_reader files: Hash[Pathname, file_status]
 
         attr_reader changed_paths: Set[Pathname]
 
@@ -25,7 +25,7 @@ module Steep
 
         @constant_resolver: RBS::Resolver::ConstantResolver?
 
-        def initialize: (files: Hash[Pathname, FileStatus], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
+        def initialize: (files: Hash[Pathname, file_status], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
 
         def rbs_index: () -> Index::RBSIndex
 
@@ -33,7 +33,7 @@ module Steep
       end
 
       class AncestorErrorStatus
-        attr_reader files: Hash[Pathname, FileStatus]
+        attr_reader files: Hash[Pathname, file_status]
 
         attr_reader changed_paths: Set[Pathname]
 
@@ -45,7 +45,7 @@ module Steep
 
         @constant_resolver: RBS::Resolver::ConstantResolver?
 
-        def initialize: (files: Hash[Pathname, FileStatus], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
+        def initialize: (files: Hash[Pathname, file_status], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
 
         def rbs_index: () -> Index::RBSIndex
 
@@ -53,7 +53,7 @@ module Steep
       end
 
       class LoadedStatus
-        attr_reader files: Hash[Pathname, FileStatus]
+        attr_reader files: Hash[Pathname, file_status]
 
         attr_reader builder: RBS::DefinitionBuilder
 
@@ -65,7 +65,7 @@ module Steep
 
         @constant_resolver: RBS::Resolver::ConstantResolver?
 
-        def initialize: (files: Hash[Pathname, FileStatus], builder: RBS::DefinitionBuilder, implicitly_returns_nil: bool) -> void
+        def initialize: (files: Hash[Pathname, file_status], builder: RBS::DefinitionBuilder, implicitly_returns_nil: bool) -> void
 
         def subtyping: () -> Subtyping::Check
 
@@ -76,25 +76,25 @@ module Steep
 
       # A file has one of the three states:
       #
-      # 1. The parsing succeeded and loaded a list of declarations
-      # 2. The content has a syntax error and parsing failed
-      # 3. Other unexpected error
+      # 1. The parsing succeeded and loaded a list of declarations (RBS::Source::RBS)
+      # 2. The content has a syntax error and parsing failed (ParsingError)
+      # 3. Other unexpected error (UnexpectedError)
       #
-      class FileStatus
+      class RBSFileStatus
         attr_reader path: Pathname
 
         attr_reader content: String
 
-        type signature = [RBS::Buffer, Array[RBS::AST::Directives::t], Array[RBS::AST::Declarations::t]]
-
-        attr_reader signature: signature | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
+        attr_reader source: RBS::Source::RBS | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
 
         def initialize: (
           path: Pathname,
           content: String,
-          signature: signature | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
+          source: RBS::Source::RBS | Diagnostic::Signature::UnexpectedError | RBS::ParsingError
         ) -> void
       end
+
+      type file_status = RBSFileStatus | RBS::Source::Ruby
 
       attr_reader implicitly_returns_nil: bool
 
@@ -115,7 +115,7 @@ module Steep
 
       # The Target files
       #
-      def files: () -> Hash[Pathname, FileStatus]
+      def files: () -> Hash[Pathname, file_status]
 
       def pending_changed_paths: () -> Set[Pathname]
 
@@ -129,14 +129,22 @@ module Steep
 
       def current_subtyping: () -> Subtyping::Check?
 
-      def apply_changes: (Hash[Pathname, FileStatus] files, Server::ChangeBuffer::changes changes) -> Hash[Pathname, FileStatus]
+      def apply_changes: (Hash[Pathname, file_status] files, Server::ChangeBuffer::changes changes) -> Hash[Pathname, file_status]
+
+      def load_rbs_file: (Pathname path, String old_content, Array[ContentChange]) -> RBSFileStatus
+
+      def load_ruby_file: (Pathname path, String old_content, Array[ContentChange]) -> RBS::Source::Ruby
+
+      # Returns `true` if `file_status` represents an error status
+      # 
+      def error_file?: (file_status) -> bool
 
       # The entry point to apply the edit to the signatures
       #
       def update: (Server::ChangeBuffer::changes changes) -> void
 
       def update_env: (
-        Hash[Pathname, FileStatus] updated_files,
+        Hash[Pathname, file_status] updated_files,
         paths: Set[Pathname]
       ) -> (RBS::DefinitionBuilder::AncestorBuilder | Array[Diagnostic::Signature::Base])
 

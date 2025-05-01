@@ -214,7 +214,7 @@ RBS
 class A
 end
 RBS
-      assert_instance_of RBS::AST::Declarations::Class, file.signature[2][0]
+      assert_instance_of RBS::AST::Declarations::Class, file.source.declarations[0]
     end
 
     {}.tap do |changes|
