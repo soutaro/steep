@@ -52,6 +52,7 @@ module Steep
       include ChangeBuffer
 
       attr_reader :io_socket
+      attr_reader :need_to_warmup
 
       def initialize(project:, reader:, writer:, assignment:, commandline_args:, io_socket: nil, buffered_changes: nil, service: nil)
         super(project: project, reader: reader, writer: writer)
@@ -65,6 +66,7 @@ module Steep
         @io_socket = io_socket
         @service = service if service
         @child_pids = []
+        @need_to_warmup = defined?(Process.warmup)
 
         if io_socket
           Signal.trap "SIGCHLD" do
@@ -117,6 +119,11 @@ module Steep
           # Receive IOs before fork to avoid receiving them from multiple processes
           stdin = io_socket.recv_io
           stdout = io_socket.recv_io
+
+          if need_to_warmup
+            Process.warmup
+            @need_to_warmup = false
+          end
 
           if pid = fork
             stdin.close
