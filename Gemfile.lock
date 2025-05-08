@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/ruby/rbs.git
-  revision: 1494ed24da27aaf204495b7c115fa8433365abea
+  revision: de3a3d703627d3c32623c4b9c828a54b00279df3
   branch: master
   specs:
     rbs (4.0.0.dev.1)
