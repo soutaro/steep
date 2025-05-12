@@ -385,15 +385,25 @@ module Steep
       end
 
       def type_names(paths:, env:)
-        env.each_rbs_source.with_object(Set[]) do |source, set|
-          source.declarations.each do |decl|
-            if decl.location
-              if paths.include?(Pathname(decl.location.buffer.name))
-                type_name_from_decl(decl, set: set)
-              end
-            end
+
+        Hash.new {}
+        set = Set[] #: Set[RBS::TypeName]
+
+        env.each_rbs_source do |source|
+          next unless paths.include?(source.buffer.name)
+          source.each_type_name do |type_name|
+            set << type_name
           end
         end
+
+        env.each_ruby_source do |source|
+          next unless paths.include?(source.buffer.name)
+          source.each_type_name do |type_name|
+            set << type_name
+          end
+        end
+
+        set
       end
 
       def const_decls(paths:, env:)
