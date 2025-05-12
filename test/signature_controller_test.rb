@@ -273,4 +273,111 @@ RBS
       assert_equal Set[:$VERSION], Set.new(consts.each_key)
     end
   end
+
+  def test__inline__update
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    {}.tap do |changes|
+      changes[Pathname("lib/foo.rb")] = [
+        ContentChange.new(range: nil, text: <<RUBY)
+class Hello
+end
+RUBY
+      ]
+      service.update(changes)
+    end
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    service.latest_builder.build_instance(RBS::TypeName.parse("::Hello")).tap do |definition|
+      assert_instance_of RBS::Definition, definition
+      assert_nil definition.methods[:foo]
+    end
+
+    {}.tap do |changes|
+      changes[Pathname("lib/foo.rb")] = [
+        ContentChange.new(range: nil, text: <<RUBY)
+class Hello
+  def foo #: Integer
+    123
+  end
+end
+RUBY
+      ]
+      service.update(changes)
+    end
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    service.latest_builder.build_instance(RBS::TypeName.parse("::Hello")).tap do |definition|
+      assert_instance_of RBS::Definition, definition
+      definition.methods[:foo].tap do |method|
+        assert_instance_of RBS::Definition::Method, method
+        assert_equal ["() -> ::Integer"], method.defs.map { _1.type.to_s }
+      end
+    end
+  end
+
+  def test__inline__update_syntax_error1
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    {}.tap do |changes|
+      changes[Pathname("lib/foo.rb")] = [
+        ContentChange.new(range: nil, text: <<RUBY)
+class Hello
+end
+RUBY
+      ]
+      service.update(changes)
+    end
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    service.latest_builder.build_instance(RBS::TypeName.parse("::Hello")).tap do |definition|
+      assert_instance_of RBS::Definition, definition
+      assert_nil definition.methods[:foo]
+    end
+
+    {}.tap do |changes|
+      changes[Pathname("lib/foo.rb")] = [
+        ContentChange.new(range: nil, text: <<RUBY)
+class Hello
+RUBY
+      ]
+      service.update(changes)
+    end
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    service.latest_builder.build_instance(RBS::TypeName.parse("::Hello")).tap do |definition|
+      assert_instance_of RBS::Definition, definition
+      assert_nil definition.methods[:foo]
+    end
+  end
+
+  def test__inline__update_syntax_error2
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    {}.tap do |changes|
+      changes[Pathname("lib/foo.rb")] = [
+        ContentChange.new(range: nil, text: <<RUBY)
+class Hello
+RUBY
+      ]
+      service.update(changes)
+    end
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    service.latest_builder.build_instance(RBS::TypeName.parse("::Hello")).tap do |definition|
+      assert_instance_of RBS::Definition, definition
+      assert_nil definition.methods[:foo]
+    end
+  end
 end

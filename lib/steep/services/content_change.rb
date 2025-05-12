@@ -46,7 +46,7 @@ module Steep
           text = text.dup
           start_pos, end_pos = range
 
-          buf = RBS::Buffer.new(name: :_, content: text)
+          buf = RBS::Buffer.new(name: Pathname("_"), content: text)
           start_pos = buf.loc_to_pos([start_pos.line, start_pos.column])
           end_pos = buf.loc_to_pos([end_pos.line, end_pos.column])
 
