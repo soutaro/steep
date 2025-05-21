@@ -53,17 +53,23 @@ module Steep
             errors
           when typing && ignores
             errors = [] #: Array[Diagnostic::Ruby::Base]
+            error_lines = [] #: Array[Integer]
 
-            errors.concat(
-              typing.errors.delete_if do |diagnostic|
-                case diagnostic.location
-                when ::Parser::Source::Range
-                  ignores.ignore?(diagnostic.location.first_line, diagnostic.location.last_line, diagnostic.diagnostic_code)
-                when RBS::Location
-                  ignores.ignore?(diagnostic.location.start_line, diagnostic.location.end_line, diagnostic.diagnostic_code)
-                end
+            typing.errors.each do |diagnostic|
+              case diagnostic.location
+              when ::Parser::Source::Range
+                error_lines |= (diagnostic.location.first_line..diagnostic.location.last_line).to_a
+                next if ignores.ignore?(diagnostic.location.first_line, diagnostic.location.last_line, diagnostic.diagnostic_code)
+              when RBS::Location
+                next if ignores.ignore?(diagnostic.location.start_line, diagnostic.location.end_line, diagnostic.diagnostic_code)
               end
-            )
+
+              errors << diagnostic
+            end
+
+            ignores.redundant_ignores(error_lines).each do |ignore|
+              errors << Diagnostic::Ruby::RedundantIgnoreComment.new(comment: ignore.comment)
+            end
 
             ignores.error_ignores.each do |ignore|
               errors << Diagnostic::Ruby::InvalidIgnoreComment.new(comment: ignore.comment)
