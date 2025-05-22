@@ -142,10 +142,6 @@ module Steep
         signature_diagnostics
       end
 
-      def has_diagnostics?
-        each_diagnostics.count > 0
-      end
-
       def diagnostics
         each_diagnostics.to_h
       end
@@ -244,6 +240,14 @@ module Steep
               end
             end
 
+            source = service.status.files[path]
+            if source.is_a?(RBS::Source::Ruby)
+              source.diagnostics.each do |d|
+                diagnostic = Diagnostic::Signature::InlineDiagnostic.new(d)
+                diagnostics.push(diagnostic)
+              end
+            end
+
             signature_validation_diagnostics.fetch(target.name)[path] = diagnostics
           end
         end
@@ -272,8 +276,9 @@ module Steep
         Steep.logger.tagged "#update_signature" do
           signature_targets = {} #: Hash[Pathname, Project::Target]
           changes.each do |path, changes|
-            target = project.targets.find { _1.possible_signature_file?(path) } or next
-            signature_targets[path] = target
+            if target = project.target_for_signature_path(path) || project.target_for_inline_source_path(path)
+              signature_targets[path] = target
+            end
           end
 
           project.targets.each do |target|
@@ -391,7 +396,10 @@ module Steep
       end
 
       def source_file?(path)
-        source_files.key?(path) || (project.target_for_source_path(path) ? true : false)
+        return true if source_files.key?(path)
+        return true if project.target_for_source_path(path)
+        return true if project.target_for_inline_source_path(path)
+        false
       end
 
       def signature_file?(path)
@@ -400,17 +408,6 @@ module Steep
         unless targets.empty?
           targets.keys
         end
-      end
-
-      def app_signature_file?(path)
-        target_names = signature_services.select {|_, sig| sig.files.key?(path) }.keys
-        unless target_names.empty?
-          target_names
-        end
-      end
-
-      def lib_signature_file?(path)
-        signature_services.each_value.any? {|sig| sig.env_rbs_paths.include?(path) }
       end
     end
   end

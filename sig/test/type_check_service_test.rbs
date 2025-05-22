@@ -46,4 +46,10 @@ class TypeCheckServiceTest < Minitest::Test
   def test_typecheck__ignore_error: () -> untyped
 
   def test_typecheck__ignore_redundant: () -> untyped
+                                      
+  def test_update__inline: () -> untyped
+
+  def test_update__inline__type_error: () -> void
+
+  def test_update__inline__validation_error: () -> void
 end

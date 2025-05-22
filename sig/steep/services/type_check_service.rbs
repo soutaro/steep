@@ -48,9 +48,11 @@ module Steep
 
       def initialize: (project: Project) -> void
 
+      # Returns the diagnostics of signature files -- RBS files and inline RBS declarations
+      #
+      # The diagnostics are pulled from the signature services.
+      #
       def signature_diagnostics: () -> Hash[Pathname, Array[Diagnostic::Signature::Base]]
-
-      def has_diagnostics?: () -> bool
 
       def diagnostics: () -> Hash[Pathname, Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base]]
 
@@ -88,13 +90,20 @@ module Steep
 
       def self.type_check: (source: Source, subtyping: Subtyping::Check, constant_resolver: RBS::Resolver::ConstantResolver, cursor: Integer?) -> Typing
 
-      def source_file?: (Pathname path) -> bool
+      # Returns `true` if the path is a source file to be type checked
+      #
+      # Typically, path is a `.rb` file that contains Ruby code, or `.rb` file with inline RBS declarations.
+      #
+      private def source_file?: (Pathname path) -> bool
 
+      # Returns the array of target names that handles given path as a signature file
+      #
+      # Typically, path is a `.rbs` file path or `.rb` path with inline RBS declarations.
+      #
+      # * Path can be an absolute path.
+      # * Returns `nil` if there is no such target
+      #
       def signature_file?: (Pathname path) -> Array[Symbol]?
-
-      def app_signature_file?: (Pathname path) -> Array[Symbol]?
-
-      def lib_signature_file?: (Pathname path) -> bool
     end
   end
 end
