@@ -33,6 +33,8 @@ module Steep
       def ignore?: (Integer start_line, Integer end_line, String code) -> bool
 
       def ignore_code?: (Ignore::IgnoreLine, String code) -> bool
+
+      def redundant_ignores: (Array[Integer] error_lines) -> Array[Ignore::t]
     end
   end
 end
