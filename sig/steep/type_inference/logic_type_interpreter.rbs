@@ -96,9 +96,11 @@ module Steep
       #
       def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type) -> [Array[AST::Types::t], Array[AST::Types::t]]?
 
+      def type_guard_type_case_select: (AST::Types::t `type`, AST::Types::t guard_type) -> [AST::Types::t?, AST::Types::t?]
+
       def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t?, AST::Types::t?]
 
-      def type_case_select0: (AST::Types::t `type`, RBS::TypeName klass) -> [Array[AST::Types::t], Array[AST::Types::t]]
+      def type_case_select0: (AST::Types::t `type`, AST::Types::t instance_type) -> [Array[AST::Types::t], Array[AST::Types::t]]
 
       def try_convert: (AST::Types::t, Symbol) -> AST::Types::t?
 
