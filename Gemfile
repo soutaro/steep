@@ -16,5 +16,5 @@ group :development, optional: true do
   gem "majo"
 end
 
-# gem "rbs", path: "../rbs"
-gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"
+gem "rbs", path: "../rbs"
+# gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"

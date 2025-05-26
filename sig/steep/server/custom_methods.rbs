@@ -39,6 +39,7 @@ module Steep
         type params = {
           library_paths: Array[target_path_string],
           signature_paths: Array[target_path_string],
+          inline_paths: Array[target_path_string],
           code_paths: Array[target_path_string]
         }
 

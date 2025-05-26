@@ -112,7 +112,7 @@ module Steep
             end
           end
 
-          params = { library_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
+          params = { library_paths: [], inline_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
 
           (modified + added).each do |path|
             path = Pathname(path)
@@ -132,7 +132,7 @@ module Steep
         begin
           stdout.puts Rainbow("👀 Watching directories, Ctrl-C to stop.").bold
 
-          params = { library_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
+          params = { library_paths: [], inline_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
           file_loader = Services::FileLoader.new(base_dir: project.base_dir)
           project.targets.each do |target|
             file_loader.each_path_in_patterns(target.source_pattern, dirs.map(&:to_s)) do |path|
