@@ -49,11 +49,11 @@ module Steep
 
         # Yields files that belongs to the group or the target
         #
-        # If `no_sub_groups: true` is given, it skips files in sub groups of the target.
-        # If `no_sub_groups: false` is given (default), it yields files in sub groups of the target.
+        # If `include_sub_groups: true` is given, it skips files in sub groups of the target.
+        # If `include_sub_groups: false` is given (default), it yields files in sub groups of the target.
         #
-        def each_group_path: (Target | Group, ?no_sub_groups: bool) { (Pathname) -> void } -> void
-                           | (Target | Group, ?no_sub_groups: bool) -> Enumerator[Pathname]
+        def each_group_path: (Target | Group, ?include_sub_groups: bool) { (Pathname) -> void } -> void
+                           | (Target | Group, ?include_sub_groups: bool) -> Enumerator[Pathname]
 
         # Returns the target of the argument
         #

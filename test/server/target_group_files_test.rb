@@ -7,7 +7,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
   include Steep
 
-  def default_project()
+  def default_project() #: Steep::Project
     project = Project.new(steepfile_path: Pathname("/app/Steepfile"))
     Project::DSL.eval(project) do
       target :lib do
@@ -79,13 +79,13 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
     setup_files(files)
 
     project.targets.find { _1.name == :lib }.tap do |target|
-      assert_equal Set[Pathname("/app/sig/lib/lib.rbs")], files.each_group_signature_path(target).to_set
+      assert_equal Set[Pathname("/app/sig/lib/lib.rbs")], files.signature_paths.each_group_path(target).to_set
     end
     project.targets.find { _1.name == :app }.tap do |target|
-      assert_equal Set[Pathname("/app/sig/app/server/server.rbs"), Pathname("/app/sig/app/main/main.rbs"), Pathname("/app/sig/app/cli.rbs")], files.each_group_signature_path(target).to_set
+      assert_equal Set[Pathname("/app/sig/app/cli.rbs")], files.signature_paths.each_group_path(target).to_set
     end
     project.targets.find { _1.name == :test }.tap do |target|
-      assert_equal Set[Pathname("/app/sig/test/lib_test.rbs")], files.each_group_signature_path(target).to_set
+      assert_equal Set[Pathname("/app/sig/test/lib_test.rbs")], files.signature_paths.each_group_path(target).to_set
     end
   end
 
@@ -96,13 +96,13 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
     setup_files(files)
 
     project.targets.find { _1.name == :lib }.tap do |target|
-      assert_equal Set[Pathname("/app/lib/lib.rb")], files.each_group_source_path(target).to_set
+      assert_equal Set[Pathname("/app/lib/lib.rb")], files.source_paths.each_group_path(target).to_set
     end
     project.targets.find { _1.name == :app }.tap do |target|
-      assert_equal Set[Pathname("/app/app/server/server.rb"), Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb")], files.each_group_source_path(target).to_set
+      assert_equal Set[Pathname("/app/app/cli.rb")], files.source_paths.each_group_path(target).to_set
     end
     project.targets.find { _1.name == :test }.tap do |target|
-      assert_equal Set[Pathname("/app/test/lib_test.rb")], files.each_group_source_path(target).to_set
+      assert_equal Set[Pathname("/app/test/lib_test.rb")], files.source_paths.each_group_path(target).to_set
     end
   end
 
@@ -114,10 +114,10 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
     project.targets.find { _1.name == :app }.tap do |target|
       target.groups.find { _1.name == :server }.tap do |group|
-        assert_equal Set[Pathname("/app/sig/app/server/server.rbs")], files.each_group_signature_path(group).to_set
+        assert_equal Set[Pathname("/app/sig/app/server/server.rbs")], files.signature_paths.each_group_path(group).to_set
       end
       target.groups.find { _1.name == :main }.tap do |group|
-        assert_equal Set[Pathname("/app/sig/app/main/main.rbs")], files.each_group_signature_path(group).to_set
+        assert_equal Set[Pathname("/app/sig/app/main/main.rbs")], files.signature_paths.each_group_path(group).to_set
       end
     end
   end
@@ -130,10 +130,10 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
     project.targets.find { _1.name == :app }.tap do |target|
       target.groups.find { _1.name == :server }.tap do |group|
-        assert_equal Set[Pathname("/app/app/server/server.rb")], files.each_group_source_path(group).to_set
+        assert_equal Set[Pathname("/app/app/server/server.rb")], files.source_paths.each_group_path(group).to_set
       end
       target.groups.find { _1.name == :main }.tap do |group|
-        assert_equal Set[Pathname("/app/app/main/main.rb")], files.each_group_source_path(group).to_set
+        assert_equal Set[Pathname("/app/app/main/main.rb")], files.source_paths.each_group_path(group).to_set
       end
     end
   end
@@ -145,13 +145,13 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
     setup_files(files)
 
     project.targets.find { _1.name == :lib }.tap do |target|
-      assert_equal Set[Pathname("/app/sig/lib/lib.rbs")], files.each_target_signature_path(target, nil).to_set
+      assert_equal Set[Pathname("/app/sig/lib/lib.rbs")], files.signature_paths.each_target_path(target).to_set
     end
     project.targets.find { _1.name == :app }.tap do |target|
-      assert_equal Set[Pathname("/app/sig/app/server/server.rbs"), Pathname("/app/sig/app/main/main.rbs"), Pathname("/app/sig/app/cli.rbs")], files.each_target_signature_path(target, nil).to_set
+      assert_equal Set[Pathname("/app/sig/app/server/server.rbs"), Pathname("/app/sig/app/main/main.rbs"), Pathname("/app/sig/app/cli.rbs")], files.signature_paths.each_target_path(target).to_set
     end
     project.targets.find { _1.name == :test }.tap do |target|
-      assert_equal Set[Pathname("/app/sig/test/lib_test.rbs")], files.each_target_signature_path(target, nil).to_set
+      assert_equal Set[Pathname("/app/sig/test/lib_test.rbs")], files.signature_paths.each_target_path(target).to_set
     end
   end
 
@@ -162,13 +162,13 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
     setup_files(files)
 
     project.targets.find { _1.name == :lib }.tap do |target|
-      assert_equal Set[Pathname("/app/lib/lib.rb")], files.each_target_source_path(target, nil).to_set
+      assert_equal Set[Pathname("/app/lib/lib.rb")], files.source_paths.each_target_path(target).to_set
     end
     project.targets.find { _1.name == :app }.tap do |target|
-      assert_equal Set[Pathname("/app/app/server/server.rb"), Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb")], files.each_target_source_path(target, nil).to_set
+      assert_equal Set[Pathname("/app/app/server/server.rb"), Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb")], files.source_paths.each_target_path(target).to_set
     end
     project.targets.find { _1.name == :test }.tap do |target|
-      assert_equal Set[Pathname("/app/test/lib_test.rb")], files.each_target_source_path(target, nil).to_set
+      assert_equal Set[Pathname("/app/test/lib_test.rb")], files.source_paths.each_target_path(target).to_set
     end
   end
 
@@ -180,10 +180,10 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
     project.targets.find { _1.name == :app }.tap do |target|
       target.groups.find { _1.name == :server }.tap do |group|
-        assert_equal Set[Pathname("/app/sig/app/main/main.rbs"), Pathname("/app/sig/app/cli.rbs")], files.each_target_signature_path(target, group).to_set
+        assert_equal Set[Pathname("/app/sig/app/main/main.rbs"), Pathname("/app/sig/app/cli.rbs")], files.signature_paths.each_target_path(target, except: group).to_set
       end
       target.groups.find { _1.name == :main }.tap do |group|
-        assert_equal Set[Pathname("/app/sig/app/server/server.rbs"), Pathname("/app/sig/app/cli.rbs")], files.each_target_signature_path(target, group).to_set
+        assert_equal Set[Pathname("/app/sig/app/server/server.rbs"), Pathname("/app/sig/app/cli.rbs")], files.signature_paths.each_target_path(target, except: group).to_set
       end
     end
   end
@@ -196,10 +196,10 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
     project.targets.find { _1.name == :app }.tap do |target|
       target.groups.find { _1.name == :server }.tap do |group|
-        assert_equal Set[Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb")], files.each_target_source_path(target, group).to_set
+        assert_equal Set[Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb")], files.source_paths.each_target_path(target, except: group).to_set
       end
       target.groups.find { _1.name == :main }.tap do |group|
-        assert_equal Set[Pathname("/app/app/server/server.rb"), Pathname("/app/app/cli.rb")], files.each_target_source_path(target, group).to_set
+        assert_equal Set[Pathname("/app/app/server/server.rb"), Pathname("/app/app/cli.rb")], files.source_paths.each_target_path(target, except: group).to_set
       end
     end
   end
@@ -216,7 +216,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
         Pathname("/app/sig/app/server/server.rbs"), Pathname("/app/sig/app/main/main.rbs"), Pathname("/app/sig/app/cli.rbs"),
         Pathname("/app/sig/test/lib_test.rbs")
       ],
-      files.each_project_signature_path(nil).to_set
+      files.signature_paths.each_project_path().to_set
     )
   end
 
@@ -232,7 +232,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
         Pathname("/app/app/server/server.rb"), Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb"),
         Pathname("/app/test/lib_test.rb")
       ],
-      files.each_project_source_path(nil).to_set
+      files.source_paths.each_project_path().to_set
     )
   end
 
@@ -245,18 +245,22 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
     project.targets.find { _1.name == :lib }.tap do |target|
       assert_equal(
         Set[
-          Pathname("/app/sig/app/server/server.rbs"), Pathname("/app/sig/app/main/main.rbs"), Pathname("/app/sig/app/cli.rbs")
+          Pathname("/app/sig/app/server/server.rbs"),
+          Pathname("/app/sig/app/main/main.rbs"),
+          Pathname("/app/sig/app/cli.rbs"),
+          Pathname("/app/sig/test/lib_test.rbs")
         ],
-        files.each_project_signature_path(target).to_set
+        files.signature_paths.each_project_path(except: target).to_set
       )
     end
 
     project.targets.find { _1.name == :app }.tap do |target|
       assert_equal(
         Set[
-          Pathname("/app/sig/lib/lib.rbs")
+          Pathname("/app/sig/lib/lib.rbs"),
+          Pathname("/app/sig/test/lib_test.rbs")
         ],
-        files.each_project_signature_path(target).to_set
+        files.signature_paths.each_project_path(except: target).to_set
       )
     end
 
@@ -266,7 +270,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
           Pathname("/app/sig/lib/lib.rbs"),
           Pathname("/app/sig/app/server/server.rbs"), Pathname("/app/sig/app/main/main.rbs"), Pathname("/app/sig/app/cli.rbs")
         ],
-        files.each_project_signature_path(target).to_set
+        files.signature_paths.each_project_path(except: target).to_set
       )
     end
   end
@@ -280,18 +284,20 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
     project.targets.find { _1.name == :lib }.tap do |target|
       assert_equal(
         Set[
-          Pathname("/app/app/server/server.rb"), Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb")
+          Pathname("/app/app/server/server.rb"), Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb"),
+          Pathname("/app/test/lib_test.rb")
         ],
-        files.each_project_source_path(target).to_set
+        files.source_paths.each_project_path(except: target).to_set
       )
     end
 
     project.targets.find { _1.name == :app }.tap do |target|
       assert_equal(
         Set[
-          Pathname("/app/lib/lib.rb")
+          Pathname("/app/lib/lib.rb"),
+          Pathname("/app/test/lib_test.rb")
         ],
-        files.each_project_source_path(target).to_set
+        files.source_paths.each_project_path(except: target).to_set
       )
     end
 
@@ -301,7 +307,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
           Pathname("/app/lib/lib.rb"),
           Pathname("/app/app/server/server.rb"), Pathname("/app/app/main/main.rb"), Pathname("/app/app/cli.rb")
         ],
-        files.each_project_source_path(target).to_set
+        files.source_paths.each_project_path(except: target).to_set
       )
     end
   end
