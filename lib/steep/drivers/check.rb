@@ -114,7 +114,7 @@ module Steep
           project.targets.each do |target|
             target.groups.each do |group|
               if active_group?(group)
-                load_files(files, group.target, group, params: params)
+                load_files(files, target, group, params: params)
               end
             end
             if active_group?(target)
@@ -208,7 +208,7 @@ module Steep
 
       def load_files(files, target, group, params:)
         if type_check_code
-          files.source_paths.each_group_path(group, no_sub_groups: true) do |path|
+          files.source_paths.each_group_path(group) do |path|
             params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end

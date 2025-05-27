@@ -80,12 +80,11 @@ module Steep
 
         def each_group_path(target_group, include_sub_groups: false, &block)
           if block
-            @paths.each do |path, tg|
-              if include_sub_groups
-                if tg == target_group || target_group == target_of(tg)
-                  yield path
-                end
-              else
+            if include_sub_groups
+              target_group.is_a?(Project::Target) or raise "target_group must be a target if `include_sub_groups:` is given. (#{target_group.name})"
+              each_target_path(target_group, &block)
+            else
+              @paths.each do |path, tg|
                 if tg == target_group
                   yield path
                 end
