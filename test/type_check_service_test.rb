@@ -451,4 +451,34 @@ RBS
       )
     end
   end
+
+  def test_typecheck__ignore_redundant
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+
+    {
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+class A
+  def foo: -> void
+end
+RBS
+      Pathname("lib/core.rb") => [ContentChange.string(<<RUBY)],
+class A
+  def foo # steep:ignore
+  end
+end
+
+1+"" # steep:ignore
+RUBY
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+
+      assert_equal(
+        [Diagnostic::Ruby::RedundantIgnoreComment],
+        service.diagnostics[Pathname("lib/core.rb")].map {|d| d.class }
+      )
+    end
+  end
 end

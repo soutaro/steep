@@ -1699,6 +1699,32 @@ module Steep
         def initialize: (comment: Parser::Source::Comment) -> void
       end
 
+      # `steep:ignore` comment is redundant.
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # 1 + 1 # steep:ignore
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # test.rb:1:6: [hint] Redundant ignore comment
+      # │ Diagnostic ID: Ruby::RedundantIgnoreComment
+      # │
+      # └ 1 + 1 # steep:ignore
+      #         ~~~~~~~~~~~~~~
+      # ```
+      #
+      class RedundantIgnoreComment < Base
+        attr_reader comment: Parser::Source::Comment
+
+        def initialize: (comment: Parser::Source::Comment) -> void
+
+        def header_line: () -> String
+      end
+
       # Argument forwarding `...` cannot be done safely, because of:
       #
       # 1. The arguments are incompatible, or
