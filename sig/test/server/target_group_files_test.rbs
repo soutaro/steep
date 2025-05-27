@@ -9,7 +9,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
   include Steep
 
-  def default_project: () -> untyped
+  def default_project: () -> Steep::Project
 
   def setup_files: (untyped files) -> untyped
 

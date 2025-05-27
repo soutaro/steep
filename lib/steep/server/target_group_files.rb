@@ -74,25 +74,41 @@ module Steep
               yield path
             end
           else
-            enum_for(_ = __method__, target: target, except: except)
+            enum_for(_ = __method__, target, except: except)
           end
         end
 
-        def each_group_path(target_group, no_sub_groups: false, &block)
+        def each_group_path(target_group, include_sub_groups: false, &block)
           if block
             @paths.each do |path, tg|
-              if no_sub_groups
-                if tg == target_group
+              if include_sub_groups
+                if tg == target_group || target_group == target_of(tg)
                   yield path
                 end
               else
-                if tg == target_group || target_group == target_of(tg)
+                if tg == target_group
                   yield path
                 end
               end
             end
           else
-            enum_for(_ = __method__, target_group)
+            enum_for(_ = __method__, target_group, include_sub_groups: include_sub_groups)
+          end
+        end
+
+        def target_of(target_group)
+          case target_group
+          when Project::Target
+            target_group
+          when Project::Group
+            target_group.target
+          end
+        end
+
+        def group_of(target_group)
+          case target_group
+          when Project::Group
+            target_group
           end
         end
       end
