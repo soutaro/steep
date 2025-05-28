@@ -203,8 +203,8 @@ module Steep
           end
         end
 
-        changed_paths.merge(self.files.each_project_signature_path(nil))
-        changed_paths.merge(self.files.each_project_source_path(nil))
+        changed_paths.merge(self.files.signature_paths.each_project_path)
+        changed_paths.merge(self.files.source_paths.each_project_path)
 
         yield files.dup unless files.empty?
       end
@@ -219,18 +219,18 @@ module Steep
 
       def active_target?(target_group)
         priority_paths.any? do |path|
-          if open_target = files.signature_paths.fetch(path, nil) || files.source_paths.fetch(path, nil)
+          if open_target = files.signature_paths[path] || files.source_paths[path]
             open_target == target_group
           end
         end
       end
 
       def push_changes_for_target(target_group)
-        files.each_group_signature_path(target_group) do |path|
+        files.signature_paths.each_group_path(target_group) do |path|
           push_changes path
         end
 
-        files.each_group_source_path(target_group) do |path|
+        files.source_paths.each_group_path(target_group) do |path|
           push_changes path
         end
       end
@@ -243,7 +243,7 @@ module Steep
 
         case
         when open
-          target_group = files.signature_paths.fetch(path, nil) || files.source_paths.fetch(path, nil) or return
+          target_group = files.signature_paths[path] || files.source_paths[path] or return
 
           unless active_target?(target_group)
             push_changes_for_target(target_group)
@@ -311,30 +311,30 @@ module Steep
             end
           else
             changed_paths.each do |path|
-              if target_group = files.signature_paths.fetch(path, nil)
+              if target_group = files.signature_paths[path]
                 case target_group
                 when Project::Group
                   target = target_group.target
 
-                  files.each_group_signature_path(target_group) do |path|
+                  files.signature_paths.each_group_path(target_group) do |path|
                     request.signature_paths << [target.name, path]
                   end
 
-                  files.each_group_source_path(target_group) do |path|
+                  files.source_paths.each_group_path(target_group) do |path|
                     request.code_paths << [target.name, path]
                   end
                 when Project::Target
-                  files.each_target_signature_path(target_group, nil) do |path|
+                  files.signature_paths.each_target_path(target_group) do |path|
                     request.signature_paths << [target_group.name, path]
                   end
 
-                  files.each_target_source_path(target_group, nil) do |path|
+                  files.source_paths.each_target_path(target_group) do |path|
                     request.code_paths << [target_group.name, path]
                   end
                 end
               end
 
-              if target = files.source_path_target(path)
+              if target = files.source_paths.target(path)
                 request.code_paths << [target.name, path]
               end
             end
@@ -343,11 +343,11 @@ module Steep
               non_unref_targets = project.targets.reject { _1.unreferenced }.map(&:name).to_set
               if request.signature_paths.any? {|target_name, _| non_unref_targets.include?(target_name) }
                 priority_paths.each do |path|
-                  if target = files.signature_path_target(path)
+                  if target = files.signature_paths.target(path)
                     request.signature_paths << [target.name, path]
                     request.priority_paths << path
                   end
-                  if target = files.source_path_target(path)
+                  if target = files.source_paths.target(path)
                     request.code_paths << [target.name, path]
                     request.priority_paths << path
                   end

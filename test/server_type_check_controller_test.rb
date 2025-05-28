@@ -32,9 +32,9 @@ end
       assert_equal Set[], controller.priority_paths
       assert_equal Set[], controller.changed_paths
 
-      assert_equal({}, controller.files.library_paths)
-      assert_equal({}, controller.files.source_paths)
-      assert_equal({}, controller.files.signature_paths)
+      assert_predicate controller.files.library_paths, :empty?
+      assert_predicate controller.files.source_paths, :empty?
+      assert_predicate controller.files.signature_paths, :empty?
     end
   end
 
@@ -64,8 +64,8 @@ end
       controller.load(command_line_args: []) {}
 
       assert_equal [:lib], controller.files.library_paths.keys
-      assert_equal Set[current_dir + "lib/customer.rb"], controller.files.source_paths.keys.to_set
-      assert_equal Set[current_dir + "sig/customer.rbs"], controller.files.signature_paths.keys.to_set
+      assert_equal Set[current_dir + "lib/customer.rb"], controller.files.source_paths.paths.to_set
+      assert_equal Set[current_dir + "sig/customer.rbs"], controller.files.signature_paths.paths.to_set
     end
   end
 
@@ -96,8 +96,8 @@ end
       controller.load(command_line_args: []) {}
 
       assert_equal [:lib], controller.files.library_paths.keys
-      assert_equal Set[current_dir + "lib/customer.rb", current_dir + "lib/core.rb"], controller.files.source_paths.keys.to_set
-      assert_equal Set[current_dir + "sig/customer.rbs", current_dir + "sig/core.rbs"], controller.files.signature_paths.keys.to_set
+      assert_equal Set[current_dir + "lib/customer.rb", current_dir + "lib/core.rb"], controller.files.source_paths.paths.to_set
+      assert_equal Set[current_dir + "sig/customer.rbs", current_dir + "sig/core.rbs"], controller.files.signature_paths.paths.to_set
     end
   end
 
@@ -127,8 +127,8 @@ end
       controller.push_changes(current_dir + "sig/customer.rbs")
       controller.push_changes(current_dir + "test/customer_test.rb")
 
-      assert_equal Set[current_dir + "lib/customer.rb"], controller.files.source_paths.keys.to_set
-      assert_equal Set[current_dir + "sig/customer.rbs"], controller.files.signature_paths.keys.to_set
+      assert_equal Set[current_dir + "lib/customer.rb"], controller.files.source_paths.paths.to_set
+      assert_equal Set[current_dir + "sig/customer.rbs"], controller.files.signature_paths.paths.to_set
 
       assert_equal Set[current_dir + "lib/customer.rb", current_dir + "sig/customer.rbs"],
                    controller.changed_paths
@@ -421,7 +421,7 @@ end
 
       controller.update_priority(open: current_dir + "lib/app/customer_service.rb")
       controller.make_request(progress: nil)
-      
+
       controller.push_changes(current_dir + "sig/core/customer.rbs")
       request = controller.make_request(progress: nil)
 

@@ -10,6 +10,10 @@ module Steep
           @paths.empty?
         end
 
+        def paths
+          @paths.keys
+        end
+
         def []=(path, target_group)
           @paths[path] = target_group
         end
