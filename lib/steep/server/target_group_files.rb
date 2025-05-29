@@ -118,7 +118,7 @@ module Steep
 
       attr_reader :project
 
-      attr_reader :source_paths, :signature_paths
+      attr_reader :source_paths, :signature_paths, :inline_paths
 
       attr_reader :library_paths
 
@@ -126,6 +126,7 @@ module Steep
         @project = project
         @source_paths = PathEnumerator.new
         @signature_paths = PathEnumerator.new
+        @inline_paths = PathEnumerator.new
         @library_paths = {}
       end
 
