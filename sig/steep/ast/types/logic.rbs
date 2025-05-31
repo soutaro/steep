@@ -50,6 +50,19 @@ module Steep
         class ArgIsAncestor < Base
         end
 
+        # A type for type guard.
+        class Guard < Base
+          PATTERN: Regexp
+
+          attr_reader subject: String
+          attr_reader operator: String
+          attr_reader type: RBS::Types::t
+
+          def self.new: (subject: String, operator: String, type: RBS::Types::t) -> Guard
+
+          def initialize: (subject: String, operator: String, type: RBS::Types::t) -> void
+        end
+
         # A type with truthy/falsy type environment.
         class Env < Base
           attr_reader truthy: TypeInference::TypeEnv

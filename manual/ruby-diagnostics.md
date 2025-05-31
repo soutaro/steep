@@ -639,6 +639,46 @@ test.rb:8:0: [error] Requires 2 types, but 1 given: `[T, S] (T, S) -> [T, S]`
 | - | - | - | - | - |
 | error | error | hint | - | - |
 
+<a name='Ruby::InsufficientTypeGuard'></a>
+## Ruby::InsufficientTypeGuard
+
+A type guard method doesn't narrow the type because the determined type is not a subtype of the actual type.
+
+### RBS
+
+```rbs
+class Object
+  %a{guard:self is String}
+  def string?: () -> bool
+end
+```
+
+### Ruby code
+
+```ruby
+a = 123
+if a.string?
+  puts "Hello"
+end
+```
+
+### Diagnostic
+
+```
+test.rb:2:4: [error] Cannot narrow the type: ::Integer is not a subtype of ::String
+│ Diagnostic ID: Ruby::InsufficientTypeGuard
+│
+└   if a.string?
+       ~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | error | error | error | - |
+
 <a name='Ruby::InvalidIgnoreComment'></a>
 ## Ruby::InvalidIgnoreComment
 
