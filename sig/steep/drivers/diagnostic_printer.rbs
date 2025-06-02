@@ -7,19 +7,11 @@ module Steep
 
       attr_reader buffer: RBS::Buffer
 
-      def initialize: (stdout: IO, buffer: RBS::Buffer) -> void
+      attr_reader formatter: BaseFormatter
 
-      def path: () -> Pathname
+      def initialize: (stdout: IO, buffer: RBS::Buffer, ?formatter: String) -> void
 
-      def color_severity: (String string, severity: String) -> String
-
-      def severity_message: (String) -> String
-
-      def location: (untyped diagnostic) -> String
-
-      def print: (Hash[Symbol, untyped] diagnostic, ?prefix: ::String, ?source: bool) -> void
-
-      def print_source_line: (untyped diagnostic, ?prefix: ::String) -> void
+      def print: (Hash[Symbol, untyped] diagnostic, ?prefix: String, ?source: bool) -> void
     end
   end
 end
