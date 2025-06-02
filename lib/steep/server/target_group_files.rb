@@ -14,6 +14,10 @@ module Steep
           @paths.keys
         end
 
+        def registered_path?(path)
+          @paths.key?(path)
+        end
+
         def []=(path, target_group)
           @paths[path] = target_group
         end
@@ -53,11 +57,11 @@ module Steep
         def each_project_path(except: nil, &block)
           if block
             @paths.each_key do |path|
-              target = target(path)
+              target, group = target_group(path) || raise
 
               next if target == except
 
-              yield path
+              yield [path, target, group, group || target]
             end
           else
             enum_for(_ = __method__, except: except)
@@ -67,7 +71,7 @@ module Steep
         def each_target_path(target, except: nil, &block)
           if block
             @paths.each_key do |path|
-              t, g = target_group(path)
+              t, g = target_group(path) || raise
 
               if except
                 next if g == except
@@ -75,7 +79,7 @@ module Steep
 
               next unless t == target
 
-              yield path
+              yield [path, t, g, g || t]
             end
           else
             enum_for(_ = __method__, target, except: except)
@@ -90,7 +94,8 @@ module Steep
             else
               @paths.each do |path, tg|
                 if tg == target_group
-                  yield path
+                  t, g = target_group(path) || raise
+                  yield [path, t, g, g || t]
                 end
               end
             end
@@ -145,6 +150,12 @@ module Steep
         end
 
         false
+      end
+
+      def registered_path?(path)
+        source_paths.registered_path?(path) ||
+          signature_paths.registered_path?(path) ||
+          inline_paths.registered_path?(path)
       end
 
       def add_library_path(target, *paths)

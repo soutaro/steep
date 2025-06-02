@@ -6,6 +6,7 @@ module Steep
         attr_reader :library_paths
         attr_reader :signature_paths
         attr_reader :code_paths
+        attr_reader :inline_paths
         attr_reader :priority_paths
         attr_reader :checked_paths
         attr_reader :work_done_progress
@@ -18,6 +19,7 @@ module Steep
           @library_paths = Set[]
           @signature_paths = Set[]
           @code_paths = Set[]
+          @inline_paths = Set[]
           @priority_paths = Set[]
           @checked_paths = Set[]
           @work_done_progress = progress
@@ -41,6 +43,7 @@ module Steep
             library_uris: assigned_uris(assignment, library_paths),
             signature_uris: assigned_uris(assignment, signature_paths),
             code_uris: assigned_uris(assignment, code_paths),
+            inline_uris: assigned_uris(assignment, inline_paths),
             priority_uris: priority_paths.map {|path| uri(path).to_s }
           }
         end
@@ -54,7 +57,7 @@ module Steep
         end
 
         def total
-          library_paths.size + signature_paths.size + code_paths.size
+          library_paths.size + signature_paths.size + code_paths.size + inline_paths.size
         end
 
         def empty?
@@ -80,13 +83,14 @@ module Steep
             library_paths.each(&block)
             signature_paths.each(&block)
             code_paths.each(&block)
+            inline_paths.each(&block)
           else
             enum_for :each_target_path
           end
         end
 
         def checking_path?(target_path)
-          [library_paths, signature_paths, code_paths].any? do |paths|
+          [library_paths, signature_paths, code_paths, inline_paths].any? do |paths|
             paths.include?(target_path)
           end
         end
@@ -160,25 +164,43 @@ module Steep
           end
         end
 
+        def each_unchecked_inline_target_path(&block)
+          if block
+            inline_paths.each do |target_path|
+              unless checked_paths.include?(target_path)
+                yield target_path
+              end
+            end
+          else
+            enum_for :each_unchecked_inline_target_path
+          end
+        end
+
         def merge!(request)
           library_paths.merge(request.each_unchecked_library_target_path)
           signature_paths.merge(request.each_unchecked_signature_target_path)
           code_paths.merge(request.each_unchecked_code_target_path)
+          inline_paths.merge(request.each_unchecked_inline_target_path)
 
           self
         end
       end
 
       attr_reader :project
-      attr_reader :priority_paths
-      attr_reader :changed_paths
+      attr_reader :open_paths
+      attr_reader :active_groups
+      attr_reader :new_active_groups
+      attr_reader :dirty_paths
       attr_reader :files
 
       def initialize(project:)
         @project = project
-        @priority_paths = Set[]
-        @changed_paths = Set[]
+
         @files = TargetGroupFiles.new(project)
+        @open_paths = Set[]
+        @active_groups = Set[].compare_by_identity
+        @new_active_groups = Set[].compare_by_identity
+        @dirty_paths = Set[]
       end
 
       def load(command_line_args:)
@@ -203,160 +225,201 @@ module Steep
           end
         end
 
-        changed_paths.merge(self.files.signature_paths.each_project_path)
-        changed_paths.merge(self.files.source_paths.each_project_path)
-
         yield files.dup unless files.empty?
       end
 
-      def push_changes(path)
+      def add_dirty_path(path)
         return if files.library_path?(path)
 
-        if files.add_path(path)
-          changed_paths << path
+        if files.registered_path?(path) || files.add_path(path)
+          dirty_paths << path
         end
       end
 
-      def active_target?(target_group)
-        priority_paths.any? do |path|
-          if open_target = files.signature_paths[path] || files.source_paths[path]
-            open_target == target_group
+      def active_group?(group)
+        active_groups.include?(group)
+      end
+
+      def each_active_group(&block)
+        if block
+          active_groups.each(&block)
+        else
+          enum_for(_ = __method__)
+        end
+      end
+
+      def unreferenced?(group)
+        group = group.target if group.is_a?(Project::Group)
+        group.unreferenced
+      end
+
+      def reset()
+        dirty_paths.clear()
+        new_active_groups.clear()
+      end
+
+      def open_path(path)
+        return if open_paths.include?(path)
+
+        files.add_path(path) or return
+
+        if group = group_of(path)
+          open_paths << path
+
+          unless active_groups.include?(group)
+            new_active_groups << group
+            active_groups << group
           end
         end
       end
 
-      def push_changes_for_target(target_group)
-        files.signature_paths.each_group_path(target_group) do |path|
-          push_changes path
-        end
+      def close_path(path)
+        if open_paths.include?(path)
+          closed_path_group = group_of(path) or raise
 
-        files.source_paths.each_group_path(target_group) do |path|
-          push_changes path
-        end
-      end
+          open_paths.delete(path)
 
-      def update_priority(open: nil, close: nil)
-        path = open || close or raise
-
-        return if files.library_path?(path)
-        files.add_path(path)
-
-        case
-        when open
-          target_group = files.signature_paths[path] || files.source_paths[path] or return
-
-          unless active_target?(target_group)
-            push_changes_for_target(target_group)
+          if open_paths.none? { group_of(_1) == closed_path_group }
+            active_groups.delete(closed_path_group)
+            new_active_groups.delete(closed_path_group)
           end
-          priority_paths << path
-        when close
-          priority_paths.delete path
         end
       end
 
-      def make_group_request(groups, progress:)
+      def group_of(path)
+        files.signature_paths[path] ||
+          files.source_paths[path] ||
+          files.inline_paths[path]
+      end
+
+      def target_of(path)
+        if group = group_of(path)
+          if group.is_a?(Project::Group)
+            group.target
+          else
+            group
+          end
+        end
+      end
+
+      def make_group_request(groups, guid: SecureRandom.uuid, progress:)
         TypeCheckController::Request.new(guid: progress.guid, progress: progress).tap do |request|
-          if groups.empty?
-            files.signature_paths.each do |path, target_group|
-              target_group = target_group.target if target_group.is_a?(Project::Group)
-              request.signature_paths << [target_group.name, path]
-            end
-            files.source_paths.each do |path, target_group|
-              target_group = target_group.target if target_group.is_a?(Project::Group)
-              request.code_paths << [target_group.name, path]
-            end
-          else
-            group_set = groups.filter_map do |group_name|
-              target_name, group_name = group_name.split(".", 2)
-              target_name or raise
+          raise "At least one group/target must be specified" if groups.empty?
 
-              target_name = target_name.to_sym
-              group_name = group_name.to_sym if group_name
+          name_group_map = {} #: Hash[String, group]
 
-              if group_name
-                if target = project.targets.find {|target| target.name == target_name }
-                  target.groups.find {|group| group.name == group_name }
-                end
-              else
-                project.targets.find {|target| target.name == target_name }
-              end
-            end.to_set
+          project.targets.each do |target|
+            name_group_map[target.name.to_s] = target
 
-            files.signature_paths.each do |path, target_group|
-              if group_set.include?(target_group)
-                target_group = target_group.target if target_group.is_a?(Project::Group)
-                request.signature_paths << [target_group.name, path]
-              end
-            end
-            files.source_paths.each do |path, target_group|
-              if group_set.include?(target_group)
-                target_group = target_group.target if target_group.is_a?(Project::Group)
-                request.code_paths << [target_group.name, path]
-              end
+            target.groups.each do |group|
+              name_group_map["#{target.name}.#{group.name}"] = group
             end
           end
+
+          groups.each do |group|
+            type_check_group = name_group_map.fetch(group)
+
+            new_active_groups.delete(type_check_group)
+
+            files.signature_paths.each_group_path(type_check_group) do |path, target|
+              request.signature_paths << [target.name, path]
+              dirty_paths.delete(path)
+            end
+            files.inline_paths.each_group_path(type_check_group) do |path, target|
+              request.inline_paths << [target.name, path]
+              dirty_paths.delete(path)
+            end
+            files.source_paths.each_group_path(type_check_group) do |path, target|
+              request.code_paths << [target.name, path]
+              dirty_paths.delete(path)
+            end
+          end
+
+          request.priority_paths.merge(open_paths)
         end
       end
 
-      def make_request(guid: SecureRandom.uuid, include_unchanged: false, progress:)
+      def make_all_request(guid: SecureRandom.uuid, progress:)
         TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
-          if include_unchanged
-            files.signature_paths.each do |path, target_group|
-              target_group = target_group.target if target_group.is_a?(Project::Group)
-              request.signature_paths << [target_group.name, path]
-            end
-            files.source_paths.each do |path, target_group|
-              target_group = target_group.target if target_group.is_a?(Project::Group)
-              request.code_paths << [target_group.name, path]
-            end
-          else
-            changed_paths.each do |path|
-              if target_group = files.signature_paths[path]
-                case target_group
-                when Project::Group
-                  target = target_group.target
+          files.signature_paths.each do |path, target|
+            request.signature_paths << [target.name, path]
+          end
+          files.source_paths.each do |path, target|
+            request.code_paths << [target.name, path]
+          end
+          files.inline_paths.each do |path, target|
+            request.inline_paths << [target.name, path]
+          end
 
-                  files.signature_paths.each_group_path(target_group) do |path|
-                    request.signature_paths << [target.name, path]
-                  end
+          request.priority_paths.merge(open_paths)
 
-                  files.source_paths.each_group_path(target_group) do |path|
-                    request.code_paths << [target.name, path]
-                  end
-                when Project::Target
-                  files.signature_paths.each_target_path(target_group) do |path|
-                    request.signature_paths << [target_group.name, path]
-                  end
+          reset()
+        end
+      end
 
-                  files.source_paths.each_target_path(target_group) do |path|
-                    request.code_paths << [target_group.name, path]
-                  end
-                end
-              end
+      def make_request(guid: SecureRandom.uuid, progress:)
+        TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
+          code_paths = Set[] #: Set[[Project::Target, Pathname]]
+          signature_paths = Set[] #: Set[[Project::Target, Pathname]]
+          inline_paths = Set[] #: Set[[Project::Target, Pathname]]
 
-              if target = files.source_paths.target(path)
-                request.code_paths << [target.name, path]
-              end
-            end
-
-            unless request.signature_paths.empty?
-              non_unref_targets = project.targets.reject { _1.unreferenced }.map(&:name).to_set
-              if request.signature_paths.any? {|target_name, _| non_unref_targets.include?(target_name) }
-                priority_paths.each do |path|
-                  if target = files.signature_paths.target(path)
-                    request.signature_paths << [target.name, path]
-                    request.priority_paths << path
-                  end
-                  if target = files.source_paths.target(path)
-                    request.code_paths << [target.name, path]
-                    request.priority_paths << path
-                  end
-                end
-              end
+          dirty_paths.each do |path|
+            case
+            when group = files.source_paths[path]
+              target = target_of(path) or raise
+              code_paths << [target, path]
+            when group = files.signature_paths[path]
+              target = target_of(path) or raise
+              signature_paths << [target, path]
+            when group = files.inline_paths[path]
+              target = target_of(path) or raise
+              inline_paths << [target, path]
             end
           end
 
-          changed_paths.clear()
+          signature_updated_groups = Set[] #: Set[group]
+
+          Enumerator::Chain.new(signature_paths, inline_paths).each do |group, path|
+            signature_updated_groups << group
+          end
+
+          type_check_groups = Set[] #: Set[group]
+
+          type_check_groups.merge(signature_updated_groups)
+
+          unless signature_updated_groups.all? { unreferenced?(_1) }
+            type_check_groups.merge(active_groups)
+          end
+
+          type_check_groups.merge(new_active_groups)
+
+          type_check_groups.each do |group|
+            files.signature_paths.each_group_path(group) do |path, target|
+              signature_paths << [target, path]
+            end
+            files.inline_paths.each_group_path(group) do |path, target|
+              inline_paths << [target, path]
+            end
+            files.source_paths.each_group_path(group) do |path, target|
+              code_paths << [target, path]
+            end
+          end
+
+          signature_paths.each do |target, path|
+            request.signature_paths << [target.name, path]
+          end
+
+          inline_paths.each do |target, path|
+            request.inline_paths << [target.name, path]
+          end
+
+          code_paths.each do |target, path|
+            request.code_paths << [target.name, path]
+          end
+
+          request.priority_paths.merge(open_paths)
+
+          reset()
 
           return nil if request.empty?
         end

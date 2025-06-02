@@ -423,7 +423,7 @@ module Steep
                 setup_file_system_watcher()
               end
 
-              controller.changed_paths.clear()
+              # controller.changed_paths.clear()
 
               # if typecheck_automatically
               #   if request = controller.make_request(guid: progress.guid, include_unchanged: true, progress: progress)
@@ -442,10 +442,10 @@ module Steep
 
             path = PathHelper.to_pathname!(uri)
 
-            unless controller.priority_paths.include?(path)
+            unless controller.open_paths.include?(path)
               updated_watched_files << path
 
-              controller.push_changes(path)
+              controller.add_dirty_path(path)
 
               case type
               when LSP::Constant::FileChangeType::CREATED, LSP::Constant::FileChangeType::CHANGED
@@ -485,7 +485,7 @@ module Steep
         when "textDocument/didChange"
           if path = pathname(message[:params][:textDocument][:uri])
             broadcast_notification(message)
-            controller.push_changes(path)
+            controller.add_dirty_path(path)
 
             if typecheck_automatically
               start_type_checking_queue.execute do
@@ -513,7 +513,7 @@ module Steep
 
           if path = pathname(uri)
             if target = project.group_for_path(path)
-              controller.update_priority(open: path)
+              controller.open_path(path)
               # broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
 
               start_type_checking_queue.execute do
@@ -525,7 +525,7 @@ module Steep
 
         when "textDocument/didClose"
           if path = pathname(message[:params][:textDocument][:uri])
-            controller.update_priority(close: path)
+            controller.close_path(path)
           end
 
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
@@ -632,7 +632,12 @@ module Steep
           progress = work_done_progress(SecureRandom.uuid)
           progress.begin("Type checking #{groups.empty? ? "project" : groups.join(", ")}", request_id: fresh_request_id)
 
-          request = controller.make_group_request(groups, progress: progress)
+          if groups.empty?
+            request = controller.make_all_request(progress: progress)
+          else
+            request = controller.make_group_request(groups, progress: progress)
+          end
+
           request.needs_response = false
           start_type_check(request: request, last_request: current_type_check_request, report_progress_threshold: 0)
 
@@ -744,7 +749,14 @@ module Steep
 
           unless request
             progress or raise
-            request = controller.make_request(guid: progress.guid, include_unchanged: include_unchanged, progress: progress) or return
+            request =
+              if include_unchanged
+                controller.make_all_request(guid: progress.guid, progress: progress)
+              else
+                controller.make_request(guid: progress.guid, progress: progress)
+              end
+            return unless request
+
             request.needs_response = needs_response ? true : false
           end
 

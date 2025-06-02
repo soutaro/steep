@@ -23,6 +23,7 @@ module Steep
 
         attr_reader work_done_progress: WorkDoneProgress
 
+        # Pair of target name and path
         type target_and_path = [Symbol, Pathname]
 
         # The path of RBS files of libraries
@@ -34,12 +35,16 @@ module Steep
         # The path of Ruby code files
         attr_reader code_paths: Set[target_and_path]
 
+        # The path of inline RBS files
+        attr_reader inline_paths: Set[target_and_path]
+
         # The path of files that is opened by the editor
         attr_reader priority_paths: Set[Pathname]
 
         # The path of files that are type checked already
         attr_reader checked_paths: Set[target_and_path]
 
+        # The time when the request object is created
         attr_reader started_at: Time
 
         # `true` to report the progress to the client
@@ -55,9 +60,18 @@ module Steep
 
         private def uri: (Pathname path) -> URI::File
 
+        # Pair of target name and path string
+        #
         type target_path_string = [String, String]
 
-        type json = { guid: String, library_uris: Array[target_path_string], signature_uris: Array[target_path_string], code_uris: Array[target_path_string], priority_uris: Array[String] }
+        type json = {
+          guid: String,
+          library_uris: Array[target_path_string],
+          signature_uris: Array[target_path_string],
+          code_uris: Array[target_path_string],
+          inline_uris: Array[target_path_string],
+          priority_uris: Array[String]
+        }
 
         def as_json: (assignment: Services::PathAssignment) -> json
 
@@ -99,6 +113,9 @@ module Steep
         def each_unchecked_signature_target_path: () { (target_and_path) -> void } -> void
                                                 | () -> Enumerator[target_and_path]
 
+        def each_unchecked_inline_target_path: () { (target_and_path) -> void } -> void
+                                              | () -> Enumerator[target_and_path]
+
         # Set `#report_progress` and return self, defaults to `true`
         #
         def report_progress!: (?bool) -> self
@@ -109,41 +126,101 @@ module Steep
         private def assigned_uris: (Services::PathAssignment, Set[target_and_path]) -> Array[target_path_string]
       end
 
+      # The group of files that should be type checked/validated
+      type group = Target | Group
+
       attr_reader project: Project
 
-      attr_reader priority_paths: Set[Pathname]
+      # Set of open file paths
+      #
+      attr_reader open_paths: Set[Pathname]
 
-      attr_reader changed_paths: Set[Pathname]
+      # Set of groups that has activated since last type checking request
+      #
+      attr_reader new_active_groups: Set[group]
+
+      # Set of all active groups
+      #
+      attr_reader active_groups: Set[group]
+
+      # Set of paths that content is changed since last type checking request
+      attr_reader dirty_paths: Set[Pathname]
 
       attr_reader files: TargetGroupFiles
 
       def initialize: (project: Project) -> void
 
+      # Load files from commandline_args
+      #
       def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
 
-      def push_changes: (Pathname path) -> void
-
-      def update_priority: (open: Pathname) -> void
-                         | (close: Pathname) -> void
-
-      def active_target?: (Target | Group) -> bool
-
-      def push_changes_for_target: (Target | Group) -> void
-
-      # Returns a TypeCheckRequest that contains all paths to be type checked
+      # Mark a path as dirty
       #
-      # This method also resets the controller status by removing everything from `changed_paths`.
+      def add_dirty_path: (Pathname path) -> void
+
+      # Delete everything from changed_paths
       #
-      # * If `include_unchanged` is `true`, all paths are included in the new request.
+      # priority_paths are not updated.
+      #
+      def reset: () -> void
+
+      # Notify a path is opened
+      #
+      # Returns a group if the path is the first open path of the group.
+      #
+      def open_path: (Pathname path) -> void
+
+      # Notify a path is closed
+      #
+      def close_path: (Pathname path) -> void
+
+      # Yields groups (targets) that has open paths
+      #
+      def each_active_group: () { (group) -> void } -> void
+                           | () -> Enumerator[group]
+
+      # Returns true if given group (group or target) includes priority path
+      #
+      def active_group?: (group) -> bool
+
+      # Returns a TypeCheckRequest that contains pending paths
+      #
+      # * This method also resets the controller status
+      # * `progress:` is a `WorkDoneProgress` object to report the progress of the type checking
+      # * Returns `nil` when no type checking is needed
+      #
+      # Resets after making the request.
+      #
+      def make_request: (?guid: String, progress: WorkDoneProgress) -> Request?
+
+      # Returns a TypeCheckRequest that contains all of the paths of the project
+      #
+      # * This method also resets the controller status.
       # * `progress:` is a `WorkDoneProgress` object to report the progress of the type checking.
       #
-      # Returns `nil` when no type checking is needed.
+      # Resets after making the request.
       #
-      def make_request: (?guid: String, ?include_unchanged: bool, progress: WorkDoneProgress) -> Request?
+      def make_all_request: (?guid: String, progress: WorkDoneProgress) -> Request
 
       # Returns a request to type check Ruby code and RBS type signatures of given groups
       #
-      def make_group_request: (Array[String], progress: WorkDoneProgress) -> Request
+      # Removes the specified groups from `new_active_groups` and delete type checked paths from `dirty_paths`.
+      # Raises an exception if the groups are empty.
+      #
+      # A group name can be a target name or a group name.
+      #
+      # * `lib`      => A target name in the project
+      # * `lib.core` => A group name in the project
+      #
+      def make_group_request: (Array[String] groups, ?guid: String, progress: WorkDoneProgress) -> Request
+
+      # Returns true if the group is unreferenced
+      #
+      private def unreferenced?: (group) -> bool
+
+      private def group_of: (Pathname path) -> group?
+
+      private def target_of: (Pathname path) -> Target?
     end
   end
 end

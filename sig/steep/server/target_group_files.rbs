@@ -15,6 +15,8 @@ module Steep
       class PathEnumerator
         @paths: Hash[Pathname, Target | Group]
 
+        type path_group = [Pathname, Target, Group?, Target | Group]
+
         def initialize: () -> void
 
         def empty?: () -> bool
@@ -24,6 +26,8 @@ module Steep
         def []: (Pathname) -> (Target | Group | nil)
 
         def paths: () -> Array[Pathname]
+
+        def registered_path?: (Pathname) -> bool
 
         def each: () { ([Pathname, Target, Group?]) -> void } -> void
                 | () -> Enumerator[[Pathname, Target, Group?]]
@@ -36,26 +40,26 @@ module Steep
 
         # Yields all files from the collection
         #
-        def each_project_path: (?except: Target?) { (Pathname) -> void } -> void
-                            | (?except: Target?) -> Enumerator[Pathname]
+        def each_project_path: (?except: Target?) { (path_group) -> void } -> void
+                            | (?except: Target?) -> Enumerator[path_group]
 
         # Yields files that belongs to the target
         #
         # It also yields files that belongs to the sub-groups of the target.
         # When `except:` is given, files that belongs to the group are skipped.
         #
-        def each_target_path: (Target, ?except: Group?) { (Pathname) -> void } -> void
-                            | (Target, ?except: Group?) -> Enumerator[Pathname]
+        def each_target_path: (Target, ?except: Group?) { (path_group) -> void } -> void
+                            | (Target, ?except: Group?) -> Enumerator[path_group]
 
         # Yields files that belongs to the group or the target
         #
         # If `include_sub_groups: true` is given, it skips files in sub groups of the target.
         # If `include_sub_groups: false` is given (default), it yields files in sub groups of the target.
         #
-        def each_group_path: (Target | Group) { (Pathname) -> void } -> void
-                           | (Target | Group) -> Enumerator[Pathname]
-                           | (Target, ?include_sub_groups: bool) { (Pathname) -> void } -> void
-                           | (Target, ?include_sub_groups: bool) -> Enumerator[Pathname]
+        def each_group_path: (Target | Group) { (path_group) -> void } -> void
+                           | (Target | Group) -> Enumerator[path_group]
+                           | (Target, ?include_sub_groups: bool) { (path_group) -> void } -> void
+                           | (Target, ?include_sub_groups: bool) -> Enumerator[path_group]
 
         # Returns the target of the argument
         #
@@ -79,6 +83,9 @@ module Steep
       attr_reader library_paths: Hash[Symbol, Set[Pathname]]
 
       def initialize: (Project) -> void
+
+      # Returns true if the path is one of the source_paths, inline_paths, or signature_paths
+      def registered_path?: (Pathname) -> bool
 
       # Add path
       #
