@@ -359,21 +359,18 @@ module Steep
 
       def make_request(guid: SecureRandom.uuid, progress:)
         TypeCheckController::Request.new(guid: guid, progress: progress).tap do |request|
-          code_paths = Set[] #: Set[[Project::Target, Pathname]]
-          signature_paths = Set[] #: Set[[Project::Target, Pathname]]
-          inline_paths = Set[] #: Set[[Project::Target, Pathname]]
+          code_paths = Set[] #: Set[[group, Pathname]]
+          signature_paths = Set[] #: Set[[group, Pathname]]
+          inline_paths = Set[] #: Set[[group, Pathname]]
 
           dirty_paths.each do |path|
             case
             when group = files.source_paths[path]
-              target = target_of(path) or raise
-              code_paths << [target, path]
+              code_paths << [group, path]
             when group = files.signature_paths[path]
-              target = target_of(path) or raise
-              signature_paths << [target, path]
+              signature_paths << [group, path]
             when group = files.inline_paths[path]
-              target = target_of(path) or raise
-              inline_paths << [target, path]
+              inline_paths << [group, path]
             end
           end
 
@@ -405,15 +402,18 @@ module Steep
             end
           end
 
-          signature_paths.each do |target, path|
+          signature_paths.each do |_, path|
+            target = target_of(path) or raise
             request.signature_paths << [target.name, path]
           end
 
-          inline_paths.each do |target, path|
+          inline_paths.each do |_, path|
+            target = target_of(path) or raise
             request.inline_paths << [target.name, path]
           end
 
-          code_paths.each do |target, path|
+          code_paths.each do |_, path|
+            target = target_of(path) or raise
             request.code_paths << [target.name, path]
           end
 
