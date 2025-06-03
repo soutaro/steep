@@ -186,9 +186,9 @@ class LSPClient
   def change_watched_file(*paths) #: void
     changes = [] #: Array[message]
     paths.each do |path|
-      path = current_dir + path
+      absolute_path = current_dir + path
 
-      if path.file?
+      if absolute_path.file?
         # Created (or maybe modified)
         changes << { uri: uri(path), type: 1 }
       else

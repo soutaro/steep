@@ -261,9 +261,8 @@ RUBY
         client.change_watched_file("sig/core/core.rbs")
 
         finally_holds(timeout: 3) do
-          # `core` groups are type checked
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
-          refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
+          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
           assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
           refute_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
