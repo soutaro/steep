@@ -1,53 +1,80 @@
 # Generated from test/lsp_client.rb with RBS::Inline
 
 class LSPClient
-  attr_reader reader: untyped
+  type message = Hash[Symbol, untyped]
 
-  attr_reader writer: untyped
+  @incoming_thread: Thread
 
-  attr_reader current_dir: untyped
+  @next_request_id: Integer
 
-  attr_reader notifications: untyped
+  attr_reader reader: LanguageServer::Protocol::Transport::Io::Reader
 
-  attr_accessor default_timeout: untyped
+  attr_reader writer: LanguageServer::Protocol::Transport::Io::Writer
 
-  attr_reader request_response_table: untyped
+  attr_reader current_dir: Pathname
 
-  attr_reader diagnostics: untyped
+  attr_reader notifications: Array[message]
 
-  attr_reader open_files: untyped
+  attr_accessor default_timeout: Integer
 
-  def initialize: (reader: untyped, writer: untyped, current_dir: untyped) -> untyped
+  attr_reader request_response_table: Hash[Integer, message]
 
-  def get_response: (untyped id, ?timeout: untyped) -> untyped
+  attr_reader diagnostics: Hash[Pathname, Array[Hash[Symbol, untyped]]]
 
-  def flush_notifications: () -> untyped
+  attr_reader open_files: Hash[String, String]
 
-  def join: () -> untyped
+  # @rbs reader: LanguageServer::Protocol::Transport::Io::Reader
+  # @rbs writer: LanguageServer::Protocol::Transport::Io::Writer
+  # @rbs current_dir: Pathname
+  # @rbs return: void
+  def initialize: (reader: LanguageServer::Protocol::Transport::Io::Reader, writer: LanguageServer::Protocol::Transport::Io::Writer, current_dir: Pathname) -> void
 
-  def finally: (?timeout: untyped) -> untyped
+  # @rbs id: Integer
+  # @rbs timeout: untyped
+  # @rbs return: Hash[Symbol, untyped]?
+  def get_response: (Integer id, ?timeout: untyped) -> Hash[Symbol, untyped]?
 
-  def send_request: (method: untyped, params: untyped, ?id: untyped) ?{ (?) -> untyped } -> untyped
+  def flush_notifications: () -> void
 
-  def send_notification: (method: untyped, params: untyped) -> untyped
+  def join: () -> void
 
-  def uri: (untyped path) -> untyped
+  # @rbs (?timeout: Integer) { () -> void } -> void
+  def finally: (?timeout: Integer) { () -> void } -> void
 
-  def open_file: (*untyped paths) -> untyped
+  # @rbs [T] (?id: Integer, method: String, params: message?) { (untyped) -> T } -> T
+  #    | (?id: Integer, method: String, params: message?) -> Integer
+  def send_request: [T] (method: String, params: message?, ?id: Integer) { (untyped) -> T } -> T
+                  | (method: String, params: message?, ?id: Integer) -> Integer
 
-  def close_file: (*untyped paths) -> untyped
+  # @rbs (method: String, params: untyped) -> void
+  def send_notification: (method: String, params: untyped) -> void
 
-  def change_file: (untyped path) -> untyped
+  # @rbs (String) -> String
+  def uri: (String) -> String
 
-  def save_file: (untyped path) -> untyped
+  # @rbs *paths: String
+  def open_file: (*String paths) -> void
 
-  def change_watched_file: (*untyped paths) -> untyped
+  # @rbs *paths: String
+  def close_file: (*String paths) -> untyped
 
-  def workspace_symbol: (?untyped query) ?{ (?) -> untyped } -> untyped
+  # @rbs (String) { (String?) -> String } -> void
+  def change_file: (String) { (String?) -> String } -> void
 
-  def goto_definition: (untyped path, line: untyped, character: untyped) ?{ (?) -> untyped } -> untyped
+  # @rbs (String) -> void
+  def save_file: (String) -> void
 
-  def goto_implementation: (untyped path, line: untyped, character: untyped) ?{ (?) -> untyped } -> untyped
+  # @rbs *path: String
+  def change_watched_file: (*String paths) -> void
 
-  def fresh_request_id: () -> untyped
+  # @rbs (?String query) { (untyped) -> void } -> void
+  def workspace_symbol: (?String query) { (untyped) -> void } -> void
+
+  # @rbs (String path, line: Integer, character: Integer) { (untyped) -> void } -> void
+  def goto_definition: (String path, line: Integer, character: Integer) { (untyped) -> void } -> void
+
+  # @rbs (String path, line: Integer, character: Integer) { (untyped) -> void } -> void
+  def goto_implementation: (String path, line: Integer, character: Integer) { (untyped) -> void } -> void
+
+  def fresh_request_id: () -> Integer
 end

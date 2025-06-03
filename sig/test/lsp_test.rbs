@@ -9,9 +9,11 @@ class LSPTest < Minitest::Test
 
   def langserver_command: (?untyped steepfile) -> untyped
 
-  def start_server: () -> untyped
+  # @rbs () { (LSPClient) -> void } -> void
+  def start_server: () { (LSPClient) -> void } -> void
 
-  def write_file: (untyped path, untyped content) -> untyped
+  # @rbs (String, String) -> void
+  def write_file: (String, String) -> void
 
   def test_edit_files: () -> untyped
 

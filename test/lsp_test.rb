@@ -17,6 +17,7 @@ class LSPTest < Minitest::Test
     end
   end
 
+  # @rbs () { (LSPClient) -> void } -> void
   def start_server()
     Open3.popen2(langserver_command(current_dir + "Steepfile")) do |stdin, stdout|
       reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
@@ -29,6 +30,7 @@ class LSPTest < Minitest::Test
     end
   end
 
+  # @rbs (String, String) -> void
   def write_file(path, content)
     (current_dir + path).parent.mkpath
     (current_dir + path).write(content)
