@@ -324,7 +324,9 @@ module Steep
 
         attr_reader method: Symbol
 
-        def initialize: (node: Parser::AST::Node, type: AST::Types::t, method: Symbol) -> void
+        attr_reader dictionary: Array[Symbol]
+
+        def initialize: (node: Parser::AST::Node, type: AST::Types::t, method: Symbol, ?dictionary: Array[Symbol]) -> void
 
         def header_line: () -> ::String
       end

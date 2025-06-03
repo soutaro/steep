@@ -237,8 +237,9 @@ module Steep
       class NoMethod < Base
         attr_reader :type
         attr_reader :method
+        attr_reader :dictionary
 
-        def initialize(node:, type:, method:)
+        def initialize(node:, type:, method:, dictionary: [])
           loc = case node.type
                 when :send
                   loc = _ = nil
@@ -251,10 +252,20 @@ module Steep
           super(node: node, location: loc || node.loc.expression)
           @type = type
           @method = method
+          @dictionary = dictionary
         end
 
         def header_line
           "Type `#{type}` does not have method `#{method}`"
+        end
+
+        def detail_lines
+          if defined?(DidYouMean)
+            corrects = DidYouMean::SpellChecker.new(dictionary: dictionary).correct(method)
+            return nil if corrects.empty?
+
+            "Did you mean?  #{corrects.map { |c| "`#{c}`" }.join(", ")}"
+          end
         end
       end
 
