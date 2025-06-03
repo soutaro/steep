@@ -30,7 +30,11 @@ test_dirs.each do |dir|
   command << "-j2" if ENV["CI"]
   puts "  command: #{command.join(" ")}"
 
-  output, status = Open3.capture2(*command, chdir: dir.to_s)
+  output, status = Open3.capture2(
+    { 'RUBYOPT' => '--disable-did_you_mean' },
+    *command,
+    chdir: dir.to_s
+  )
 
   unless status.success?
     unless ALLOW_FAILURE.include?(dir.basename.to_s)
