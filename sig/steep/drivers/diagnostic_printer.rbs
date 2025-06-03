@@ -9,7 +9,7 @@ module Steep
 
       attr_reader formatter: BaseFormatter
 
-      def initialize: (stdout: IO, buffer: RBS::Buffer, ?formatter: String) -> void
+      def initialize: (stdout: IO, buffer: RBS::Buffer, ?formatter: ("code" | "github")) -> void
 
       def print: (Hash[Symbol, untyped] diagnostic, ?prefix: String, ?source: bool) -> void
     end
