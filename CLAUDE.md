@@ -26,16 +26,16 @@ cd smoke/alias && rake test:output:current
 ### Type Checking
 ```bash
 # Type check the Steep codebase itself
-steep check
+bin/steep check
 
 # Type check with specific severity
-steep check --severity=error
+bin/steep check --severity=error
 
 # Watch mode for continuous type checking
-steep watch
+bin/steep watch
 
 # Start language server
-steep langserver
+bin/steep langserver
 ```
 
 ### Building and Development
@@ -97,7 +97,7 @@ bundle exec rake build
 
 **Steepfile**: Defines type checking targets
 - `check`: Directories to type check
-- `signature`: RBS signature directories  
+- `signature`: RBS signature directories
 - `library`: Standard library dependencies
 - `collection_config`: External RBS definitions
 - Multiple targets supported (app, test, bin)
