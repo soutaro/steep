@@ -308,7 +308,9 @@ class TypeCheckTest < Minitest::Test
                 line: 4
                 character: 5
             severity: ERROR
-            message: Type `::Object` does not have method `foo`
+            message: |-
+              Type `::Object` does not have method `foo`
+              Did you mean?  `fork`
             code: Ruby::NoMethod
           - range:
               start:
@@ -1900,7 +1902,9 @@ class TypeCheckTest < Minitest::Test
                 line: 2
                 character: 27
             severity: ERROR
-            message: Type `::Integer` does not have method `foo`
+            message: |-
+              Type `::Integer` does not have method `foo`
+              Did you mean?  `floor`
             code: Ruby::NoMethod
           - range:
               start:

@@ -3402,7 +3402,7 @@ module Steep
             context: context.call_context,
             method_name: method_name,
             receiver_type: receiver_type,
-            error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: interface&.type || receiver_type)
+            error: Diagnostic::Ruby::NoMethod.new(node: node, method: method_name, type: interface&.type || receiver_type, dictionary: interface&.methods&.methods&.keys)
           )
         )
       end

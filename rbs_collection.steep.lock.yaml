@@ -41,6 +41,10 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: did_you_mean
+  version: '0'
+  source:
+    type: stdlib
 - name: digest
   version: '0'
   source:
