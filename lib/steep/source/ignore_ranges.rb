@@ -64,6 +64,23 @@ module Steep
           diags.any? {|d| code == "Ruby::#{d}" }
         end
       end
+
+      def redundant_ignores(error_lines)
+        ignores = all_ignores - error_ignores
+
+        ignores.reject.with_index do |ignore, i|
+          case ignore
+          when AST::Ignore::IgnoreStart
+            end_line = ignores[i + 1].line
+            (ignore.line..end_line).to_a.intersect?(error_lines)
+          when AST::Ignore::IgnoreEnd
+            start_line = ignores[i - 1].line
+            (start_line..ignore.line).to_a.intersect?(error_lines)
+          when AST::Ignore::IgnoreLine
+            error_lines.include?(ignore.line)
+          end
+        end
+      end
     end
   end
 end
