@@ -101,13 +101,13 @@ module Steep
       end
 
       def params
-        [].tap do |params|
-          params.push(*leading_params)
-          params.push(*optional_params)
-          params.push rest_param if rest_param
-          params.push(*trailing_params)
-          params.push(block_param) if block_param
-        end
+        params = [] #: Array[Param | MultipleParam]
+        params.push(*leading_params)
+        params.push(*optional_params)
+        params.push rest_param if rest_param
+        params.push(*trailing_params)
+        params.push(block_param) if block_param
+        params
       end
 
       def self.from_node(node, annotations:)

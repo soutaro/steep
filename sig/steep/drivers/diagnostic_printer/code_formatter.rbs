@@ -1,0 +1,19 @@
+module Steep
+  module Drivers
+    class DiagnosticPrinter
+      class CodeFormatter < BaseFormatter
+        def print: (Hash[Symbol, untyped] diagnostic, ?prefix: String, ?source: bool) -> void
+
+        private
+
+        def color_severity: (String string, severity: Integer) -> String
+
+        def severity_message: (Integer severity) -> String
+
+        def location: (Hash[Symbol, untyped] diagnostic) -> String
+
+        def print_source_line: (Hash[Symbol, untyped] diagnostic, ?prefix: String) -> void
+      end
+    end
+  end
+end

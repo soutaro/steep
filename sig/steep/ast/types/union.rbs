@@ -31,7 +31,7 @@ module Steep
 
         def level: () -> Array[Integer]
 
-        def with_location: (untyped) -> Tuple
+        def with_location: (untyped) -> Union
       end
     end
   end

@@ -45,6 +45,10 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: erb
+  version: '0'
+  source:
+    type: stdlib
 - name: fileutils
   version: '0'
   source:

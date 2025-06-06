@@ -42,6 +42,8 @@ module Steep
       end
 
       TopLevelContext = _ = Class.new() do
+        # @implements TopLevelContext
+
         def to_s
           "@<main>"
         end
@@ -58,6 +60,8 @@ module Steep
       end
 
       UnknownContext = _ = Class.new() do
+        # @implements UnknownContext
+
         def to_s
           "@<unknown>"
         end

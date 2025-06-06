@@ -1,0 +1,17 @@
+module Steep
+  module Drivers
+    class DiagnosticPrinter
+      class GitHubActionsFormatter < BaseFormatter
+        ESCAPE_MAP: Hash[String, String]
+
+        def print: (Hash[Symbol, untyped] diagnostic, ?prefix: String, ?source: bool) -> void
+
+        private
+
+        def github_severity: (Integer severity) -> String
+
+        def github_escape: (String string) -> String
+      end
+    end
+  end
+end

@@ -150,7 +150,7 @@ module Steep
         pure_call_updates = pure_node_invalidation(invalidated_nodes)
 
         pure_call_types.each do |node, type|
-          call, _ = pure_call_updates[node]
+          call, _ = pure_call_updates.fetch(node)
           pure_call_updates[node] = [call, type]
         end
 
