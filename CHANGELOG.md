@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 3.10.0 (2025-03-18)
+## 1.10.0 (2025-03-18)
 
 Nothing changed since `1.10.0.pre.3`.
 
