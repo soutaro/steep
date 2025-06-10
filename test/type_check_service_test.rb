@@ -469,16 +469,25 @@ class A
 end
 
 1+"" # steep:ignore
+
+# steep:ignore:start
+1+2
+# steep:ignore:end
 RUBY
     }.tap do |changes|
       service.update(changes: changes)
 
       service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
 
-      assert_equal(
-        [Diagnostic::Ruby::RedundantIgnoreComment],
-        service.diagnostics[Pathname("lib/core.rb")].map {|d| d.class }
-      )
+      assert_any!(service.diagnostics[Pathname("lib/core.rb")]) do |error|
+        assert_instance_of Diagnostic::Ruby::RedundantIgnoreComment, error
+        assert_equal "steep:ignore", error.location.source
+      end
+
+      assert_any!(service.diagnostics[Pathname("lib/core.rb")]) do |error|
+        assert_instance_of Diagnostic::Ruby::RedundantIgnoreComment, error
+        assert_equal "steep:ignore:start\n1+2\n# steep:ignore:end", error.location.source
+      end
     end
   end
 end

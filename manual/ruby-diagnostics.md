@@ -1048,7 +1048,7 @@ test.rb:1:6: [hint] Redundant ignore comment
 
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
-| error | warning | hint | hint | - |
+| error | warning | warning | hint | - |
 
 <a name='Ruby::RequiredBlockMissing'></a>
 ## Ruby::RequiredBlockMissing

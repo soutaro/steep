@@ -1718,9 +1718,7 @@ module Steep
       # ```
       #
       class RedundantIgnoreComment < Base
-        attr_reader comment: Parser::Source::Comment
-
-        def initialize: (comment: Parser::Source::Comment) -> void
+        def initialize: (location: location) -> void
 
         def header_line: () -> String
       end
