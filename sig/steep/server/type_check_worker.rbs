@@ -110,6 +110,8 @@ module Steep
 
       attr_reader child_pids: Array[Integer]
 
+      attr_reader need_to_warmup: boolish
+
       include ChangeBuffer
 
       def initialize: (

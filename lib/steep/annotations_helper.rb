@@ -21,7 +21,13 @@ module Steep
         when type_name.class?
           case
           when decl = env.class_decls.fetch(type_name, nil)
-            decl.decls.flat_map { _1.decl.annotations }
+            decl.each_decl.flat_map do |decl|
+              if decl.is_a?(RBS::AST::Declarations::Base)
+                decl.annotations
+              else
+                []
+              end
+            end
           when decl = env.class_alias_decls.fetch(type_name, nil)
             decl.decl.annotations
           end

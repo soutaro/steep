@@ -53,21 +53,27 @@ module Steep
       module WithPattern
         attr_reader sources: Array[String]
 
+        attr_reader inline_sources: Array[String]
+
         attr_reader signatures: Array[String]
 
         attr_reader ignored_sources: Array[String]
 
+        attr_reader ignored_inline_sources: Array[String]
+
         attr_reader ignored_signatures: Array[String]
 
-        def check: (*String args) -> void
+        def check: (*String args, ?inline: bool) -> void
 
-        def ignore: (*String args) -> void
+        def ignore: (*String args, ?inline: bool) -> void
 
         def signature: (*String args) -> void
 
         def ignore_signature: (*String args) -> void
 
         def source_pattern: () -> Pattern
+
+        def inline_source_pattern: () -> Pattern
 
         def signature_pattern: () -> Pattern
       end

@@ -290,28 +290,30 @@ module Steep
 
         def env(env)
           env.class_decls.each do |name, decl|
-            decl.decls.each do |d|
-              index.add_type_declaration(name, d.decl)
+            decl.each_decl do |decl|
+              if decl.is_a?(RBS::AST::Declarations::Base)
+                index.add_type_declaration(name, decl)
 
-              case d.decl
-              when RBS::AST::Declarations::Class
-                if super_class = d.decl.super_class
-                  index.add_type_reference(super_class.name, d.decl)
-                  super_class.args.each do |type|
-                    type_reference(type, from: d.decl)
+                case decl
+                when RBS::AST::Declarations::Class
+                  if super_class = decl.super_class
+                    index.add_type_reference(super_class.name, decl)
+                    super_class.args.each do |type|
+                      type_reference(type, from: decl)
+                    end
+                  end
+                when RBS::AST::Declarations::Module
+                  decl.self_types.each do |self_type|
+                    index.add_type_reference(self_type.name, decl)
+                    self_type.args.each do |type|
+                      type_reference(type, from: decl)
+                    end
                   end
                 end
-              when RBS::AST::Declarations::Module
-                d.decl.self_types.each do |self_type|
-                  index.add_type_reference(self_type.name, d.decl)
-                  self_type.args.each do |type|
-                    type_reference(type, from: d.decl)
-                  end
-                end
-              end
 
-              d.decl.members.each do |member|
-                member(name, member)
+                decl.members.each do |member|
+                  member(name, member)
+                end
               end
             end
           end

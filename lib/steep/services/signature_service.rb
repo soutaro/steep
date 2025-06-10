@@ -253,7 +253,8 @@ module Steep
               else
                 begin
                   buffer, dirs, decls = content.signature
-                  env.add_signature(buffer: buffer, directives: dirs, decls: decls)
+                  source = RBS::Source::RBS.new(buffer, dirs, decls)
+                  env.add_source(source)
                   new_decls.merge(decls)
                 rescue RBS::LoadingError => exn
                   errors << exn
@@ -339,10 +340,12 @@ module Steep
       end
 
       def type_names(paths:, env:)
-        env.declarations.each.with_object(Set[]) do |decl, set|
-          if decl.location
-            if paths.include?(Pathname(decl.location.buffer.name))
-              type_name_from_decl(decl, set: set)
+        env.each_rbs_source.with_object(Set[]) do |source, set|
+          source.declarations.each do |decl|
+            if decl.location
+              if paths.include?(Pathname(decl.location.buffer.name))
+                type_name_from_decl(decl, set: set)
+              end
             end
           end
         end

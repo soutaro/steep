@@ -19,6 +19,14 @@ namespace :test do
   task :output do
     sh "ruby", "bin/output_test.rb"
   end
+
+  namespace :output do
+    desc "Run current output test"
+    task :current do
+      puts ">> Running `steep check` in #{ENV["PWD"]}"
+      sh "steep", "check", "--with-expectations=test_expectations.yml", chdir: ENV["PWD"]
+    end
+  end
 end
 
 Rake::Task[:release].enhance do
@@ -232,7 +240,9 @@ namespace :rbs do
       paths = (modified + added).map do
         Pathname(_1).relative_path_from(Pathname.pwd)
       end
-      sh "rbs-inline", "--opt-out", "--output=sig", *paths.map(&:to_s)
+      Bundler.with_unbundled_env do
+        sh "bin/rbs-inline", "--opt-out", "--output=sig", *paths.map(&:to_s)
+      end
     end
     listener.start
     begin
@@ -243,7 +253,9 @@ namespace :rbs do
   end
 
   task :generate do
-    sh "rbs-inline --opt-out --output=sig test"
-    sh "rbs-inline --opt-out --output=tmp/rbs-inline bin/generate-diagnostics-docs.rb"
+    Bundler.with_unbundled_env do
+      sh "bin/rbs-inline --opt-out --output=sig test"
+      sh "bin/rbs-inline --opt-out --output=tmp/rbs-inline bin/generate-diagnostics-docs.rb"
+    end
   end
 end

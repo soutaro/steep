@@ -35,10 +35,22 @@ module Steep
 
       class TopLevelContext
         def to_s: () -> String
+
+        def ==: (untyped other) -> bool
+
+        alias eql? ==
+
+        def hash: () -> Integer
       end
 
       class UnknownContext
         def to_s: () -> String
+
+        def ==: (untyped other) -> bool
+
+        alias eql? ==
+
+        def hash: () -> Integer
       end
 
       type context = MethodContext | ModuleContext | TopLevelContext | UnknownContext
