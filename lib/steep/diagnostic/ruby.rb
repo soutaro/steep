@@ -299,7 +299,7 @@ module Steep
         attr_reader :method_type
 
         def initialize(node:, method_type:)
-          loc = node.loc.begin.join(node.loc.end)
+          loc = node.loc.begin.join(node.loc.end) # steep:ignore NoMethod
           super(node: node, location: loc)
           @method_type = method_type
         end
@@ -313,7 +313,7 @@ module Steep
         attr_reader :method_type
 
         def initialize(node:, method_type:)
-          super(node: node, location: (node.type == :super || node.type == :zsuper) ? node.loc.keyword : node.loc.selector)
+          super(node: node, location: (node.type == :super || node.type == :zsuper) ? node.loc.keyword : node.loc.selector) # steep:ignore NoMethod
           @method_type = method_type
         end
 
@@ -349,7 +349,7 @@ module Steep
         include ResultPrinter
 
         def initialize(node:, expected:, actual:, result:)
-          super(node: node, location: node.loc.begin.join(node.loc.end))
+          super(node: node, location: node.loc.begin.join(node.loc.end)) # steep:ignore NoMethod
           @expected = expected
           @actual = actual
           @result = result
@@ -446,7 +446,7 @@ module Steep
                  when :defs
                    node.children[2]
                  end #: Parser::AST::Node?
-          super(node: node, location: args&.loc&.expression || node.loc.name)
+          super(node: node, location: args&.loc&.expression || node.loc.name) # steep:ignore NoMethod
           @method_type = method_type
         end
 
@@ -512,7 +512,7 @@ module Steep
         include ResultPrinter
 
         def initialize(node:, expected:, actual:, result:)
-          super(node: node, location: node.loc.name)
+          super(node: node, location: node.loc.name) # steep:ignore NoMethod
           @expected = expected
           @actual = actual
           @result = result
@@ -607,7 +607,7 @@ module Steep
         attr_reader :kind
 
         def initialize(node:, name:)
-          super(node: node, location: node.loc.name)
+          super(node: node, location: node.loc.name) # steep:ignore NoMethod
           @name = name
           @kind = :constant
         end
@@ -647,7 +647,7 @@ module Steep
         attr_reader :name
 
         def initialize(node:, name:)
-          super(node: node, location: node.loc.name)
+          super(node: node, location: node.loc.name) # steep:ignore NoMethod
           @name = name
         end
 

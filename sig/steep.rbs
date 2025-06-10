@@ -45,3 +45,7 @@ module Steep
 
   def self.measure2: [A] (String message, ?level: ::Symbol) { (Sampler) -> A } -> A
 end
+
+module GCCounter
+  def self?.count_objects: (String title, ?Regexp regexp, ?skip: bool) { () -> void } -> void
+end
