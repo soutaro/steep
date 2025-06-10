@@ -64,8 +64,11 @@ module Steep
 
         @map = RBS::Environment::UseMap.new(table: table)
         dirs.each do |dir|
-          dir.clauses.each do |clause|
-            @map.build_map(clause)
+          case dir
+          when RBS::AST::Directives::Use
+            dir.clauses.each do |clause|
+              @map.build_map(clause)
+            end
           end
         end
 
