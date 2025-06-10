@@ -118,7 +118,7 @@ DEPENDENCIES
   mutex_m
   rbs-inline
   ruby-lsp
-  steep (~> 1.10.0.pre)
+  steep (~> 1.10.0)
 
 BUNDLED WITH
    2.5.17
