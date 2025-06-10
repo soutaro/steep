@@ -121,7 +121,7 @@ module Steep
           decl_summary =
             case
             when decl = content.class_decl
-              declaration_summary(decl.primary.decl)
+              declaration_summary(decl.primary_decl)
             when decl = content.constant_decl
               declaration_summary(decl.decl)
             when decl = content.class_alias
@@ -187,7 +187,15 @@ module Steep
           ```
           MD
 
-          if content.decl.comment
+          comment =
+            case content.decl
+            when RBS::AST::Declarations::Base
+              content.decl.comment
+            when RBS::AST::Ruby::Declarations::Base
+              nil
+            end
+
+          if comment
             io.puts "----"
 
             class_name =
@@ -235,10 +243,24 @@ module Steep
         when Services::CompletionProvider::InstanceVariableItem
           instance_variable(item.identifier, item.type)
         when Services::CompletionProvider::SimpleMethodNameItem
-          format_method_item_doc(item.method_types, [], { item.method_name => item.method_member.comment })
+          item_comment =
+            case item.method_member
+            when RBS::AST::Members::Base
+              item.method_member.comment
+            when RBS::AST::Ruby::Members::Base
+              nil
+            end
+          format_method_item_doc(item.method_types, [], { item.method_name => item_comment })
         when Services::CompletionProvider::ComplexMethodNameItem
           method_names = item.method_names.map(&:relative).uniq
-          comments = item.method_definitions.transform_values {|member| member.comment }
+          comments = item.method_definitions.transform_values do |member|
+            case member
+            when RBS::AST::Members::Base
+              member.comment
+            when RBS::AST::Ruby::Members::Base
+              nil
+            end
+          end
           format_method_item_doc(item.method_types, method_names, comments)
         when Services::CompletionProvider::GeneratedMethodNameItem
           format_method_item_doc(item.method_types, [], {}, "🤖 Generated method for receiver type")
@@ -419,6 +441,10 @@ module Steep
           "#{decl.name}: #{decl.type}"
         when RBS::AST::Declarations::Constant
           "#{decl.name.relative!}: #{decl.type}"
+        when RBS::AST::Ruby::Declarations::ClassDecl
+          "class #{decl.class_name.relative!}"
+        when RBS::AST::Ruby::Declarations::ModuleDecl
+          "module #{decl.module_name.relative!}"
         end
       end
 

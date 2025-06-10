@@ -299,17 +299,17 @@ module Steep
   end
 end
 
-klasses = [
-  # Steep::Interface::MethodType
-] #: Array[Class]
-
-klasses.each do |klass|
-  klass.instance_eval do
-    def self.new(*_a, **_b, &_c)
-      super
-    end
-  end
-end
+# klasses = [
+#   # Steep::Interface::MethodType
+# ] #: Array[Class]
+# 
+# klasses.each do |klass|
+#   klass.instance_eval do
+#     def self.new(*_a, **_b, &_c)
+#       super
+#     end
+#   end
+# end
 
 module GCCounter
   module_function

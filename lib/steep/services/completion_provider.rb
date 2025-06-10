@@ -31,7 +31,14 @@ module Steep
           when RBS::Environment::ConstantEntry
             [entry.decl.comment]
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            entry.decls.map {|d| d.decl.comment }
+            entry.each_decl.map do |decl|
+              case decl
+              when RBS::AST::Declarations::Base
+                decl.comment
+              when RBS::AST::Ruby::Declarations::Base
+                nil
+              end
+            end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
             [entry.decl.comment]
           else
@@ -44,7 +51,7 @@ module Steep
           when RBS::Environment::ConstantEntry
             entry.decl
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            entry.primary.decl
+            entry.primary_decl
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
             entry.decl
           else
@@ -65,7 +72,12 @@ module Steep
         # @implements SimpleMethodNameItem
 
         def comment
-          method_member.comment
+          case method_member
+          when RBS::AST::Members::Base
+            method_member.comment
+          when RBS::AST::Ruby::Members::Base
+            nil
+          end
         end
       end
 
@@ -101,6 +113,8 @@ module Steep
             else
               SingletonMethodName.new(type_name: type_name, method_name: name)
             end
+          when RBS::AST::Ruby::Members::DefMember
+            InstanceMethodName.new(type_name: type_name, method_name: name)
           end
         end
       end
@@ -119,7 +133,7 @@ module Steep
           when absolute_type_name.class?
             case entry = env.module_class_entry(absolute_type_name)
             when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-              entry.primary.decl
+              entry.primary_decl
             when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
               entry.decl
             else
@@ -145,9 +159,14 @@ module Steep
           when absolute_type_name.class?
             case entry = env.module_class_entry(absolute_type_name)
             when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-              entry.decls.each do |decl|
-                if comment = decl.decl.comment
-                  comments << comment
+              entry.each_decl do |decl|
+                case decl
+                when RBS::AST::Declarations::Base
+                  if comment = decl.comment
+                    comments << comment
+                  end
+                when RBS::AST::Ruby::Declarations::Base
+                  # noop
                 end
               end
             when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry

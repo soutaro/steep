@@ -27,6 +27,8 @@ module Steep
 
       attr_accessor validate_library_signatures: bool
 
+      attr_accessor formatter: ("code" | "github")
+
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO) -> void

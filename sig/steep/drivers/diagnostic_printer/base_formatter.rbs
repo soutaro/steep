@@ -1,0 +1,17 @@
+module Steep
+  module Drivers
+    class DiagnosticPrinter
+      class BaseFormatter
+        attr_reader stdout: IO
+
+        attr_reader buffer: RBS::Buffer
+
+        def initialize: (stdout: IO, buffer: RBS::Buffer) -> void
+
+        def path: () -> Pathname
+
+        def print: (Hash[Symbol, untyped] diagnostic, ?prefix: String, ?source: bool) -> void
+      end
+    end
+  end
+end

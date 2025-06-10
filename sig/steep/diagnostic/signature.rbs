@@ -164,6 +164,22 @@ module Steep
         include ResultPrinter2
       end
 
+      class VariableDuplicationError < Base
+        attr_reader type_name: RBS::TypeName
+
+        attr_reader variable_name: Symbol
+
+        def initialize: (type_name: RBS::TypeName, variable_name: Symbol, location: location?) -> void
+      end
+
+      class InstanceVariableDuplicationError < VariableDuplicationError
+        def header_line: () -> String
+      end
+
+      class ClassInstanceVariableDuplicationError < VariableDuplicationError
+        def header_line: () -> String
+      end
+
       # The error is raised when a class variable is defined in both `class_name` and `other_class_name`
       #
       class ClassVariableDuplicationError < Base

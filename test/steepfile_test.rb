@@ -42,6 +42,28 @@ EOF
     end
   end
 
+  def test_config_inline #: void
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      Project::DSL.parse(project, <<EOF)
+target :app do
+  check "app", inline: true
+  ignore "app/views", inline: true
+end
+EOF
+
+      assert_equal 1, project.targets.size
+
+      project.targets.find {|target| target.name == :app }.tap do |target|
+        assert_instance_of Project::Target, target
+
+        assert_equal ["app"], target.inline_source_pattern.patterns
+        assert_equal ["app/views"], target.inline_source_pattern.ignores
+      end
+    end
+  end
+
   def test_repo_path
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")

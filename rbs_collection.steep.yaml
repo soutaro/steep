@@ -11,6 +11,9 @@ path: .gem_rbs_collection
 gems:
   - name: with_steep_types
     ignore: true
+  - name: rbs
+    ignore: true
+  - name: prism
   - name: activesupport
   - name: rainbow
   - name: listen
