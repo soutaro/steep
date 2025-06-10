@@ -34,9 +34,11 @@ class SourceIgnoreRangesTest < Minitest::Test
       # steep:ignore:end
     RUBY
 
-    assert_equal(1..3, ranges.ignored_ranges[0])
+    assert_equal(1, ranges.ignored_ranges[0][0].line)
+    assert_equal(3, ranges.ignored_ranges[0][1].line)
     assert_operator ranges.ignored_lines, :key?, 5
-    assert_equal(8..10, ranges.ignored_ranges[1])
+    assert_equal(8, ranges.ignored_ranges[1][0].line)
+    assert_equal(10, ranges.ignored_ranges[1][1].line)
 
     refute_operator ranges.ignored_lines, :key?, 9
     assert_equal 3, ranges.error_ignores.size
