@@ -1022,6 +1022,34 @@ test.rb:1:9: [error] Cannot find type `::Int`
 | - | - | - | - | - |
 | error | error | information | information | - |
 
+<a name='Ruby::RedundantIgnoreComment'></a>
+## Ruby::RedundantIgnoreComment
+
+`steep:ignore` comment is redundant.
+
+### Ruby code
+
+```ruby
+1 + 1 # steep:ignore
+```
+
+### Diagnostic
+
+```
+test.rb:1:6: [hint] Redundant ignore comment
+│ Diagnostic ID: Ruby::RedundantIgnoreComment
+│
+└ 1 + 1 # steep:ignore
+        ~~~~~~~~~~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | hint | hint | - |
+
 <a name='Ruby::RequiredBlockMissing'></a>
 ## Ruby::RequiredBlockMissing
 

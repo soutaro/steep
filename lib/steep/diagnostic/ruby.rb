@@ -957,6 +957,19 @@ module Steep
         end
       end
 
+      class RedundantIgnoreComment < Base
+        attr_reader :comment
+
+        def initialize(comment:)
+          @comment = comment
+          super(node: nil, location: comment.location.expression)
+        end
+
+        def header_line
+          "Redundant ignore comment"
+        end
+      end
+
       class UnannotatedEmptyCollection < Base
         def header_line
           node or raise
@@ -1075,6 +1088,7 @@ module Steep
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :hint,
             InvalidIgnoreComment => :warning,
+            RedundantIgnoreComment => :hint,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
             MethodDefinitionInUndeclaredModule => :information,
@@ -1138,6 +1152,7 @@ module Steep
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :error,
             InvalidIgnoreComment => :warning,
+            RedundantIgnoreComment => :warning,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
             MethodDefinitionInUndeclaredModule => :warning,
@@ -1201,6 +1216,7 @@ module Steep
             InsufficientPositionalArguments => :information,
             InsufficientTypeArgument => nil,
             InvalidIgnoreComment => :warning,
+            RedundantIgnoreComment => :hint,
             MethodArityMismatch => :information,
             MethodBodyTypeMismatch => :warning,
             MethodDefinitionInUndeclaredModule => :hint,
