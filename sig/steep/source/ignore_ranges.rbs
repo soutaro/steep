@@ -7,11 +7,18 @@ module Steep
 
       attr_reader error_ignores: Array[Ignore::t]
 
-      attr_reader ignored_ranges: Array[Range[Integer]]
+      attr_reader ignored_ranges: Array[ignore_range]
 
       attr_reader ignored_lines: Hash[Integer, Ignore::IgnoreLine]
 
+      type ignore_range = [Ignore::IgnoreStart, Ignore::IgnoreEnd]
+
+      type ignore = Ignore::IgnoreLine | ignore_range
+
       def initialize: (ignores: Array[Ignore::t]) -> void
+
+      def each_ignore: () { (ignore) -> void } -> void
+                     | () -> Enumerator[ignore]
 
       # If given diagnostic code at the location is ignored or not
       #
@@ -30,11 +37,9 @@ module Steep
       #
       # Ignore lines work for location that has starting line or ending line.
       #
-      def ignore?: (Integer start_line, Integer end_line, String code) -> bool
+      def ignore?: (Integer start_line, Integer end_line, String code) -> ignore?
 
       def ignore_code?: (Ignore::IgnoreLine, String code) -> bool
-
-      def redundant_ignores: (Array[Integer] error_lines) -> Array[Ignore::t]
     end
   end
 end

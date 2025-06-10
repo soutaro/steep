@@ -958,11 +958,8 @@ module Steep
       end
 
       class RedundantIgnoreComment < Base
-        attr_reader :comment
-
-        def initialize(comment:)
-          @comment = comment
-          super(node: nil, location: comment.location.expression)
+        def initialize(location:)
+          super(node: nil, location: location)
         end
 
         def header_line

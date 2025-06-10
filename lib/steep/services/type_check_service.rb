@@ -55,20 +55,37 @@ module Steep
             errors = [] #: Array[Diagnostic::Ruby::Base]
             error_lines = [] #: Array[Integer]
 
+            used_comments = Set[].compare_by_identity #: Set[Source::IgnoreRanges::ignore]
+
             typing.errors.each do |diagnostic|
               case diagnostic.location
               when ::Parser::Source::Range
                 error_lines |= (diagnostic.location.first_line..diagnostic.location.last_line).to_a
-                next if ignores.ignore?(diagnostic.location.first_line, diagnostic.location.last_line, diagnostic.diagnostic_code)
+                if ignore = ignores.ignore?(diagnostic.location.first_line, diagnostic.location.last_line, diagnostic.diagnostic_code)
+                  used_comments << ignore
+                  next
+                end
               when RBS::Location
-                next if ignores.ignore?(diagnostic.location.start_line, diagnostic.location.end_line, diagnostic.diagnostic_code)
+                if ignore = ignores.ignore?(diagnostic.location.start_line, diagnostic.location.end_line, diagnostic.diagnostic_code)
+                  used_comments << ignore
+                  next
+                end
               end
 
               errors << diagnostic
             end
 
-            ignores.redundant_ignores(error_lines).each do |ignore|
-              errors << Diagnostic::Ruby::RedundantIgnoreComment.new(comment: ignore.comment)
+            ignores.each_ignore do |ignore|
+              next if used_comments.include?(ignore)
+
+              case ignore
+              when Array
+                location = RBS::Location.new(ignore[0].location.buffer, ignore[0].location.start_pos, ignore[1].location.end_pos)
+              else
+                location = ignore.location
+              end
+
+              errors << Diagnostic::Ruby::RedundantIgnoreComment.new(location: location)
             end
 
             ignores.error_ignores.each do |ignore|

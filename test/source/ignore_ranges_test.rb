@@ -75,26 +75,4 @@ class SourceIgnoreRangesTest < Minitest::Test
     assert ranges.ignore?(8, 8, "Ruby::NoMethod")
     refute ranges.ignore?(8, 8, "FOO")
   end
-
-  def test_redundant_ignores
-    ranges, buf = parse(<<~RUBY)
-      # steep:ignore:start
-      1 + ""
-      # steep:ignore:end
-
-      # steep:ignore:start
-      1 + 2
-      # steep:ignore:end
-
-      1 + "" # steep:ignore
-
-      1 + 2 # steep:ignore
-    RUBY
-
-    ignores = ranges.redundant_ignores([1, 8])
-
-    assert_equal 5, ignores[0].line
-    assert_equal 7, ignores[1].line
-    assert_equal 11, ignores[3].line
-  end
 end

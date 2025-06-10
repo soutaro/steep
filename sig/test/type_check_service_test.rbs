@@ -44,4 +44,6 @@ class TypeCheckServiceTest < Minitest::Test
   def test_typecheck__ignore: () -> untyped
 
   def test_typecheck__ignore_error: () -> untyped
+
+  def test_typecheck__ignore_redundant: () -> untyped
 end
