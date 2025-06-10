@@ -1085,7 +1085,7 @@ module Steep
             InsufficientPositionalArguments => :error,
             InsufficientTypeArgument => :hint,
             InvalidIgnoreComment => :warning,
-            RedundantIgnoreComment => :hint,
+            RedundantIgnoreComment => :warning,
             MethodArityMismatch => :error,
             MethodBodyTypeMismatch => :error,
             MethodDefinitionInUndeclaredModule => :information,
