@@ -48,8 +48,7 @@ target :lib do
   end
 
   group :main do
-    check "lib/main"
-    signature "sig/main"
+    check "lib/main", inline: true
   end
 end
 
@@ -73,10 +72,6 @@ RUBY
         class Main
         end
       RUBY
-      write_file("sig/main/main.rbs", <<~RBS)
-        class Main
-        end
-      RBS
       write_file("test/core_test.rb", <<~RUBY)
         class CoreTest
         end
@@ -104,7 +99,6 @@ RUBY
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          refute_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
           refute_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
           refute_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
           refute_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
@@ -124,7 +118,6 @@ RUBY
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           refute_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          refute_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
           refute_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
           refute_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
           refute_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
@@ -147,7 +140,6 @@ RUBY
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          assert_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
           refute_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
           refute_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
           refute_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")
@@ -171,7 +163,6 @@ RUBY
           refute_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           refute_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
-          refute_operator client.diagnostics, :key?, Pathname("sig/main/main.rbs")
           assert_operator client.diagnostics, :key?, Pathname("test/core_test.rb")
           assert_operator client.diagnostics, :key?, Pathname("test/main_test.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/test/test.rbs")

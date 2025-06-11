@@ -11,6 +11,7 @@ module Steep
       TypeCheckCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
+      TypeCheckInlineCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       class GotoJob < Struct.new(:id, :kind, :params, keyword_init: true)
         def self.implementation(id:, params:)
           new(
@@ -172,10 +173,12 @@ module Steep
         libraries = params[:library_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
         signatures = params[:signature_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
         codes = params[:code_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
+        inlines = params[:inline_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
 
         priority_libs, non_priority_libs = libraries.partition {|_, path| priority_paths.include?(path) }
         priority_sigs, non_priority_sigs = signatures.partition {|_, path| priority_paths.include?(path) }
         priority_codes, non_priority_codes = codes.partition {|_, path| priority_paths.include?(path) }
+        priority_inlines, non_priority_inlines = inlines.partition {|_, path| priority_paths.include?(path) }
 
         priority_codes.each do |target, path|
           Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
@@ -192,6 +195,11 @@ module Steep
           queue << ValidateLibrarySignatureJob.new(guid: guid, path: path, target: target)
         end
 
+        priority_inlines.each do |target, path|
+          Steep.logger.info { "Enqueueing TypeCheckInlineCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
+          queue << TypeCheckInlineCodeJob.new(guid: guid, path: path, target: target)
+        end
+
         non_priority_codes.each do |target, path|
           Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
           queue << TypeCheckCodeJob.new(guid: guid, path: path, target: target)
@@ -205,6 +213,11 @@ module Steep
         non_priority_libs.each do |target, path|
           Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
           queue << ValidateLibrarySignatureJob.new(guid: guid, path: path, target: target)
+        end
+
+        non_priority_inlines.each do |target, path|
+          Steep.logger.info { "Enqueueing TypeCheckInlineCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
+          queue << TypeCheckInlineCodeJob.new(guid: guid, path: path, target: target)
         end
       end
 
@@ -247,6 +260,20 @@ module Steep
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
             diagnostics = service.typecheck_source(path: relative_path, target: job.target)
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
+          end
+
+        when TypeCheckInlineCodeJob
+          if job.guid == current_type_check_guid
+            Steep.logger.info { "Processing TypeCheckInlineCodeJob for guid=#{job.guid}, path=#{job.path}, target=#{job.target.name}" }
+            group_target = project.group_for_inline_source_path(job.path) || job.target
+            formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
+            relative_path = project.relative_path(job.path)
+            diagnostics =
+              [
+                *service.typecheck_source(path: relative_path, target: job.target),
+                *service.validate_signature(path: relative_path, target: job.target)
+              ]
             typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
           end
 

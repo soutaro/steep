@@ -16,7 +16,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
   def test__add_library_path: () -> untyped
 
   # Returns a default enumerator with `.rb` files
-  def default_enumerator: (untyped project) -> Server::TargetGroupFiles::PathEnumerator
+  def default_enumerator: (untyped project) -> Steep::Server::TargetGroupFiles::PathEnumerator
 
   def test__path_enumerator__each_project_path: () -> untyped
 
