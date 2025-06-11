@@ -425,6 +425,38 @@ module Steep
               truthy_result.update_type { FALSE }
             ]
           end
+
+        when AST::Types::Logic::Guard
+          if receiver
+            receiver_type = factory.deep_expand_alias(typing.type_of(node: receiver)) || raise
+
+            # TODO: Support argument types (ex. `self is arg1`)
+            # TODO: Support class' type param types (ex. `self is T`)
+            # TODO: Support method's type param types (ex. `self is T`)
+            # TODO: Support is_a operator
+
+            sub_type = factory.type(type.type)
+            if no_subtyping?(sub_type: sub_type, super_type: receiver_type)
+              typing.add_error(Diagnostic::Ruby::InsufficientTypeGuard.new(node: receiver, super_type: receiver_type, sub_type: sub_type))
+              return
+            end
+
+            truthy_type, falsy_type = type_guard_type_case_select(receiver_type, sub_type)
+            truthy_env, falsy_env = refine_node_type(
+              env: env,
+              node: receiver,
+              truthy_type: truthy_type || receiver_type,
+              falsy_type: falsy_type || UNTYPED
+            )
+
+            truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
+            truthy_result.unreachable! unless truthy_type
+
+            falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
+            falsy_result.unreachable! unless falsy_type
+
+            [truthy_result, falsy_result]
+          end
         end
       end
 
@@ -556,8 +588,8 @@ module Steep
         end
       end
 
-      def type_case_select(type, klass)
-        truth_types, false_types = type_case_select0(type, klass)
+      def type_guard_type_case_select(type, guard_type)
+        truth_types, false_types = type_case_select0(type, guard_type)
 
         [
           truth_types.empty? ? nil : AST::Types::Union.build(types: truth_types),
@@ -565,16 +597,24 @@ module Steep
         ]
       end
 
-      def type_case_select0(type, klass)
+      def type_case_select(type, klass)
         instance_type = factory.instance_type(klass)
+        truth_types, false_types = type_case_select0(type, instance_type)
 
+        [
+          truth_types.empty? ? nil : AST::Types::Union.build(types: truth_types),
+          false_types.empty? ? nil : AST::Types::Union.build(types: false_types)
+        ]
+      end
+
+      def type_case_select0(type, instance_type)
         case type
         when AST::Types::Union
           truthy_types = [] # :Array[AST::Types::t]
           falsy_types = [] #: Array[AST::Types::t]
 
           type.types.each do |ty|
-            truths, falses = type_case_select0(ty, klass)
+            truths, falses = type_case_select0(ty, instance_type)
 
             if truths.empty?
               falsy_types.push(ty)
@@ -591,7 +631,7 @@ module Steep
           if ty == type
             [[type], [type]]
           else
-            type_case_select0(ty, klass)
+            type_case_select0(ty, instance_type)
           end
 
         when AST::Types::Any, AST::Types::Top, AST::Types::Var
