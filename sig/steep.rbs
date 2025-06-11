@@ -20,6 +20,8 @@ module Steep
 
   def self.can_fork?: () -> boolish
 
+  def self.configure_parser: (?engine: :parser | :prism) -> void
+
   self.@logger: (Logger & ActiveSupport::TaggedLogging)?
 
   self.@ui_logger: (Logger & ActiveSupport::TaggedLogging)?

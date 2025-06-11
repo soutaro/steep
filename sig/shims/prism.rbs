@@ -1,0 +1,14 @@
+# Basic type definitions for Prism compatibility layer
+module Prism
+  module Translation
+    class Parser33
+      def initialize: (untyped builder) -> void
+
+      def parse: (Parser::Source::Buffer) -> Parser::AST::Node
+
+      def parse_with_comments: (Parser::Source::Buffer) -> [Parser::AST::Node, Array[Parser::Source::Comment]]
+
+      attr_reader diagnostics: untyped
+    end
+  end
+end
