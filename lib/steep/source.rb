@@ -31,14 +31,14 @@ module Steep
     end
 
     def self.new_parser
-      ::Parser::Ruby33.new(Builder.new).tap do |parser|
+      ParserCompatibility.parser_class.new(Builder.new).tap do |parser|
         parser.diagnostics.all_errors_are_fatal = true
         parser.diagnostics.ignore_warnings = true
       end
     end
 
     def self.parse(source_code, path:, factory:)
-      buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)
+      buffer = ParserCompatibility.create_buffer(path.to_s, source_code)
       node, comments = new_parser().parse_with_comments(buffer)
 
       # @type var annotations: Array[AST::Annotation::t]
@@ -672,18 +672,18 @@ module Steep
     end
 
     def self.assertion_node(node, type)
-      map = Parser::Source::Map.new(node.location.expression.with(end_pos: type.location.end_pos))
-      Parser::AST::Node.new(:assertion, [node, type], { location: map })
+      map = ParserCompatibility.create_source_map(node.location.expression.with(end_pos: type.location.end_pos))
+      ParserCompatibility.create_node(:assertion, [node, type], { location: map })
     end
 
     def self.type_application_node(node, tapp)
       if node.location.expression.end_pos > tapp.location.end_pos
-        map = Parser::Source::Map.new(node.location.expression)
+        map = ParserCompatibility.create_source_map(node.location.expression)
       else
-        map = Parser::Source::Map.new(node.location.expression.with(end_pos: tapp.location.end_pos))
+        map = ParserCompatibility.create_source_map(node.location.expression.with(end_pos: tapp.location.end_pos))
       end
 
-      node = Parser::AST::Node.new(:tapp, [node, tapp], { location: map })
+      node = ParserCompatibility.create_node(:tapp, [node, tapp], { location: map })
       tapp.set_node(node)
       node
     end

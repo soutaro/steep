@@ -82,6 +82,7 @@ require "steep/diagnostic/signature"
 require "steep/diagnostic/lsp_formatter"
 require "steep/signature/validator"
 require "steep/module_helper"
+require "steep/parser_compatibility"
 require "steep/source"
 require "steep/source/ignore_ranges"
 require "steep/annotation_parser"
@@ -164,6 +165,10 @@ end
 $stderr = STDERR
 
 module Steep
+  def self.configure_parser(engine: :parser)
+    ParserCompatibility.parser_engine = engine
+  end
+
   def self.logger
     @logger || raise
   end
