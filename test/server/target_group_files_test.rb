@@ -142,7 +142,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
         Pathname("/app/app/cli.rb"),
         Pathname("/app/test/lib_test.rb")
       ],
-      enumerator.each_project_path().to_set
+      enumerator.each_project_path().map { _1[0] }.to_set
     )
 
     project.targets.find { _1.name == :lib }.tap do |target|
@@ -155,7 +155,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
           Pathname("/app/app/cli.rb"),
           Pathname("/app/test/lib_test.rb")
         ],
-        enumerator.each_project_path(except: target).to_set
+        enumerator.each_project_path(except: target).map { _1[0] }.to_set
       )
     end
 
@@ -167,7 +167,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
           Pathname("/app/lib/lib.rb"),
           Pathname("/app/test/lib_test.rb")
         ],
-        enumerator.each_project_path(except: target).to_set
+        enumerator.each_project_path(except: target).map { _1[0] }.to_set
       )
     end
 
@@ -181,7 +181,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
           Pathname("/app/app/main/main.rb"),
           Pathname("/app/app/cli.rb"),
         ],
-        enumerator.each_project_path(except: target).to_set
+        enumerator.each_project_path(except: target).map { _1[0] }.to_set
       )
     end
   end
@@ -197,7 +197,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
         Set[
           Pathname("/app/lib/lib.rb"),
         ],
-        enumerator.each_target_path(target).to_set
+        enumerator.each_target_path(target).map { _1[0] }.to_set
       )
     end
 
@@ -210,7 +210,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
           Pathname("/app/app/main/main.rb"),
           Pathname("/app/app/cli.rb")
         ],
-        enumerator.each_target_path(target).to_set
+        enumerator.each_target_path(target).map { _1[0] }.to_set
       )
 
       target.groups.find { _1.name == :server }.tap do |group|
@@ -221,7 +221,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
             Pathname("/app/app/main/main.rb"),
             Pathname("/app/app/cli.rb")
           ],
-          enumerator.each_target_path(target, except: group).to_set
+          enumerator.each_target_path(target, except: group).map { _1[0] }.to_set
         )
       end
 
@@ -233,7 +233,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
             Pathname("/app/app/server/server.rb"),
             Pathname("/app/app/cli.rb")
           ],
-          enumerator.each_target_path(target, except: group).to_set
+          enumerator.each_target_path(target, except: group).map { _1[0] }.to_set
         )
       end
     end
@@ -245,7 +245,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
         Set[
           Pathname("/app/test/lib_test.rb"),
         ],
-        enumerator.each_target_path(target).to_set
+        enumerator.each_target_path(target).map { _1[0] }.to_set
       )
     end
   end
