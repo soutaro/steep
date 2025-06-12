@@ -53,10 +53,10 @@ module Steep
         } #: target_json
 
         if files
-          files.signature_paths.each_group_path(target, no_sub_groups: true) do |path|
+          files.signature_paths.each_group_path(target) do |path, *|
             (json["signature_paths"] ||= []) << path.to_s
           end
-          files.source_paths.each_group_path(target, no_sub_groups: true) do |path|
+          files.source_paths.each_group_path(target) do |path, *|
             (json["source_paths"] ||= []) << path.to_s
           end
         end
@@ -72,11 +72,11 @@ module Steep
         } #: group_json
 
         if files
-          files.signature_paths.each_group_path(group, no_sub_groups: true) do |path|
+          files.signature_paths.each_group_path(group) do |path, *|
             (json["signature_paths"] ||= []) << path.to_s
           end
 
-          files.source_paths.each_group_path(group, no_sub_groups: true) do |path|
+          files.source_paths.each_group_path(group) do |path, *|
             (json["source_paths"] ||= []) << path.to_s
           end
         end
