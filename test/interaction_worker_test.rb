@@ -434,5 +434,305 @@ EOF
       end
     end
   end
+
+  def test_process_code_action
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+      worker.service.update(
+        changes:{
+          Pathname("sig/hello.rbs") => [ContentChange.string(<<~RBS)]
+            class Hello
+              def world!: () -> void
+            end
+          RBS
+        }
+      ) {}
+      worker.service.update(
+        changes: {
+          Pathname("lib/hello.rb") => [ContentChange.string(<<RUBY)]
+tab
+self.tab
+self&.tab
+Hello.new.world
+Hello.new&.world
+Integer::sqlt
+Intege()
+RUBY
+        }
+      ) {}
+
+      # tab
+      yield_self do
+        line = 0
+        job = InteractionWorker::CodeActionJob.new(
+          id: line.to_s,
+          path: Pathname("lib/hello.rb"),
+          range: {
+            start: { line:, character: 1 },
+            end: { line:, character: 1 }
+          },
+          context: {
+            diagnostics: [{
+              code: "Ruby::NoMethod",
+              range: {
+                start: { line:, character: 0 },
+                end: { line:, character: 3 }
+              }
+            }]
+          }
+        )
+        response = worker.process_code_action(job)
+        assert_equal 1, response.size
+        action = response.first
+        assert_equal "Change spelling to `tap`", action.title
+        assert_equal "quickfix", action.kind
+        assert_equal 1, action.edit.document_changes.size
+        document_change = action.edit.document_changes.first
+        assert_equal 1, document_change.edits.size
+        edit = document_change.edits.first
+        assert_equal line, edit.range.start.line
+        assert_equal 0, edit.range.start.character
+        assert_equal line, edit.range.end.line
+        assert_equal 3, edit.range.end.character
+        assert_equal "tap", edit.new_text
+      end
+
+      # self.tab
+      yield_self do
+        line = 1
+        job = InteractionWorker::CodeActionJob.new(
+          id: line.to_s,
+          path: Pathname("lib/hello.rb"),
+          range: {
+            start: { line:, character: 7 },
+            end: { line:, character: 7 }
+          },
+          context: {
+            diagnostics: [
+              {
+                code: "Ruby::NoMethod",
+                range: {
+                  start: { line:, character: 0 },
+                  end: { line:, character: 8 }
+                }
+              }
+            ]
+          }
+        )
+        response = worker.process_code_action(job)
+        assert_equal 1, response.size
+        action = response.first
+        assert_equal "Change spelling to `tap`", action.title
+        assert_equal "quickfix", action.kind
+        assert_equal 1, action.edit.document_changes.size
+        document_change = action.edit.document_changes.first
+        assert_equal 1, document_change.edits.size
+        edit = document_change.edits.first
+        assert_equal line, edit.range.start.line
+        assert_equal 5, edit.range.start.character
+        assert_equal line, edit.range.end.line
+        assert_equal 8, edit.range.end.character
+        assert_equal "tap", edit.new_text
+      end
+
+      # self&.tab
+      yield_self do
+        line = 2
+        job = InteractionWorker::CodeActionJob.new(
+          id: line.to_s,
+          path: Pathname("lib/hello.rb"),
+          range: {
+            start: { line:, character: 7 },
+            end: { line:, character: 7 }
+          },
+          context: {
+            diagnostics: [
+              {
+                code: "Ruby::NoMethod",
+                range: {
+                  start: { line:, character: 0 },
+                  end: { line:, character: 9 }
+                }
+              }
+            ]
+          }
+        )
+        response = worker.process_code_action(job)
+        assert_equal 1, response.size
+        action = response.first
+        assert_equal "Change spelling to `tap`", action.title
+        assert_equal "quickfix", action.kind
+        assert_equal 1, action.edit.document_changes.size
+        document_change = action.edit.document_changes.first
+        assert_equal 1, document_change.edits.size
+        edit = document_change.edits.first
+        assert_equal line, edit.range.start.line
+        assert_equal 6, edit.range.start.character
+        assert_equal line, edit.range.end.line
+        assert_equal 9, edit.range.end.character
+        assert_equal "tap", edit.new_text
+      end
+
+      # Hello.new.world
+      yield_self do
+        line = 3
+        job = InteractionWorker::CodeActionJob.new(
+          id: line.to_s,
+          path: Pathname("lib/hello.rb"),
+          range: {
+            start: { line:, character: 11 },
+            end: { line:, character: 11 }
+          },
+          context: {
+            diagnostics: [
+              {
+                code: "Ruby::NoMethod",
+                range: {
+                  start: { line:, character: 10 },
+                  end: { line:, character: 15 }
+                }
+              }
+            ]
+          }
+        )
+        response = worker.process_code_action(job)
+        assert_equal 1, response.size
+        action = response.first
+        assert_equal "Change spelling to `world!`", action.title
+        assert_equal "quickfix", action.kind
+        assert_equal 1, action.edit.document_changes.size
+        document_change = action.edit.document_changes.first
+        assert_equal 1, document_change.edits.size
+        edit = document_change.edits.first
+        assert_equal line, edit.range.start.line
+        assert_equal 10, edit.range.start.character
+        assert_equal line, edit.range.end.line
+        assert_equal 15, edit.range.end.character
+        assert_equal "world!", edit.new_text
+      end
+
+      # Hello.new&.world
+      yield_self do
+        line = 4
+        job = InteractionWorker::CodeActionJob.new(
+          id: line.to_s,
+          path: Pathname("lib/hello.rb"),
+          range: {
+            start: { line:, character: 12 },
+            end: { line:, character: 12 }
+          },
+          context: {
+            diagnostics: [
+              {
+                code: "Ruby::NoMethod",
+                range: {
+                  start: { line:, character: 11 },
+                  end: { line:, character: 16 }
+                }
+              }
+            ]
+          }
+        )
+        response = worker.process_code_action(job)
+        assert_equal 1, response.size
+        action = response.first
+        assert_equal "Change spelling to `world!`", action.title
+        assert_equal "quickfix", action.kind
+        assert_equal 1, action.edit.document_changes.size
+        document_change = action.edit.document_changes.first
+        assert_equal 1, document_change.edits.size
+        edit = document_change.edits.first
+        assert_equal line, edit.range.start.line
+        assert_equal 11, edit.range.start.character
+        assert_equal line, edit.range.end.line
+        assert_equal 16, edit.range.end.character
+        assert_equal "world!", edit.new_text
+      end
+
+      # Integer::sqlt
+      yield_self do
+        line = 5
+        job = InteractionWorker::CodeActionJob.new(
+          id: line.to_s,
+          path: Pathname("lib/hello.rb"),
+          range: {
+            start: { line:, character: 10 },
+            end: { line:, character: 10 }
+          },
+          context: {
+            diagnostics: [
+              {
+                code: "Ruby::NoMethod",
+                range: {
+                  start: { line:, character: 9 },
+                  end: { line:, character: 14 }
+                }
+              }
+            ]
+          }
+        )
+        response = worker.process_code_action(job)
+        assert_equal 1, response.size
+        action = response.first
+        assert_equal "Change spelling to `sqrt`", action.title
+        assert_equal "quickfix", action.kind
+        assert_equal 1, action.edit.document_changes.size
+        document_change = action.edit.document_changes.first
+        assert_equal 1, document_change.edits.size
+        edit = document_change.edits.first
+        assert_equal line, edit.range.start.line
+        assert_equal 9, edit.range.start.character
+        assert_equal line, edit.range.end.line
+        assert_equal 14, edit.range.end.character
+        assert_equal "sqrt", edit.new_text
+      end
+
+      # Intege()
+      yield_self do
+        line = 6
+        job = InteractionWorker::CodeActionJob.new(
+          id: line.to_s,
+          path: Pathname("lib/hello.rb"),
+          range: {
+            start: { line:, character: 4 },
+            end: { line:, character: 4 }
+          },
+          context: {
+            diagnostics: [
+              {
+                code: "Ruby::NoMethod",
+                range: {
+                  start: { line:, character: 0 },
+                  end: { line:, character: 6 }
+                }
+              }
+            ]
+          }
+        )
+        response = worker.process_code_action(job)
+        assert_equal 1, response.size
+        action = response.first
+        assert_equal "Change spelling to `Integer`", action.title
+        assert_equal "quickfix", action.kind
+        assert_equal 1, action.edit.document_changes.size
+        document_change = action.edit.document_changes.first
+        assert_equal 1, document_change.edits.size
+        edit = document_change.edits.first
+        assert_equal line, edit.range.start.line
+        assert_equal 0, edit.range.start.character
+        assert_equal line, edit.range.end.line
+        assert_equal 6, edit.range.end.character
+        assert_equal "Integer", edit.new_text
+      end
+    end
+  end
 end
 

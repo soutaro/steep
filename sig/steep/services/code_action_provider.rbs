@@ -1,0 +1,59 @@
+use RBS::Environment, RBS::TypeName
+use Steep::TypeInference::MethodCall
+
+module Steep
+  module Services
+    class CodeActionProvider
+      class Action
+        attr_reader edit_range: EditRange
+        attr_reader new_texts: Array[String]
+
+        def initialize: (edit_range: EditRange, new_texts: Array[String]) -> void
+      end
+
+      class EditRange
+        attr_reader start: EditPosition
+        attr_reader end: EditPosition
+
+        def initialize: (start: EditPosition, end: EditPosition) -> void
+      end
+
+      class EditPosition
+        attr_reader line: Integer
+        attr_reader character: Integer
+
+        def initialize: (line: Integer, character: Integer) -> void
+      end
+
+      type position = {
+        line: Integer,
+        character: Integer
+      }
+      type range = {
+        start: position,
+        end: position
+      }
+      attr_reader source_text: String
+
+      attr_reader path: Pathname
+
+      attr_reader subtyping: Subtyping::Check
+
+      attr_reader modified_text: String
+
+      attr_reader source: Source
+
+      attr_reader typing: Typing
+
+      def initialize: (source_text: String, path: Pathname, subtyping: Subtyping::Check) -> void
+
+      def type_check!: (String text, line: Integer, column: Integer) -> void
+
+      def run: (range: range) -> Action?
+
+      def action_for: (range: range) -> Action?
+
+      def method_items_for_receiver_type: (AST::Types::t, include_private: bool, position: position, dictionary: Array[Symbol]) -> void
+    end
+  end
+end
