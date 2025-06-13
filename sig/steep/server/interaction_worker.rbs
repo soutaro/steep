@@ -45,7 +45,19 @@ module Steep
         def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
       end
 
-      type job = HoverJob | CompletionJob | SignatureHelpJob
+      class CodeActionJob
+        attr_reader id: String
+
+        attr_reader path: Pathname
+
+        attr_reader range: LanguageServer::Protocol::Interface::Range::json
+
+        attr_reader context: LanguageServer::Protocol::Interface::CodeActionContext::json
+
+        def initialize: (id: String, path: Pathname, range: LanguageServer::Protocol::Interface::Range::json, context: LanguageServer::Protocol::Interface::CodeActionContext::json) -> void
+      end
+
+      type job = HoverJob | CompletionJob | SignatureHelpJob | CodeActionJob
 
       module LSP = LanguageServer::Protocol
 
@@ -78,6 +90,8 @@ module Steep
       def process_completion: (CompletionJob job) -> LanguageServer::Protocol::Interface::CompletionList?
 
       def process_signature_help: (SignatureHelpJob) -> LanguageServer::Protocol::Interface::SignatureHelp?
+
+      def process_code_action: (CodeActionJob) -> [LanguageServer::Protocol::Interface::CodeAction]?
 
       def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> LanguageServer::Protocol::Interface::CompletionItem
 
