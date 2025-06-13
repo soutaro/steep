@@ -20,6 +20,7 @@ class TypeCheckWorkerTest < Minitest::Test
     @dirs ||= []
   end
 
+  # @rbs (Server::TypeCheckWorker) { (Thread) -> void } -> void
   def run_worker(worker)
     t = Thread.new do
       worker.run()
@@ -199,7 +200,8 @@ class TypeCheckWorkerTest < Minitest::Test
               priority_uris: ["#{file_scheme}#{current_dir}/lib/hello.rb"],
               signature_uris: [["lib", "#{file_scheme}#{current_dir}/sig/hello.rbs"]],
               code_uris: [["lib", "#{file_scheme}#{current_dir}/lib/hello.rb"]],
-              library_uris: [["lib", "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]]
+              library_uris: [["lib", "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]],
+              inline_uris: []
             }
           }
         )
@@ -624,6 +626,151 @@ class TypeCheckWorkerTest < Minitest::Test
       end
     end
   end
+
+  def test_handle_job_typecheck_inline__no_error
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.eval(project) do
+          target :lib do
+            check "lib", inline: true
+            signature "sig"
+          end
+        end
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+        {}.tap do |changes|
+          changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<~RUBY)]
+            class Hello
+              # @rbs (Integer) -> String
+              def world(x)
+                x.to_s
+              end
+            end
+            Hello.new.world(10)
+          RUBY
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+        end
+
+        job = TypeCheckWorker::TypeCheckInlineCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+          assert_equal "guid", message[:params][:guid]
+          assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
+          assert_equal 0, message[:params][:diagnostics].size
+        end
+      end
+    end
+  end
+
+    def test_handle_job_typecheck_inline__implementation_error
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.eval(project) do
+          target :lib do
+            check "lib", inline: true
+            signature "sig"
+          end
+        end
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+        {}.tap do |changes|
+          changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<~RUBY)]
+            class Hello
+              # @rbs (Integer) -> String
+              def world(x)
+                x.to_s
+              end
+            end
+            Hello.new.world("10")
+          RUBY
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+        end
+
+        job = TypeCheckWorker::TypeCheckInlineCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+          assert_equal "guid", message[:params][:guid]
+          assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
+          assert_equal 1, message[:params][:diagnostics].size
+          assert_equal "Ruby::ArgumentTypeMismatch", message[:params][:diagnostics][0][:code]
+        end
+      end
+    end
+  end
+
+  def test_handle_job_typecheck_inline__type_decl_error
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.eval(project) do
+          target :lib do
+            check "lib", inline: true
+            signature "sig"
+          end
+        end
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+        {}.tap do |changes|
+          changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<~RUBY)]
+            class Hello
+              # @rbs (Integer) ->
+              def world(x)
+                x.to_s
+              end
+            end
+            Hello.new.world(10)
+          RUBY
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+        end
+
+        job = TypeCheckWorker::TypeCheckInlineCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+          assert_equal "guid", message[:params][:guid]
+          assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
+          assert_equal 1, message[:params][:diagnostics].size
+          pp message[:params][:diagnostics][0]
+          assert_equal "RBS::InlineDiagnostic", message[:params][:diagnostics][0][:code]
+        end
+      end
+    end
+  end
+
 
   def test_job_workspace_symbol
     in_tmpdir do

@@ -78,6 +78,16 @@ module Steep
         def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
+      class TypeCheckInlineCodeJob
+        attr_reader guid: String
+
+        attr_reader path: Pathname
+
+        attr_reader target: Project::Target
+
+        def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
+      end
+
       class GotoJob
         type kind = :implementation | :definition | :type_definition
 
@@ -134,6 +144,7 @@ module Steep
                | TypeCheckCodeJob
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
+               | TypeCheckInlineCodeJob
                | GotoJob
                | StatsJob
 

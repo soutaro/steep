@@ -93,7 +93,7 @@ module Steep
         client_writer.write({ method: :initialize, id: initialize_id, params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
         wait_for_response_id(reader: client_reader, id: initialize_id)
 
-        params = { library_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
+        params = { library_paths: [], inline_paths: [], signature_paths: [], code_paths: [] } #: Server::CustomMethods::TypeCheck::params
 
         if command_line_patterns.empty?
           files = Server::TargetGroupFiles.new(project)
@@ -114,7 +114,7 @@ module Steep
           project.targets.each do |target|
             target.groups.each do |group|
               if active_group?(group)
-                load_files(files, group.target, group, params: params)
+                load_files(files, target, group, params: params)
               end
             end
             if active_group?(target)
@@ -208,23 +208,21 @@ module Steep
 
       def load_files(files, target, group, params:)
         if type_check_code
-          files.each_group_source_path(group, true) do |path|
+          files.source_paths.each_group_path(group) do |path, *|
             params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
         if validate_group_signatures
-          files.each_group_signature_path(group) do |path|
+          files.signature_paths.each_group_path(group) do |path, *|
             params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
         if validate_project_signatures
-          files.each_project_signature_path(target) do |path|
-            if path_target = files.signature_path_target(path)
-              params[:signature_paths] << [path_target.name.to_s, target.project.absolute_path(path).to_s]
-            end
+          files.signature_paths.each_project_path(except: target) do |path, path_target, *|
+            params[:signature_paths] << [path_target.name.to_s, target.project.absolute_path(path).to_s]
           end
           if group.is_a?(Project::Group)
-            files.each_target_signature_path(target, group) do |path|
+            files.signature_paths.each_target_path(target, except: group) do |path, *|
               params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
             end
           end

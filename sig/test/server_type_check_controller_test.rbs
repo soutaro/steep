@@ -21,19 +21,17 @@ class ServerTypeCheckControllerTest < Minitest::Test
 
   def test_load__groups: () -> untyped
 
-  def test_push_changes_project_file: () -> untyped
+  def test_add_dirty_path: () -> untyped
 
-  def test_update_priority: () -> untyped
+  def test_open_path: () -> untyped
+
+  def test_close_path: () -> untyped
 
   def test_make_request_empty: () -> untyped
 
-  def test_make_request__include_unchanged: () -> untyped
+  def test_make_all_request: () -> untyped
 
-  def test_make_request__code_changed: () -> untyped
+  def test_make_request: () -> untyped
 
-  def test_make_request__signature_changed: () -> untyped
-
-  def test_make_request__other_group_priority: () -> untyped
-
-  def test_make_request__other_group_priority__unreferenced: () -> untyped
+  def test_make_group_request: () -> untyped
 end

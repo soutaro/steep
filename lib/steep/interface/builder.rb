@@ -412,10 +412,8 @@ module Steep
           return SingletonMethodName.new(type_name: type_name, method_name: name)
         end
 
-        if type_def.member.is_a?(RBS::AST::Ruby::Members::DefMember)
-          # DefMember is always instance method
-          InstanceMethodName.new(type_name: type_name, method_name: name)
-        else
+        case type_def.member
+        when RBS::AST::Members::Base
           case type_def.member.kind
           when :instance
             InstanceMethodName.new(type_name: type_name, method_name: name)
@@ -427,6 +425,8 @@ module Steep
           else
             raise
           end
+        when RBS::AST::Ruby::Members::DefMember
+          InstanceMethodName.new(type_name: type_name, method_name: name)
         end
       end
 

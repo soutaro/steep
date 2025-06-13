@@ -36,13 +36,15 @@ module Steep
               method_name = SingletonMethodName.new(type_name: type_name, method_name: name)
             else
               method_name =
-                if defn.member.is_a?(RBS::AST::Ruby::Members::DefMember)
-                  # DefMember is always instance method
-                  InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
-                elsif defn.member.kind == :singleton
-                  SingletonMethodName.new(type_name: defn.defined_in, method_name: name)
-                else
-                  # Call the `self?` method an instance method, because the definition is done with instance method definition, not with singleton method
+                case defn.member
+                when RBS::AST::Members::Base
+                  if defn.member.kind == :singleton
+                    SingletonMethodName.new(type_name: defn.defined_in, method_name: name)
+                  else
+                    # Call the `self?` method an instance method, because the definition is done with instance method definition, not with singleton method
+                    InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
+                  end
+                when RBS::AST::Ruby::Members::DefMember
                   InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
                 end
             end

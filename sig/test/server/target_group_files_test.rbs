@@ -9,33 +9,18 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
   include Steep
 
-  def default_project: () -> untyped
+  def default_project: () -> Steep::Project
 
-  def setup_files: (untyped files) -> untyped
+  def test__add_path: () -> untyped
 
-  def test_files__each_library_path: () -> untyped
+  def test__add_library_path: () -> untyped
 
-  def test_files__each_group_signature_path__target: () -> untyped
+  # Returns a default enumerator with `.rb` files
+  def default_enumerator: (untyped project) -> Steep::Server::TargetGroupFiles::PathEnumerator
 
-  def test_files__each_group_source_path__target: () -> untyped
+  def test__path_enumerator__each_project_path: () -> untyped
 
-  def test_files__each_group_signature_path__group: () -> untyped
+  def test__path_enumerator__each_target_path: () -> void
 
-  def test_files__each_group_source_path__group: () -> untyped
-
-  def test_files__each_target_signature_path__no_group: () -> untyped
-
-  def test_files__each_target_source_path__no_group: () -> untyped
-
-  def test_files__each_target_signature_path__group: () -> untyped
-
-  def test_files__each_target_source_path__group: () -> untyped
-
-  def test_files__each_project_signature_path__all_target: () -> untyped
-
-  def test_files__each_project_source_path__all_target: () -> untyped
-
-  def test_files__each_project_signature_path__except_target: () -> untyped
-
-  def test_files__each_project_source_path__except_target: () -> untyped
+  def test__path_enumerator__each_group_path: () -> void
 end

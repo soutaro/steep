@@ -20,6 +20,10 @@ class TypeCheckServiceTest < Minitest::Test
           signature "sig/main.rbs"
         end
 
+        target :inline do
+          check "lib/inline.rb", inline: true
+        end
+
         target :test do
           unreferenced!
 
@@ -36,6 +40,7 @@ class TypeCheckServiceTest < Minitest::Test
       Pathname("sig/core.rbs") => [ContentChange.string("")],
       Pathname("lib/main.rb") => [ContentChange.string("")],
       Pathname("sig/main.rbs") => [ContentChange.string("")],
+      Pathname("lib/inline.rb") => [ContentChange.string("")],
       Pathname("test/core_test.rb") => [ContentChange.string("")],
       Pathname("sig/core_test.rbs") => [ContentChange.string("")],
     }
@@ -373,7 +378,7 @@ RBS
 
       # SyntaxError is reported to all of the targets
       service.diagnostics[Pathname("sig/core.rbs")].tap do |errors|
-        assert_equal 3, errors.size
+        assert_equal 4, errors.size
         errors.each do |error|
           assert_instance_of Diagnostic::Signature::SyntaxError, error
         end
@@ -487,6 +492,105 @@ RUBY
       assert_any!(service.diagnostics[Pathname("lib/core.rb")]) do |error|
         assert_instance_of Diagnostic::Ruby::RedundantIgnoreComment, error
         assert_equal "steep:ignore:start\n1+2\n# steep:ignore:end", error.location.source
+      end
+    end
+  end
+
+  def test_update__inline
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib/inline.rb") => [ContentChange.string(<<RBS)],
+class Inline
+  def foo #: String
+    ""
+  end
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      assert_operator service.source_files, :key?, Pathname("lib/inline.rb")
+
+      assert_operator service, :signature_file?, Pathname("lib/inline.rb")
+      assert_operator service, :source_file?, Pathname("lib/inline.rb")
+    end
+
+    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_empty diagnostics
+    end
+
+    service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_empty diagnostics
+    end
+  end
+
+  def test_update__inline__type_error #: void
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib/inline.rb") => [ContentChange.string(<<RBS)],
+class Inline
+  def foo #: String
+    123
+  end
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      assert_operator service.source_files, :key?, Pathname("lib/inline.rb")
+
+      assert_operator service, :signature_file?, Pathname("lib/inline.rb")
+      assert_operator service, :source_file?, Pathname("lib/inline.rb")
+    end
+
+    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Ruby::MethodBodyTypeMismatch, error
+      end
+    end
+
+    service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_empty diagnostics
+    end
+  end
+
+  def test_update__inline__validation_error #: void
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib/inline.rb") => [ContentChange.string(<<RBS)],
+class Inline
+  def foo #: String)
+    ""
+  end
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      assert_operator service.source_files, :key?, Pathname("lib/inline.rb")
+
+      assert_operator service, :signature_file?, Pathname("lib/inline.rb")
+      assert_operator service, :source_file?, Pathname("lib/inline.rb")
+    end
+
+    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_empty diagnostics
+    end
+
+    service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::InlineDiagnostic, error
+        assert_instance_of RBS::InlineParser::Diagnostic::AnnotationSyntaxError, error.diagnostic
+        assert_equal ": String)", error.location.source
       end
     end
   end

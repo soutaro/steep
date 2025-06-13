@@ -1,16 +1,30 @@
 class LSPClient
-  attr_reader :reader, :writer, :current_dir
+  # @rbs!
+  #   type message = Hash[Symbol, untyped]
 
-  attr_reader :notifications
+  # @rbs @next_request_id: Integer
+  # @rbs @incoming_thread: Thread
 
-  attr_accessor :default_timeout
+  attr_reader :reader #: LanguageServer::Protocol::Transport::Io::Reader
 
-  attr_reader :request_response_table
+  attr_reader :writer #: LanguageServer::Protocol::Transport::Io::Writer
 
-  attr_reader :diagnostics
+  attr_reader :current_dir #: Pathname
 
-  attr_reader :open_files
+  attr_reader :notifications #: Array[message]
 
+  attr_accessor :default_timeout #: Integer
+
+  attr_reader :request_response_table #: Hash[Integer, message]
+
+  attr_reader :diagnostics #: Hash[Pathname, Array[Hash[Symbol, untyped]]]
+
+  attr_reader :open_files #: Hash[String, String]
+
+  # @rbs reader: LanguageServer::Protocol::Transport::Io::Reader
+  # @rbs writer: LanguageServer::Protocol::Transport::Io::Writer
+  # @rbs current_dir: Pathname
+  # @rbs return: void
   def initialize(reader:, writer:, current_dir:)
     @reader = reader
     @writer = writer
@@ -33,7 +47,7 @@ class LSPClient
           notifications << message
           case message.fetch(:method)
           when "textDocument/publishDiagnostics"
-            path = Steep::PathHelper.to_pathname(message[:params][:uri])
+            path = Steep::PathHelper.to_pathname(message[:params][:uri]) or raise
             path = path.relative_path_from(current_dir)
             diagnostics[path] = message[:params][:diagnostics]
           else
@@ -50,24 +64,29 @@ class LSPClient
     end
   end
 
+  # @rbs id: Integer
+  # @rbs timeout: untyped
+  # @rbs return: Hash[Symbol, untyped]?
   def get_response(id, timeout: default_timeout)
     finally do
       if request_response_table.key?(id)
-        return request_response_table.delete(id)
+        return request_response_table.delete(id) || raise
       end
     end
+    nil
   end
 
-  def flush_notifications()
+  def flush_notifications() #: void
     nots = notifications.dup
     notifications.clear()
     nots
   end
 
-  def join
+  def join #: void
     @incoming_thread.join
   end
 
+  # @rbs (?timeout: Integer) { () -> void } -> void
   def finally(timeout: default_timeout)
     started_at = Time.now
     while Time.now < started_at + timeout
@@ -78,6 +97,8 @@ class LSPClient
     raise "timeout exceeded: #{timeout} seconds"
   end
 
+  # @rbs [T] (?id: Integer, method: String, params: message?) { (untyped) -> T } -> T
+  #    | (?id: Integer, method: String, params: message?) -> Integer
   def send_request(id: fresh_request_id, method:, params:, &block)
     writer.write({ id: id, method: method, params: params })
 
@@ -88,16 +109,19 @@ class LSPClient
     end
   end
 
+  # @rbs (method: String, params: untyped) -> void
   def send_notification(method:, params:)
     writer.write({ method: method, params: params })
   end
 
+  # @rbs (String) -> String
   def uri(path)
     prefix = Gem.win_platform? ? "file:///" : "file://"
     "#{prefix}#{current_dir + path}"
   end
 
-  def open_file(*paths)
+  # @rbs *paths: String
+  def open_file(*paths) #: void
     paths.each do |path|
       content = (current_dir + path).read
       open_files[path] = content
@@ -110,6 +134,7 @@ class LSPClient
     end
   end
 
+  # @rbs *paths: String
   def close_file(*paths)
     paths.each do |path|
       send_notification(
@@ -123,6 +148,7 @@ class LSPClient
     end
   end
 
+  # @rbs (String) { (String?) -> String } -> void
   def change_file(path)
     content = open_files[path]
     content = open_files[path] = yield(content)
@@ -139,6 +165,7 @@ class LSPClient
     )
   end
 
+  # @rbs (String) -> void
   def save_file(path)
     content = open_files.delete(path) or raise
     (current_dir + path).write(content)
@@ -155,12 +182,13 @@ class LSPClient
     change_watched_file(path)
   end
 
-  def change_watched_file(*paths)
-    changes = []
+  # @rbs *path: String
+  def change_watched_file(*paths) #: void
+    changes = [] #: Array[message]
     paths.each do |path|
-      path = current_dir + path
+      absolute_path = current_dir + path
 
-      if path.file?
+      if absolute_path.file?
         # Created (or maybe modified)
         changes << { uri: uri(path), type: 1 }
       else
@@ -175,6 +203,7 @@ class LSPClient
     )
   end
 
+  # @rbs (?String query) { (untyped) -> void } -> void
   def workspace_symbol(query = "", &block)
     send_request(
       method: "workspace/symbol",
@@ -184,6 +213,7 @@ class LSPClient
     end
   end
 
+  # @rbs (String path, line: Integer, character: Integer) { (untyped) -> void } -> void
   def goto_definition(path, line:, character:, &block)
     send_request(
       method: "textDocument/definition",
@@ -196,6 +226,7 @@ class LSPClient
     end
   end
 
+  # @rbs (String path, line: Integer, character: Integer) { (untyped) -> void } -> void
   def goto_implementation(path, line:, character:, &block)
     send_request(
       method: "textDocument/implementation",
@@ -210,7 +241,7 @@ class LSPClient
 
   protected
 
-  def fresh_request_id
+  def fresh_request_id #: Integer
     @next_request_id += 1
   end
 end

@@ -2,16 +2,90 @@ use Steep::Project::Target, Steep::Project::Group
 
 module Steep
   module Server
+    # TargetGroupFiles keeps track of paths that belongs to a target or group
+    #
+    # A path can be one of the following:
+    #
+    # 1. It is a path of a library RBS file (library path)
+    # 2. It is a path of a signature file that belongs to a target or a group (signature path)
+    # 3. It is a path of a Ruby source file that belongs to a target or a group (source path)
+    # 4. It is a path of a Ruby code with inline type declaration that belongs to the project (inline path)
+    #
     class TargetGroupFiles
+      class PathEnumerator
+        @paths: Hash[Pathname, Target | Group]
+
+        type path_group = [Pathname, Target, Group?, Target | Group]
+
+        def initialize: () -> void
+
+        def empty?: () -> bool
+
+        def []=: (Pathname, Target | Group) -> (Target | Group)
+
+        def []: (Pathname) -> (Target | Group | nil)
+
+        def paths: () -> Array[Pathname]
+
+        def registered_path?: (Pathname) -> bool
+
+        def each: () { ([Pathname, Target, Group?]) -> void } -> void
+                | () -> Enumerator[[Pathname, Target, Group?]]
+
+        # Returns the target associated to the path
+        def target: (Pathname) -> Target?
+
+        # Returns a pair of target and group associated to the path
+        def target_group: (Pathname) -> [Target, Group?]?
+
+        # Yields all files from the collection
+        #
+        def each_project_path: (?except: Target?) { (path_group) -> void } -> void
+                            | (?except: Target?) -> Enumerator[path_group]
+
+        # Yields files that belongs to the target
+        #
+        # It also yields files that belongs to the sub-groups of the target.
+        # When `except:` is given, files that belongs to the group are skipped.
+        #
+        def each_target_path: (Target, ?except: Group?) { (path_group) -> void } -> void
+                            | (Target, ?except: Group?) -> Enumerator[path_group]
+
+        # Yields files that belongs to the group or the target
+        #
+        # If `include_sub_groups: true` is given, it skips files in sub groups of the target.
+        # If `include_sub_groups: false` is given (default), it yields files in sub groups of the target.
+        #
+        def each_group_path: (Target | Group) { (path_group) -> void } -> void
+                           | (Target | Group) -> Enumerator[path_group]
+                           | (Target, ?include_sub_groups: bool) { (path_group) -> void } -> void
+                           | (Target, ?include_sub_groups: bool) -> Enumerator[path_group]
+
+        # Returns the target of the argument
+        #
+        # * Returns the target itself if the argument is a target
+        # * Returns the target of the group if the argument is a group
+        #
+        private def target_of: (Target | Group) -> Target
+
+        # Returns the group if the argument is a group
+        private def group_of: (Target | Group) -> Group?
+      end
+
       attr_reader project: Project
 
-      attr_reader source_paths: Hash[Pathname, Target | Group]
+      attr_reader source_paths: PathEnumerator
 
-      attr_reader signature_paths: Hash[Pathname, Target | Group]
+      attr_reader inline_paths: PathEnumerator
+
+      attr_reader signature_paths: PathEnumerator
 
       attr_reader library_paths: Hash[Symbol, Set[Pathname]]
 
       def initialize: (Project) -> void
+
+      # Returns true if the path is one of the source_paths, inline_paths, or signature_paths
+      def registered_path?: (Pathname) -> bool
 
       # Add path
       #
@@ -20,59 +94,14 @@ module Steep
       #
       def add_path: (Pathname path) -> bool
 
+      # Add a path to a library RBS file
+      #
       def add_library_path: (Target, *Pathname) -> void
 
       def each_library_path: (Target) { (Pathname) -> void } -> void
                            | (Target) -> Enumerator[Pathname]
 
       def library_path?: (Pathname) -> bool
-
-      def signature_path_target: (Pathname) -> Target?
-
-      def source_path_target: (Pathname) -> Target?
-
-      # Yield signature paths that belongs to given target/group
-      #
-      def each_group_signature_path: (Target | Group, ?bool no_group) { (Pathname) -> void } -> void
-                                   | (Target | Group, ?bool no_group) -> Enumerator[Pathname]
-
-      # Yields signature paths that belongs to given target
-      #
-      # Skips yielding signature paths that belongs to group, if given.
-      #
-      def each_target_signature_path: (Target, Group? skip) { (Pathname) -> void } -> void
-                                    | (Target, Group? skip) -> Enumerator[Pathname]
-
-      # Yields signature paths that belongs to the project
-      #
-      # * Skips yielding signature paths that belongs to target, if given.
-      # * Skips yielding signature paths that belongs to *unreferenced* target.
-      #
-      def each_project_signature_path: (Target? skip) { (Pathname) -> void } -> void
-                                     | (Target? skip) -> Enumerator[Pathname]
-
-      # Yield source paths that belongs to given target/group
-      #
-      def each_group_source_path: (Target | Group, ?bool no_group) { (Pathname) -> void } -> void
-                                | (Target | Group, ?bool no_group) -> Enumerator[Pathname]
-
-      # Yield source paths that belongs to given target
-      #
-      # Skips yielding source paths that belongs to group, if given.
-      #
-      def each_target_source_path: (Target, Group?) { (Pathname) -> void } -> void
-                                 | (Target, Group?) -> Enumerator[Pathname]
-
-      # Yield source paths that belongs to project
-      #
-      # Skip yielding source paths that belongs to target, if given.
-      #
-      def each_project_source_path: (Target?) { (Pathname) -> void } -> void
-                                  | (Target?) -> Enumerator[Pathname]
-
-      def target_group_for_source_path: (Pathname) -> [Target, Group?]?
-
-      def target_group_for_signature_path: (Pathname) -> [Target, Group?]?
     end
   end
 end
