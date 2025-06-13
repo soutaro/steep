@@ -492,7 +492,7 @@ RUBY
         response = worker.process_code_action(job)
         assert_equal 1, response.size
         action = response.first
-        assert_equal "Change spelling to `tap`", action.title
+        assert_equal "Did you mean? `tap`", action.title
         assert_equal "quickfix", action.kind
         assert_equal 1, action.edit.document_changes.size
         document_change = action.edit.document_changes.first
@@ -530,7 +530,7 @@ RUBY
         response = worker.process_code_action(job)
         assert_equal 1, response.size
         action = response.first
-        assert_equal "Change spelling to `tap`", action.title
+        assert_equal "Did you mean? `tap`", action.title
         assert_equal "quickfix", action.kind
         assert_equal 1, action.edit.document_changes.size
         document_change = action.edit.document_changes.first
@@ -568,7 +568,7 @@ RUBY
         response = worker.process_code_action(job)
         assert_equal 1, response.size
         action = response.first
-        assert_equal "Change spelling to `tap`", action.title
+        assert_equal "Did you mean? `tap`", action.title
         assert_equal "quickfix", action.kind
         assert_equal 1, action.edit.document_changes.size
         document_change = action.edit.document_changes.first
@@ -606,7 +606,7 @@ RUBY
         response = worker.process_code_action(job)
         assert_equal 1, response.size
         action = response.first
-        assert_equal "Change spelling to `world!`", action.title
+        assert_equal "Did you mean? `world!`", action.title
         assert_equal "quickfix", action.kind
         assert_equal 1, action.edit.document_changes.size
         document_change = action.edit.document_changes.first
@@ -644,7 +644,7 @@ RUBY
         response = worker.process_code_action(job)
         assert_equal 1, response.size
         action = response.first
-        assert_equal "Change spelling to `world!`", action.title
+        assert_equal "Did you mean? `world!`", action.title
         assert_equal "quickfix", action.kind
         assert_equal 1, action.edit.document_changes.size
         document_change = action.edit.document_changes.first
@@ -682,7 +682,7 @@ RUBY
         response = worker.process_code_action(job)
         assert_equal 1, response.size
         action = response.first
-        assert_equal "Change spelling to `sqrt`", action.title
+        assert_equal "Did you mean? `sqrt`", action.title
         assert_equal "quickfix", action.kind
         assert_equal 1, action.edit.document_changes.size
         document_change = action.edit.document_changes.first
@@ -720,7 +720,7 @@ RUBY
         response = worker.process_code_action(job)
         assert_equal 1, response.size
         action = response.first
-        assert_equal "Change spelling to `Integer`", action.title
+        assert_equal "Did you mean? `Integer`", action.title
         assert_equal "quickfix", action.kind
         assert_equal 1, action.edit.document_changes.size
         document_change = action.edit.document_changes.first

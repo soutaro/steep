@@ -549,7 +549,7 @@ module Steep
 
               action.new_texts.map do |new_text|
                 LSP::Interface::CodeAction.new(
-                  title: "Change spelling to `#{new_text}`",
+                  title: "Did you mean? `#{new_text}`",
                   kind: LSP::Constant::CodeActionKind::QUICK_FIX,
                   edit: LSP::Interface::WorkspaceEdit.new(
                     document_changes: [
