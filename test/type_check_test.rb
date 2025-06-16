@@ -3894,4 +3894,30 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_unnamed_kwsplat_method_definition
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def bar: (x: Integer, **String) -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def bar(x:, **)
+              x + 1
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

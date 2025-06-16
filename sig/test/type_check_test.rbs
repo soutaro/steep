@@ -241,4 +241,6 @@ class TypeCheckTest < Minitest::Test
   def test_splat_block: () -> untyped
 
   def test_unnamed_splat_method_definition: () -> untyped
+
+  def test_unnamed_kwsplat_method_definition: () -> untyped
 end

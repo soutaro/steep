@@ -1376,7 +1376,7 @@ module Steep
           yield_self do
             var = node.children[0]
 
-            if SPECIAL_LVAR_NAMES.include?(var)
+            if !var || SPECIAL_LVAR_NAMES.include?(var)
               return add_typing(node, type: AST::Builtin.any_type)
             end
 
