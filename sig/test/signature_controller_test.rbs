@@ -28,4 +28,12 @@ class SignatureServiceTest < Minitest::Test
   def test_const_decls: () -> untyped
 
   def test_global_decls: () -> untyped
+
+  def test__inline__update: () -> untyped
+
+  def test__inline__update_syntax_error1: () -> untyped
+
+  def test__inline__update_syntax_error2: () -> untyped
+
+  def test__inline__update_empty_comment: () -> untyped
 end

@@ -380,4 +380,25 @@ RUBY
       assert_nil definition.methods[:foo]
     end
   end
+
+  def test__inline__update_empty_comment
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+
+    {}.tap do |changes|
+      changes[Pathname("lib/foo.rb")] = [
+        ContentChange.new(range: nil, text: <<RUBY)
+class Hello
+  #
+  def foo
+  end
+end
+RUBY
+      ]
+      service.update(changes)
+    end
+
+    assert_instance_of SignatureService::LoadedStatus, service.status
+  end
 end

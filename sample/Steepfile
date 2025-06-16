@@ -3,6 +3,7 @@ D = Steep::Diagnostic
 target :lib do
   signature "sig"
 
+  check "lib/inline.rb", inline: true
   check "lib"                       # Directory name
 
   # configure_code_diagnostics(D::Ruby.strict)       # `strict` diagnostics setting
