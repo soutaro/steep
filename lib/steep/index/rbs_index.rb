@@ -22,6 +22,10 @@ module Steep
             declarations << decl
           when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
             declarations << decl
+          when RBS::AST::Ruby::Declarations::ClassDecl
+            declarations << decl
+          when RBS::AST::Ruby::Declarations::ModuleDecl
+            declarations << decl
           else
             raise "Unexpected type declaration: #{decl}"
           end
@@ -73,6 +77,8 @@ module Steep
             RBS::AST::Members::AttrWriter,
             RBS::AST::Members::AttrReader,
             RBS::AST::Members::AttrAccessor
+            declarations << decl
+          when RBS::AST::Ruby::Members::DefMember
             declarations << decl
           else
             raise "Unexpected method declaration: #{decl}"
@@ -228,6 +234,10 @@ module Steep
               index.add_method_declaration(method_name, member)
             end
 
+          when RBS::AST::Ruby::Members::DefMember
+            method_name = InstanceMethodName.new(type_name: type_name, method_name: member.name)
+            index.add_method_declaration(method_name, member)
+
           when RBS::AST::Members::AttrAccessor, RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter
             type_reference member.type, from: member
 
@@ -291,28 +301,35 @@ module Steep
         def env(env)
           env.class_decls.each do |name, decl|
             decl.each_decl do |decl|
-              if decl.is_a?(RBS::AST::Declarations::Base)
-                index.add_type_declaration(name, decl)
+              index.add_type_declaration(name, decl)
 
-                case decl
-                when RBS::AST::Declarations::Class
-                  if super_class = decl.super_class
-                    index.add_type_reference(super_class.name, decl)
-                    super_class.args.each do |type|
-                      type_reference(type, from: decl)
-                    end
-                  end
-                when RBS::AST::Declarations::Module
-                  decl.self_types.each do |self_type|
-                    index.add_type_reference(self_type.name, decl)
-                    self_type.args.each do |type|
-                      type_reference(type, from: decl)
-                    end
+              case decl
+              when RBS::AST::Declarations::Class
+                if super_class = decl.super_class
+                  index.add_type_reference(super_class.name, decl)
+                  super_class.args.each do |type|
+                    type_reference(type, from: decl)
                   end
                 end
+              when RBS::AST::Declarations::Module
+                decl.self_types.each do |self_type|
+                  index.add_type_reference(self_type.name, decl)
+                  self_type.args.each do |type|
+                    type_reference(type, from: decl)
+                  end
+                end
+              end
 
+              case decl
+              when RBS::AST::Declarations::Base
                 decl.members.each do |member|
                   member(name, member)
+                end
+              when RBS::AST::Ruby::Declarations::Base
+                decl.members.each do |member|
+                  if member.is_a?(RBS::AST::Ruby::Members::Base)
+                    member(name, member)
+                  end
                 end
               end
             end

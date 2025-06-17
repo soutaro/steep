@@ -7,6 +7,9 @@ class RBSIndexTest < Minitest::Test
 
   RBSIndex: untyped
 
+  # @rbs (String, ?path: Pathname) -> RBS::Source::Ruby
+  def parse_inline_source: (String, ?path: Pathname) -> RBS::Source::Ruby
+
   def test_class_decl: () -> untyped
 
   def test_class_alias_decl: () -> untyped
@@ -22,4 +25,12 @@ class RBSIndexTest < Minitest::Test
   def test_alias_decl: () -> untyped
 
   def test_const_decl: () -> untyped
+
+  def test_inline_class_decl: () -> untyped
+
+  def test_inline_module_decl: () -> untyped
+
+  def test_inline_method_def: () -> untyped
+
+  def test_inline_nested_class_decl: () -> untyped
 end
