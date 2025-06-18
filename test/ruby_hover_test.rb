@@ -12,14 +12,18 @@ class RubyHoverTest < Minitest::Test
     @dirs ||= []
   end
 
-  def typecheck_service(steepfile: <<RUBY)
-target :lib do
-  check "hello.rb"
-  signature "hello.rbs"
-end
-RUBY
+  # @rbs () ?{ () [self: Steep::Project::DSL] -> void } -> Steep::Services::TypeCheckService
+  def typecheck_service(&block)
+    block ||= -> do
+      target :lib do
+        check "hello.rb"
+        signature "hello.rbs"
+        check "inline.rb", inline: true
+      end
+    end #: ^() [self: Steep::Project::DSL] -> void
+
     project = Project.new(steepfile_path: current_dir + "Steepfile")
-    Project::DSL.parse(project, steepfile)
+    Project::DSL.eval(project, &block)
 
     Services::TypeCheckService.new(project: project)
   end
@@ -547,10 +551,10 @@ RBS
 
       service.update(
         changes: {
-          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
-foo = 100
-foo + "ba
-RUBY
+          Pathname("hello.rb") => [ContentChange.string(<<~'RUBY')]
+            foo = 100
+            foo + 
+          RUBY
         }
       ) {}
 
