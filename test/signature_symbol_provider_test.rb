@@ -22,17 +22,20 @@ class SignatureSymbolProviderTest < Minitest::Test
   def test_find_class_symbol
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-EOF
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib/inline.rb", inline: true
+          check "lib"
+          signature "sig"
+        end
+      end
 
-      service = Services::SignatureService.load_from(project.targets[0].new_env_loader(), implicitly_returns_nil: true)
+      target = project.targets[0] or raise
+
+      service = Services::SignatureService.load_from(target.new_env_loader(), implicitly_returns_nil: true)
       service.update(
         {
-          Pathname("sig/a.rbs") => [Services::ContentChange.string(<<RBS)]
+          Pathname("sig/a.rbs") => [Services::ContentChange.string(<<RBS)],
 class Class1
   module Module1
     interface _Interface1
@@ -42,6 +45,12 @@ class Class1
   end
 end
 RBS
+          Pathname("lib/inline.rb") => [Services::ContentChange.string(<<~RUBY)]
+            class RubyClass
+              module RubyModule
+              end
+            end
+          RUBY
         }
       )
 
@@ -60,6 +69,11 @@ RBS
           assert_equal LSP::Constant::SymbolKind::CLASS, symbol.kind
           assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
         end
+        symbols.find {|s| s.name == "RubyClass" }.tap do |symbol|
+          assert_equal "", symbol.container_name
+          assert_equal LSP::Constant::SymbolKind::CLASS, symbol.kind
+          assert_equal Pathname("lib/inline.rb"), symbol.location.buffer.name
+        end
       end
 
       provider.query_symbol("").tap do |symbols|
@@ -67,6 +81,11 @@ RBS
           assert_equal "Class1", symbol.container_name
           assert_equal LSP::Constant::SymbolKind::MODULE, symbol.kind
           assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+        end
+        symbols.find {|s| s.name == "RubyModule" }.tap do |symbol|
+          assert_equal "RubyClass", symbol.container_name
+          assert_equal LSP::Constant::SymbolKind::MODULE, symbol.kind
+          assert_equal Pathname("lib/inline.rb"), symbol.location.buffer.name
         end
       end
 
@@ -99,17 +118,20 @@ RBS
   def test_find_method_symbol
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-EOF
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib/inline.rb", inline: true
+          check "lib"
+          signature "sig"
+        end
+      end
 
-      service = Services::SignatureService.load_from(project.targets[0].new_env_loader(), implicitly_returns_nil: true)
+      target = project.targets[0] or raise
+
+      service = Services::SignatureService.load_from(target.new_env_loader(), implicitly_returns_nil: true)
       service.update(
         {
-          Pathname("sig/a.rbs") => [Services::ContentChange.string(<<RBS)]
+          Pathname("sig/a.rbs") => [Services::ContentChange.string(<<RBS)],
 class Class1
   def foo: () -> void
 
@@ -122,6 +144,12 @@ class Class1
   attr_accessor self.email(@email2): String
 end
 RBS
+          Pathname("lib/inline.rb") => [Services::ContentChange.string(<<~RUBY)]
+            class RubyClass
+              def ruby_method #: void
+              end
+            end
+          RUBY
         }
       )
 
@@ -135,7 +163,7 @@ RBS
       provider.indexes[project.targets[0]] = index
 
       provider.query_symbol("").tap do |symbols|
-        symbols = symbols.select {|s| s.container_name == "Class1" }
+        symbols = symbols.select {|s| s.container_name == "Class1" || s.container_name == "RubyClass" }
 
         assert_any! symbols do |symbol|
           assert_equal "#foo", symbol.name
@@ -200,6 +228,13 @@ RBS
           assert_equal "Class1", symbol.container_name
           assert_equal LSP::Constant::SymbolKind::FIELD, symbol.kind
           assert_equal Pathname("sig/a.rbs"), symbol.location.buffer.name
+        end
+
+        assert_any! symbols do |symbol|
+          assert_equal "#ruby_method", symbol.name
+          assert_equal "RubyClass", symbol.container_name
+          assert_equal LSP::Constant::SymbolKind::METHOD, symbol.kind
+          assert_equal Pathname("lib/inline.rb"), symbol.location.buffer.name
         end
       end
     end

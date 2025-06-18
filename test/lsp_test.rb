@@ -284,6 +284,10 @@ target :lib do
     check "lib/main"
     signature "sig/main"
   end
+
+  group :inline do
+    check "lib/inline", inline: true
+  end
 end
 
 target :test do
@@ -310,6 +314,13 @@ RUBY
         class Main__123
         end
       RBS
+      write_file("lib/inline/person.rb", <<~RUBY)
+        class InlinePerson
+          def greet #: () -> String
+            "Hello, \#{@name}!"
+          end
+        end
+      RUBY
       write_file("test/core_test.rb", <<~RUBY)
         class CoreTest
         end
@@ -354,6 +365,17 @@ RUBY
           client.workspace_symbol("Main") do |symbols|
             assert symbols.find { _1[:name] == "Main_1234"}
             refute symbols.find { _1[:name] == "Main_123"}
+          end
+        end
+
+        # Test inline RBS declarations
+        client.open_file("lib/inline/person.rb")
+
+        finally_holds(timeout: 3) do
+          # Test that inline class declaration can be found
+          client.workspace_symbol("InlinePerson") do |symbols|
+            assert symbols.any? { _1[:name] == "InlinePerson" }
+            assert symbols.any? { _1[:name] == "#greet" }
           end
         end
       ensure

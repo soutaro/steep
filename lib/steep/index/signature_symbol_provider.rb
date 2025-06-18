@@ -73,7 +73,21 @@ module Steep
                     kind: LSP::Constant::SymbolKind::CLASS,
                     container_name: container_name
                   )
+                when RBS::AST::Ruby::Declarations::ClassDecl
+                  symbols << SymbolInformation.new(
+                    name: name,
+                    location: location,
+                    kind: LSP::Constant::SymbolKind::CLASS,
+                    container_name: container_name
+                  )
                 when RBS::AST::Declarations::Module
+                  symbols << SymbolInformation.new(
+                    name: name,
+                    location: location,
+                    kind: LSP::Constant::SymbolKind::MODULE,
+                    container_name: container_name
+                  )
+                when RBS::AST::Ruby::Declarations::ModuleDecl
                   symbols << SymbolInformation.new(
                     name: name,
                     location: location,
@@ -144,6 +158,13 @@ module Steep
                       container_name: container_name
                     )
                   end
+                when RBS::AST::Ruby::Members::DefMember
+                  symbols << SymbolInformation.new(
+                    name: name,
+                    location: location,
+                    kind: LSP::Constant::SymbolKind::METHOD,
+                    container_name: container_name
+                  )
                 end
               end
             when RBSIndex::ConstantEntry
