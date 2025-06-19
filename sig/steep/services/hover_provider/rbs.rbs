@@ -5,34 +5,6 @@ use RBS::AST
 module Steep
   module Services
     module HoverProvider
-      class TypeAliasContent
-          attr_reader location: Location[untyped, untyped]
-
-          attr_reader decl: AST::Declarations::TypeAlias
-
-          def initialize: (location: Location[untyped, untyped], decl: AST::Declarations::TypeAlias) -> void
-        end
-
-      class ClassTypeContent
-          attr_reader location: Location[untyped, untyped]
-
-          type decl = AST::Declarations::Class | AST::Declarations::Module
-                    | AST::Declarations::ClassAlias | AST::Declarations::ModuleAlias
-                    | RubyAST::Declarations::ClassDecl | RubyAST::Declarations::ModuleDecl
-
-          attr_reader decl: decl
-
-          def initialize: (location: Location[untyped, untyped], decl: decl) -> void
-        end
-
-      class InterfaceTypeContent
-          attr_reader location: Location[untyped, untyped]
-
-          attr_reader decl: AST::Declarations::Interface
-
-          def initialize: (location: Location[untyped, untyped], decl: AST::Declarations::Interface) -> void
-        end
-
       type RBS::content = TypeAliasContent | ClassTypeContent | InterfaceTypeContent
 
       class RBS

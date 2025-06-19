@@ -1,9 +1,6 @@
 module Steep
   module Services
     module HoverProvider
-      TypeAliasContent = _ = Struct.new(:location, :decl, keyword_init: true)
-      ClassTypeContent = _ = Struct.new(:location, :decl, keyword_init: true)
-      InterfaceTypeContent = _ = Struct.new(:location, :decl, keyword_init: true)
 
       class RBS
         attr_reader :service
