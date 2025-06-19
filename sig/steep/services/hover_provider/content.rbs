@@ -1,0 +1,138 @@
+use RBS::Location, RBS::TypeName, RBS::Environment
+
+module Steep
+  module Services
+    module HoverProvider
+      class TypeContent
+          attr_reader node: Parser::AST::Node
+
+          attr_reader type: AST::Types::t
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, type: AST::Types::t, location: Parser::Source::Range) -> void
+        end
+
+        # Hover content for a local variable, references or assignments
+        #
+        # ```ruby
+        #   a = 123
+        # # ^^^^        Hover popups
+        # # ^           Location covers
+        #
+        #   a + 1
+        # # ^           Hover popups
+        # # ^           Location covers
+        # ```
+        class VariableContent
+          attr_reader node: Parser::AST::Node
+
+          attr_reader name: Symbol
+
+          attr_reader type: AST::Types::t
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, name: Symbol, type: AST::Types::t, location: Parser::Source::Range) -> void
+        end
+
+        class TypeAssertionContent
+          attr_reader node: Parser::AST::Node
+
+          attr_reader original_type: AST::Types::t
+
+          attr_reader asserted_type: AST::Types::t
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, original_type: AST::Types::t, asserted_type: AST::Types::t, location: Parser::Source::Range) -> void
+        end
+
+        class MethodCallContent
+          attr_reader node: Parser::AST::Node
+
+          type call = TypeInference::MethodCall::Typed | TypeInference::MethodCall::Special | TypeInference::MethodCall::Error
+
+          attr_reader method_call: call
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, method_call: TypeInference::MethodCall::t, location: Parser::Source::Range) -> void
+        end
+
+        class DefinitionContent
+          attr_reader node: Parser::AST::Node
+
+          attr_reader method_name: method_name
+
+          attr_reader method_type: ::Steep::Interface::MethodType
+
+          attr_reader definition: ::RBS::Definition::Method
+
+          attr_reader location: Parser::Source::Range
+
+          def initialize: (node: Parser::AST::Node, method_name: method_name, method_type: ::Steep::Interface::MethodType, definition: ::RBS::Definition::Method, location: Parser::Source::Range) -> void
+        end
+
+        class ConstantContent
+          attr_reader location: Parser::Source::Range
+
+          attr_reader full_name: ::RBS::TypeName
+
+          attr_reader type: AST::Types::t
+
+          type decl = ::RBS::Environment::ClassEntry
+                    | ::RBS::Environment::ModuleEntry
+                    | ::RBS::Environment::ClassAliasEntry
+                    | ::RBS::Environment::ModuleAliasEntry
+                    | ::RBS::Environment::ConstantEntry
+
+          attr_reader decl: decl
+
+          attr_reader class_decl(): ::RBS::Environment::ClassEntry | ::RBS::Environment::ModuleEntry | nil
+
+          attr_reader class_alias(): ::RBS::Environment::ClassAliasEntry | ::RBS::Environment::ModuleAliasEntry | nil
+
+          attr_reader constant_decl(): ::RBS::Environment::ConstantEntry?
+
+          def initialize: (location: Parser::Source::Range, full_name: ::RBS::TypeName, type: AST::Types::t, decl: decl) -> void
+
+          def comments: () -> Array[::RBS::AST::Comment]
+
+          # Returns true if `decl` is a class/module definition
+          def class_or_module?: () -> bool
+
+          # Returns true if `decl` is a constant definition
+          def constant?: () -> bool
+        end
+
+      class TypeAliasContent
+          attr_reader location: Location[untyped, untyped]
+
+          attr_reader decl: RBS::AST::Declarations::TypeAlias
+
+          def initialize: (location: Location[untyped, untyped], decl: RBS::AST::Declarations::TypeAlias) -> void
+        end
+
+      class ClassTypeContent
+          attr_reader location: Location[untyped, untyped]
+
+          type decl = RBS::AST::Declarations::Class | RBS::AST::Declarations::Module
+                    | RBS::AST::Declarations::ClassAlias | RBS::AST::Declarations::ModuleAlias
+                    | RBS::AST::Ruby::Declarations::ClassDecl | RBS::AST::Ruby::Declarations::ModuleDecl
+
+          attr_reader decl: decl
+
+          def initialize: (location: Location[untyped, untyped], decl: decl) -> void
+        end
+
+      class InterfaceTypeContent
+          attr_reader location: Location[untyped, untyped]
+
+          attr_reader decl: RBS::AST::Declarations::Interface
+
+          def initialize: (location: Location[untyped, untyped], decl: RBS::AST::Declarations::Interface) -> void
+        end
+    end
+  end
+end

@@ -19,10 +19,10 @@ module Steep
 
       def format_hover_content(content)
         case content
-        when HoverProvider::Ruby::VariableContent
+        when HoverProvider::VariableContent
           local_variable(content.name, content.type)
 
-        when HoverProvider::Ruby::MethodCallContent
+        when HoverProvider::MethodCallContent
           io = StringIO.new
           call = content.method_call
 
@@ -76,7 +76,7 @@ module Steep
 
           io.string
 
-        when HoverProvider::Ruby::DefinitionContent
+        when HoverProvider::DefinitionContent
           io = StringIO.new
 
           method_name =
@@ -115,7 +115,7 @@ module Steep
           )
 
           io.string
-        when HoverProvider::Ruby::ConstantContent
+        when HoverProvider::ConstantContent
           io = StringIO.new
 
           decl_summary =
@@ -144,14 +144,14 @@ module Steep
           end
 
           io.string
-        when HoverProvider::Ruby::TypeContent
+        when HoverProvider::TypeContent
           <<~MD
             ```rbs
             #{content.type}
             ```
           MD
 
-        when HoverProvider::Ruby::TypeAssertionContent
+        when HoverProvider::TypeAssertionContent
           <<~MD
             ```rbs
             #{content.asserted_type}
@@ -160,7 +160,7 @@ module Steep
             ↑ Converted from `#{content.original_type.to_s}`
           MD
 
-        when HoverProvider::RBS::TypeAliasContent, HoverProvider::RBS::InterfaceContent
+        when HoverProvider::TypeAliasContent, HoverProvider::InterfaceTypeContent
           io = StringIO.new()
 
           io.puts <<~MD
@@ -178,7 +178,7 @@ module Steep
 
           io.string
 
-        when HoverProvider::RBS::ClassContent
+        when HoverProvider::ClassTypeContent
           io = StringIO.new
 
           io << <<~MD

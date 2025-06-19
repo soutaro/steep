@@ -44,7 +44,7 @@ RBS
       hover = HoverProvider::RBS.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rbs"), line: 4, column: 11).tap do |content|
-        assert_instance_of HoverProvider::RBS::TypeAliasContent, content
+        assert_instance_of HoverProvider::TypeAliasContent, content
         assert_instance_of RBS::Location::WithChildren, content.location
         assert_equal "foo", content.location.source
       end
@@ -69,7 +69,7 @@ RBS
       hover = HoverProvider::RBS.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rbs"), line: 2, column: 28).tap do |content|
-        assert_instance_of HoverProvider::RBS::ClassContent, content
+        assert_instance_of HoverProvider::ClassTypeContent, content
         assert_instance_of RBS::Location, content.location
         assert_equal "String", content.location.source
         assert_instance_of RBS::AST::Declarations::Class, content.decl
@@ -96,7 +96,7 @@ RBS
       hover = HoverProvider::RBS.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rbs"), line: 3, column: 9).tap do |content|
-        assert_instance_of HoverProvider::RBS::ClassContent, content
+        assert_instance_of HoverProvider::ClassTypeContent, content
         assert_instance_of RBS::Location, content.location
         assert_equal "Hoge", content.location.source
         assert_instance_of RBS::AST::Declarations::Class, content.decl
@@ -126,7 +126,7 @@ RBS
       hover = HoverProvider::RBS.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rbs"), line: 6, column: 13).tap do |content|
-        assert_instance_of HoverProvider::RBS::InterfaceContent, content
+        assert_instance_of HoverProvider::InterfaceTypeContent, content
         assert_instance_of RBS::Location, content.location
         assert_equal "_Fooable", content.location.source
         assert_instance_of RBS::AST::Declarations::Interface, content.decl
@@ -172,7 +172,7 @@ RBS
       hover = HoverProvider::RBS.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rbs"), line: 1, column: 6).tap do |content|
-        assert_instance_of HoverProvider::RBS::ClassContent, content
+        assert_instance_of HoverProvider::ClassTypeContent, content
         assert_instance_of RBS::Location, content.location
         assert_equal "Object", content.location.source
         assert_instance_of RBS::AST::Declarations::Class, content.decl
@@ -180,7 +180,7 @@ RBS
       end
 
       hover.content_for(target: target, path: Pathname("hello.rbs"), line: 2, column: 6).tap do |content|
-        assert_instance_of HoverProvider::RBS::ClassContent, content
+        assert_instance_of HoverProvider::ClassTypeContent, content
         assert_instance_of RBS::Location, content.location
         assert_equal "Thread::", content.location.source
         assert_instance_of RBS::AST::Declarations::Class, content.decl

@@ -18,7 +18,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
   def test_ruby_hover_variable
     with_factory do
-      content = Services::HoverProvider::Ruby::VariableContent.new(
+      content = Services::HoverProvider::VariableContent.new(
         node: nil,
         name: :x,
         type: parse_type("::Array[::Integer]"),
@@ -47,7 +47,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       call = typing.call_of(node: typing.source.node)
 
-      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+      content = Services::HoverProvider::MethodCallContent.new(
         node: nil,
         method_call: call,
         location: nil
@@ -87,7 +87,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       call = typing.call_of(node: typing.source.node)
 
-      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+      content = Services::HoverProvider::MethodCallContent.new(
         node: nil,
         method_call: call,
         location: nil
@@ -127,7 +127,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       call = typing.call_of(node: typing.source.node)
 
-      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+      content = Services::HoverProvider::MethodCallContent.new(
         node: nil,
         method_call: call,
         location: nil
@@ -173,7 +173,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       call = typing.call_of(node: typing.source.node.children[1])
 
-      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+      content = Services::HoverProvider::MethodCallContent.new(
         node: nil,
         method_call: call,
         location: nil
@@ -218,7 +218,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       call = typing.call_of(node: typing.source.node)
 
-      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+      content = Services::HoverProvider::MethodCallContent.new(
         node: nil,
         method_call: call,
         location: nil
@@ -269,7 +269,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
       call = typing.call_of(node: typing.source.node)
 
-      content = Services::HoverProvider::Ruby::MethodCallContent.new(
+      content = Services::HoverProvider::MethodCallContent.new(
         node: nil,
         method_call: call,
         location: nil
@@ -302,7 +302,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
         end
       RBS
 
-      content = Services::HoverProvider::Ruby::DefinitionContent.new(
+      content = Services::HoverProvider::DefinitionContent.new(
         node: nil,
         method_name: MethodName("::HoverMethodCallTest#foo"),
         method_type: parse_method_type("(::String | nil) -> (::Integer | ::String)"),
@@ -341,7 +341,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
         end
       RBS
 
-      content = Services::HoverProvider::Ruby::DefinitionContent.new(
+      content = Services::HoverProvider::DefinitionContent.new(
         node: nil,
         method_name: MethodName("::HoverMethodCallTest.foo"),
         method_type: parse_method_type("(::Symbol | ::String | ::Integer | nil) -> (::Integer | ::String | ::Symbol)"),
@@ -384,7 +384,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 class ClassHover[A < String] < BasicObject
 end
 RBS
-      content = Services::HoverProvider::Ruby::ConstantContent.new(
+      content = Services::HoverProvider::ConstantContent.new(
         full_name: RBS::TypeName.parse("::ClassHover"),
         type: parse_type("singleton(::ClassHover)"),
         decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")],
@@ -410,7 +410,7 @@ RBS
         class ClassHover[A < String] < BasicObject
         end
       RBS
-      content = Services::HoverProvider::Ruby::ConstantContent.new(
+      content = Services::HoverProvider::ConstantContent.new(
         full_name: RBS::TypeName.parse("::ClassHover"),
         type: parse_type("singleton(::ClassHover)"),
         decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")],
@@ -442,7 +442,7 @@ RBS
         end
       RBS
 
-      content = Services::HoverProvider::Ruby::ConstantContent.new(
+      content = Services::HoverProvider::ConstantContent.new(
         full_name: RBS::TypeName.parse("::ClassHover"),
         type: parse_type("singleton(::ClassHover)"),
         decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")],
@@ -475,7 +475,7 @@ RBS
         end
       RBS
 
-      Services::HoverProvider::RBS::ClassContent.new(
+      Services::HoverProvider::ClassTypeContent.new(
         decl: factory.env.class_decls[RBS::TypeName.parse("::HelloWorld")].primary_decl,
         location: nil
       ).tap do |content|
@@ -500,7 +500,7 @@ RBS
         end
       RBS
 
-      content = Services::HoverProvider::RBS::ClassContent.new(
+      content = Services::HoverProvider::ClassTypeContent.new(
         decl: factory.env.class_decls[RBS::TypeName.parse("::ClassHover")].primary_decl,
         location: nil
       )
@@ -525,7 +525,7 @@ RBS
         end
       RBS
 
-      content = Services::HoverProvider::Ruby::ConstantContent.new(
+      content = Services::HoverProvider::ConstantContent.new(
         full_name: RBS::TypeName.parse("::ClassHover::VERSION"),
         type: parse_type("::String"),
         decl: factory.env.constant_decls[RBS::TypeName.parse("::ClassHover::VERSION")],
@@ -548,7 +548,7 @@ RBS
 
   def test_ruby_hover_type
     with_factory() do
-      content = Services::HoverProvider::Ruby::TypeContent.new(
+      content = Services::HoverProvider::TypeContent.new(
         node: nil,
         type: parse_type("[::String, ::Integer]"),
         location: nil
@@ -565,7 +565,7 @@ RBS
 
   def test_ruby_hover_assertion
     with_factory() do
-      content = Services::HoverProvider::Ruby::TypeAssertionContent.new(
+      content = Services::HoverProvider::TypeAssertionContent.new(
         node: nil,
         original_type: parse_type("nil"),
         asserted_type: parse_type("::String?"),
@@ -591,7 +591,7 @@ RBS
         type bar = 123
       RBS
 
-      Services::HoverProvider::RBS::TypeAliasContent.new(
+      Services::HoverProvider::TypeAliasContent.new(
         decl: factory.env.type_alias_decls[RBS::TypeName.parse("::foo")].decl,
         location: nil
       ).tap do |content|
@@ -603,7 +603,7 @@ RBS
         MD
       end
 
-      Services::HoverProvider::RBS::TypeAliasContent.new(
+      Services::HoverProvider::TypeAliasContent.new(
         decl: factory.env.type_alias_decls[RBS::TypeName.parse("::bar")].decl,
         location: nil
       ).tap do |content|
@@ -633,7 +633,7 @@ RBS
         end
       RBS
 
-      Services::HoverProvider::RBS::InterfaceContent.new(
+      Services::HoverProvider::InterfaceTypeContent.new(
         decl: factory.env.interface_decls[RBS::TypeName.parse("::_HelloWorld")].decl,
         location: nil
       ).tap do |content|
@@ -650,7 +650,7 @@ RBS
         MD
       end
 
-      Services::HoverProvider::RBS::InterfaceContent.new(
+      Services::HoverProvider::InterfaceTypeContent.new(
         decl: factory.env.interface_decls[RBS::TypeName.parse("::_HelloWorld2")].decl,
         location: nil
       ).tap do |content|
