@@ -6,6 +6,13 @@ class RBSIndexTest < Minitest::Test
 
   RBSIndex = Steep::Index::RBSIndex
 
+  # @rbs (String, ?path: Pathname) -> RBS::Source::Ruby
+  def parse_inline_source(content, path: Pathname("a.rb"))
+    buffer = RBS::Buffer.new(name: path, content: content)
+    prism = Prism.parse(content, filepath: path.to_s)
+    result = RBS::InlineParser.parse(buffer, prism)
+    RBS::Source::Ruby.new(buffer, prism, result.declarations, result.diagnostics)
+  end
   def test_class_decl
     with_factory({ "a.rbs" => <<-RBS }) do |factory|
 module HelloWorld
@@ -149,6 +156,91 @@ Version: String
       builder.env(env)
 
       assert_equal 1, index.each_declaration(const_name: RBS::TypeName.parse("::Version")).count
+    end
+  end
+
+  def test_inline_class_decl
+    with_factory() do |factory|
+      source = parse_inline_source(<<~RUBY, path: Pathname("a.rbs"))
+        class Person
+        end
+      RUBY
+
+      env = factory.definition_builder.env
+
+      env.add_source(source)
+
+      index = RBSIndex.new()
+      builder = RBSIndex::Builder.new(index: index)
+
+      builder.env(env)
+
+      assert_equal 1, index.each_declaration(type_name: RBS::TypeName.parse("::Person")).count
+    end
+  end
+
+  def test_inline_module_decl
+    with_factory() do |factory|
+      env = factory.definition_builder.env
+
+      source = parse_inline_source(<<~RUBY, path: Pathname("a.rbs"))
+        module Person
+        end
+      RUBY
+
+      env.add_source(source)
+
+      index = RBSIndex.new()
+      builder = RBSIndex::Builder.new(index: index)
+
+      builder.env(env)
+
+      assert_equal 1, index.each_declaration(type_name: RBS::TypeName.parse("::Person")).count
+    end
+  end
+
+  def test_inline_method_def
+    with_factory() do |factory|
+      env = factory.definition_builder.env
+
+      source = parse_inline_source(<<~RUBY, path: Pathname("a.rbs"))
+        class Person
+          def foo
+          end
+        end
+      RUBY
+
+      env.add_source(source)
+
+      index = RBSIndex.new()
+      builder = RBSIndex::Builder.new(index: index)
+
+      builder.env(env)
+
+      assert_equal 1, index.each_declaration(method_name: MethodName("::Person#foo")).count
+    end
+  end
+
+  def test_inline_nested_class_decl
+    with_factory() do |factory|
+      env = factory.definition_builder.env
+
+      source = parse_inline_source(<<~RUBY, path: Pathname("a.rbs"))
+        module Person
+          class Address
+          end
+        end
+      RUBY
+
+      env.add_source(source)
+
+      index = RBSIndex.new()
+      builder = RBSIndex::Builder.new(index: index)
+
+      builder.env(env)
+
+      assert_equal 1, index.each_declaration(type_name: RBS::TypeName.parse("::Person")).count
+      assert_equal 1, index.each_declaration(type_name: RBS::TypeName.parse("::Person::Address")).count
     end
   end
 end

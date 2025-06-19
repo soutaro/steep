@@ -10,6 +10,8 @@ module Steep
                   | RBS::AST::Declarations::TypeAlias
                   | RBS::AST::Declarations::ClassAlias
                   | RBS::AST::Declarations::ModuleAlias
+                  | RBS::AST::Ruby::Declarations::ClassDecl
+                  | RBS::AST::Ruby::Declarations::ModuleDecl
 
         type ref = RBS::AST::Members::MethodDefinition
                  | RBS::AST::Members::AttrWriter
@@ -47,6 +49,7 @@ module Steep
                   | RBS::AST::Members::AttrWriter
                   | RBS::AST::Members::AttrReader
                   | RBS::AST::Members::AttrAccessor
+                  | RBS::AST::Ruby::Members::DefMember
 
         type ref = RBS::AST::Members::Alias
 
@@ -130,7 +133,7 @@ module Steep
 
         def initialize: (index: RBSIndex) -> void
 
-        def member: (RBS::TypeName type_name, RBS::AST::Members::t | RBS::AST::Declarations::t member) -> void
+        def member: (RBS::TypeName type_name, RBS::AST::Members::t | RBS::AST::Declarations::t | RBS::AST::Ruby::Members::Base member) -> void
 
         def type_reference: (RBS::Types::t, from: TypeEntry::ref) -> void
 
