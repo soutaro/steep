@@ -214,7 +214,15 @@ module Steep
                 end
               end
 
-              buffer = RBS::Buffer.new(name: relative_path, content: sig_service.files.fetch(relative_path).content)
+
+              content =
+                case file = sig_service.files.fetch(relative_path)
+                when RBS::Source::Ruby
+                  file.buffer.content
+                when Services::SignatureService::RBSFileStatus
+                  file.content
+                end
+              buffer = RBS::Buffer.new(name: relative_path, content: content)
               prefix = Services::TypeNameCompletion::Prefix.parse(buffer, line: job.line, column: job.column)
 
               completion = Services::TypeNameCompletion.new(env: sig_service.latest_env, context: context, dirs: dirs)
