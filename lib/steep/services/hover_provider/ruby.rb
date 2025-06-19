@@ -1,14 +1,13 @@
 module Steep
   module Services
     module HoverProvider
-      class Ruby
-        TypeContent = _ = Struct.new(:node, :type, :location, keyword_init: true)
-        VariableContent = _ = Struct.new(:node, :name, :type, :location, keyword_init: true)
-        TypeAssertionContent = _ = Struct.new(:node, :original_type, :asserted_type, :location, keyword_init: true)
-        MethodCallContent = _ = Struct.new(:node, :method_call, :location, keyword_init: true)
-        DefinitionContent = _ = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true)
-        ConstantContent = _ = Struct.new(:location, :full_name, :type, :decl, keyword_init: true) do
-          # @implements ConstantContent
+      TypeContent = _ = Struct.new(:node, :type, :location, keyword_init: true)
+      VariableContent = _ = Struct.new(:node, :name, :type, :location, keyword_init: true)
+      TypeAssertionContent = _ = Struct.new(:node, :original_type, :asserted_type, :location, keyword_init: true)
+      MethodCallContent = _ = Struct.new(:node, :method_call, :location, keyword_init: true)
+      DefinitionContent = _ = Struct.new(:node, :method_name, :method_type, :definition, :location, keyword_init: true)
+      ConstantContent = _ = Struct.new(:location, :full_name, :type, :decl, keyword_init: true) do
+        # @implements ConstantContent
 
           def comments
             case
@@ -57,9 +56,10 @@ module Steep
 
           def class_or_module?
             (class_decl || class_alias) ?  true : false
-          end
         end
+      end
 
+      class Ruby
         attr_reader :service
 
         def initialize(service:)

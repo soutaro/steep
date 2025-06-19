@@ -5,8 +5,7 @@ use RBS::AST
 module Steep
   module Services
     module HoverProvider
-      class RBS
-        class TypeAliasContent
+      class TypeAliasContent
           attr_reader location: Location[untyped, untyped]
 
           attr_reader decl: AST::Declarations::TypeAlias
@@ -14,7 +13,7 @@ module Steep
           def initialize: (location: Location[untyped, untyped], decl: AST::Declarations::TypeAlias) -> void
         end
 
-        class ClassContent
+      class ClassTypeContent
           attr_reader location: Location[untyped, untyped]
 
           type decl = AST::Declarations::Class | AST::Declarations::Module
@@ -26,7 +25,7 @@ module Steep
           def initialize: (location: Location[untyped, untyped], decl: decl) -> void
         end
 
-        class InterfaceContent
+      class InterfaceTypeContent
           attr_reader location: Location[untyped, untyped]
 
           attr_reader decl: AST::Declarations::Interface
@@ -34,17 +33,18 @@ module Steep
           def initialize: (location: Location[untyped, untyped], decl: AST::Declarations::Interface) -> void
         end
 
-        type content = TypeAliasContent | ClassContent | InterfaceContent
+      type RBS::content = TypeAliasContent | ClassTypeContent | InterfaceTypeContent
 
+      class RBS
         attr_reader service: TypeCheckService
 
         def initialize: (service: TypeCheckService) -> void
 
         def project: () -> Project
 
-        def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> content?
+        def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> RBS::content?
 
-        def content_for_type_name: (TypeName, env: Environment, location: Location[untyped, untyped]) -> content?
+        def content_for_type_name: (TypeName, env: Environment, location: Location[untyped, untyped]) -> RBS::content?
       end
     end
   end

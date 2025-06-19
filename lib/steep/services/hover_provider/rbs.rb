@@ -1,11 +1,11 @@
 module Steep
   module Services
     module HoverProvider
-      class RBS
-        TypeAliasContent = _ = Struct.new(:location, :decl, keyword_init: true)
-        ClassContent = _ = Struct.new(:location, :decl, keyword_init: true)
-        InterfaceContent = _ = Struct.new(:location, :decl, keyword_init: true)
+      TypeAliasContent = _ = Struct.new(:location, :decl, keyword_init: true)
+      ClassTypeContent = _ = Struct.new(:location, :decl, keyword_init: true)
+      InterfaceTypeContent = _ = Struct.new(:location, :decl, keyword_init: true)
 
+      class RBS
         attr_reader :service
 
         def initialize(service:)
@@ -70,7 +70,7 @@ module Steep
             TypeAliasContent.new(location: location, decl: alias_decl)
           when type_name.interface?
             interface_decl = env.interface_decls[type_name]&.decl or return
-            InterfaceContent.new(location: location, decl: interface_decl)
+            InterfaceTypeContent.new(location: location, decl: interface_decl)
           when type_name.class?
             class_entry = env.module_class_entry(type_name) or return
 
@@ -81,7 +81,7 @@ module Steep
               class_decl = class_entry.decl
             end
 
-            ClassContent.new(location: location, decl: class_decl)
+            ClassTypeContent.new(location: location, decl: class_decl)
           end
         end
       end

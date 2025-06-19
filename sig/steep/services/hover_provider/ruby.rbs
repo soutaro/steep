@@ -1,8 +1,7 @@
 module Steep
   module Services
     module HoverProvider
-      class Ruby
-        class TypeContent
+      class TypeContent
           attr_reader node: Parser::AST::Node
 
           attr_reader type: AST::Types::t
@@ -105,8 +104,9 @@ module Steep
           def constant?: () -> bool
         end
 
-        type content = TypeContent | VariableContent | MethodCallContent | DefinitionContent | ConstantContent | TypeAssertionContent
+      type Ruby::content = TypeContent | VariableContent | MethodCallContent | DefinitionContent | ConstantContent | TypeAssertionContent
 
+      class Ruby
         attr_reader service: TypeCheckService
 
         def initialize: (service: TypeCheckService) -> void
@@ -120,7 +120,7 @@ module Steep
 
         def method_name_from_method: (TypeInference::Context::MethodContext context, builder: ::RBS::DefinitionBuilder) -> method_name
 
-        def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> content?
+        def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> Ruby::content?
       end
     end
   end

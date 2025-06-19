@@ -44,28 +44,28 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 3).tap do |content|
-        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_instance_of HoverProvider::VariableContent, content
         assert_equal [1,0]...[1, 6], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :number, content.name
         assert_equal "::Integer", content.type.to_s
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 0).tap do |content|
-        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_instance_of HoverProvider::VariableContent, content
         assert_equal [1,0]...[1, 6], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :number, content.name
         assert_equal "::Integer", content.type.to_s
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 11).tap do |content|
-        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_instance_of HoverProvider::VariableContent, content
         assert_equal [3,9]...[3, 15], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :number, content.name
         assert_equal "::Integer", content.type.to_s
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 8).tap do |content|
-        assert_instance_of HoverProvider::Ruby::TypeContent, content
+        assert_instance_of HoverProvider::TypeContent, content
         assert_equal [3,8]...[3, 24], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal "::Array[(::Integer | ::String)]", content.type.to_s
       end
@@ -91,14 +91,14 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 4).tap do |content|
-        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_instance_of HoverProvider::VariableContent, content
         assert_equal [3, 2]...[3, 8], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :parent, content.name
         assert_equal "::Integer", content.type.to_s
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 13).tap do |content|
-        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_instance_of HoverProvider::VariableContent, content
         assert_equal [3, 10]...[3, 15], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :child, content.name
         assert_equal "(::String | nil)", content.type.to_s
@@ -128,21 +128,21 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 5, column: 12).tap do |content|
-        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_instance_of HoverProvider::MethodCallContent, content
         assert_equal [5, 11]...[5, 15], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
         assert_equal [MethodName("::Array#join")], content.method_call.method_decls.map(&:method_name)
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 6, column: 6).tap do |content|
-        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_instance_of HoverProvider::MethodCallContent, content
         assert_equal [6, 3]...[6, 10], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Error, content.method_call
         assert_equal "::Array[untyped]", content.method_call.return_type.to_s
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 7, column: 8).tap do |content|
-        assert_instance_of HoverProvider::Ruby::TypeContent, content
+        assert_instance_of HoverProvider::TypeContent, content
         assert_equal [7, 0]...[7, 17], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal "untyped", content.type.to_s
       end
@@ -169,7 +169,7 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 5, column: 9).tap do |content|
-        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_instance_of HoverProvider::MethodCallContent, content
         assert_equal [5, 7]...[5, 11], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
         assert_equal [MethodName("::Array#join")], content.method_call.method_decls.map(&:method_name)
@@ -194,14 +194,14 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 9).tap do |content|
-        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_instance_of HoverProvider::MethodCallContent, content
         assert_equal [1,8]...[1,11], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
         assert_equal "::Array[::String]", content.method_call.return_type.to_s
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 21).tap do |content|
-        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_instance_of HoverProvider::MethodCallContent, content
         assert_equal [1,19]...[1,23], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
         assert_equal "::String", content.method_call.return_type.to_s
@@ -225,7 +225,7 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 9).tap do |content|
-        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_instance_of HoverProvider::MethodCallContent, content
         assert_equal [1,8]...[1,11], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
       end
@@ -273,7 +273,7 @@ RBS
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 10).tap do |content|
-        assert_instance_of HoverProvider::Ruby::DefinitionContent, content
+        assert_instance_of HoverProvider::DefinitionContent, content
         assert_equal [2,6]...[2,18], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal MethodName("::Hello#do_something"), content.method_name
         assert_equal "((::Integer | ::String)) -> ::String", content.method_type.to_s
@@ -282,7 +282,7 @@ RBS
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 6, column: 13).tap do |content|
-        assert_instance_of HoverProvider::Ruby::DefinitionContent, content
+        assert_instance_of HoverProvider::DefinitionContent, content
         assert_equal [6,11]...[6,14], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal MethodName("::Hello.foo"), content.method_name
         assert_equal "() -> void", content.method_type.to_s
@@ -291,7 +291,7 @@ RBS
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 9, column: 10).tap do |content|
-        assert_instance_of HoverProvider::Ruby::DefinitionContent, content
+        assert_instance_of HoverProvider::DefinitionContent, content
         assert_equal [9,6]...[9,9], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal MethodName("::_Foo#bar"), content.method_name
         assert_equal "() -> ::String", content.method_type.to_s
@@ -320,7 +320,7 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 10).tap do |content|
-        assert_instance_of HoverProvider::Ruby::TypeContent, content
+        assert_instance_of HoverProvider::TypeContent, content
       end
     end
   end
@@ -352,7 +352,7 @@ RBS
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 4).tap do |content|
-        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_instance_of HoverProvider::VariableContent, content
         assert_equal [3,4]...[3, 5], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :y, content.name
         assert_equal "(::Symbol | nil)", content.type.to_s
@@ -389,7 +389,7 @@ RBS
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 7).tap do |content|
-        assert_instance_of HoverProvider::Ruby::ConstantContent, content
+        assert_instance_of HoverProvider::ConstantContent, content
         assert_equal [1,6]...[1,11], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal RBS::TypeName.parse("::Hello"), content.full_name
         assert_equal "singleton(::Hello)", content.type.to_s
@@ -397,7 +397,7 @@ RBS
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 5).tap do |content|
-        assert_instance_of HoverProvider::Ruby::ConstantContent, content
+        assert_instance_of HoverProvider::ConstantContent, content
         assert_equal [2,2]...[2,7], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal RBS::TypeName.parse("::Hello::World"), content.full_name
         assert_equal "::String", content.type.to_s
@@ -431,10 +431,10 @@ RBS
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 4).tap do |content|
-        assert_instance_of HoverProvider::Ruby::ConstantContent, content
+        assert_instance_of HoverProvider::ConstantContent, content
       end
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 4, column: 4).tap do |content|
-        assert_instance_of HoverProvider::Ruby::TypeContent, content
+        assert_instance_of HoverProvider::TypeContent, content
       end
     end
   end
@@ -465,7 +465,7 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 4, column: 10).tap do |content|
-        assert_instance_of HoverProvider::Ruby::MethodCallContent, content
+        assert_instance_of HoverProvider::MethodCallContent, content
         assert_equal [4,8]...[4,12], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
       end
@@ -494,14 +494,14 @@ RUBY
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 5, column: 5).tap do |content|
-        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_instance_of HoverProvider::VariableContent, content
         assert_equal [5, 4]...[5, 5], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :e, content.name
         assert_equal "::StandardError", content.type.to_s
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 6, column: 5).tap do |content|
-        assert_instance_of HoverProvider::Ruby::VariableContent, content
+        assert_instance_of HoverProvider::VariableContent, content
         assert_equal [6, 4]...[6, 5], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal :e, content.name
         assert_equal "::StandardError", content.type.to_s
@@ -528,11 +528,11 @@ RBS
       hover = HoverProvider::Ruby.new(service: service)
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 13).tap do |content|
-        assert_instance_of HoverProvider::Ruby::TypeContent, content
+        assert_instance_of HoverProvider::TypeContent, content
       end
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 13).tap do |content|
-        assert_instance_of HoverProvider::Ruby::TypeAssertionContent, content
+        assert_instance_of HoverProvider::TypeAssertionContent, content
         assert_equal [2,6]...[2,18], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal "::Array[untyped]", content.original_type.to_s
         assert_equal "::Symbol", content.asserted_type.to_s
