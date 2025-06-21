@@ -1,0 +1,4 @@
+target :lib do
+  check "."
+  signature "."
+end

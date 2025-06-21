@@ -119,15 +119,15 @@ module Steep
         end
 
         def source_pattern
-          Pattern.new(patterns: sources, ignores: ignored_sources, ext: ".rb")
+          Pattern.new(patterns: sources, ignores: ignored_sources, extensions: [".rb", ".rake"])
         end
 
         def signature_pattern
-          Pattern.new(patterns: signatures, ignores: ignored_signatures, ext: ".rbs")
+          Pattern.new(patterns: signatures, ignores: ignored_signatures, extensions: [".rbs"])
         end
 
         def inline_source_pattern
-          Pattern.new(patterns: inline_sources, ignores: ignored_inline_sources, ext: ".rb")
+          Pattern.new(patterns: inline_sources, ignores: ignored_inline_sources, extensions: [".rb"])
         end
       end
 

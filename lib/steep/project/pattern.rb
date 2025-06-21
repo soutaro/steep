@@ -6,11 +6,21 @@ module Steep
       attr_reader :prefixes
       attr_reader :ignore_prefixes
       attr_reader :ext
+      attr_reader :extensions
 
-      def initialize(patterns:, ignores: [], ext:)
+      def initialize(patterns:, ignores: [], ext: nil, extensions: [])
         @patterns = patterns
         @ignores = ignores
-        @ext = ext
+
+        if !extensions.empty?
+          @extensions = extensions
+          @ext = extensions.first #: String
+        elsif ext
+          @extensions = [ext]
+          @ext = ext
+        else
+          raise ArgumentError, "Either ext or extensions must be provided"
+        end
 
         @prefixes = patterns.map do |pat|
           if pat == "." || pat == "./"
@@ -48,7 +58,9 @@ module Steep
         string = path.to_s
 
         patterns.any? {|pat| File.fnmatch(pat, string, File::FNM_PATHNAME) } ||
-          prefixes.any? {|prefix| File.fnmatch("#{prefix}**/*#{ext}", string, File::FNM_PATHNAME) }
+          prefixes.any? {|prefix|
+            extensions.any? {|ext| File.fnmatch("#{prefix}**/*#{ext}", string, File::FNM_PATHNAME) }
+          }
       end
 
       def empty?

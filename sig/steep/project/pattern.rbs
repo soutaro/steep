@@ -3,7 +3,7 @@ module Steep
     # `Pattern` class represents a pair of *positive* and *negative* patterns that may match with a pathname
     #
     # ```rb
-    # pat = Pattern.new(patterns: ["app/models"], ignores: ["app/models/account.rb"], ext: ".rbs")
+    # pat = Pattern.new(patterns: ["app/models"], ignores: ["app/models/account.rb"], extensions: [".rbs"])
     #
     # pat =~ "app/models/group.rb"    # => true
     # pat =~ "app/models/account.rb"  # => false
@@ -27,9 +27,13 @@ module Steep
       # Negative *dir name* pattern constructed from `#ignores`, which is tested with `start_with?`
       attr_reader ignore_prefixes: Array[String]
 
+      %a{deprecated}
       attr_reader ext: String
 
-      def initialize: (patterns: Array[String], ext: String, ?ignores: Array[String]) -> void
+      # Array of file extensions to match
+      attr_reader extensions: Array[String]
+
+      def initialize: (patterns: Array[String], ?ext: String?, ?extensions: Array[String], ?ignores: Array[String]) -> void
 
       # Returns `true` if given path matches to *positive* pattern, but doesn't match to *negative* pattern
       #

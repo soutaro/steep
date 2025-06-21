@@ -1,0 +1,7 @@
+module Rake
+  module DSL
+    def namespace: (?untyped name) ?{ () -> void } -> void
+    def desc: (String description) -> void
+    def task: (*untyped args) ?{ (untyped, untyped) -> void } -> void
+  end
+end

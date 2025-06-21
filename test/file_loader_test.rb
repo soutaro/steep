@@ -23,7 +23,7 @@ class FileLoaderTest < Minitest::Test
       (current_dir + "test/foo_test.rb").write("")
       (current_dir + "Rakefile").write("")
 
-      pat = Pattern.new(patterns: ["lib", "test"], ext: ".rb")
+      pat = Pattern.new(patterns: ["lib", "test"], extensions: [".rb"])
 
       assert_equal [Pathname("lib/foo.rb"), Pathname("test/foo_test.rb")], loader.each_path_in_patterns(pat).to_a
       assert_equal [Pathname("lib/foo.rb")], loader.each_path_in_patterns(pat, ["lib"]).to_a
@@ -43,7 +43,7 @@ class FileLoaderTest < Minitest::Test
       (current_dir + "lib/foo/parser.rb").write("")
       (current_dir + "lib/foo/bar/index.html.erb").write("")
 
-      pat = Pattern.new(patterns: ["lib/*/bar"], ext: ".rb")
+      pat = Pattern.new(patterns: ["lib/*/bar"], extensions: [".rb"])
 
       assert_equal [Pathname("lib/foo/bar/baz.rb")], loader.each_path_in_patterns(pat, []).to_a
     end
@@ -58,7 +58,7 @@ class FileLoaderTest < Minitest::Test
       (current_dir + "lib/foo/parser.rb").write("")
       (current_dir + "lib/foo/bar/index.html.erb").write("")
 
-      pat = Pattern.new(patterns: ["lib/*/bar/baz.rb"], ext: ".rb")
+      pat = Pattern.new(patterns: ["lib/*/bar/baz.rb"], extensions: [".rb"])
 
       assert_equal [Pathname("lib/foo/bar/baz.rb")], loader.each_path_in_patterns(pat, []).to_a
     end

@@ -340,9 +340,18 @@ module Steep
           module_type = annotations.self_type
           instance_type = annotations.self_type
         else
-          module_name = AST::Builtin::Object.module_name
-          module_type = AST::Builtin::Object.module_type
-          instance_type = AST::Builtin::Object.instance_type
+          if source.path.extname == ".rake"
+            # For .rake files, the top-level self is (Object & Rake::DSL)
+            object_type = AST::Builtin::Object.instance_type
+            rake_dsl_type = AST::Types::Name::Instance.new(name: RBS::TypeName.parse("::Rake::DSL"), args: [])
+            instance_type = AST::Types::Intersection.new(types: [object_type, rake_dsl_type])
+            module_name = AST::Builtin::Object.module_name
+            module_type = AST::Builtin::Object.module_type
+          else
+            module_name = AST::Builtin::Object.module_name
+            module_type = AST::Builtin::Object.module_type
+            instance_type = AST::Builtin::Object.instance_type
+          end
         end
 
         definition = subtyping.factory.definition_builder.build_instance(module_name)

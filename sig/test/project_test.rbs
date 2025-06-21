@@ -8,4 +8,6 @@ class ProjectTest < Minitest::Test
   include Steep
 
   def dirs: () -> untyped
+
+  def test_source_pattern_includes_rake_files: () -> untyped
 end

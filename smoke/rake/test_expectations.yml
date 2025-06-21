@@ -1,0 +1,19 @@
+---
+- file: sample.rake
+  diagnostics:
+  - range:
+      start:
+        line: 18
+        character: 4
+      end:
+        line: 18
+        character: 10
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `+` of type `::Integer`
+      Method types:
+        def +: (::Integer) -> ::Integer
+             | (::Float) -> ::Float
+             | (::Rational) -> ::Rational
+             | (::Complex) -> ::Complex
+    code: Ruby::UnresolvedOverloading
