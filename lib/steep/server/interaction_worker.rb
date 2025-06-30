@@ -6,6 +6,7 @@ module Steep
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
       SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
+      CodeActionJob = _ = Struct.new(:id, :path, :range, :context, keyword_init: true)
 
       LSP = LanguageServer::Protocol
 
@@ -49,6 +50,13 @@ module Steep
               {
                 id: job.id,
                 result: process_latest_job(job) { process_signature_help(job) }
+              }
+            )
+          when CodeActionJob
+            writer.write(
+              {
+                id: job.id,
+                result: process_latest_job(job) { process_code_action(job) }
               }
             )
           end
@@ -119,6 +127,14 @@ module Steep
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
 
           queue_job SignatureHelpJob.new(id: id, path: path, line: line, column: column)
+        when "textDocument/codeAction"
+          id = request[:id]
+          params = request[:params]
+          path = project.relative_path(PathHelper.to_pathname!(params[:textDocument][:uri]))
+          range = params[:range]
+          context = params[:context]
+
+          queue_job CodeActionJob.new(id: id, path: path, range: range, context: context)
         end
       end
 
@@ -525,6 +541,58 @@ module Steep
       rescue Parser::SyntaxError
         # Reuse the latest result to keep SignatureHelp opened while typing
         @last_signature_help_result if @last_signature_help_line == job.line
+      end
+
+      def process_code_action(job)
+        Steep.logger.tagged "#process_code_action" do
+          job.context[:diagnostics].filter_map.flat_map do |diagnostic|
+            case diagnostic[:code]
+            when "Ruby::NoMethod"
+              target = project.target_for_source_path(job.path) or next
+              file = service.source_files[job.path] or next
+              subtyping = service.signature_services.fetch(target.name).current_subtyping or next
+              provider = Services::CodeActionProvider.new(source_text: file.content.dup, path: job.path, subtyping:)
+
+              begin
+                action = provider.run(range: diagnostic[:range]) or next
+              rescue Parser::SyntaxError
+                next
+              end
+
+              action.new_texts.map do |new_text|
+                LSP::Interface::CodeAction.new(
+                  title: "Did you mean? `#{new_text}`",
+                  kind: LSP::Constant::CodeActionKind::QUICK_FIX,
+                  edit: LSP::Interface::WorkspaceEdit.new(
+                    document_changes: [
+                      LSP::Interface::TextDocumentEdit.new(
+                        text_document: LSP::Interface::VersionedTextDocumentIdentifier.new(
+                          uri: PathHelper.to_uri(project.absolute_path(job.path)).to_s,
+                          version: nil
+                        ),
+                        edits: [
+                          LSP::Interface::TextEdit.new(
+                            range: LSP::Interface::Range.new(
+                              start: LSP::Interface::Position.new(
+                                line: action.edit_range.start.line,
+                                character: action.edit_range.start.character
+                              ),
+                              end: LSP::Interface::Position.new(
+                                line: action.edit_range.end.line,
+                                character: action.edit_range.end.character
+                              )
+                            ),
+                            new_text: new_text
+                          )
+                        ]
+                      )
+                    ]
+                  )
+                )
+              end
+            end
+          end
+        end
       end
     end
   end

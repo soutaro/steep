@@ -386,7 +386,10 @@ module Steep
                       definition_provider: true,
                       declaration_provider: false,
                       implementation_provider: true,
-                      type_definition_provider: true
+                      type_definition_provider: true,
+                      code_action_provider: LSP::Interface::CodeActionOptions.new(
+                        code_action_kinds: [LSP::Constant::CodeActionKind::QUICK_FIX]
+                      )
                     ),
                     server_info: {
                       name: "steep",
@@ -528,7 +531,7 @@ module Steep
             controller.close_path(path)
           end
 
-        when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
+        when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp", "textDocument/codeAction"
           if interaction_worker
             if path = pathname(message[:params][:textDocument][:uri])
               result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|

@@ -26,6 +26,17 @@ module LanguageServer
     end
 
     module Constant
+      module CodeActionKind
+        type t = "quickfix"
+        QUICK_FIX: "quickfix"
+      end
+
+      module CodeActionTriggerKind
+        type t = 1 | 2
+        INVOKED: 1
+        AUTOMATIC: 2
+      end
+
       module CompletionItemKind
         type t = Integer
 
@@ -167,6 +178,56 @@ module LanguageServer
         alias to_hash attributes
 
         def to_json: () -> String
+      end
+
+      class CodeActionOptions
+        def initialize: (code_action_kinds: Array[Constant::CodeActionKind::t], ?resolve_provider: bool) -> void
+      end
+
+      class CodeActionContext
+        type json = {
+          diagnostics: Array[Diagnostic::json],
+          ?only: Array[Constant::CodeActionKind::t],
+          ?triggerKind: Constant::CodeActionTriggerKind::t
+        }
+      end
+
+      class CodeAction
+        include _Base
+
+        attr_reader title: String
+        attr_reader kind: Constant::CodeActionKind::t?
+        attr_reader diagnostics: Array[Diagnostic]?
+        attr_reader edit: WorkspaceEdit?
+        attr_reader command: Command?
+
+        def initialize: (title: String, ?kind: Constant::CodeActionKind::t?, ?diagnostics: Array[Diagnostic]?, ?edit: WorkspaceEdit?, ?command: Command?) -> void
+      end
+
+      class WorkspaceEdit
+        include _Base
+
+        attr_reader document_changes: Array[TextDocumentEdit]?
+
+        def initialize: (?document_changes: Array[TextDocumentEdit]?) -> void
+      end
+
+      class TextDocumentEdit
+        include _Base
+
+        attr_reader text_document: VersionedTextDocumentIdentifier
+        attr_reader edits: Array[TextEdit]
+
+        def initialize: (text_document: VersionedTextDocumentIdentifier, edits: Array[TextEdit]) -> void
+      end
+
+      class VersionedTextDocumentIdentifier
+        include _Base
+
+        attr_reader uri: String
+        attr_reader version: Integer?
+
+        def initialize: (uri: String, version: Integer?) -> void
       end
 
       class Position
