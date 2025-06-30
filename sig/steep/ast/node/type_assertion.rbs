@@ -19,11 +19,13 @@ module Steep
 
         def type_location: () -> RBS::Location[untyped, untyped]
 
-        # Returns true if given comment body has a valid type syntax
+        # Returns the type syntax if it parses
         #
-        # This method is used to reject RDoc directives beforehand.
+        # This method is used to reject RDoc directives beforehand
         #
-        def type_syntax?: () -> bool
+        # Returns `nil` if parsing fails.
+        #
+        def type_syntax?: () -> RBS::Types::t?
 
         def self.parse: (RBS::Location[untyped, untyped]) -> TypeAssertion?
       end

@@ -99,6 +99,8 @@ require "steep/type_inference/multiple_assignment"
 require "steep/type_inference/method_call"
 require "steep/type_inference/case_when"
 
+require "steep/locator.rb"
+
 require "steep/index/rbs_index"
 require "steep/index/signature_symbol_provider"
 require "steep/index/source_index"
@@ -303,7 +305,7 @@ end
 # klasses = [
 #   # Steep::Interface::MethodType
 # ] #: Array[Class]
-# 
+#
 # klasses.each do |klass|
 #   klass.instance_eval do
 #     def self.new(*_a, **_b, &_c)

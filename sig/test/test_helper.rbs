@@ -130,7 +130,8 @@ module FactoryHelper
 
   def parse_type: (untyped string, ?factory: untyped, ?variables: untyped) -> untyped
 
-  def parse_ruby: (untyped string, ?factory: untyped) -> untyped
+  # @rbs (String, ?factory: AST::Types::Factory) -> Steep::Source
+  def parse_ruby: (String, ?factory: AST::Types::Factory) -> Steep::Source
 
   def parse_method_type: (untyped string, ?factory: untyped, ?variables: untyped) -> untyped
 end

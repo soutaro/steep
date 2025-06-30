@@ -40,9 +40,8 @@ module Steep
 
         def type_syntax?
           RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: [], require_eof: true)
-          true
         rescue ::RBS::ParsingError
-          false
+          nil
         end
 
         def type?(context, subtyping, type_vars)
