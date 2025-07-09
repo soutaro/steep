@@ -14,6 +14,12 @@ module Steep
 
         def type?: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> Types::t?
 
+        # Returns the RBS type
+        #
+        # Raises `RBS::ParsingError` if there is a syntax error.
+        #
+        def rbs_type: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> RBS::Types::t?
+
         @type_str: String?
         def type_str: () -> String
 

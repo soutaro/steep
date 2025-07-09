@@ -36,7 +36,10 @@ module Steep
           source = source.without_unrelated_defs(line: line, column: column)
           resolver = ::RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
           pos = source.buffer.loc_to_pos([line, column])
-          Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos)
+          [
+            Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos),
+            subtyping
+          ]
         rescue
           nil
         end
@@ -63,7 +66,7 @@ module Steep
 
         def content_for(target:, path:, line:, column:)
           file = service.source_files[path] or return
-          typing = typecheck(target, path: path, content: file.content, line: line, column: column) or return
+          (typing, subtyping = typecheck(target, path: path, content: file.content, line: line, column: column)) or return
           locator = Locator::Ruby.new(typing.source)
           result = locator.find(line, column)
 
@@ -162,6 +165,18 @@ module Steep
             )
 
           when Locator::TypeAssertionResult
+            context = typing.cursor_context.context or raise
+            pos = typing.source.buffer.loc_to_pos([line, column])
+
+            nesting = context.module_context.nesting
+            type_vars = context.variable_context.type_params.map { _1.name }
+
+            if (name, location = result.locate_type_name(pos, nesting, subtyping, type_vars))
+              if content = type_name_content(subtyping.factory.env, name, location)
+                return content
+              end
+            end
+
             assertion_node = result.node.node
             original_node = assertion_node.children[0] or raise
 
@@ -180,6 +195,58 @@ module Steep
                 node: assertion_node,
                 type: typing.type_of(node: assertion_node),
                 location: assertion_node.location.expression
+              )
+            end
+
+          when Locator::TypeApplicationResult
+            begin
+              context = typing.cursor_context.context or raise
+              pos = typing.source.buffer.loc_to_pos([line, column])
+
+              nesting = context.module_context.nesting
+              type_vars = context.variable_context.type_params.map { _1.name }
+
+              if (name, location = result.locate_type_name(pos, nesting, subtyping, type_vars))
+                if content = type_name_content(subtyping.factory.env, name, location)
+                  return content
+                end
+              end
+
+              nil
+            rescue ::RBS::ParsingError
+              return nil
+            end
+          end
+        end
+
+        def type_name_content(environment, type_name, location)
+          case
+          when type_name.class?
+            if entry = environment.module_class_entry(type_name)
+              decl = case entry
+              when ::RBS::Environment::ModuleEntry, ::RBS::Environment::ClassEntry
+                entry.primary_decl
+              else
+                entry.decl
+              end
+
+              ClassTypeContent.new(
+                location: location,
+                decl: decl
+              )
+            end
+          when type_name.interface?
+            if entry = environment.interface_decls.fetch(type_name, nil)
+              InterfaceTypeContent.new(
+                location: location,
+                decl: entry.decl
+              )
+            end
+          when type_name.alias?
+            if entry = environment.type_alias_decls.fetch(type_name, nil)
+              TypeAliasContent.new(
+                location: location,
+                decl: entry.decl
               )
             end
           end
