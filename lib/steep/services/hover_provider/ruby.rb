@@ -64,9 +64,14 @@ module Steep
         def content_for(target:, path:, line:, column:)
           file = service.source_files[path] or return
           typing = typecheck(target, path: path, content: file.content, line: line, column: column) or return
-          node, *parents = typing.source.find_nodes(line: line, column: column)
+          locator = Locator::Ruby.new(typing.source)
+          result = locator.find(line, column)
 
-          if node && parents
+          case result
+          when Locator::NodeResult
+            node = result.node
+            parents = result.parents
+
             case node.type
             when :lvar
               var_name = node.children[0]
@@ -81,7 +86,7 @@ module Steep
               )
 
             when :lvasgn
-              var_name, rhs = node.children
+              var_name, _rhs = node.children
               context = typing.cursor_context.context or raise
               type = context.type_env[var_name] || typing.type_of(node: node)
 
@@ -148,15 +153,6 @@ module Steep
                   decl: entry
                 )
               end
-            when :assertion
-              original_node, _ = node.children
-
-              original_type = typing.type_of(node: original_node)
-              asserted_type = typing.type_of(node: node)
-
-              if original_type != asserted_type
-                return TypeAssertionContent.new(node: node, original_type: original_type, asserted_type: asserted_type, location: node.location.expression)
-              end
             end
 
             TypeContent.new(
@@ -164,6 +160,28 @@ module Steep
               type: typing.type_of(node: node),
               location: node.location.expression
             )
+
+          when Locator::TypeAssertionResult
+            assertion_node = result.node.node
+            original_node = assertion_node.children[0] or raise
+
+            original_type = typing.type_of(node: original_node)
+            asserted_type = typing.type_of(node: assertion_node)
+
+            if original_type != asserted_type
+              TypeAssertionContent.new(
+                node: assertion_node,
+                original_type: original_type,
+                asserted_type: asserted_type,
+                location: assertion_node.location.expression
+              )
+            else
+              TypeContent.new(
+                node: assertion_node,
+                type: typing.type_of(node: assertion_node),
+                location: assertion_node.location.expression
+              )
+            end
           end
         end
       end
