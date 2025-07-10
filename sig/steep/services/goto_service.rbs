@@ -89,6 +89,8 @@ module Steep
       # Returns a set of queries
       def query_at: (path: Pathname, line: Integer, column: Integer) -> Array[query]
 
+      def query_at_implementation: (Typing typing, line: Integer, column: Integer) -> Array[query]
+
       def each_type_name: (AST::Types::t) { (TypeName) -> void } -> void
                         | (AST::Types::t) -> Enumerator[TypeName, void]
 

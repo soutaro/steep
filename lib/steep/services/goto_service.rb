@@ -166,63 +166,7 @@ module Steep
           source = type_check.source_files.fetch(relative_path, nil) or return []
           typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
           if typing
-            node, *parents = typing.source.find_nodes(line: line, column: column)
-
-            if node && parents
-              case node.type
-              when :const, :casgn
-                named_location = (_ = node.location) #: Parser::AST::_NamedLocation
-                if test_ast_location(named_location.name, line: line, column: column)
-                  if name = typing.source_index.reference(constant_node: node)
-                    queries << ConstantQuery.new(name: name, from: :ruby)
-                  end
-                end
-              when :def, :defs
-                named_location = (_ = node.location) #: Parser::AST::_NamedLocation
-                if test_ast_location(named_location.name, line: line, column: column)
-                  if method_context = typing.cursor_context.context&.method_context
-                    if method = method_context.method
-                      method.defs.each do |defn|
-                        singleton_method =
-                          case defn.member
-                          when RBS::AST::Members::MethodDefinition
-                            defn.member.singleton?
-                          when RBS::AST::Members::Attribute
-                            defn.member.kind == :singleton
-                          end
-
-                        name =
-                          if singleton_method
-                            SingletonMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
-                          else
-                            InstanceMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
-                          end
-
-                        queries << MethodQuery.new(name: name, from: :ruby)
-                      end
-                    end
-                  end
-                end
-              when :send
-                location = (_ = node.location) #: Parser::AST::_SelectorLocation
-                if test_ast_location(location.selector, line: line, column: column)
-                  if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
-                    node = parents[0]
-                  end
-
-                  case call = typing.call_of(node: node)
-                  when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
-                    call.method_decls.each do |decl|
-                      queries << MethodQuery.new(name: decl.method_name, from: :ruby)
-                    end
-                  when TypeInference::MethodCall::Untyped
-                    # nop
-                  when TypeInference::MethodCall::NoMethodError
-                    # nop
-                  end
-                end
-              end
-            end
+            queries.concat query_at_implementation(typing, line: line, column: column)
           end
         when target_names = type_check.signature_file?(path) #: Array[Symbol]
           target_names.each do |target_name|
@@ -277,6 +221,70 @@ module Steep
             when RBS::AST::Declarations::Class::Super, RBS::AST::Declarations::Module::Self
               if last == :name
                 queries << TypeNameQuery.new(name: nodes[0].name)
+              end
+            end
+          end
+        end
+
+        queries
+      end
+
+      def query_at_implementation(typing, line:, column:)
+        queries = [] #: Array[query]
+
+        node, *parents = typing.source.find_nodes(line: line, column: column)
+
+        if node && parents
+          case node.type
+          when :const, :casgn
+            named_location = (_ = node.location) #: Parser::AST::_NamedLocation
+            if test_ast_location(named_location.name, line: line, column: column)
+              if name = typing.source_index.reference(constant_node: node)
+                queries << ConstantQuery.new(name: name, from: :ruby)
+              end
+            end
+          when :def, :defs
+            named_location = (_ = node.location) #: Parser::AST::_NamedLocation
+            if test_ast_location(named_location.name, line: line, column: column)
+              if method_context = typing.cursor_context.context&.method_context
+                if method = method_context.method
+                  method.defs.each do |defn|
+                    singleton_method =
+                      case defn.member
+                      when RBS::AST::Members::MethodDefinition
+                        defn.member.singleton?
+                      when RBS::AST::Members::Attribute
+                        defn.member.kind == :singleton
+                      end
+
+                    name =
+                      if singleton_method
+                        SingletonMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
+                      else
+                        InstanceMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
+                      end
+
+                    queries << MethodQuery.new(name: name, from: :ruby)
+                  end
+                end
+              end
+            end
+          when :send
+            location = (_ = node.location) #: Parser::AST::_SelectorLocation
+            if test_ast_location(location.selector, line: line, column: column)
+              if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
+                node = parents[0]
+              end
+
+              case call = typing.call_of(node: node)
+              when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+                call.method_decls.each do |decl|
+                  queries << MethodQuery.new(name: decl.method_name, from: :ruby)
+                end
+              when TypeInference::MethodCall::Untyped
+                # nop
+              when TypeInference::MethodCall::NoMethodError
+                # nop
               end
             end
           end
