@@ -36,4 +36,6 @@ class InterfaceBuilderTest < Minitest::Test
   def test_shape__bounded_variable: () -> untyped
 
   def test_shape__big_literal_union: () -> untyped
+
+  def test_shape__inline__class_singleton: () -> untyped
 end

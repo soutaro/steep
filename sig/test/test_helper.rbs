@@ -123,10 +123,10 @@ end
 module FactoryHelper
   @factory: Steep::AST::Types::Factory?
 
-  # @rbs (?Hash[String, String], ?nostdlib: bool) { (AST::Types::Factory) -> void } -> void
-  def with_factory: (?Hash[String, String], ?nostdlib: bool) { (AST::Types::Factory) -> void } -> void
+  # @rbs (?Hash[String, String], ?Hash[String, String], ?nostdlib: bool) { (AST::Types::Factory) -> void } -> void
+  def with_factory: (?Hash[String, String], ?Hash[String, String], ?nostdlib: bool) { (AST::Types::Factory) -> void } -> void
 
-  def factory: () -> untyped
+  def factory: () -> Steep::AST::Types::Factory
 
   def parse_type: (untyped string, ?factory: untyped, ?variables: untyped) -> untyped
 

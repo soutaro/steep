@@ -476,4 +476,24 @@ end
       end
     end
   end
+
+  def test_shape__inline__class_singleton
+    with_factory({}, { "a.rb" => <<-RUBY }) do
+class Foo
+  # @rbs (Integer) -> void
+  def initialize(x)
+  end
+end
+      RUBY
+
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
+
+      builder.shape(parse_type("singleton(::Foo)"), config).tap do |shape|
+        assert_equal parse_type("singleton(::Foo)"), shape.type
+        shape.methods[:new].tap do |method|
+          assert_equal [parse_method_type("(::Integer) -> ::Foo")], method.method_types
+        end
+      end
+    end
+  end
 end

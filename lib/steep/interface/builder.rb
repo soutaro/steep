@@ -408,8 +408,17 @@ module Steep
       def method_name_for(type_def, name)
         type_name = type_def.implemented_in || type_def.defined_in
 
-        if name == :new && type_def.member.is_a?(RBS::AST::Members::MethodDefinition) && type_def.member.name == :initialize
-          return SingletonMethodName.new(type_name: type_name, method_name: name)
+        if name == :new
+          case type_def.member
+          when RBS::AST::Members::MethodDefinition
+            if type_def.member.name == :initialize
+              return SingletonMethodName.new(type_name: type_name, method_name: name)
+            end
+          when RBS::AST::Ruby::Members::DefMember
+            if type_def.member.name == :initialize
+              return SingletonMethodName.new(type_name: type_name, method_name: name)
+            end
+          end
         end
 
         case type_def.member
