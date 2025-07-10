@@ -302,7 +302,7 @@ module Steep
           when :send
             location = (_ = node.location) #: Parser::AST::_SelectorLocation
             if test_ast_location(location.selector, line: line, column: column)
-              if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
+              if (parent = parents[0]) && parent.type == :block && parent.children[0] === node
                 node = parents[0]
               end
 
@@ -465,6 +465,8 @@ module Steep
                 if decl.location
                   locations << [target, decl.location[:name]]
                 end
+              when RBS::AST::Ruby::Members::DefMember
+                locations << [target, decl.name_location]
               end
             end
           end
@@ -489,6 +491,8 @@ module Steep
               if decl.location
                 locations << [target, decl.location[:new_name]]
               end
+            when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl
+              locations << [target, decl.name_location]
             else
               raise
             end

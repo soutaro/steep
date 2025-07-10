@@ -672,6 +672,29 @@ RBS
     end
   end
 
+  def test_type_name_locations__inline
+    type_check = type_check_service do |changes|
+      changes[Pathname("inline/hello.rb")] = [ContentChange.string(<<RBS)]
+class Hello
+end
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.type_name_locations(RBS::TypeName.parse("::Hello")).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
+        assert_instance_of RBS::Location, loc
+        assert_equal "Hello", loc.source
+        assert_equal 1, loc.start_line
+      end
+    end
+  end
+
   def test_new_method_definition
     type_check = type_check_service do |changes|
       changes[Pathname("sig/a.rbs")] = [ContentChange.string(<<RBS)]
@@ -719,6 +742,52 @@ RBS
         assert_equal "new", loc.source
         assert_equal 9, loc.start_line
         assert_equal Pathname("sig/a.rbs"), loc.buffer.name
+      end
+    end
+  end
+
+  def test_method_definition__inline
+    type_check = type_check_service do |changes|
+      changes[Pathname("inline/a.rb")] = [ContentChange.string(<<RBS)]
+class Foo
+  def hello
+  end
+end
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.method_locations(MethodName("::Foo#hello"), in_ruby: false, in_rbs: true, locations: []).tap do |result|
+      assert_any!(result) do |_target, loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "hello", loc.source
+        assert_equal 2, loc.start_line
+        assert_equal Pathname("inline/a.rb"), loc.buffer.name
+      end
+    end
+  end
+
+  def test_new_method_definition__inline
+    type_check = type_check_service do |changes|
+      changes[Pathname("inline/a.rb")] = [ContentChange.string(<<RBS)]
+class Foo
+  def initialize
+  end
+end
+
+Foo.new
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.definition(path: dir + "inline/a.rb", line: 6, column: 6).tap do |locs|
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "initialize", loc.source
+        assert_equal 2, loc.start_line
+        assert_equal Pathname("inline/a.rb"), loc.buffer.name
       end
     end
   end
