@@ -54,6 +54,8 @@ class GotoServiceTest < Minitest::Test
 
   def test_new_method_definition__inline: () -> untyped
 
+  def test_class_constant__inline: () -> untyped
+
   def test_new_method_impl: () -> untyped
 
   def test_method_block: () -> untyped

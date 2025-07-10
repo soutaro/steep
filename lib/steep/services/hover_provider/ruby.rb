@@ -272,12 +272,6 @@ module Steep
             Steep.logger.fatal { { result: result.class }.inspect }
           end
 
-          # file = service.source_files[path] or return
-
-          # (typing, subtyping = typecheck(target, path: path, content: file.content, line: line, column: column)) or return
-          # locator = Locator::Ruby.new(typing.source)
-          # result = locator.find(line, column)
-
           nil
         end
       end
