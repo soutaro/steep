@@ -158,7 +158,7 @@ module Steep
               file = service.source_files[job.path] or return
               subtyping = service.signature_services.fetch(target.name).current_subtyping or return
 
-              provider = Services::CompletionProvider.new(source_text: file.content, path: job.path, subtyping: subtyping)
+              provider = Services::CompletionProvider::Ruby.new(source_text: file.content, path: job.path, subtyping: subtyping)
               items = begin
                         provider.run(line: job.line, column: job.column)
                       rescue Parser::SyntaxError
