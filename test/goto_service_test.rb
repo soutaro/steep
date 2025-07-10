@@ -18,17 +18,19 @@ class GotoServiceTest < Minitest::Test
 
   def project
     @project ||= Project.new(steepfile_path: dir + "Steepfile").tap do |project|
-      Project::DSL.parse(project, <<EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-EOF
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+          check "inline", inline: true
+        end
+      end
     end
   end
 
+  # @rbs () { (Steep::Server::ChangeBuffer::changes) -> void } -> Steep::Services::TypeCheckService
   def type_check_service()
-    changes = {}
+    changes = {} #: Steep::Server::ChangeBuffer::changes
     yield changes
 
     type_check = Services::TypeCheckService.new(project: project)
@@ -309,6 +311,78 @@ RUBY
 
     service.query_at(path: dir + "lib/main.rb", line: 5, column: 18).tap do |qs|
       assert_empty qs
+    end
+  end
+
+  def test_query_at__assertion
+    type_check = type_check_service do |changes|
+      changes[Pathname("lib/main.rb")] = [ContentChange.string(<<RUBY)]
+path = nil #: String?
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.query_at(path: dir + "lib/main.rb", line: 1, column: 16).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        # @type var query: Steep::Services::GotoService::TypeNameQuery
+        assert_instance_of Services::GotoService::TypeNameQuery, query
+        assert_equal RBS::TypeName.parse("::String"), query.name
+      end
+    end
+  end
+
+  def test_query_at__application
+    type_check = type_check_service do |changes|
+      changes[Pathname("lib/main.rb")] = [ContentChange.string(<<RUBY)]
+[].map { } #$ String?
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.query_at(path: dir + "lib/main.rb", line: 1, column: 16).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        # @type var query: Steep::Services::GotoService::TypeNameQuery
+        assert_instance_of Services::GotoService::TypeNameQuery, query
+        assert_equal RBS::TypeName.parse("::String"), query.name
+      end
+    end
+  end
+
+  def test_query_at__inline
+    type_check = type_check_service do |changes|
+      changes[Pathname("inline/inline.rb")] = [ContentChange.string(<<-RUBY)]
+class Foo
+  # @rbs () -> (String | Integer | nil)
+  def bar
+    nil #: String?
+  end
+end
+
+      RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.query_at(path: dir + "inline/inline.rb", line: 2, column: 16).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        # @type var query: Steep::Services::GotoService::TypeNameQuery
+        assert_instance_of Services::GotoService::TypeNameQuery, query
+        assert_equal RBS::TypeName.parse("::String"), query.name
+      end
+    end
+
+    service.query_at(path: dir + "inline/inline.rb", line: 4, column: 14).tap do |qs|
+      assert_equal 1, qs.size
+      assert_any!(qs) do |query|
+        # @type var query: Steep::Services::GotoService::TypeNameQuery
+        assert_instance_of Services::GotoService::TypeNameQuery, query
+        assert_equal RBS::TypeName.parse("::String"), query.name
+      end
     end
   end
 

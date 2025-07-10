@@ -17,7 +17,8 @@ class GotoServiceTest < Minitest::Test
 
   def project: () -> untyped
 
-  def type_check_service: () -> untyped
+  # @rbs () { (Steep::Server::ChangeBuffer::changes) -> void } -> Steep::Services::TypeCheckService
+  def type_check_service: () { (Steep::Server::ChangeBuffer::changes) -> void } -> Steep::Services::TypeCheckService
 
   def test_goto_definition_sig_class: () -> untyped
 
@@ -30,6 +31,12 @@ class GotoServiceTest < Minitest::Test
   def test_query_at_type: () -> untyped
 
   def test_query_at_method_call: () -> untyped
+
+  def test_query_at__assertion: () -> untyped
+
+  def test_query_at__application: () -> untyped
+
+  def test_query_at__inline: () -> untyped
 
   def test_constant_locations: () -> untyped
 

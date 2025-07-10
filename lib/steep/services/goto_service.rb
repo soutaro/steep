@@ -162,67 +162,36 @@ module Steep
         relative_path = project.relative_path(path)
 
         case
+        when target = type_check.project.target_for_inline_source_path(relative_path)
+          signature = type_check.signature_services.fetch(target.name)
+          source = signature.latest_env.sources.find do
+            if _1.is_a?(::RBS::Source::Ruby)
+              _1.buffer.name == relative_path
+            end
+          end
+
+          if source.is_a?(::RBS::Source::Ruby)
+            locator = Locator::Inline.new(source)
+            result = locator.find(line, column)
+
+            case result
+            when Locator::InlineTypeNameResult
+              queries << TypeNameQuery.new(name: result.type_name)
+            end
+          end
+
+          if queries.empty?
+            source = type_check.source_files.fetch(relative_path, nil) or return []
+            typing, signature, subtyping = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
+            if typing && signature && subtyping
+              queries.concat query_at_implementation(typing, subtyping, line: line, column: column)
+            end
+          end
         when target = type_check.project.target_for_source_path(relative_path)
           source = type_check.source_files.fetch(relative_path, nil) or return []
-          typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
-          if typing
-            node, *parents = typing.source.find_nodes(line: line, column: column)
-
-            if node && parents
-              case node.type
-              when :const, :casgn
-                named_location = (_ = node.location) #: Parser::AST::_NamedLocation
-                if test_ast_location(named_location.name, line: line, column: column)
-                  if name = typing.source_index.reference(constant_node: node)
-                    queries << ConstantQuery.new(name: name, from: :ruby)
-                  end
-                end
-              when :def, :defs
-                named_location = (_ = node.location) #: Parser::AST::_NamedLocation
-                if test_ast_location(named_location.name, line: line, column: column)
-                  if method_context = typing.cursor_context.context&.method_context
-                    if method = method_context.method
-                      method.defs.each do |defn|
-                        singleton_method =
-                          case defn.member
-                          when RBS::AST::Members::MethodDefinition
-                            defn.member.singleton?
-                          when RBS::AST::Members::Attribute
-                            defn.member.kind == :singleton
-                          end
-
-                        name =
-                          if singleton_method
-                            SingletonMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
-                          else
-                            InstanceMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
-                          end
-
-                        queries << MethodQuery.new(name: name, from: :ruby)
-                      end
-                    end
-                  end
-                end
-              when :send
-                location = (_ = node.location) #: Parser::AST::_SelectorLocation
-                if test_ast_location(location.selector, line: line, column: column)
-                  if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
-                    node = parents[0]
-                  end
-
-                  case call = typing.call_of(node: node)
-                  when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
-                    call.method_decls.each do |decl|
-                      queries << MethodQuery.new(name: decl.method_name, from: :ruby)
-                    end
-                  when TypeInference::MethodCall::Untyped
-                    # nop
-                  when TypeInference::MethodCall::NoMethodError
-                    # nop
-                  end
-                end
-              end
-            end
+          typing, _signature, subtyping = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
+          if typing && subtyping
+            queries.concat query_at_implementation(typing, subtyping, line: line, column: column)
           end
         when target_names = type_check.signature_file?(path) #: Array[Symbol]
           target_names.each do |target_name|
@@ -285,6 +254,93 @@ module Steep
         queries
       end
 
+      def query_at_implementation(typing, subtyping, line:, column:)
+        queries = [] #: Array[query]
+
+        locator = Locator::Ruby.new(typing.source)
+        result = locator.find(line, column)
+
+        case result
+        when Locator::NodeResult
+          node = result.node
+          parents = result.parents
+
+          case node.type
+          when :const, :casgn
+            named_location = (_ = node.location) #: Parser::AST::_NamedLocation
+            if test_ast_location(named_location.name, line: line, column: column)
+              if name = typing.source_index.reference(constant_node: node)
+                queries << ConstantQuery.new(name: name, from: :ruby)
+              end
+            end
+          when :def, :defs
+            named_location = (_ = node.location) #: Parser::AST::_NamedLocation
+            if test_ast_location(named_location.name, line: line, column: column)
+              if method_context = typing.cursor_context.context&.method_context
+                if method = method_context.method
+                  method.defs.each do |defn|
+                    singleton_method =
+                      case defn.member
+                      when RBS::AST::Members::MethodDefinition
+                        defn.member.singleton?
+                      when RBS::AST::Members::Attribute
+                        defn.member.kind == :singleton
+                      end
+
+                    name =
+                      if singleton_method
+                        SingletonMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
+                      else
+                        InstanceMethodName.new(type_name: defn.defined_in, method_name: method_context.name)
+                      end
+
+                    queries << MethodQuery.new(name: name, from: :ruby)
+                  end
+                end
+              end
+            end
+          when :send
+            location = (_ = node.location) #: Parser::AST::_SelectorLocation
+            if test_ast_location(location.selector, line: line, column: column)
+              if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
+                node = parents[0]
+              end
+
+              case call = typing.call_of(node: node)
+              when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+                call.method_decls.each do |decl|
+                  queries << MethodQuery.new(name: decl.method_name, from: :ruby)
+                end
+              when TypeInference::MethodCall::Untyped
+                # nop
+              when TypeInference::MethodCall::NoMethodError
+                # nop
+              end
+            end
+          end
+        when Locator::TypeAssertionResult
+          context = typing.cursor_context.context or raise
+          nesting = context.module_context.nesting
+          type_vars = context.variable_context.type_params.map(&:name)
+          pos = typing.source.buffer.loc_to_pos([line, column])
+
+          if pair = result.locate_type_name(pos, nesting, subtyping, type_vars)
+            queries << TypeNameQuery.new(name: pair[0])
+          end
+        when Locator::TypeApplicationResult
+          context = typing.cursor_context.context or raise
+          nesting = context.module_context.nesting
+          type_vars = context.variable_context.type_params.map(&:name)
+          pos = typing.source.buffer.loc_to_pos([line, column])
+
+          if pair = result.locate_type_name(pos, nesting, subtyping, type_vars)
+            queries << TypeNameQuery.new(name: pair[0])
+          end
+        end
+
+        queries
+      end
+
       def type_check_path(target:, path:, content:, line:, column:)
         signature_service = type_check.signature_services.fetch(target.name)
         subtyping = signature_service.current_subtyping or return
@@ -294,7 +350,8 @@ module Steep
         loc = source.buffer.loc_to_pos([line, column])
         [
           Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: loc),
-          signature_service
+          signature_service,
+          subtyping
         ]
       rescue
         nil
