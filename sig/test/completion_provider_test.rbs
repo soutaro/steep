@@ -1,5 +1,7 @@
 # Generated from test/completion_provider_test.rb with RBS::Inline
 
+use Steep::*
+
 class CompletionProviderTest < Minitest::Test
   include TestHelper
 
@@ -9,7 +11,7 @@ class CompletionProviderTest < Minitest::Test
 
   include Steep
 
-  CompletionProvider: untyped
+  CompletionProvider: singleton(Steep::Services::CompletionProvider)
 
   def test_on_lower_identifier: () -> untyped
 
