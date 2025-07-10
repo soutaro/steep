@@ -4,7 +4,7 @@ class Foo
     (x + y).to_s
   end
 
-  #: () -> String?
+  #: () -> untyped
   def bar
 
   end
@@ -13,10 +13,14 @@ class Foo
   def baz
 
   end
+
+  # @rbs (Integer) -> void
+  def initialize(x)
+  end
 end
 
 
-foo = Foo.new
+foo = Foo.new(1)
 foo.foo(1, 2)
 foo.foo(1, "2")
 foo.foo(1, 2, "3")
