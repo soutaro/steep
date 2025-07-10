@@ -672,6 +672,29 @@ RBS
     end
   end
 
+  def test_type_name_locations__inline
+    type_check = type_check_service do |changes|
+      changes[Pathname("inline/hello.rb")] = [ContentChange.string(<<RBS)]
+class Hello
+end
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.type_name_locations(RBS::TypeName.parse("::Hello")).tap do |locs|
+      assert_equal 1, locs.size
+
+      assert_any!(locs) do |target, loc|
+        assert_equal :lib, target.name
+
+        assert_instance_of RBS::Location, loc
+        assert_equal "Hello", loc.source
+        assert_equal 1, loc.start_line
+      end
+    end
+  end
+
   def test_new_method_definition
     type_check = type_check_service do |changes|
       changes[Pathname("sig/a.rbs")] = [ContentChange.string(<<RBS)]

@@ -489,6 +489,8 @@ module Steep
               if decl.location
                 locations << [target, decl.location[:new_name]]
               end
+            when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl
+              locations << [target, decl.name_location]
             else
               raise
             end

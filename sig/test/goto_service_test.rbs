@@ -46,6 +46,8 @@ class GotoServiceTest < Minitest::Test
 
   def test_type_name_locations: () -> untyped
 
+  def test_type_name_locations__inline: () -> untyped
+
   def test_new_method_definition: () -> untyped
 
   def test_new_method_impl: () -> untyped
