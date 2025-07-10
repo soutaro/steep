@@ -47,3 +47,4 @@ end
 
 conference = nil #: Conference?
 
+[].map { "" } #$ Array[Symbol]

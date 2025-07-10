@@ -1,0 +1,158 @@
+module Steep
+  # Locator finds various elements in the source code based on the given cursor position
+  #
+  # ```rb
+  # locator = Locator::Ruby.new(source, environment)
+  #
+  # # The find_ruby method returns a result from Ruby program
+  # result = locator.find(10, 5)
+  # ```
+  #
+  class Locator
+    module TypeNameLocator
+      def type_name_at: (Integer position, RBS::Types::t) -> [RBS::TypeName, RBS::Location]?
+    end
+
+    # A ruby node is at the cursor position
+    #
+    class NodeResult
+      attr_reader node: Parser::AST::Node
+
+      # An array of outer nodes, inner node comes first
+      #
+      attr_reader parents: Array[Parser::AST::Node]
+
+      def initialize: (Parser::AST::Node node, Array[Parser::AST::Node] parents) -> void
+    end
+
+    # Type assertion is at the cursor position
+    #
+    class TypeAssertionResult
+      include TypeNameLocator
+
+      attr_reader assertion: AST::Node::TypeAssertion
+
+      # Outer node result, pointing to the :assertion node
+      #
+      attr_reader node: NodeResult
+
+      def initialize: (AST::Node::TypeAssertion assertion, NodeResult node) -> void
+
+      def locate_type_name: (Integer position, RBS::Resolver::context nesting, Subtyping::Check subtyping, Array[Symbol] type_vars) -> [RBS::TypeName, RBS::Location]?
+    end
+
+    # Type application is at the cursor position
+    #
+    class TypeApplicationResult
+      include TypeNameLocator
+
+      attr_reader application: AST::Node::TypeApplication
+
+      # Outer node result, pointing to the :tapp node
+      #
+      attr_reader node: NodeResult
+
+      def initialize: (AST::Node::TypeApplication application, NodeResult node) -> void
+
+      def locate_type_name: (Integer position, RBS::Resolver::context nesting, Subtyping::Check subtyping, Array[Symbol] type_vars) -> [RBS::TypeName, RBS::Location]?
+    end
+
+    # `@type` style annotation is at the cursor position
+    #
+    class AnnotationResult
+      attr_reader annotation: AST::Annotation::t
+
+      # Block node that contains the annotation
+      attr_reader block: Parser::AST::Node
+
+      # Node result
+      attr_reader node: NodeResult
+
+      def initialize: (AST::Annotation::t annotation, NodeResult node, Parser::AST::Node block) -> void
+    end
+
+    class CommentResult
+      attr_reader comment: Parser::Source::Comment
+
+      attr_reader node: NodeResult
+
+      def initialize: (Parser::Source::Comment comment, NodeResult node) -> void
+    end
+
+    type attachable_ast = RBS::AST::Ruby::Declarations::t | RBS::AST::Ruby::Members::t
+
+    # Inline annotation is at the cursor position
+    #
+    class InlineAnnotationResult
+      attr_reader annotation: RBS::AST::Ruby::Annotations::t
+
+      attr_reader attached_ast: attachable_ast?
+
+      def initialize: (RBS::AST::Ruby::Annotations::t annotation, attachable_ast? attached_ast) -> void
+    end
+
+    # A type is at the cursor position
+    #
+    class InlineTypeResult
+      attr_reader type: RBS::Types::t
+
+      attr_reader annotation_result: InlineAnnotationResult
+
+      def initialize: (RBS::Types::t type, InlineAnnotationResult annotation_result) -> void
+    end
+
+    # A type name is at the cursor position
+    #
+    class InlineTypeNameResult
+      attr_reader type_name: RBS::TypeName
+
+      attr_reader location: RBS::Location
+
+      attr_reader enclosing_result: InlineTypeResult
+
+      def initialize: (RBS::TypeName type_name, RBS::Location location, InlineTypeResult enclosing_result) -> void
+    end
+
+    class Ruby
+      type result = NodeResult
+                  | TypeAssertionResult
+                  | TypeApplicationResult
+                  | AnnotationResult
+                  | CommentResult
+
+      include NodeHelper
+
+      attr_reader source: Source
+
+      def initialize: (Source) -> void
+
+      def find: (Integer line, Integer column) -> result?
+
+      private
+
+      def find_ruby_node_in: (Integer position, Parser::AST::Node?, Array[Parser::AST::Node]) -> NodeResult?
+
+      def ruby_result_from_node: (NodeResult, Integer position) -> result
+    end
+
+    class Inline
+      type result = InlineTypeResult
+                  | InlineTypeNameResult
+                  | InlineAnnotationResult
+
+      attr_reader source: RBS::Source::Ruby
+
+      def initialize: (RBS::Source::Ruby) -> void
+
+      def find: (Integer line, Integer column) -> result?
+
+      private
+
+      def find0: (Integer position, attachable_ast) -> InlineAnnotationResult?
+
+      def inline_result: (Integer position, InlineAnnotationResult) -> result
+
+      def type_name_result: (Integer position, InlineTypeResult) -> (InlineTypeNameResult | InlineTypeResult)
+    end
+  end
+end

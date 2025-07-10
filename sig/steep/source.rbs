@@ -47,6 +47,13 @@ module Steep
     def each_annotation: () { ([Parser::AST::Node, Array[AST::Annotation::t]]) -> void } -> void
                        | () -> Enumerator[[Parser::AST::Node, Array[AST::Annotation::t]], void]
 
+    def each_block_annotation: (Parser::AST::Node) { (AST::Annotation::t) -> void } -> void
+                             | (Parser::AST::Node) -> Enumerator[AST::Annotation::t, void]
+
+    # Returns the most inner block node that may have annotations
+    #
+    def find_block_node: (Array[Parser::AST::Node]) -> Parser::AST::Node?
+
     # Yields all heredoc node and its parents under `node` (or `self.node`)
     #
     # Yields arrays, inner node first, outer node last -- `[heredoc_node, *outer_node, node]`.

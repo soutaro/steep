@@ -584,6 +584,7 @@ module FactoryHelper
     factory.type(type)
   end
 
+  # @rbs (String, ?factory: AST::Types::Factory) -> Steep::Source
   def parse_ruby(string, factory: self.factory)
     Steep::Source.parse(string, path: Pathname("test.rb"), factory: factory)
   end

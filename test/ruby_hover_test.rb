@@ -12,14 +12,18 @@ class RubyHoverTest < Minitest::Test
     @dirs ||= []
   end
 
-  def typecheck_service(steepfile: <<RUBY)
-target :lib do
-  check "hello.rb"
-  signature "hello.rbs"
-end
-RUBY
+  # @rbs () ?{ () [self: Steep::Project::DSL] -> void } -> Steep::Services::TypeCheckService
+  def typecheck_service(&block)
+    block ||= -> do
+      target :lib do
+        check "hello.rb"
+        signature "hello.rbs"
+        check "inline.rb", inline: true
+      end
+    end #: ^() [self: Steep::Project::DSL] -> void
+
     project = Project.new(steepfile_path: current_dir + "Steepfile")
-    Project::DSL.parse(project, steepfile)
+    Project::DSL.eval(project, &block)
 
     Services::TypeCheckService.new(project: project)
   end
@@ -527,16 +531,46 @@ RBS
       target = service.project.targets.find {|target| target.name == :lib }
       hover = HoverProvider::Ruby.new(service: service)
 
-      hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 13).tap do |content|
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 10).tap do |content|
         assert_instance_of HoverProvider::TypeContent, content
       end
 
-      hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 13).tap do |content|
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 2, column: 10).tap do |content|
         assert_instance_of HoverProvider::TypeAssertionContent, content
         assert_equal [2,6]...[2,18], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_equal "::Array[untyped]", content.original_type.to_s
         assert_equal "::Symbol", content.asserted_type.to_s
         assert_equal "[] #: Symbol", content.location.source
+      end
+    end
+  end
+
+  def test_type_application
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<'RUBY')],
+foo = [].map { "" } #$ String?
+RUBY
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)]
+RBS
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 22).tap do |content|
+        assert_nil content
+      end
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 1, column: 25).tap do |content|
+        assert_instance_of HoverProvider::ClassTypeContent, content
+
+        assert_equal "String", content.location.source
+        assert_equal "::String", content.decl.name.to_s
       end
     end
   end
@@ -547,10 +581,10 @@ RBS
 
       service.update(
         changes: {
-          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
-foo = 100
-foo + "ba
-RUBY
+          Pathname("hello.rb") => [ContentChange.string(<<~'RUBY')]
+            foo = 100
+            foo +
+          RUBY
         }
       ) {}
 
@@ -559,6 +593,81 @@ RUBY
 
       hover.content_for(target: target, path: Pathname("hello.rb"), line: 3, column: 4).tap do |content|
         assert_nil content
+      end
+    end
+  end
+
+  def test_inline__rbs_method_type
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("inline.rb") => [ContentChange.string(<<'RUBY')],
+class Foo
+  # @rbs (String) -> void
+  def foo
+  end
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for_inline(target: target, path: Pathname("inline.rb"), line: 2, column: 13).tap do |content|
+        assert_instance_of HoverProvider::ClassTypeContent, content
+      end
+    end
+  end
+
+  def test_inline__colon_method_type
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("inline.rb") => [ContentChange.string(<<'RUBY')],
+class Foo
+  #: (String) -> void
+  def foo
+  end
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for_inline(target: target, path: Pathname("inline.rb"), line: 2, column: 10).tap do |content|
+        assert_instance_of HoverProvider::ClassTypeContent, content
+      end
+    end
+  end
+
+  def test_inline__rbs_return
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("inline.rb") => [ContentChange.string(<<'RUBY')],
+class Foo
+  # @rbs return: String? -- returns nil
+  def foo
+  end
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for_inline(target: target, path: Pathname("inline.rb"), line: 2, column: 19).tap do |content|
+        assert_instance_of HoverProvider::ClassTypeContent, content
       end
     end
   end

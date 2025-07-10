@@ -319,6 +319,20 @@ module Steep
       end
     end
 
+    def each_block_annotation(node, &block)
+      if block
+        if annots = mapping.fetch(node, nil)
+          annots.each(&block)
+        end
+      else
+        enum_for :each_block_annotation, node
+      end
+    end
+
+    def find_block_node(nodes)
+      nodes.find { mapping.key?(_1) }
+    end
+
     def each_heredoc_node(node = self.node, parents = [], &block)
       if block
         return unless node

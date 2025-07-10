@@ -1,0 +1,40 @@
+# Generated from test/locator_test.rb with RBS::Inline
+
+use Steep::*
+
+class LocatorTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  include FactoryHelper
+
+  def test_ruby__find: () -> untyped
+
+  def test_ruby__find__params: () -> untyped
+
+  def test_ruby__find__dstr: () -> untyped
+
+  def test_ruby__find__block: () -> untyped
+
+  def test_ruby__find__heredoc: () -> untyped
+
+  def test_ruby__find__assertion: () -> untyped
+
+  def test_ruby__find__application: () -> untyped
+
+  def test_ruby__find__annotations: () -> untyped
+
+  def test_ruby__find__comment: () -> untyped
+
+  # @rbs (String, ?path: Pathname) -> RBS::Source::Ruby
+  def parse_inline: (String, ?path: Pathname) -> RBS::Source::Ruby
+
+  def test_inline__nil: () -> untyped
+
+  def test_inline__annotation_return: () -> untyped
+
+  def test_inline__annotation__colon: () -> untyped
+
+  def test_inline__annotation__method_type: () -> untyped
+end

@@ -3,6 +3,16 @@ class Foo
   def foo(x, y)
     (x + y).to_s
   end
+
+  #: () -> String?
+  def bar
+
+  end
+
+  # @rbs return: String?
+  def baz
+
+  end
 end
 
 

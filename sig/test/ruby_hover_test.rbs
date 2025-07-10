@@ -13,7 +13,8 @@ class RubyHoverTest < Minitest::Test
 
   def dirs: () -> untyped
 
-  def typecheck_service: (?steepfile: untyped) -> untyped
+  # @rbs () ?{ () [self: Steep::Project::DSL] -> void } -> Steep::Services::TypeCheckService
+  def typecheck_service: () ?{ () [self: Steep::Project::DSL] -> void } -> Steep::Services::TypeCheckService
 
   def test_variable: () -> untyped
 
@@ -43,5 +44,13 @@ class RubyHoverTest < Minitest::Test
 
   def test_type_assertion: () -> untyped
 
+  def test_type_application: () -> untyped
+
   def test_hover_on_syntax_error: () -> untyped
+
+  def test_inline__rbs_method_type: () -> untyped
+
+  def test_inline__colon_method_type: () -> untyped
+
+  def test_inline__rbs_return: () -> untyped
 end

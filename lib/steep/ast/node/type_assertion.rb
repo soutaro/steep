@@ -16,11 +16,15 @@ module Steep
           location.start_line
         end
 
-        def type(context, subtyping, type_vars)
+        def rbs_type(context, subtyping, type_vars)
           if ty = RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: type_vars, require_eof: true)
             resolver = RBS::Resolver::TypeNameResolver.new(subtyping.factory.env)
             ty = ty.map_type_name {|name| resolver.resolve(name, context: context) || name.absolute! }
+          end
+        end
 
+        def type(context, subtyping, type_vars)
+          if ty = rbs_type(context, subtyping, type_vars)
             validator = Signature::Validator.new(checker: subtyping)
             validator.rescue_validation_errors do
               validator.validate_type(ty)
@@ -40,9 +44,8 @@ module Steep
 
         def type_syntax?
           RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: [], require_eof: true)
-          true
         rescue ::RBS::ParsingError
-          false
+          nil
         end
 
         def type?(context, subtyping, type_vars)

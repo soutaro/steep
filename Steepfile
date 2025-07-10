@@ -4,15 +4,12 @@ D = Steep::Diagnostic
 
 FileUtils.mkpath("tmp")
 tmp_rbs_dir = Pathname("tmp/rbs-sig")
+FileUtils.rm_f(tmp_rbs_dir)
 
 definition = Bundler::Definition.build(Pathname("Gemfile"), Pathname("Gemfile.lock"), nil)
 rbs_dep = definition.dependencies.find {|dep| dep.name == "rbs" }
 if (source = rbs_dep&.source).is_a?(Bundler::Source::Path)
-  unless tmp_rbs_dir.directory?
-    FileUtils.ln_s(Pathname.pwd + source.path + "sig", tmp_rbs_dir.to_s, force: true)
-  end
-else
-  FileUtils.rm_f(tmp_rbs_dir)
+  FileUtils.ln_s(Pathname.pwd + source.path + "sig", tmp_rbs_dir.to_s, force: true)
 end
 
 target :app do

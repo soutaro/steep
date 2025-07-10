@@ -16,6 +16,13 @@ module Steep
 
         def types?: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> Array[LocatedValue[Types::t]]?
 
+        # Yields each RBS type in the type application
+        #
+        # Raises `RBS::ParsingError` if there is a syntax error.
+        #
+        def each_rbs_type: (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) { (RBS::Types::t) -> void } -> void
+                         | (RBS::Resolver::context, Subtyping::Check, Array[Symbol] type_vars) -> Enumerator[RBS::Types::t, void]
+
         @type_str: String?
         def type_str: () -> String
 

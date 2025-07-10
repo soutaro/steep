@@ -2,6 +2,7 @@ module Steep
   module Services
     module HoverProvider
       type Ruby::content = TypeContent | VariableContent | MethodCallContent | DefinitionContent | ConstantContent | TypeAssertionContent
+                         | ClassTypeContent | InterfaceTypeContent | TypeAliasContent
 
       class Ruby
         attr_reader service: TypeCheckService
@@ -13,11 +14,15 @@ module Steep
         def method_definition_for: (AST::Types::Factory factory, ::RBS::TypeName type_name, singleton_method: Symbol) -> ::RBS::Definition::Method
                                  | (AST::Types::Factory factory, ::RBS::TypeName type_name, instance_method: Symbol) -> ::RBS::Definition::Method
 
-        def typecheck: (Project::Target target, path: Pathname, content: String, line: Integer, column: Integer) -> Typing?
+        def typecheck: (Project::Target target, path: Pathname, content: String, line: Integer, column: Integer) -> [Typing, Subtyping::Check]?
 
         def method_name_from_method: (TypeInference::Context::MethodContext context, builder: ::RBS::DefinitionBuilder) -> method_name
 
         def content_for: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> Ruby::content?
+
+        def content_for_inline: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> Ruby::content?
+
+        def type_name_content: (RBS::Environment environment, RBS::TypeName type_name, RBS::Location location) -> (ClassTypeContent | InterfaceTypeContent | TypeAliasContent | nil)
       end
     end
   end
