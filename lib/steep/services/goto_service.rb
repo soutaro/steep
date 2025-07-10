@@ -232,9 +232,14 @@ module Steep
       def query_at_implementation(typing, line:, column:)
         queries = [] #: Array[query]
 
-        node, *parents = typing.source.find_nodes(line: line, column: column)
+        locator = Locator::Ruby.new(typing.source)
+        result = locator.find(line, column)
 
-        if node && parents
+        case result
+        when Locator::NodeResult
+          node = result.node
+          parents = result.parents
+
           case node.type
           when :const, :casgn
             named_location = (_ = node.location) #: Parser::AST::_NamedLocation
