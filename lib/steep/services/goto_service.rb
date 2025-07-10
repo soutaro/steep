@@ -164,9 +164,9 @@ module Steep
         case
         when target = type_check.project.target_for_source_path(relative_path)
           source = type_check.source_files.fetch(relative_path, nil) or return []
-          typing, _signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
-          if typing
-            queries.concat query_at_implementation(typing, line: line, column: column)
+          typing, _signature, subtyping = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
+          if typing && subtyping
+            queries.concat query_at_implementation(typing, subtyping, line: line, column: column)
           end
         when target_names = type_check.signature_file?(path) #: Array[Symbol]
           target_names.each do |target_name|
@@ -229,7 +229,7 @@ module Steep
         queries
       end
 
-      def query_at_implementation(typing, line:, column:)
+      def query_at_implementation(typing, subtyping, line:, column:)
         queries = [] #: Array[query]
 
         locator = Locator::Ruby.new(typing.source)
@@ -293,6 +293,24 @@ module Steep
               end
             end
           end
+        when Locator::TypeAssertionResult
+          context = typing.cursor_context.context or raise
+          nesting = context.module_context.nesting
+          type_vars = context.variable_context.type_params.map(&:name)
+          pos = typing.source.buffer.loc_to_pos([line, column])
+
+          if pair = result.locate_type_name(pos, nesting, subtyping, type_vars)
+            queries << TypeNameQuery.new(name: pair[0])
+          end
+        when Locator::TypeApplicationResult
+          context = typing.cursor_context.context or raise
+          nesting = context.module_context.nesting
+          type_vars = context.variable_context.type_params.map(&:name)
+          pos = typing.source.buffer.loc_to_pos([line, column])
+
+          if pair = result.locate_type_name(pos, nesting, subtyping, type_vars)
+            queries << TypeNameQuery.new(name: pair[0])
+          end
         end
 
         queries
@@ -307,7 +325,8 @@ module Steep
         loc = source.buffer.loc_to_pos([line, column])
         [
           Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: loc),
-          signature_service
+          signature_service,
+          subtyping
         ]
       rescue
         nil

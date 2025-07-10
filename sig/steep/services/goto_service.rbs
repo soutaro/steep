@@ -89,14 +89,14 @@ module Steep
       # Returns a set of queries
       def query_at: (path: Pathname, line: Integer, column: Integer) -> Array[query]
 
-      def query_at_implementation: (Typing typing, line: Integer, column: Integer) -> Array[query]
+      def query_at_implementation: (Typing typing, Subtyping::Check subtyping, line: Integer, column: Integer) -> Array[query]
 
       def each_type_name: (AST::Types::t) { (TypeName) -> void } -> void
                         | (AST::Types::t) -> Enumerator[TypeName, void]
 
       def test_ast_location: (Parser::Source::Range loc, line: Integer, column: Integer) -> bool
 
-      def type_check_path: (target: Project::Target, path: Pathname, content: String, line: Integer, column: Integer) -> [Typing, SignatureService]?
+      def type_check_path: (target: Project::Target, path: Pathname, content: String, line: Integer, column: Integer) -> [Typing, SignatureService, Subtyping::Check]?
 
       def constant_definition_in_rbs: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
 
