@@ -302,7 +302,7 @@ module Steep
           when :send
             location = (_ = node.location) #: Parser::AST::_SelectorLocation
             if test_ast_location(location.selector, line: line, column: column)
-              if (parent = parents[0]) && parent.type == :block && parent.children[0] == node
+              if (parent = parents[0]) && parent.type == :block && parent.children[0] === node
                 node = parents[0]
               end
 
