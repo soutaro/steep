@@ -47,4 +47,10 @@ class RubyHoverTest < Minitest::Test
   def test_type_application: () -> untyped
 
   def test_hover_on_syntax_error: () -> untyped
+
+  def test_inline__rbs_method_type: () -> untyped
+
+  def test_inline__colon_method_type: () -> untyped
+
+  def test_inline__rbs_return: () -> untyped
 end

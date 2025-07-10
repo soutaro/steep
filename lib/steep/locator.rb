@@ -39,7 +39,7 @@ module Steep
 
     InlineTypeResult = Data.define(:type, :annotation_result)
 
-    InlineTypeNameResult = Data.define(:type_name, :enclosing_result)
+    InlineTypeNameResult = Data.define(:type_name, :location, :enclosing_result)
 
     class TypeAssertionResult
       include TypeNameLocator
@@ -271,16 +271,19 @@ module Steep
           symbol, type, * = components
           if symbol.is_a?(Symbol)
             type_name = nil #: RBS::TypeName?
+            location = nil #: RBS::Location?
 
             case type
             when RBS::Types::ClassInstance, RBS::Types::ClassSingleton, RBS::Types::Alias, RBS::Types::Interface
               if symbol == :name
+                type_loc = type.location or raise
                 type_name = type.name
+                location = type_loc[:name] or raise
               end
             end
 
-            if type_name
-              return InlineTypeNameResult.new(type_name, result)
+            if type_name && location
+              return InlineTypeNameResult.new(type_name, location, result)
             end
           end
         end

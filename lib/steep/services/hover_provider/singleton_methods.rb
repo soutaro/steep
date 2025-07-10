@@ -6,6 +6,10 @@ module Steep
           project = service.project
 
           case
+          when target = project.target_for_inline_source_path(path)
+            service = Ruby.new(service: service)
+            service.content_for_inline(target: target, path: path, line: line, column: column) ||
+              service.content_for(target: target, path: path, line: line, column: column)
           when target = project.target_for_source_path(path)
             Ruby.new(service: service).content_for(target: target, path: path, line: line, column: column)
           when target = project.target_for_signature_path(path)

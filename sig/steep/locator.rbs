@@ -29,7 +29,7 @@ module Steep
     #
     class TypeAssertionResult
       include TypeNameLocator
-      
+
       attr_reader assertion: AST::Node::TypeAssertion
 
       # Outer node result, pointing to the :assertion node
@@ -106,9 +106,11 @@ module Steep
     class InlineTypeNameResult
       attr_reader type_name: RBS::TypeName
 
+      attr_reader location: RBS::Location
+
       attr_reader enclosing_result: InlineTypeResult
 
-      def initialize: (RBS::TypeName type_name, InlineTypeResult enclosing_result) -> void
+      def initialize: (RBS::TypeName type_name, RBS::Location location, InlineTypeResult enclosing_result) -> void
     end
 
     class Ruby

@@ -251,6 +251,35 @@ module Steep
             end
           end
         end
+
+        def content_for_inline(target:, path:, line:, column:)
+          signature = service.signature_services.fetch(target.name)
+          source = signature.latest_env.sources.find do
+            if _1.is_a?(::RBS::Source::Ruby)
+              _1.buffer.name == path
+            end
+          end
+
+          return unless source.is_a?(::RBS::Source::Ruby)
+
+          locator = Locator::Inline.new(source)
+          result = locator.find(line, column)
+
+          case result
+          when Locator::InlineTypeNameResult
+            return type_name_content(signature.latest_env, result.type_name, result.location)
+          else
+            Steep.logger.fatal { { result: result.class }.inspect }
+          end
+
+          # file = service.source_files[path] or return
+
+          # (typing, subtyping = typecheck(target, path: path, content: file.content, line: line, column: column)) or return
+          # locator = Locator::Ruby.new(typing.source)
+          # result = locator.find(line, column)
+
+          nil
+        end
       end
     end
   end
