@@ -36,6 +36,8 @@ class GotoServiceTest < Minitest::Test
 
   def test_query_at__application: () -> untyped
 
+  def test_query_at__inline: () -> untyped
+
   def test_constant_locations: () -> untyped
 
   def test_method_locations: () -> untyped

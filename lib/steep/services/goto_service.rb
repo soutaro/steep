@@ -162,6 +162,31 @@ module Steep
         relative_path = project.relative_path(path)
 
         case
+        when target = type_check.project.target_for_inline_source_path(relative_path)
+          signature = type_check.signature_services.fetch(target.name)
+          source = signature.latest_env.sources.find do
+            if _1.is_a?(::RBS::Source::Ruby)
+              _1.buffer.name == relative_path
+            end
+          end
+
+          if source.is_a?(::RBS::Source::Ruby)
+            locator = Locator::Inline.new(source)
+            result = locator.find(line, column)
+
+            case result
+            when Locator::InlineTypeNameResult
+              queries << TypeNameQuery.new(name: result.type_name)
+            end
+          end
+
+          if queries.empty?
+            source = type_check.source_files.fetch(relative_path, nil) or return []
+            typing, signature, subtyping = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
+            if typing && signature && subtyping
+              queries.concat query_at_implementation(typing, subtyping, line: line, column: column)
+            end
+          end
         when target = type_check.project.target_for_source_path(relative_path)
           source = type_check.source_files.fetch(relative_path, nil) or return []
           typing, _signature, subtyping = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
