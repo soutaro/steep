@@ -194,8 +194,10 @@ module Steep
         when RBS::AST::Ruby::Members::DefMember
           case annotations = ast.method_type.type_annotations
           when RBS::AST::Ruby::Members::MethodTypeAnnotation::DocStyle
-            if annotations.return_type_annotation
-              return InlineAnnotationResult.new(annotations.return_type_annotation, ast)
+            if annotation = annotations.return_type_annotation
+              if annotation.location.start_pos <= position && position <= annotation.location.end_pos
+                return InlineAnnotationResult.new(annotations.return_type_annotation, ast)
+              end
             end
           when Array
             annotations.each do |annotation|
