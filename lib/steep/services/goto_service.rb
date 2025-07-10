@@ -369,10 +369,15 @@ module Steep
             end
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
             entry.each_decl do |decl|
-              if decl.is_a?(RBS::AST::Declarations::Base)
+              case decl
+              when RBS::AST::Declarations::Base
                 if decl.location
                   locations << [target, decl.location[:name]]
                 end
+              when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl
+                locations << [target, decl.name_location]
+              else
+                raise "Unknown declaration: #{decl.inspect}"
               end
             end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry

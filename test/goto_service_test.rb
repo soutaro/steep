@@ -792,6 +792,30 @@ RBS
     end
   end
 
+  def test_class_constant__inline
+    type_check = type_check_service do |changes|
+      changes[Pathname("inline/a.rb")] = [ContentChange.string(<<RBS)]
+class Foo
+  def initialize
+  end
+end
+
+Foo.new
+RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.definition(path: dir + "inline/a.rb", line: 6, column: 1).tap do |locs|
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "Foo", loc.source
+        assert_equal 1, loc.start_line
+        assert_equal Pathname("inline/a.rb"), loc.buffer.name
+      end
+    end
+  end
+
   def test_new_method_impl
     type_check = type_check_service do |changes|
       changes[Pathname("sig/a.rbs")] = [ContentChange.string(<<RBS)]
