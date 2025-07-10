@@ -465,6 +465,8 @@ module Steep
                 if decl.location
                   locations << [target, decl.location[:name]]
                 end
+              when RBS::AST::Ruby::Members::DefMember
+                locations << [target, decl.name_location]
               end
             end
           end

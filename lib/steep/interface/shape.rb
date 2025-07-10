@@ -32,7 +32,10 @@ module Steep
           method_defs.map do |defn|
             type_name = defn.implemented_in || defn.defined_in
 
-            if name == :new && defn.member.is_a?(RBS::AST::Members::MethodDefinition) && defn.member.name == :initialize
+            case
+            when name == :new && defn.member.is_a?(RBS::AST::Members::MethodDefinition) && defn.member.name == :initialize
+              method_name = SingletonMethodName.new(type_name: type_name, method_name: name)
+            when name == :new && defn.member.is_a?(RBS::AST::Ruby::Members::DefMember) && defn.member.name == :initialize
               method_name = SingletonMethodName.new(type_name: type_name, method_name: name)
             else
               method_name =
