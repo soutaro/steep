@@ -1,8 +1,8 @@
-# Generated from test/completion_provider_test.rb with RBS::Inline
+# Generated from test/completion_provider/ruby_test.rb with RBS::Inline
 
 use Steep::*
 
-class CompletionProviderTest < Minitest::Test
+class CompletionProvider__RubyTest < Minitest::Test
   include TestHelper
 
   include FactoryHelper

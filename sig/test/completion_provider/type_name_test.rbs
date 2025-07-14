@@ -1,6 +1,6 @@
-# Generated from test/type_name_completion_test.rb with RBS::Inline
+# Generated from test/completion_provider/type_name_test.rb with RBS::Inline
 
-class TypeNameCompletionTest < Minitest::Test
+class CompletinoProvider__TypeNameTest < Minitest::Test
   include TestHelper
 
   include FactoryHelper

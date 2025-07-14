@@ -1,8 +1,8 @@
-require_relative "test_helper"
+require_relative "../test_helper"
 
 # @rbs use Steep::*
 
-class CompletionProviderTest < Minitest::Test
+class CompletionProvider__RubyTest < Minitest::Test
   include TestHelper
   include FactoryHelper
   include SubtypingHelper

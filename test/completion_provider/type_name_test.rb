@@ -1,6 +1,6 @@
-require_relative "test_helper"
+require_relative "../test_helper"
 
-class TypeNameCompletionTest < Minitest::Test
+class CompletinoProvider__TypeNameTest < Minitest::Test
   include TestHelper
   include FactoryHelper
 
