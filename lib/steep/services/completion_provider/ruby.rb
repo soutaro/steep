@@ -407,8 +407,8 @@ module Steep
           items = [] #: Array[item]
 
           context = typing.cursor_context.context or raise
-          completion = TypeNameCompletion.new(env: context.env, context: context.module_context.nesting, dirs: [])
-          prefix = TypeNameCompletion::Prefix.parse(buffer, line: position.line, column: position.column)
+          completion = TypeName.new(env: context.env, context: context.module_context.nesting, dirs: [])
+          prefix = TypeName::Prefix.parse(buffer, line: position.line, column: position.column)
 
           size = prefix&.size || 0
           range = Range.new(start: position - size, end: position)

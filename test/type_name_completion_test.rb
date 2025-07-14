@@ -11,41 +11,41 @@ class TypeNameCompletionTest < Minitest::Test
   end
 
   def test_prefix_parse
-    Services::TypeNameCompletion::Prefix.parse(buffer("() -> "), line: 1, column: 5).tap do |prefix|
+    Services::CompletionProvider::TypeName::Prefix.parse(buffer("() -> "), line: 1, column: 5).tap do |prefix|
       assert_nil prefix
     end
 
-    Services::TypeNameCompletion::Prefix.parse(buffer("() -> St"), line: 1, column: 8).tap do |prefix|
-      assert_instance_of Services::TypeNameCompletion::Prefix::RawIdentPrefix, prefix
+    Services::CompletionProvider::TypeName::Prefix.parse(buffer("() -> St"), line: 1, column: 8).tap do |prefix|
+      assert_instance_of Services::CompletionProvider::TypeName::Prefix::RawIdentPrefix, prefix
       assert_equal "St", prefix.ident
       assert_predicate prefix, :const_name?
     end
 
-    Services::TypeNameCompletion::Prefix.parse(buffer("() -> booli"), line: 1, column: 11).tap do |prefix|
-      assert_instance_of Services::TypeNameCompletion::Prefix::RawIdentPrefix, prefix
+    Services::CompletionProvider::TypeName::Prefix.parse(buffer("() -> booli"), line: 1, column: 11).tap do |prefix|
+      assert_instance_of Services::CompletionProvider::TypeName::Prefix::RawIdentPrefix, prefix
       assert_equal "booli", prefix.ident
       refute_predicate prefix, :const_name?
     end
 
-    Services::TypeNameCompletion::Prefix.parse(buffer("() -> ::RBS::"), line: 1, column: 13).tap do |prefix|
-      assert_instance_of Services::TypeNameCompletion::Prefix::NamespacePrefix, prefix
+    Services::CompletionProvider::TypeName::Prefix.parse(buffer("() -> ::RBS::"), line: 1, column: 13).tap do |prefix|
+      assert_instance_of Services::CompletionProvider::TypeName::Prefix::NamespacePrefix, prefix
       assert_equal RBS::Namespace.parse("::RBS::"), prefix.namespace
     end
 
-    Services::TypeNameCompletion::Prefix.parse(buffer("() -> ::"), line: 1, column: 8).tap do |prefix|
-      assert_instance_of Services::TypeNameCompletion::Prefix::NamespacePrefix, prefix
+    Services::CompletionProvider::TypeName::Prefix.parse(buffer("() -> ::"), line: 1, column: 8).tap do |prefix|
+      assert_instance_of Services::CompletionProvider::TypeName::Prefix::NamespacePrefix, prefix
       assert_equal RBS::Namespace.parse("::"), prefix.namespace
     end
 
-    Services::TypeNameCompletion::Prefix.parse(buffer("() -> ::RBS::Na"), line: 1, column: 15).tap do |prefix|
-      assert_instance_of Services::TypeNameCompletion::Prefix::NamespacedIdentPrefix, prefix
+    Services::CompletionProvider::TypeName::Prefix.parse(buffer("() -> ::RBS::Na"), line: 1, column: 15).tap do |prefix|
+      assert_instance_of Services::CompletionProvider::TypeName::Prefix::NamespacedIdentPrefix, prefix
       assert_equal RBS::Namespace.parse("::RBS::"), prefix.namespace
       assert_equal "Na", prefix.ident
       assert_predicate prefix, :const_name?
     end
 
-    Services::TypeNameCompletion::Prefix.parse(buffer("() -> ::RBS"), line: 1, column: 11).tap do |prefix|
-      assert_instance_of Services::TypeNameCompletion::Prefix::NamespacedIdentPrefix, prefix
+    Services::CompletionProvider::TypeName::Prefix.parse(buffer("() -> ::RBS"), line: 1, column: 11).tap do |prefix|
+      assert_instance_of Services::CompletionProvider::TypeName::Prefix::NamespacedIdentPrefix, prefix
       assert_equal RBS::Namespace.parse("::"), prefix.namespace
       assert_equal "RBS", prefix.ident
       assert_predicate prefix, :const_name?
@@ -64,21 +64,21 @@ class TypeNameCompletionTest < Minitest::Test
         end
       RBS
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil, dirs: [])
+      completion = Services::CompletionProvider::TypeName.new(env: factory.env, context: nil, dirs: [])
 
       # Returns all accessible type names from the context
       assert_equal [RBS::TypeName.parse("::Foo")], completion.find_type_names(nil)
 
       # Returns all type names that contains the identifier case-insensitively
-      assert_equal [RBS::TypeName.parse("::Foo::Bar"), RBS::TypeName.parse("::Foo::Bar::baz"), RBS::TypeName.parse("::Foo::Bar::_Quax")], completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("ba"))
+      assert_equal [RBS::TypeName.parse("::Foo::Bar"), RBS::TypeName.parse("::Foo::Bar::baz"), RBS::TypeName.parse("::Foo::Bar::_Quax")], completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::RawIdentPrefix.new("ba"))
 
       # Returns all type names that shares the prefix and contains the identifier case-insensitively
-      assert_equal [RBS::TypeName.parse("::Foo::Bar::baz")], completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("::Foo::Bar::"), "ba"))
+      assert_equal [RBS::TypeName.parse("::Foo::Bar::baz")], completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("::Foo::Bar::"), "ba"))
 
-      assert_equal [RBS::TypeName.parse("::Foo")], completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("::"), "Fo"))
+      assert_equal [RBS::TypeName.parse("::Foo")], completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("::"), "Fo"))
 
       # Returns all type names that shares the prefix
-      assert_equal [RBS::TypeName.parse("::Foo::Bar::baz"), RBS::TypeName.parse("::Foo::Bar::_Quax")], completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacePrefix.new(RBS::Namespace.parse("::Foo::Bar::")))
+      assert_equal [RBS::TypeName.parse("::Foo::Bar::baz"), RBS::TypeName.parse("::Foo::Bar::_Quax")], completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::NamespacePrefix.new(RBS::Namespace.parse("::Foo::Bar::")))
     end
   end
 
@@ -90,7 +90,7 @@ class TypeNameCompletionTest < Minitest::Test
       source = factory.env.each_rbs_source.find {|src| src.buffer.name.basename == Pathname("a.rbs") } or raise
       dirs = source.directives
 
-      completion = Services::TypeNameCompletion.new(
+      completion = Services::CompletionProvider::TypeName.new(
         env: factory.env,
         context: nil,
         dirs: dirs
@@ -115,7 +115,7 @@ class TypeNameCompletionTest < Minitest::Test
       source = factory.env.each_rbs_source.find {|src| src.buffer.name.basename == Pathname("a.rbs") } or raise
       dirs = source.directives
 
-      completion = Services::TypeNameCompletion.new(
+      completion = Services::CompletionProvider::TypeName.new(
         env: factory.env,
         context: nil,
         dirs: dirs
@@ -145,7 +145,7 @@ class TypeNameCompletionTest < Minitest::Test
       source = factory.env.each_rbs_source.find {|src| src.buffer.name.basename == Pathname("a.rbs") } or raise
       dirs = source.directives
 
-      completion = Services::TypeNameCompletion.new(
+      completion = Services::CompletionProvider::TypeName.new(
         env: factory.env,
         context: nil,
         dirs: dirs
@@ -174,7 +174,7 @@ class TypeNameCompletionTest < Minitest::Test
         end
       RBS
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: [nil, RBS::TypeName.parse("::Foo")], dirs: [])
+      completion = Services::CompletionProvider::TypeName.new(env: factory.env, context: [nil, RBS::TypeName.parse("::Foo")], dirs: [])
 
       assert_equal [RBS::TypeName.parse("::Foo::baz"), RBS::TypeName.parse("baz")], completion.resolve_name_in_context(RBS::TypeName.parse("::Foo::baz"))
       assert_equal [RBS::TypeName.parse("::Foo::Bar::baz"), RBS::TypeName.parse("Bar::baz")], completion.resolve_name_in_context(RBS::TypeName.parse("::Foo::Bar::baz"))
@@ -195,7 +195,7 @@ class TypeNameCompletionTest < Minitest::Test
       source = factory.env.each_rbs_source.find {|src| src.buffer.name.basename == Pathname("a.rbs") } or raise
       dirs = source.directives
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil, dirs: dirs)
+      completion = Services::CompletionProvider::TypeName.new(env: factory.env, context: nil, dirs: dirs)
 
       assert_operator completion.each_type_name, :include?, RBS::TypeName.parse("Foo")
       assert_operator completion.each_type_name, :include?, RBS::TypeName.parse("String")
@@ -205,9 +205,9 @@ class TypeNameCompletionTest < Minitest::Test
       assert_operator completion.find_type_names(nil), :include?, RBS::TypeName.parse("String")
       assert_operator completion.find_type_names(nil), :include?, RBS::TypeName.parse("::String")
 
-      assert_operator completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Foo")), :include?, RBS::TypeName.parse("Foo")
+      assert_operator completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::RawIdentPrefix.new("Foo")), :include?, RBS::TypeName.parse("Foo")
       assert_operator(
-        completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacePrefix.new(RBS::Namespace.parse("Long::"), 6)),
+        completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::NamespacePrefix.new(RBS::Namespace.parse("Long::"), 6)),
         :include?,
         RBS::TypeName.parse("Long::hello")
       )
@@ -230,16 +230,16 @@ class TypeNameCompletionTest < Minitest::Test
         class Baz = Foo::Bar
       RBS
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: nil, dirs: [])
+      completion = Services::CompletionProvider::TypeName.new(env: factory.env, context: nil, dirs: [])
 
       assert_equal(
         [RBS::TypeName.parse("::Baz::id")],
-        completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacePrefix.new(RBS::Namespace.parse("Baz::")))
+        completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::NamespacePrefix.new(RBS::Namespace.parse("Baz::")))
       )
 
       assert_equal(
         [RBS::TypeName.parse("::Baz::id")],
-        completion.find_type_names(Services::TypeNameCompletion::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("Baz::"), "i"))
+        completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::NamespacedIdentPrefix.new(RBS::Namespace.parse("Baz::"), "i"))
       )
     end
   end
@@ -261,20 +261,20 @@ class TypeNameCompletionTest < Minitest::Test
       source = factory.env.each_rbs_source.find {|src| src.buffer.name.basename == Pathname("a.rbs") } or raise
       dirs = source.directives
 
-      completion = Services::TypeNameCompletion.new(env: factory.env, context: [[nil, RBS::TypeName.parse("::Foo")], RBS::TypeName.parse("::Foo::Bar")], dirs: dirs)
+      completion = Services::CompletionProvider::TypeName.new(env: factory.env, context: [[nil, RBS::TypeName.parse("::Foo")], RBS::TypeName.parse("::Foo::Bar")], dirs: dirs)
 
       assert_operator(
-        completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Baz")),
+        completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::RawIdentPrefix.new("Baz")),
         :include?,
         RBS::TypeName.parse("Bar::Baz")
       )
       assert_operator(
-        completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Baz")),
+        completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::RawIdentPrefix.new("Baz")),
         :include?,
         RBS::TypeName.parse("::Bar::Baz")
       )
       assert_operator(
-        completion.find_type_names(Services::TypeNameCompletion::Prefix::RawIdentPrefix.new("Baz")),
+        completion.find_type_names(Services::CompletionProvider::TypeName::Prefix::RawIdentPrefix.new("Baz")),
         :include?,
         RBS::TypeName.parse("::Foo::Bar::Baz")
       )

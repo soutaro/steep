@@ -214,7 +214,6 @@ module Steep
                 end
               end
 
-
               content =
                 case file = sig_service.files.fetch(relative_path)
                 when RBS::Source::Ruby
@@ -223,9 +222,9 @@ module Steep
                   file.content
                 end
               buffer = RBS::Buffer.new(name: relative_path, content: content)
-              prefix = Services::TypeNameCompletion::Prefix.parse(buffer, line: job.line, column: job.column)
+              prefix = Services::CompletionProvider::TypeName::Prefix.parse(buffer, line: job.line, column: job.column)
 
-              completion = Services::TypeNameCompletion.new(env: sig_service.latest_env, context: context, dirs: dirs)
+              completion = Services::CompletionProvider::TypeName.new(env: sig_service.latest_env, context: context, dirs: dirs)
               type_names = completion.find_type_names(prefix)
               prefix_size = prefix ? prefix.size : 0
 

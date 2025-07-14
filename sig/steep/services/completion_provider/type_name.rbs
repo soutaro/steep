@@ -1,0 +1,138 @@
+use RBS::TypeName, RBS::Namespace, RBS::Environment, RBS::Resolver, RBS::AST::Directives
+
+module Steep
+  module Services
+    module CompletionProvider
+      class TypeName
+        module Prefix
+          type t = nil # no prefix
+                | RawIdentPrefix
+                | NamespacedIdentPrefix
+                | NamespacePrefix
+
+          # Uident or Lident is given, but no `::` (==namespace)
+          #
+          # ```
+          # Str←     Uident
+          # c←       Lident
+          # ```
+          #
+          class RawIdentPrefix
+            attr_reader ident: String
+
+            # Returns true if the `ident` is a Ruby class name
+            #
+            def const_name?: () -> bool
+
+            def initialize: (String ident) -> void
+
+            def size: () -> Integer
+          end
+
+          # Uident or Lident following a namespace
+          #
+          # ```
+          # ::L←         Uident
+          # RBS::Enviro← Uident
+          # ```
+          #
+          class NamespacedIdentPrefix
+            attr_reader namespace: Namespace
+
+            attr_reader ident: String
+
+            def const_name?: () -> bool
+
+            def initialize: (Namespace, String ident, Integer size) -> void
+
+            def size: () -> Integer
+          end
+
+          # Namespace is given
+          #
+          # ```
+          # RBS::←
+          # ::←
+          # ```
+          class NamespacePrefix
+            attr_reader namespace: Namespace
+
+            def initialize: (Namespace, Integer size) -> void
+
+            def size: () -> Integer
+          end
+
+          # line number is 1 origin (Rubyish)
+          #
+          def self.parse: (RBS::Buffer input, line: Integer, column: Integer) -> t
+        end
+
+        class Item
+          # The text to be completed
+          #
+          attr_reader complete_text: String
+
+          # The prefix
+          attr_reader prefix: Prefix::t?
+
+          # Name of the type or constant
+          #
+          attr_reader full_name: TypeName
+
+          # The text to be inserted after the prefix
+          #
+          def insert_text: () -> String
+
+          def initialize: (prefix: Prefix::t?, full_name: TypeName, complete_text: String) -> void
+        end
+
+        attr_reader env: Environment
+
+        attr_reader context: Resolver::context
+
+        attr_reader type_name_resolver: Resolver::TypeNameResolver
+
+        attr_reader map: Environment::UseMap
+
+        def initialize: (env: Environment, context: Resolver::context, dirs: Array[Directives::t]) -> void
+
+        def complete_class_name: (RBS::Buffer input, line: Integer, column: Integer) -> Array[Item]
+
+        # Find type names from the context for RBS
+        #
+        # Doesn't take account of ancestors of the context.
+        #
+        def find_type_names: (Prefix::t) -> Array[TypeName]
+
+        # Returns a pair of
+        #
+        # * Absolute type name
+        # * Relative type name in given context if possible (or absolute name)
+        #
+        def resolve_name_in_context: (TypeName) -> [TypeName, TypeName]
+
+        def format_constant_name: (TypeName) -> String
+
+        def resolve_used_name: (TypeName) -> TypeName?
+
+        private
+
+        # Yield type names defined in the environment
+        #
+        # * Yields an absolute type name if it is defined in the environment
+        # * Yields an relative type name if it is imported with `use` declarative
+        #
+        # Alias classes/modules and types under them are yielded.
+        #
+        def each_type_name: () { (TypeName) -> void } -> void
+                          | () -> Enumerator[TypeName, void]
+
+        def each_type_name_under: (TypeName module_name, TypeName normalized_name, table: Hash[Namespace, Array[TypeName]]) { (TypeName) -> void } -> void
+
+        def each_outer_module: (?Resolver::context) { (Namespace) -> void } -> Namespace
+                            | () -> Enumerator[Namespace, void]
+      end
+
+    end
+  end
+end
