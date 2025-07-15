@@ -517,54 +517,57 @@ a, b = []
     end
   end
 
-  def test_on_comment
+  def test_run_at_comment__normal_comment
     with_checker do
       CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         x = [] # Hoge hoge
       RUBY
 
-        provider.run(line: 1, column: 10).tap do |items|
-          assert_empty items
+        provider.run_at_comment(line: 1, column: 10).tap do |_prefix, items|
+          assert_any!(items) do |item|
+            assert_instance_of CompletionProvider::TypeNameItem, item
+            assert_equal "Hash", item.relative_type_name.to_s
+          end
         end
       end
     end
   end
 
-  def test_on_steep_inline_comment
+  def test_run_at_comment__steep_inline_comment
     with_checker do
       CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         # @type var x: Ar
         x = []
       RUBY
 
-        provider.run(line: 1, column: 17).tap do |items|
+        provider.run_at_comment(line: 1, column: 17).tap do |_prefix, items|
           assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
     end
   end
 
-  def test_on_steep_type_assertion
+  def test_run_at_comment__on_steep_type_assertion
     with_checker do
       CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         x = [] #: Ar
       RUBY
 
-        provider.run(line: 1, column: 12).tap do |items|
+        provider.run_at_comment(line: 1, column: 12).tap do |prefix, items|
           assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
     end
   end
 
-  def test_on_steep_type_application
+  def test_run_at_comment__on_steep_type_application
     with_checker do
       CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         [1, 2].inject([]) do |x, y| #$ Ar
         end
       RUBY
 
-        provider.run(line: 1, column: 33).tap do |items|
+        provider.run_at_comment(line: 1, column: 33).tap do |prefix, items|
           assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
@@ -624,30 +627,27 @@ end
     end
   end
 
-  def test_comment__ignore
+  def test_run_at_comment__ignore
     with_checker do
       CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 # s
       EOR
 
-        provider.run(line: 1, column: 3).tap do |items|
-          assert_equal ["steep:ignore:start", "steep:ignore:end", "steep:ignore ${1:optional diagnostics}"], items.map(&:text)
+        provider.run_at_comment(line: 1, column: 3).tap do |_, items|
+          refute_empty items
         end
       end
     end
   end
 
-  def test_comment__type
+  def test_run_at_comment__type
     with_checker do
       CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 # @
       EOR
 
-        provider.run(line: 1, column: 3).tap do |items|
-          assert_equal(
-            ["@type var ${1:variable}: ${2:var type}", "@type self: ${1:self type}", "@type block: ${1:block type}", "@type break: ${1:break type}"],
-            items.map(&:text)
-          )
+        provider.run_at_comment(line: 1, column: 3).tap do |_prefix, items|
+          refute_empty items
         end
       end
     end

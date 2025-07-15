@@ -53,13 +53,13 @@ class CompletionProvider__RubyTest < Minitest::Test
 
   def test_complex_method_name_item: () -> untyped
 
-  def test_on_comment: () -> untyped
+  def test_run_at_comment__normal_comment: () -> untyped
 
-  def test_on_steep_inline_comment: () -> untyped
+  def test_run_at_comment__steep_inline_comment: () -> untyped
 
-  def test_on_steep_type_assertion: () -> untyped
+  def test_run_at_comment__on_steep_type_assertion: () -> untyped
 
-  def test_on_steep_type_application: () -> untyped
+  def test_run_at_comment__on_steep_type_application: () -> untyped
 
   def test_first_keyword_argument: () -> untyped
 
@@ -67,9 +67,9 @@ class CompletionProvider__RubyTest < Minitest::Test
 
   def test_keyword_argument_block: () -> untyped
 
-  def test_comment__ignore: () -> untyped
+  def test_run_at_comment__ignore: () -> untyped
 
-  def test_comment__type: () -> untyped
+  def test_run_at_comment__type: () -> untyped
 
   def test_self_receiver_call_type: () -> untyped
 
