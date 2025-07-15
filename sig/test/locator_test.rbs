@@ -27,6 +27,8 @@ class LocatorTest < Minitest::Test
 
   def test_ruby__find__comment: () -> untyped
 
+  def test_ruby__find__comment__no_node: () -> untyped
+
   # @rbs (String, ?path: Pathname) -> RBS::Source::Ruby
   def parse_inline: (String, ?path: Pathname) -> RBS::Source::Ruby
 

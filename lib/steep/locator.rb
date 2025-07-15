@@ -83,8 +83,6 @@ module Steep
       end
 
       def find(line, column)
-        return unless source.node
-
         position = source.buffer.loc_to_pos([line, column])
 
         if nodes = source.find_heredoc_nodes(line, column, position)
@@ -98,8 +96,13 @@ module Steep
           return NodeResult.new(heredoc_node, parent_nodes)
         end
 
-        if node = find_ruby_node_in(position, source.node, [])
+        if source.node && node = find_ruby_node_in(position, source.node, [])
           ruby_result_from_node(node, position)
+        else
+          comment = source.comments.find { _1.location.expression.begin_pos <= position && position <= _1.location.expression.end_pos }
+          if comment
+            CommentResult.new(comment, nil)
+          end
         end
       end
 

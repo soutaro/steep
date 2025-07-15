@@ -265,6 +265,24 @@ end
     end
   end
 
+  def test_ruby__find__comment__no_node
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+      RBS
+
+      source = parse_ruby(<<-'RUBY', factory: factory)
+# Returns an integer
+      RUBY
+
+      locator = Locator::Ruby.new(source)
+
+      locator.find(1, 5).tap do |result|
+        assert_instance_of Locator::CommentResult, result
+        assert_equal "# Returns an integer", result.comment.location.expression.source
+        assert_nil result.node
+      end
+    end
+  end
+
   # @rbs (String, ?path: Pathname) -> RBS::Source::Ruby
   def parse_inline(source, path: Pathname("a.rb"))
     buffer = RBS::Buffer.new(name: path, content: source)

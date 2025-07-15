@@ -74,9 +74,9 @@ module Steep
     class CommentResult
       attr_reader comment: Parser::Source::Comment
 
-      attr_reader node: NodeResult
+      attr_reader node: NodeResult?
 
-      def initialize: (Parser::Source::Comment comment, NodeResult node) -> void
+      def initialize: (Parser::Source::Comment comment, NodeResult? node) -> void
     end
 
     type attachable_ast = RBS::AST::Ruby::Declarations::t | RBS::AST::Ruby::Members::t

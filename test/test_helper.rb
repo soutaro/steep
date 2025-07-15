@@ -74,6 +74,7 @@ module TestHelper
     assert collection.any?(&block)
   end
 
+  # @rbs [T] (_Enumerable[T], ?size: Integer) { (T) -> void } -> void
   def assert_any!(collection, size: nil, &block)
     errors = []
     count = 0

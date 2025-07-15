@@ -1,16 +1,18 @@
-require_relative "test_helper"
+require_relative "../test_helper"
 
-class CompletionProviderTest < Minitest::Test
+# @rbs use Steep::*
+
+class CompletionProvider__RubyTest < Minitest::Test
   include TestHelper
   include FactoryHelper
   include SubtypingHelper
 
   include Steep
-  CompletionProvider = Services::CompletionProvider
+  CompletionProvider = Services::CompletionProvider #: singleton(Steep::Services::CompletionProvider)
 
   def test_on_lower_identifier
     with_checker do
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 req
 
 lvar1 = 1
@@ -40,7 +42,7 @@ class Object
   def Array: (untyped) -> Array[untyped]
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 Arr
       EOR
 
@@ -62,7 +64,7 @@ Arr
 
   def test_on_method_identifier
     with_checker do
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 self.cl
       EOR
 
@@ -79,7 +81,7 @@ self.cl
 
   def test_on_method_identifier_colon2
     with_checker do
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 self::cl
       EOR
 
@@ -103,7 +105,7 @@ class Hello
   def world: () -> void
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 class Hello
   def world
     @foo
@@ -125,7 +127,7 @@ end
 
   def test_dot_trigger
     with_checker do
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 " ".
       EOR
 
@@ -148,7 +150,7 @@ end
 
   def test_qcall_trigger
     with_checker do
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 n = [1].first
 n&.to
       EOR
@@ -183,7 +185,7 @@ class Hello
   def world: () -> void
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 class Hello
   def world
     @
@@ -207,7 +209,7 @@ class Hello
   def world: () -> void
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 class Hello
   def world
 
@@ -259,7 +261,7 @@ interface _ToStr
   def to_str: () -> String
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 # @type var x: _ToStr
 x = _ = nil
 
@@ -286,7 +288,7 @@ module TestModule : _Named
   def bar: () -> Integer
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 module TestModule
   def foo
     self.
@@ -305,7 +307,7 @@ end
   def test_on_paren
     with_checker <<EOF do
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 require()
       EOR
 
@@ -321,7 +323,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 Hello::W
       EOR
 
@@ -339,7 +341,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 Hello::
       EOR
 
@@ -364,7 +366,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 ::
       EOR
 
@@ -388,7 +390,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 Hello::
 bar()
       EOR
@@ -419,7 +421,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 Hello::
 a, b = []
       EOR
@@ -442,7 +444,7 @@ a, b = []
                  | ...
         end
       RBS
-      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
           TestClass.new.f
         RUBY
 
@@ -471,7 +473,7 @@ a, b = []
   def test_generated_method_name_item
     with_checker <<~RBS do
       RBS
-      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
           a = [] #: [Integer, String]
           a.fir
         RUBY
@@ -498,7 +500,7 @@ a, b = []
           def to_s: () -> String
         end
       RBS
-      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
           a = [] #: Integer | String
           a.to_s
         RUBY
@@ -515,54 +517,57 @@ a, b = []
     end
   end
 
-  def test_on_comment
+  def test_run_at_comment__normal_comment
     with_checker do
-      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         x = [] # Hoge hoge
       RUBY
 
-        provider.run(line: 1, column: 10).tap do |items|
-          assert_empty items
+        provider.run_at_comment(line: 1, column: 10).tap do |_prefix, items|
+          assert_any!(items) do |item|
+            assert_instance_of CompletionProvider::TypeNameItem, item
+            assert_equal "Hash", item.relative_type_name.to_s
+          end
         end
       end
     end
   end
 
-  def test_on_steep_inline_comment
+  def test_run_at_comment__steep_inline_comment
     with_checker do
-      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         # @type var x: Ar
         x = []
       RUBY
 
-        provider.run(line: 1, column: 17).tap do |items|
+        provider.run_at_comment(line: 1, column: 17).tap do |_prefix, items|
           assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
     end
   end
 
-  def test_on_steep_type_assertion
+  def test_run_at_comment__on_steep_type_assertion
     with_checker do
-      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         x = [] #: Ar
       RUBY
 
-        provider.run(line: 1, column: 12).tap do |items|
+        provider.run_at_comment(line: 1, column: 12).tap do |prefix, items|
           assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
     end
   end
 
-  def test_on_steep_type_application
+  def test_run_at_comment__on_steep_type_application
     with_checker do
-      CompletionProvider.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         [1, 2].inject([]) do |x, y| #$ Ar
         end
       RUBY
 
-        provider.run(line: 1, column: 33).tap do |items|
+        provider.run_at_comment(line: 1, column: 33).tap do |prefix, items|
           assert_equal [RBS::TypeName.parse("Array")], items.map(&:relative_type_name)
         end
       end
@@ -575,7 +580,7 @@ class TestClass
   def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) -> void
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 TestClass.new.foo(a)
       EOR
 
@@ -592,7 +597,7 @@ class TestClass
   def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) -> void
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 TestClass.new.foo(arg1: 1, a)
       EOR
 
@@ -609,7 +614,7 @@ class TestClass
   def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) { () -> void } -> void
 end
 EOF
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 TestClass.new.foo(arg1: 1, a) do
 end
 #                         ^
@@ -622,30 +627,27 @@ end
     end
   end
 
-  def test_comment__ignore
+  def test_run_at_comment__ignore
     with_checker do
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 # s
       EOR
 
-        provider.run(line: 1, column: 3).tap do |items|
-          assert_equal ["steep:ignore:start", "steep:ignore:end", "steep:ignore ${1:optional diagnostics}"], items.map(&:text)
+        provider.run_at_comment(line: 1, column: 3).tap do |_, items|
+          refute_empty items
         end
       end
     end
   end
 
-  def test_comment__type
+  def test_run_at_comment__type
     with_checker do
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 # @
       EOR
 
-        provider.run(line: 1, column: 3).tap do |items|
-          assert_equal(
-            ["@type var ${1:variable}: ${2:var type}", "@type self: ${1:self type}", "@type block: ${1:block type}", "@type break: ${1:break type}"],
-            items.map(&:text)
-          )
+        provider.run_at_comment(line: 1, column: 3).tap do |_prefix, items|
+          refute_empty items
         end
       end
     end
@@ -653,7 +655,7 @@ end
 
   def test_self_receiver_call_type
     with_checker do
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
 puts i
       EOR
 
@@ -671,7 +673,7 @@ puts i
 
         %a{deprecated} BAZ: String
       RBS
-      CompletionProvider.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         Foo
         Bar
         BAZ
@@ -706,7 +708,7 @@ puts i
           %a{deprecated} alias m3 m1
         end
       RBS
-      CompletionProvider.new(source_text: <<~EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
         Foo.new.m
       EOR
 

@@ -82,6 +82,8 @@ module Steep
       def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> LanguageServer::Protocol::Interface::CompletionItem
 
       def format_completion_item: (CompletionProvider::item item) -> LanguageServer::Protocol::Interface::CompletionItem
+
+      def builtin_types: (Integer prefix_size, Integer line, Integer column) -> Array[LanguageServer::Protocol::Interface::CompletionItem]
     end
   end
 end
