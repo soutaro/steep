@@ -53,71 +53,6 @@ module Steep
               end
             end
 
-            if comment = at_comment?(position)
-              node, *parents = source.find_nodes(line: position.line, column: position.column)
-
-              case
-              when node&.type == :assertion
-                # continue
-                node or raise
-                assertion = node.children[1] #: AST::Node::TypeAssertion
-                return items_for_rbs(position: position, buffer: assertion.location.buffer)
-
-              when node && parents && tapp_node = ([node] + parents).find {|n| n.type == :tapp }
-                tapp = tapp_node.children[1] #: AST::Node::TypeApplication
-                type_range = tapp.type_location.range
-
-                if type_range.begin < index && index <= type_range.end
-                  return items_for_rbs(position: position, buffer: tapp.location.buffer)
-                end
-              else
-                annotation = source.each_annotation.flat_map {|_, annots| annots }.find do |a|
-                  if a.location
-                    a.location.start_pos < index && index <= a.location.end_pos
-                  end
-                end
-
-                if annotation
-                  annotation.location or raise
-                  return items_for_rbs(position: position, buffer: annotation.location.buffer)
-                end
-
-                comment_content = comment.text[1..] || ""
-                comment_content.strip!
-
-                range = Range.new(
-                  start: Position.new(line: line, column: column),
-                  end: Position.new(line: line, column: column)
-                )
-
-                items = [
-                  TextItem.new(label: "steep:ignore:start", text: "steep:ignore:start", help_text: "Open ignore block", range: range),
-                  TextItem.new(label: "steep:ignore:end", text: "steep:ignore:end", help_text: "Close ignore block", range: range),
-                  TextItem.new(label: "steep:ignore", text: "steep:ignore ${1:optional diagnostics}", help_text: "Ignore line", range: range),
-                  TextItem.new(label: "@type var x: T", text: "@type var ${1:variable}: ${2:var type}", help_text: "Type of local variable", range: range),
-                  TextItem.new(label: "@type self: T", text: "@type self: ${1:self type}", help_text: "Type of `self`", range: range),
-                  TextItem.new(label: "@type block: T", text: "@type block: ${1:block type}", help_text: "Type of `block`", range: range),
-                  TextItem.new(label: "@type break: T", text: "@type break: ${1:break type}", help_text: "Type of `block`", range: range),
-                ]
-
-                items = items.filter_map do |item|
-                  if item.text.start_with?(comment_content)
-                    TextItem.new(
-                      label: item.label,
-                      text: item.text,
-                      help_text: item.help_text,
-                      range: Range.new(
-                        start: Position.new(line: item.range.start.line, column: item.range.start.column - comment_content.size),
-                        end: item.range.end
-                      )
-                    )
-                  end
-                end
-
-                return items
-              end
-            end
-
             Steep.measure "completion item collection" do
               items_for_trigger(position: position)
             end
@@ -156,6 +91,73 @@ module Steep
               items = [] #: Array[item]
               items_for_following_keyword_arguments(source_text, index: index, line: line, column: column, items: items)
               items
+            end
+          end
+        end
+
+        def run_at_comment(line:, column:)
+          source_text = self.source_text.dup
+          index = index_for(source_text, line:line, column: column)
+          possible_trigger = source_text[index-1]
+
+          Steep.logger.debug "possible_trigger: #{possible_trigger.inspect}"
+
+          position = Position.new(line: line, column: column)
+
+          begin
+            Steep.logger.tagged "completion_provider#run(line: #{line}, column: #{column})" do
+              Steep.measure "type_check!" do
+                type_check!(source_text, line: line, column: column)
+              rescue Parser::SyntaxError
+                return
+              end
+            end
+
+            locator = Locator::Ruby.new(source)
+            case result = locator.find(line, column)
+            when Locator::CommentResult
+              buffer = typing.source.buffer
+
+              items = [] #: Array[item]
+
+              prefix_size, rbs_items = items_for_rbs(position: position, buffer: buffer)
+              items.concat rbs_items
+
+              comment_content = result.comment.text[1..] #: String
+
+              range = Range.new(
+                start: Position.new(line: line, column: column),
+                end: Position.new(line: line, column: column)
+              )
+
+              annotation_items = [
+                TextItem.new(label: "steep:ignore:start", text: "steep:ignore:start", help_text: "Open ignore block", range: range),
+                TextItem.new(label: "steep:ignore:end", text: "steep:ignore:end", help_text: "Close ignore block", range: range),
+                TextItem.new(label: "steep:ignore", text: "steep:ignore ${1:optional diagnostics}", help_text: "Ignore line", range: range),
+                TextItem.new(label: "@type var x: T", text: "@type var ${1:variable}: ${2:var type}", help_text: "Type of local variable", range: range),
+                TextItem.new(label: "@type self: T", text: "@type self: ${1:self type}", help_text: "Type of `self`", range: range),
+                TextItem.new(label: "@type block: T", text: "@type block: ${1:block type}", help_text: "Type of `block`", range: range),
+                TextItem.new(label: "@type break: T", text: "@type break: ${1:break type}", help_text: "Type of `block`", range: range),
+              ]
+
+              annotation_items.each do |item|
+                if item.text.start_with?(comment_content)
+                  items << TextItem.new(
+                    label: item.label,
+                    text: item.text,
+                    help_text: item.help_text,
+                    range: Range.new(
+                      start: Position.new(line: item.range.start.line, column: item.range.start.column - comment_content.size),
+                      end: item.range.end
+                    )
+                  )
+                end
+              end
+
+              [prefix_size, items]
+            when Locator::TypeApplicationResult, Locator::TypeAssertionResult, Locator::AnnotationResult
+              buffer = typing.source.buffer
+              items_for_rbs(position: position, buffer: buffer)
             end
           end
         end
@@ -414,11 +416,12 @@ module Steep
           range = Range.new(start: position - size, end: position)
 
           completion.find_type_names(prefix).each do |name|
-            absolute, relative = completion.resolve_name_in_context(name)
-            items << TypeNameItem.new(relative_type_name: relative, absolute_type_name: absolute, env: context.env, range: range)
+            if (absolute, relative = completion.resolve_name_in_context(name))
+              items << TypeNameItem.new(relative_type_name: relative, absolute_type_name: absolute, env: context.env, range: range)
+            end
           end
 
-          items
+          [size, items]
         end
 
         def items_for_following_keyword_arguments(text, index:, line:, column:, items:)

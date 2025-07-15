@@ -187,23 +187,24 @@ module Steep
           end
 
           name.absolute? or raise
-          normalized_name = env.normalize_type_name?(name) or raise "Cannot normalize given type name `#{name}`"
+          
+          if normalized_name = env.normalize_type_name?(name)
+            name.namespace.path.reverse_each.inject(::RBS::TypeName.new(namespace: ::RBS::Namespace.empty, name: name.name)) do |relative_name, component|
+              if type_name_resolver.resolve(relative_name, context: context) == name
+                return [normalized_name, relative_name]
+              end
 
-          name.namespace.path.reverse_each.inject(::RBS::TypeName.new(namespace: ::RBS::Namespace.empty, name: name.name)) do |relative_name, component|
-            if type_name_resolver.resolve(relative_name, context: context) == name
-              return [normalized_name, relative_name]
+              ::RBS::TypeName.new(
+                namespace: ::RBS::Namespace.new(path: [component, *relative_name.namespace.path], absolute: false),
+                name: name.name
+              )
             end
 
-            ::RBS::TypeName.new(
-              namespace: ::RBS::Namespace.new(path: [component, *relative_name.namespace.path], absolute: false),
-              name: name.name
-            )
-          end
-
-          if type_name_resolver.resolve(name.relative!, context: context) == name && !resolve_used_name(name.relative!)
-            [normalized_name, name.relative!]
-          else
-            [normalized_name, name]
+            if type_name_resolver.resolve(name.relative!, context: context) == name && !resolve_used_name(name.relative!)
+              [normalized_name, name.relative!]
+            else
+              [normalized_name, name]
+            end
           end
         end
 

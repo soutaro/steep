@@ -159,14 +159,20 @@ module Steep
               subtyping = service.signature_services.fetch(target.name).current_subtyping or return
 
               provider = Services::CompletionProvider::Ruby.new(source_text: file.content, path: job.path, subtyping: subtyping)
-              items = begin
-                        provider.run(line: job.line, column: job.column)
-                      rescue Parser::SyntaxError
-                        [] #: Array[Services::CompletionProvider::item]
-                      end
 
-              completion_items = items.map do |item|
-                format_completion_item(item)
+              if (prefix_size, items = provider.run_at_comment(line: job.line, column: job.column))
+                completion_items = items.map { format_completion_item(_1) }
+                completion_items.concat builtin_types(prefix_size, job.line, job.column)
+              else
+                items = begin
+                          provider.run(line: job.line, column: job.column)
+                        rescue Parser::SyntaxError
+                          [] #: Array[Services::CompletionProvider::item]
+                        end
+
+                completion_items = items.map do |item|
+                  format_completion_item(item)
+                end
               end
 
               Steep.logger.debug "items = #{completion_items.inspect}"
@@ -459,7 +465,7 @@ module Steep
       end
 
       def builtin_types(prefix_size, line, column)
-        ["untyped", "void", "bool", "class", "module", "instance", "nil"].map do |name|
+        ["untyped", "void", "bool", "class", "module", "instance", "nil", "top", "bot"].map do |name|
           LSP::Interface::CompletionItem.new(
             label: name,
             detail: "(builtin type)",

@@ -27,6 +27,8 @@ module Steep
 
         def run: (line: Integer, column: Integer) -> Array[item]
 
+        def run_at_comment: (line: Integer, column: Integer) -> [Integer, Array[item]]?
+
         def range_from_loc: (Parser::Source::Range loc) -> Range
 
         def at_comment?: (Position pos) -> Parser::Source::Comment?
@@ -45,7 +47,7 @@ module Steep
 
         def items_for_atmark: (position: Position) -> Array[item]
 
-        def items_for_rbs: (position: Position, buffer: Buffer) -> Array[item]
+        def items_for_rbs: (position: Position, buffer: Buffer) -> [Integer, Array[item]]
 
         def items_for_following_keyword_arguments: (String text, index: Integer, line: Integer, column: Integer, items: Array[item]) -> void
 

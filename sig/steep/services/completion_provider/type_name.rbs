@@ -109,7 +109,7 @@ module Steep
         # * Absolute type name
         # * Relative type name in given context if possible (or absolute name)
         #
-        def resolve_name_in_context: (TypeName) -> [TypeName, TypeName]
+        def resolve_name_in_context: (TypeName) -> [TypeName, TypeName]?
 
         def format_constant_name: (TypeName) -> String
 

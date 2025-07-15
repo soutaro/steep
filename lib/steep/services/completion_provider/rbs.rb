@@ -61,9 +61,10 @@ module Steep
 
           [
             prefix_size,
-            type_names.map do |type_name|
-              absolute_name, relative_name = completion.resolve_name_in_context(type_name)
-              [absolute_name, relative_name]
+            type_names.filter_map do |type_name|
+              if (absolute_name, relative_name = completion.resolve_name_in_context(type_name))
+                [absolute_name, relative_name]
+              end
             end
           ]
         end

@@ -56,8 +56,12 @@ module Steep
           RBS::Parser.parse_type(string)
         rescue RBS::ParsingError => exn
           raise SyntaxError.new(source: string, location: loc, exn: exn)
-        end or raise
+        end
 
+      unless type
+        raise SyntaxError.new(source: string, location: loc, message: "Failed to parse a type in annotation")
+      end
+      
       unless (type.location || raise).source == string.strip
         raise SyntaxError.new(source: string, location: loc, message: "Failed to parse a type in annotation")
       end
