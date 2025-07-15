@@ -1,4 +1,4 @@
-use RBS::TypeName, RBS::Namespace, RBS::Environment, RBS::Resolver, RBS::AST::Directives
+use RBS::TypeName, RBS::Namespace, RBS::Environment, RBS::Resolver, RBS::AST::Directives, RBS::Buffer
 
 module Steep
   module Services
@@ -64,7 +64,7 @@ module Steep
 
           # line number is 1 origin (Rubyish)
           #
-          def self.parse: (RBS::Buffer input, line: Integer, column: Integer) -> t
+          def self.parse: (Buffer input, line: Integer, column: Integer) -> t
         end
 
         class Item
@@ -96,7 +96,7 @@ module Steep
 
         def initialize: (env: Environment, context: Resolver::context, dirs: Array[Directives::t]) -> void
 
-        def complete_class_name: (RBS::Buffer input, line: Integer, column: Integer) -> Array[Item]
+        def complete_class_name: (Buffer input, line: Integer, column: Integer) -> Array[Item]
 
         # Find type names from the context for RBS
         #

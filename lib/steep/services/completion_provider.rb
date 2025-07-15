@@ -26,18 +26,18 @@ module Steep
 
         def comments
           case entry = env.constant_entry(full_name)
-          when RBS::Environment::ConstantEntry
+          when ::RBS::Environment::ConstantEntry
             [entry.decl.comment]
-          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+          when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
             entry.each_decl.map do |decl|
               case decl
-              when RBS::AST::Declarations::Base
+              when ::RBS::AST::Declarations::Base
                 decl.comment
-              when RBS::AST::Ruby::Declarations::Base
+              when ::RBS::AST::Ruby::Declarations::Base
                 nil
               end
             end
-          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+          when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
             [entry.decl.comment]
           else
             raise
@@ -46,11 +46,11 @@ module Steep
 
         def decl
           case entry = env.constant_entry(full_name)
-          when RBS::Environment::ConstantEntry
+          when ::RBS::Environment::ConstantEntry
             entry.decl
-          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+          when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
             entry.primary_decl
-          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+          when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
             entry.decl
           else
             raise
@@ -71,9 +71,9 @@ module Steep
 
         def comment
           case method_member
-          when RBS::AST::Members::Base
+          when ::RBS::AST::Members::Base
             method_member.comment
-          when RBS::AST::Ruby::Members::Base
+          when ::RBS::AST::Ruby::Members::Base
             nil
           end
         end
@@ -99,19 +99,19 @@ module Steep
 
         def defining_method_name(type_name, name, member)
           case member
-          when RBS::AST::Members::MethodDefinition
+          when ::RBS::AST::Members::MethodDefinition
             if member.instance?
               InstanceMethodName.new(type_name: type_name, method_name: name)
             else
               SingletonMethodName.new(type_name: type_name, method_name: name)
             end
-          when RBS::AST::Members::Attribute
+          when ::RBS::AST::Members::Attribute
             if member.kind == :instance
               InstanceMethodName.new(type_name: type_name, method_name: name)
             else
               SingletonMethodName.new(type_name: type_name, method_name: name)
             end
-          when RBS::AST::Ruby::Members::DefMember
+          when ::RBS::AST::Ruby::Members::DefMember
             InstanceMethodName.new(type_name: type_name, method_name: name)
           end
         end
@@ -130,9 +130,9 @@ module Steep
             env.type_alias_decls.fetch(absolute_type_name).decl
           when absolute_type_name.class?
             case entry = env.module_class_entry(absolute_type_name)
-            when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
               entry.primary_decl
-            when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
               entry.decl
             else
               raise "absolute_type_name=#{absolute_type_name}, relative_type_name=#{relative_type_name}"
@@ -156,18 +156,18 @@ module Steep
             end
           when absolute_type_name.class?
             case entry = env.module_class_entry(absolute_type_name)
-            when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            when ::RBS::Environment::ClassEntry, ::RBS::Environment::ModuleEntry
               entry.each_decl do |decl|
                 case decl
-                when RBS::AST::Declarations::Base
+                when ::RBS::AST::Declarations::Base
                   if comment = decl.comment
                     comments << comment
                   end
-                when RBS::AST::Ruby::Declarations::Base
+                when ::RBS::AST::Ruby::Declarations::Base
                   # noop
                 end
               end
-            when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            when ::RBS::Environment::ClassAliasEntry, ::RBS::Environment::ModuleAliasEntry
               if comment = entry.decl.comment
                 comments << comment
               end

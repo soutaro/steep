@@ -28,7 +28,7 @@ module Steep
 
           Steep.measure "typechecking" do
             location = source.buffer.loc_to_pos([line, column])
-            resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
+            resolver = ::RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
             @typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: location)
           end
         end
@@ -594,7 +594,7 @@ module Steep
                     kwargs = argument_nodes.find { |arg| arg.type == :kwargs }&.children || []
                     used_kwargs = kwargs.filter_map { |arg| arg.type == :pair && arg.children.first.children.first }
 
-                    if defn.type.type.is_a?(RBS::Types::UntypedFunction)
+                    if defn.type.type.is_a?(::RBS::Types::UntypedFunction)
                       kwargs = [] #: Array[Symbol]
                     else
                       kwargs = defn.type.type.required_keywords.keys + defn.type.type.optional_keywords.keys

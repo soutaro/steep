@@ -33,16 +33,16 @@ module Steep
             case prefix
             when /\A((::\w+[A-Z])+(::)?)/
               namespace = $1 or raise
-              NamespacePrefix.new(RBS::Namespace.parse(namespace.reverse), namespace.size)
+              NamespacePrefix.new(::RBS::Namespace.parse(namespace.reverse), namespace.size)
             when /\A::/
-              NamespacePrefix.new(RBS::Namespace.root, 2)
+              NamespacePrefix.new(::RBS::Namespace.root, 2)
             when /\A(\w*[A-Za-z_])((::\w+[A-Z])+(::)?)/
               namespace = $1 or raise
               identifier = $2 or raise
-              NamespacedIdentPrefix.new(RBS::Namespace.parse(identifier.reverse), namespace.reverse, namespace.size + identifier.size)
+              NamespacedIdentPrefix.new(::RBS::Namespace.parse(identifier.reverse), namespace.reverse, namespace.size + identifier.size)
             when /\A(\w*[A-Za-z_])::/
               namespace = $1 or raise
-              NamespacedIdentPrefix.new(RBS::Namespace.root, namespace.reverse, namespace.size + 2)
+              NamespacedIdentPrefix.new(::RBS::Namespace.root, namespace.reverse, namespace.size + 2)
             when /\A(\w*[A-Za-z_])/
               identifier = $1 or raise
               RawIdentPrefix.new(identifier.reverse)
@@ -56,24 +56,24 @@ module Steep
           @env = env
           @context = context
 
-          table = RBS::Environment::UseMap::Table.new()
+          table = ::RBS::Environment::UseMap::Table.new()
           table.known_types.merge(env.class_decls.keys)
           table.known_types.merge(env.class_alias_decls.keys)
           table.known_types.merge(env.type_alias_decls.keys)
           table.known_types.merge(env.interface_decls.keys)
           table.compute_children
 
-          @map = RBS::Environment::UseMap.new(table: table)
+          @map = ::RBS::Environment::UseMap.new(table: table)
           dirs.each do |dir|
             case dir
-            when RBS::AST::Directives::Use
+            when ::RBS::AST::Directives::Use
               dir.clauses.each do |clause|
                 @map.build_map(clause)
               end
             end
           end
 
-          @type_name_resolver = RBS::Resolver::TypeNameResolver.new(env)
+          @type_name_resolver = ::RBS::Resolver::TypeNameResolver.new(env)
         end
 
         def each_outer_module(context = self.context, &block)
@@ -83,14 +83,14 @@ module Steep
               case con
               when false
                 namespace
-              when RBS::TypeName
+              when ::RBS::TypeName
                 ns = con.with_prefix(namespace).to_namespace
                 yield(ns)
                 ns
               end
             else
-              yield(RBS::Namespace.root)
-              RBS::Namespace.root
+              yield(::RBS::Namespace.root)
+              ::RBS::Namespace.root
             end
           else
             enum_for :each_outer_module
@@ -101,7 +101,7 @@ module Steep
           if block
             env = self.env
 
-            table = {} #: Hash[RBS::Namespace, Array[RBS::TypeName]]
+            table = {} #: Hash[::RBS::Namespace, Array[::RBS::TypeName]]
             env.class_decls.each_key do |type_name|
               yield(type_name)
               (table[type_name.namespace] ||= []) << type_name
@@ -124,11 +124,11 @@ module Steep
               each_type_name_under(alias_name, normalized_name, table: table, &block)
             end
 
-            resolve_pairs = [] #: Array[[RBS::TypeName, RBS::TypeName]]
+            resolve_pairs = [] #: Array[[::RBS::TypeName, ::RBS::TypeName]]
 
             map.instance_eval do
               @map.each_key do |name|
-                relative_name = RBS::TypeName.new(name: name, namespace: RBS::Namespace.empty)
+                relative_name = ::RBS::TypeName.new(name: name, namespace: ::RBS::Namespace.empty)
                 if absolute_name = resolve?(relative_name)
                   if env.type_name?(absolute_name)
                     # Yields only if the relative type name resolves to existing absolute type name
@@ -152,7 +152,7 @@ module Steep
             module_namespace = module_name.to_namespace
 
             children.each do |normalized_child_name|
-              child_name = RBS::TypeName.new(namespace: module_namespace, name: normalized_child_name.name)
+              child_name = ::RBS::TypeName.new(namespace: module_namespace, name: normalized_child_name.name)
 
               yield child_name
 
@@ -173,7 +173,7 @@ module Steep
             nil
           else
             if resolved_parent = resolve_used_name(name.namespace.to_type_name)
-              resolved_name = RBS::TypeName.new(namespace: resolved_parent.to_namespace, name: name.name)
+              resolved_name = ::RBS::TypeName.new(namespace: resolved_parent.to_namespace, name: name.name)
               if env.normalize_type_name?(resolved_name)
                 resolved_name
               end
@@ -189,13 +189,13 @@ module Steep
           name.absolute? or raise
           normalized_name = env.normalize_type_name?(name) or raise "Cannot normalize given type name `#{name}`"
 
-          name.namespace.path.reverse_each.inject(RBS::TypeName.new(namespace: RBS::Namespace.empty, name: name.name)) do |relative_name, component|
+          name.namespace.path.reverse_each.inject(::RBS::TypeName.new(namespace: ::RBS::Namespace.empty, name: name.name)) do |relative_name, component|
             if type_name_resolver.resolve(relative_name, context: context) == name
               return [normalized_name, relative_name]
             end
 
-            RBS::TypeName.new(
-              namespace: RBS::Namespace.new(path: [component, *relative_name.namespace.path], absolute: false),
+            ::RBS::TypeName.new(
+              namespace: ::RBS::Namespace.new(path: [component, *relative_name.namespace.path], absolute: false),
               name: name.name
             )
           end
@@ -216,7 +216,7 @@ module Steep
           when Prefix::NamespacedIdentPrefix
             absolute_namespace =
               if prefix.namespace.empty?
-                RBS::Namespace.root
+                ::RBS::Namespace.root
               else
                 type_name_resolver.resolve(prefix.namespace.to_type_name, context: context)&.to_namespace || prefix.namespace
               end

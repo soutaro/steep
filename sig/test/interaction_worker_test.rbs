@@ -19,7 +19,8 @@ class InteractionWorkerTest < Minitest::Test
 
   include Server::CustomMethods
 
-  def run_worker: (untyped worker) -> untyped
+  # @rbs (Server::InteractionWorker) { (Thread) -> void } -> void
+  def run_worker: (Server::InteractionWorker) { (Thread) -> void } -> void
 
   def shutdown!: () -> untyped
 

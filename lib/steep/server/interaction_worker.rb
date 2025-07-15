@@ -179,82 +179,14 @@ module Steep
               sig_service = service.signature_services[target.name] or raise
               relative_path = job.path
 
-              context = nil #: RBS::Resolver::context
+              completion = Services::CompletionProvider::RBS.new(relative_path, sig_service)
+              prefix_size, type_names = completion.run(job.line, job.column)
 
-              case sig_service.status
-              when Services::SignatureService::SyntaxErrorStatus, Services::SignatureService::AncestorErrorStatus
-                if source = sig_service.latest_env.each_rbs_source.find { _1.buffer.name == relative_path }
-                  dirs = source.directives
-                else
-                  dirs = [] #: Array[RBS::AST::Directives::t]
-                end
-              else
-                file = sig_service.files.fetch(relative_path)
-                file.is_a?(Services::SignatureService::RBSFileStatus) or raise
-                source = file.source
-                source.is_a?(RBS::Source::RBS) or raise
-                buffer = source.buffer
-                dirs = source.directives
-                decls = source.declarations
-
-                locator = RBS::Locator.new(buffer: buffer, dirs: dirs, decls: decls)
-
-                _hd, tail = locator.find2(line: job.line, column: job.column)
-                tail ||= [] #: Array[RBS::Locator::component]
-
-                tail.reverse_each do |t|
-                  case t
-                  when RBS::AST::Declarations::Module, RBS::AST::Declarations::Class
-                    if (last_type_name = context&.[](1)).is_a?(RBS::TypeName)
-                      context = [context, last_type_name + t.name]
-                    else
-                      context = [context, t.name.absolute!]
-                    end
-                  end
-                end
-              end
-
-              content =
-                case file = sig_service.files.fetch(relative_path)
-                when RBS::Source::Ruby
-                  file.buffer.content
-                when Services::SignatureService::RBSFileStatus
-                  file.content
-                end
-              buffer = RBS::Buffer.new(name: relative_path, content: content)
-              prefix = Services::CompletionProvider::TypeName::Prefix.parse(buffer, line: job.line, column: job.column)
-
-              completion = Services::CompletionProvider::TypeName.new(env: sig_service.latest_env, context: context, dirs: dirs)
-              type_names = completion.find_type_names(prefix)
-              prefix_size = prefix ? prefix.size : 0
-
-              completion_items = type_names.map do |type_name|
-                absolute_name, relative_name = completion.resolve_name_in_context(type_name)
+              completion_items = type_names.map do |absolute_name, relative_name|
                 format_completion_item_for_rbs(sig_service, absolute_name, job, relative_name.to_s, prefix_size)
               end
 
-              ["untyped", "void", "bool", "class", "module", "instance", "nil"].each do |name|
-                completion_items << LSP::Interface::CompletionItem.new(
-                  label: name,
-                  detail: "(builtin type)",
-                  text_edit: LSP::Interface::TextEdit.new(
-                    range: LSP::Interface::Range.new(
-                      start: LSP::Interface::Position.new(
-                        line: job.line - 1,
-                        character: job.column - prefix_size
-                      ),
-                      end: LSP::Interface::Position.new(
-                        line: job.line - 1,
-                        character: job.column
-                      )
-                    ),
-                    new_text: name
-                  ),
-                  kind: LSP::Constant::CompletionItemKind::KEYWORD,
-                  filter_text: name,
-                  sort_text: "zz__#{name}"
-                )
-              end
+              completion_items.concat(builtin_types(prefix_size, job.line, job.column))
 
               LSP::Interface::CompletionList.new(
                 is_incomplete: !sig_service.status.is_a?(Services::SignatureService::LoadedStatus),
@@ -524,6 +456,31 @@ module Steep
       rescue Parser::SyntaxError
         # Reuse the latest result to keep SignatureHelp opened while typing
         @last_signature_help_result if @last_signature_help_line == job.line
+      end
+
+      def builtin_types(prefix_size, line, column)
+        ["untyped", "void", "bool", "class", "module", "instance", "nil"].map do |name|
+          LSP::Interface::CompletionItem.new(
+            label: name,
+            detail: "(builtin type)",
+            text_edit: LSP::Interface::TextEdit.new(
+              range: LSP::Interface::Range.new(
+                start: LSP::Interface::Position.new(
+                  line: line - 1,
+                  character: column - prefix_size
+                ),
+                end: LSP::Interface::Position.new(
+                  line: line - 1,
+                  character: column
+                )
+              ),
+              new_text: name
+            ),
+            kind: LSP::Constant::CompletionItemKind::KEYWORD,
+            filter_text: name,
+            sort_text: "zz__#{name}"
+          )
+        end
       end
     end
   end

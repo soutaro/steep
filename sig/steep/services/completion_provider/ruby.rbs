@@ -1,4 +1,4 @@
-use RBS::Environment, RBS::TypeName
+use RBS::Environment, RBS::TypeName, RBS::Buffer
 use Steep::TypeInference::MethodCall
 
 module Steep
@@ -45,7 +45,7 @@ module Steep
 
         def items_for_atmark: (position: Position) -> Array[item]
 
-        def items_for_rbs: (position: Position, buffer: RBS::Buffer) -> Array[item]
+        def items_for_rbs: (position: Position, buffer: Buffer) -> Array[item]
 
         def items_for_following_keyword_arguments: (String text, index: Integer, line: Integer, column: Integer, items: Array[item]) -> void
 

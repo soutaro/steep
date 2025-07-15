@@ -15,6 +15,7 @@ class InteractionWorkerTest < Minitest::Test
 
   include Server::CustomMethods
 
+  # @rbs (Server::InteractionWorker) { (Thread) -> void } -> void
   def run_worker(worker)
     t = Thread.new do
       worker.run()

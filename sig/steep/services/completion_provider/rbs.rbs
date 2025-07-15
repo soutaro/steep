@@ -1,0 +1,17 @@
+module Steep
+  module Services
+    module CompletionProvider
+      class RBS
+        attr_reader project: Project
+
+        attr_reader signature: SignatureService
+
+        attr_reader path: Pathname
+
+        def initialize: (Pathname path, SignatureService) -> void
+
+        def run: (Integer line, Integer column) -> [Integer, Array[[::RBS::TypeName, ::RBS::TypeName]]]
+      end
+    end
+  end
+end
