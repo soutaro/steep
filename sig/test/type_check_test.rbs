@@ -21,10 +21,11 @@ class TypeCheckTest < Minitest::Test
 
   # @rbs signatures: Hash[String, String]
   # @rbs code: Hash[String, String]
+  # @rbs inline_code: Hash[String, String]
   # @rbs expectations: String?
   # @rbs &block: ? (Hash[String, Steep::Typing]) -> void
   # @rbs return: void
-  def run_type_check_test: (?signatures: Hash[String, String], ?code: Hash[String, String], ?expectations: String?) ?{ (Hash[String, Steep::Typing]) -> void } -> void
+  def run_type_check_test: (?signatures: Hash[String, String], ?code: Hash[String, String], ?inline_code: Hash[String, String], ?expectations: String?) ?{ (Hash[String, Steep::Typing]) -> void } -> void
 
   def test_setter_type: () -> untyped
 
@@ -243,4 +244,6 @@ class TypeCheckTest < Minitest::Test
   def test_unnamed_splat_method_definition: () -> untyped
 
   def test_unnamed_kwsplat_method_definition: () -> untyped
+
+  def test_inline__module_include: () -> untyped
 end

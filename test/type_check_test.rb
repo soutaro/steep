@@ -18,17 +18,18 @@ class TypeCheckTest < Minitest::Test
 
   # @rbs signatures: Hash[String, String]
   # @rbs code: Hash[String, String]
+  # @rbs inline_code: Hash[String, String]
   # @rbs expectations: String?
   # @rbs &block: ? (Hash[String, Steep::Typing]) -> void
   # @rbs return: void
-  def run_type_check_test(signatures: {}, code: {}, expectations: nil, &block)
+  def run_type_check_test(signatures: {}, code: {}, inline_code: {}, expectations: nil, &block)
     typings = {}
 
-    with_factory(signatures, nostdlib: false) do |factory|
+    with_factory(signatures, inline_code, nostdlib: false) do |factory|
       builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
       subtyping = Subtyping::Check.new(builder: builder)
 
-      code.each do |path, content|
+      code.merge(inline_code).each do |path, content|
         source = Source.parse(content, path: Pathname(path), factory: factory)
         with_standard_construction(subtyping, source) do |construction, typing|
           if source.node
@@ -3917,6 +3918,42 @@ class TypeCheckTest < Minitest::Test
         ---
         - file: a.rb
           diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline__module_include
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          module M[T]
+            def foo: () -> T
+          end
+        RBS
+      },
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            include M #[String]
+          end
+
+          Foo.new.foo.bar
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 12
+              end:
+                line: 5
+                character: 15
+            severity: ERROR
+            message: Type `::String` does not have method `bar`
+            code: Ruby::NoMethod
       YAML
     )
   end
