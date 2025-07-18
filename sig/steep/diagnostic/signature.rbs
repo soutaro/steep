@@ -205,11 +205,11 @@ module Steep
       end
 
       class MixinClassError < Base
-        attr_reader member: RBS::AST::Members::Include | RBS::AST::Members::Extend | RBS::AST::Members::Prepend
+        attr_reader member: RBS::MixinClassError::member
 
         attr_reader type_name: RBS::TypeName
 
-        def initialize: (location: location?, member: RBS::AST::Members::Include | RBS::AST::Members::Extend | RBS::AST::Members::Prepend, type_name: RBS::TypeName) -> void
+        def initialize: (location: location?, member: RBS::MixinClassError::member, type_name: RBS::TypeName) -> void
 
         def header_line: () -> String
 
