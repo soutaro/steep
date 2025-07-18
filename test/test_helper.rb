@@ -72,9 +72,9 @@ module TestHelper
 
   def assert_any(collection, &block)
     assert collection.any?(&block)
-  end
+  end 
 
-  # @rbs [T] (_Enumerable[T], ?size: Integer) { (T) -> void } -> void
+  # @rbs [T] (_Each[T], ?size: Integer) { (T) -> void } -> void
   def assert_any!(collection, size: nil, &block)
     errors = []
     count = 0
