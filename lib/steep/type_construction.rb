@@ -2687,7 +2687,6 @@ module Steep
           end
         end
       rescue RBS::BaseError => exn
-        Steep.logger.warn("hello")
         Steep.logger.warn { "Unexpected RBS error: #{exn.message}" }
         exn.backtrace&.each {|loc| Steep.logger.warn "  #{loc}" }
         typing.add_error(Diagnostic::Ruby::UnexpectedError.new(node: node, error: exn))

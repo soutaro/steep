@@ -55,7 +55,6 @@ module Steep
         def initialize: (name: RBS::TypeName, args: Array[AST::Types::t], params: Array[Symbol], location: location?) -> void
 
         def header_line: () -> String
-
       end
 
       class UnsatisfiableTypeApplication < Base
