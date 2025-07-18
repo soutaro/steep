@@ -425,4 +425,58 @@ end
       end
     end
   end
+
+  def test_inline__mixin_type_application
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+module Enumerable[T]
+end
+
+class Array[T]
+  include Enumerable[T]
+end
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+class Foo
+  include Enumerable #[String]
+  
+  extend Enumerable #[Integer]
+  
+  prepend Enumerable #[Symbol]
+end
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      # Test finding on 'String' type name in include type application
+      locator.find(2, 24).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::String", result.type_name.to_s
+      end
+
+      # Test finding on 'Integer' type name in extend type application  
+      locator.find(4, 24).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Integer", result.type_name.to_s
+      end
+
+      # Test finding on 'Symbol' type name in prepend type application
+      locator.find(6, 23).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Symbol", result.type_name.to_s
+      end
+
+      # Test finding on the type application annotation itself
+      locator.find(2, 22).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal "[String]", result.annotation.location.source
+      end
+    end
+  end
 end
