@@ -39,4 +39,6 @@ class LocatorTest < Minitest::Test
   def test_inline__annotation__colon: () -> untyped
 
   def test_inline__annotation__method_type: () -> untyped
+
+  def test_inline__mixin_type_application: () -> untyped
 end

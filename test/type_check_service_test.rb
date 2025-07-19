@@ -594,4 +594,97 @@ RBS
       end
     end
   end
+
+  def test_update__inline__mixin_unknown_type_name
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+module M[T]
+  def foo: () -> T
+end
+RBS
+      Pathname("lib/inline.rb") => [ContentChange.string(<<RUBY)],
+class Example
+  include M #[Str]
+end
+RUBY
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      assert_operator service.source_files, :key?, Pathname("lib/inline.rb")
+      assert_operator service, :signature_file?, Pathname("lib/inline.rb")
+      assert_operator service, :source_file?, Pathname("lib/inline.rb")
+    end
+
+    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+    end
+
+    service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal ::RBS::TypeName.parse("Str"), error.name
+        assert_equal "Cannot find type `Str`", error.header_line
+      end
+    end
+  end
+
+  def test_update__inline__mixin_passing_unexpected_type_arguments
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib/inline.rb") => [ContentChange.string(<<RBS)],
+module M
+end
+
+class A
+  include M #[String, Integer]
+end
+
+class B
+  extend M #[String]
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      assert_operator service.source_files, :key?, Pathname("lib/inline.rb")
+      assert_operator service, :signature_file?, Pathname("lib/inline.rb")
+      assert_operator service, :source_file?, Pathname("lib/inline.rb")
+    end
+
+    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Ruby::UnexpectedError, error
+        assert_instance_of RBS::InvalidTypeApplicationError, error.error
+      end
+    end
+
+    service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+
+      # Check for too many type arguments error
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
+        assert_equal ::RBS::TypeName.new(name: :M, namespace: RBS::Namespace.root), error.name
+        assert_equal 2, error.args.size
+        assert_equal [], error.params
+        assert_equal "include M", error.location.source
+        assert_equal "Type `::M` is not generic but used as a generic type with 2 arguments", error.header_line
+      end
+
+      # Check for too few type arguments error
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
+        assert_equal ::RBS::TypeName.new(name: :M, namespace: RBS::Namespace.root), error.name
+        assert_equal 1, error.args.size
+        assert_equal [], error.params
+        assert_equal "extend M", error.location.source
+        assert_equal "Type `::M` is not generic but used as a generic type with 1 arguments", error.header_line
+      end
+    end
+  end
 end

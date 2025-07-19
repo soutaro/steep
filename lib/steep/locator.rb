@@ -216,6 +216,12 @@ module Steep
               end
             end
           end
+        when RBS::AST::Ruby::Members::IncludeMember, RBS::AST::Ruby::Members::ExtendMember, RBS::AST::Ruby::Members::PrependMember
+          if ast.annotation.is_a?(RBS::AST::Ruby::Annotations::TypeApplicationAnnotation)
+            if ast.annotation.location.start_pos <= position && position <= ast.annotation.location.end_pos
+              return InlineAnnotationResult.new(ast.annotation, ast)
+            end
+          end
         end
 
         nil
@@ -258,6 +264,17 @@ module Steep
             if type
               type_result = InlineTypeResult.new(type, result)
             end
+          end
+        when RBS::AST::Ruby::Annotations::TypeApplicationAnnotation
+          # Find type argument that contains the position
+          type = result.annotation.type_args.find do |type_arg|
+            if type_location = type_arg.location
+              type_location.start_pos <= position && position <= type_location.end_pos
+            end
+          end
+
+          if type
+            type_result = InlineTypeResult.new(type, result)
           end
         end
 

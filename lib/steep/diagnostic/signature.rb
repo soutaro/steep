@@ -343,19 +343,27 @@ module Steep
         end
 
         def header_line
-          "Cannot #{mixin_name} a class `#{member.name}` in the definition of `#{type_name}`"
+          member_name = case member
+                        when RBS::AST::Members::Include, RBS::AST::Members::Extend, RBS::AST::Members::Prepend
+                          member.name
+                        when RBS::AST::Ruby::Members::IncludeMember, RBS::AST::Ruby::Members::ExtendMember, RBS::AST::Ruby::Members::PrependMember
+                          member.module_name
+                        end
+          "Cannot #{mixin_name} a class `#{member_name}` in the definition of `#{type_name}`"
         end
 
         private
 
         def mixin_name
           case mem = member
-          when RBS::AST::Members::Prepend
+          when RBS::AST::Members::Prepend, RBS::AST::Ruby::Members::PrependMember
             "prepend"
-          when RBS::AST::Members::Include
+          when RBS::AST::Members::Include, RBS::AST::Ruby::Members::IncludeMember
             "include"
-          when RBS::AST::Members::Extend
+          when RBS::AST::Members::Extend, RBS::AST::Ruby::Members::ExtendMember
             "extend"
+          else
+            raise "Unknown mixin type: #{mem.class}"
           end
         end
       end

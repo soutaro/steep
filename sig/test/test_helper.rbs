@@ -25,8 +25,8 @@ module TestHelper
 
   def assert_any: (untyped collection) ?{ (?) -> untyped } -> untyped
 
-  # @rbs [T] (_Enumerable[T], ?size: Integer) { (T) -> void } -> void
-  def assert_any!: [T] (_Enumerable[T], ?size: Integer) { (T) -> void } -> void
+  # @rbs [T] (_Each[T], ?size: Integer) { (T) -> void } -> void
+  def assert_any!: [T] (_Each[T], ?size: Integer) { (T) -> void } -> void
 
   def assert_all: (untyped collection) ?{ (?) -> untyped } -> untyped
 
