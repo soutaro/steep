@@ -2186,6 +2186,39 @@ EOF
     end
   end
 
+  def test_or_asgn_type_refinement
+    with_checker(<<~RBS) do |checker|
+        class TestNode
+          attr_reader values(): Array[untyped] | nil
+          def values=: (Array[untyped] | nil) -> Array[untyped]
+        end
+      RBS
+      source = parse_ruby(<<~EOF)
+        node = TestNode.new
+
+        # After this line, node.values should be refined from Array[untyped] | nil to Array[untyped]
+        node.values ||= []
+
+        # This should work without error since ||= guarantees non-nil
+        node.values << "test"
+      EOF
+      # This works:
+      # source = parse_ruby(<<~EOF)
+      #   node = TestNode.new
+      #   if node.values
+      #     node.values << "test"
+      #   else
+      #     node.values = ["test"]
+      #   end
+      # EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_equal 0, typing.errors.size
+      end
+    end
+  end
+
   def test_next
     with_checker do |checker|
       source = parse_ruby(<<-'EOF')
