@@ -100,7 +100,7 @@ GEM
     rdoc (6.14.2)
       erb
       psych (>= 4.0.0)
-    reline (0.6.1)
+    reline (0.6.2)
       io-console (~> 0.5)
     securerandom (0.4.1)
     stackprof (0.2.27)
