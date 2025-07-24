@@ -111,7 +111,7 @@ module Steep
             else
               SingletonMethodName.new(type_name: type_name, method_name: name)
             end
-          when ::RBS::AST::Ruby::Members::DefMember
+          when ::RBS::AST::Ruby::Members::DefMember, ::RBS::AST::Ruby::Members::AttributeMember
             InstanceMethodName.new(type_name: type_name, method_name: name)
           end
         end
