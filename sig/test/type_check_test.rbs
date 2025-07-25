@@ -246,4 +246,6 @@ class TypeCheckTest < Minitest::Test
   def test_unnamed_kwsplat_method_definition: () -> untyped
 
   def test_inline__module_include: () -> untyped
+
+  def test_inline__attributes: () -> untyped
 end

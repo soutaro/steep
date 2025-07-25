@@ -3957,4 +3957,56 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_inline__attributes
+    run_type_check_test(
+      signatures: {},
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            attr_reader :foo
+
+            attr_writer :bar #: Integer
+
+            # @rbs skip
+            attr_accessor :baz
+          end
+
+          foo = Foo.new
+          foo.foo.bar
+          foo.bar = ""
+          foo.baz
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 12
+                character: 10
+              end:
+                line: 12
+                character: 12
+            severity: ERROR
+            message: |-
+              Cannot pass a value of type `::String` as an argument of type `::Integer`
+                ::String <: ::Integer
+                  ::Object <: ::Integer
+                    ::BasicObject <: ::Integer
+            code: Ruby::ArgumentTypeMismatch
+          - range:
+              start:
+                line: 13
+                character: 4
+              end:
+                line: 13
+                character: 7
+            severity: ERROR
+            message: Type `::Foo` does not have method `baz`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
