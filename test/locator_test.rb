@@ -441,9 +441,9 @@ end
       env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
 class Foo
   include Enumerable #[String]
-  
+
   extend Enumerable #[Integer]
-  
+
   prepend Enumerable #[Symbol]
 end
       RUBY
@@ -460,7 +460,7 @@ end
         assert_equal "::String", result.type_name.to_s
       end
 
-      # Test finding on 'Integer' type name in extend type application  
+      # Test finding on 'Integer' type name in extend type application
       locator.find(4, 24).tap do |result|
         assert_instance_of Locator::InlineTypeNameResult, result
         assert_equal "::Integer", result.type_name.to_s
@@ -476,6 +476,115 @@ end
       locator.find(2, 22).tap do |result|
         assert_instance_of Locator::InlineAnnotationResult, result
         assert_equal "[String]", result.annotation.location.source
+      end
+    end
+  end
+
+  def test_inline__attr_reader
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+class Foo
+  attr_reader :name #: String
+  attr_reader :age #: Integer?
+  attr_writer :email #: String?
+end
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      # Test finding on the type annotation for :name
+      locator.find(2, 22).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": String", result.annotation.location.source
+      end
+
+      # Test finding on 'String' type in :name annotation
+      locator.find(2, 26).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::String", result.type_name.to_s
+      end
+
+      # Test finding on the type annotation for :age
+      locator.find(3, 21).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": Integer?", result.annotation.location.source
+      end
+
+      # Test finding on 'Integer' type in :age annotation
+      locator.find(3, 26).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Integer", result.type_name.to_s
+      end
+
+      # Test finding on the type annotation for :email
+      locator.find(4, 23).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": String?", result.annotation.location.source
+      end
+
+      # Test finding on 'String' type in :email annotation
+      locator.find(4, 27).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::String", result.type_name.to_s
+      end
+    end
+  end
+
+  def test_inline__attr_accessor
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+class Foo
+  attr_accessor :count #: Integer
+  attr_accessor :items #: Array[String]
+end
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      # Test finding on the type annotation for :count
+      locator.find(2, 24).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": Integer", result.annotation.location.source
+      end
+
+      # Test finding on 'Integer' type in :count annotation
+      locator.find(2, 28).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Integer", result.type_name.to_s
+      end
+
+      # Test finding on the type annotation for :items
+      locator.find(3, 24).tap do |result| 
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": Array[String]", result.annotation.location.source
+      end
+
+      # Test finding on 'Array' type name in :items annotation
+      locator.find(3, 28).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Array", result.type_name.to_s
+      end
+
+      # Test finding on 'String' type name in :items annotation
+      locator.find(3, 34).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::String", result.type_name.to_s
       end
     end
   end

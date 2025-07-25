@@ -222,6 +222,12 @@ module Steep
               return InlineAnnotationResult.new(ast.annotation, ast)
             end
           end
+        when RBS::AST::Ruby::Members::AttrReaderMember, RBS::AST::Ruby::Members::AttrWriterMember, RBS::AST::Ruby::Members::AttrAccessorMember
+          if annotation = ast.type_annotation
+            if annotation.location.start_pos <= position && position <= annotation.location.end_pos
+              return InlineAnnotationResult.new(annotation, ast)
+            end
+          end
         end
 
         nil
@@ -275,6 +281,13 @@ module Steep
 
           if type
             type_result = InlineTypeResult.new(type, result)
+          end
+        when RBS::AST::Ruby::Annotations::NodeTypeAssertion
+          # Handle type annotations for attr_reader/writer/accessor
+          if type_location = result.annotation.type.location
+            if type_location.start_pos <= position && position <= type_location.end_pos
+              type_result = InlineTypeResult.new(result.annotation.type, result)
+            end
           end
         end
 
