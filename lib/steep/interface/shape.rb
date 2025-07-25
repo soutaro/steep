@@ -47,7 +47,7 @@ module Steep
                     # Call the `self?` method an instance method, because the definition is done with instance method definition, not with singleton method
                     InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
                   end
-                when RBS::AST::Ruby::Members::DefMember
+                when RBS::AST::Ruby::Members::DefMember, RBS::AST::Ruby::Members::AttributeMember
                   InstanceMethodName.new(type_name: defn.defined_in, method_name: name)
                 end
             end

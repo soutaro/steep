@@ -41,4 +41,8 @@ class LocatorTest < Minitest::Test
   def test_inline__annotation__method_type: () -> untyped
 
   def test_inline__mixin_type_application: () -> untyped
+
+  def test_inline__attr_reader: () -> untyped
+
+  def test_inline__attr_accessor: () -> untyped
 end

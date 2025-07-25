@@ -174,7 +174,7 @@ module Steep
           block_context: block_context,
           break_context: break_context,
           module_context: module_context,
-          self_type: self_type,
+          self_type: self_type, # steep:ignore ArgumentTypeMismatch
           type_env: type_env,
           call_context: call_context,
           variable_context: variable_context
