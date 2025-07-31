@@ -588,4 +588,49 @@ end
       end
     end
   end
+
+  def test_inline__inheritance_super_class
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+class Parent
+end
+
+class GenericParent[T]
+end
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+class Child < Parent
+end
+
+class GenericChild < GenericParent #[String]
+end
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      # Test finding on 'Parent' in inheritance
+      locator.find(1, 15).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Parent", result.type_name.to_s
+      end
+
+      # Test finding on 'GenericParent' in inheritance
+      locator.find(4, 22).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::GenericParent", result.type_name.to_s
+      end
+
+      # Test finding on 'String' type argument
+      locator.find(4, 38).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::String", result.type_name.to_s
+      end
+    end
+  end
 end
