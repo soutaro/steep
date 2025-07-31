@@ -4009,4 +4009,46 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_inline__inheritance
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Parent
+            def foo: () -> String
+          end
+
+          class GenericParent[T]
+            def bar: () -> T
+          end
+        RBS
+      },
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class Child < Parent
+            def call_foo
+              foo
+            end
+          end
+
+          class GenericChild < GenericParent #[Integer]
+            def call_bar
+              bar + 1
+            end
+          end
+
+          class StringChild < GenericParent #[String]
+            def call_bar
+              bar + "!"
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
