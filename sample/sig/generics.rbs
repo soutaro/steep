@@ -13,3 +13,6 @@ class StringGeneric[X < Integer, Y < Integer = String]
   extend LocationHelper
 end
 
+class HelloWorld[T]
+  def hello_world: () -> T
+end

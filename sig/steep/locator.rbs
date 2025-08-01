@@ -84,11 +84,11 @@ module Steep
     # Inline annotation is at the cursor position
     #
     class InlineAnnotationResult
-      attr_reader annotation: RBS::AST::Ruby::Annotations::t
+      attr_reader annotation: RBS::AST::Ruby::Annotations::t | RBS::AST::Ruby::Declarations::ClassDecl::SuperClass
 
       attr_reader attached_ast: attachable_ast?
 
-      def initialize: (RBS::AST::Ruby::Annotations::t annotation, attachable_ast? attached_ast) -> void
+      def initialize: ((RBS::AST::Ruby::Annotations::t | RBS::AST::Ruby::Declarations::ClassDecl::SuperClass) annotation, attachable_ast? attached_ast) -> void
     end
 
     # A type is at the cursor position
@@ -108,9 +108,9 @@ module Steep
 
       attr_reader location: RBS::Location
 
-      attr_reader enclosing_result: InlineTypeResult
+      attr_reader enclosing_result: InlineTypeResult | InlineAnnotationResult
 
-      def initialize: (RBS::TypeName type_name, RBS::Location location, InlineTypeResult enclosing_result) -> void
+      def initialize: (RBS::TypeName type_name, RBS::Location location, (InlineTypeResult | InlineAnnotationResult) enclosing_result) -> void
     end
 
     class Ruby

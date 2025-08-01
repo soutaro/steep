@@ -687,4 +687,89 @@ RBS
       end
     end
   end
+
+  def test_update__inline__inheritance_non_constant_super_class
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib/inline.rb") => [ContentChange.string(<<RUBY)],
+class MyClass
+end
+
+klass = MyClass
+
+# Super class is not a constant - this should be detected as a limitation
+class Foo < klass
+  #: () -> String
+  def test
+    "foo"
+  end
+end
+RUBY
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      assert_operator service.source_files, :key?, Pathname("lib/inline.rb")
+      assert_operator service, :signature_file?, Pathname("lib/inline.rb")
+      assert_operator service, :source_file?, Pathname("lib/inline.rb")
+    end
+
+    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      assert_empty diagnostics
+    end
+
+    service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::InlineDiagnostic, error
+        assert_instance_of RBS::InlineParser::Diagnostic::NonConstantSuperClassName, error.diagnostic
+        assert_equal "klass", error.location.source
+      end
+    end
+  end
+
+  def test_update__inline__inheritance_generic_missing_type_args
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+class SuperClass[T]
+  def foo: () -> T
+end
+RBS
+      Pathname("lib/inline.rb") => [ContentChange.string(<<RUBY)],
+class ChildClass < SuperClass
+end
+
+class ChildClass2 < SuperClass #[String, void]
+end
+RUBY
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      assert_operator service.source_files, :key?, Pathname("lib/inline.rb")
+      assert_operator service, :signature_file?, Pathname("lib/inline.rb")
+      assert_operator service, :source_file?, Pathname("lib/inline.rb")
+    end
+
+    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_nil diagnostics
+    end
+
+    service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
+        assert_equal "SuperClass", error.location.source
+      end
+
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
+        assert_equal "SuperClass #[String, void]", error.location.source
+      end
+    end
+  end
 end

@@ -248,4 +248,6 @@ class TypeCheckTest < Minitest::Test
   def test_inline__module_include: () -> untyped
 
   def test_inline__attributes: () -> untyped
+
+  def test_inline__inheritance: () -> untyped
 end

@@ -270,8 +270,13 @@ module Steep
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
             diagnostics = service.typecheck_source(path: relative_path, target: job.target) #: Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base] | nil
+            signature_diagnostics = service.validate_signature(path: relative_path, target: job.target)
             if diagnostics
-              diagnostics.concat(service.validate_signature(path: relative_path, target: job.target))
+              diagnostics.concat(signature_diagnostics)
+            else
+              unless signature_diagnostics.empty?
+                diagnostics = signature_diagnostics
+              end
             end
 
             typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
