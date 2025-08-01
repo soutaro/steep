@@ -175,7 +175,9 @@ module Steep
           Steep.measure "validation" do
             service = signature_services.fetch(target.name)
 
-            raise "#{path} is not library nor signature of #{target.name}" unless target.possible_signature_file?(path) || service.env_rbs_paths.include?(path)
+            unless target.possible_signature_file?(path) || target.possible_inline_source_file?(path) || service.env_rbs_paths.include?(path)
+              raise "#{path} is not library nor signature of #{target.name}"
+            end
 
             case service.status
             when SignatureService::SyntaxErrorStatus

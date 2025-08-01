@@ -541,7 +541,9 @@ module Steep
             case ancestor.source
             when :super
               primary_decl = env.class_decls.fetch(name).primary_decl
-              primary_decl.is_a?(RBS::AST::Declarations::Class) or raise
+              unless primary_decl.is_a?(RBS::AST::Declarations::Class) || primary_decl.is_a?(RBS::AST::Ruby::Declarations::ClassDecl)
+                raise
+              end
               if super_class = primary_decl.super_class
                 super_class.location
               else

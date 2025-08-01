@@ -220,9 +220,12 @@ module Steep
       # A class definition has a module as its super class
       #
       class InheritModuleError < Base
-        attr_reader super_class: RBS::AST::Declarations::Class::Super
+        type super_class = RBS::AST::Declarations::Class::Super
+                         | RBS::AST::Ruby::Declarations::ClassDecl::SuperClass
 
-        def initialize: (RBS::AST::Declarations::Class::Super) -> void
+        attr_reader super_class: super_class
+
+        def initialize: (super_class) -> void
 
         def header_line: () -> String
       end
