@@ -45,4 +45,8 @@ class LocatorTest < Minitest::Test
   def test_inline__attr_reader: () -> untyped
 
   def test_inline__attr_accessor: () -> untyped
+
+  def test_inline__inheritance_super_class: () -> untyped
+
+  def test_inline__instance_variable: () -> untyped
 end
