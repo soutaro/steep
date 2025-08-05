@@ -772,4 +772,46 @@ RUBY
       end
     end
   end
+
+  def test_update__inline__instance_variable_duplication
+    service = Services::TypeCheckService.new(project: project)
+
+    {
+      Pathname("lib/inline.rb") => [ContentChange.string(<<RUBY)],
+class Person
+  # @rbs @name: String
+  # @rbs @age: Integer
+  # @rbs @name: String? -- This is a duplicate
+
+  def initialize(name, age)
+    @name = name
+    @age = age
+  end
+end
+RUBY
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      assert_operator service.source_files, :key?, Pathname("lib/inline.rb")
+      assert_operator service, :signature_file?, Pathname("lib/inline.rb")
+      assert_operator service, :source_file?, Pathname("lib/inline.rb")
+    end
+
+    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      # Type checking may pass or fail depending on when the duplication is detected
+    end
+
+    service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+      assert_instance_of Array, diagnostics
+      # The duplication error is reported during signature validation
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::InstanceVariableDuplicationError, error
+        assert_equal :@name, error.variable_name
+        assert_equal RBS::TypeName.new(name: :Person, namespace: RBS::Namespace.root), error.type_name
+        assert_equal "Duplicated instance variable name `@name` in `::Person`", error.header_line
+        assert_equal "@rbs @name: String? -- This is a duplicate", error.location.source
+      end
+    end
+  end
 end
