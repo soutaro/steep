@@ -4051,4 +4051,31 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_inline__instance_variables
+    run_type_check_test(
+      signatures: {
+      },
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            # @rbs @name: String
+
+            def initialize
+              @name = "Soutaro"
+            end
+
+            def to_s
+              "{ name => #{@name.inspect} }"
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
