@@ -60,4 +60,6 @@ class TypeCheckServiceTest < Minitest::Test
   def test_update__inline__inheritance_non_constant_super_class: () -> untyped
 
   def test_update__inline__inheritance_generic_missing_type_args: () -> untyped
+
+  def test_update__inline__instance_variable_duplication: () -> untyped
 end

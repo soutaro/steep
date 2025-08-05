@@ -244,6 +244,11 @@ module Steep
               return InlineAnnotationResult.new(annotation, ast)
             end
           end
+        when RBS::AST::Ruby::Members::InstanceVariableMember
+          annotation = ast.annotation
+          if annotation.location.start_pos <= position && position <= annotation.location.end_pos
+            return InlineAnnotationResult.new(annotation, ast)
+          end
         end
 
         nil
@@ -300,6 +305,13 @@ module Steep
           end
         when RBS::AST::Ruby::Annotations::NodeTypeAssertion
           # Handle type annotations for attr_reader/writer/accessor
+          if type_location = result.annotation.type.location
+            if type_location.start_pos <= position && position <= type_location.end_pos
+              type_result = InlineTypeResult.new(result.annotation.type, result)
+            end
+          end
+        when RBS::AST::Ruby::Annotations::InstanceVariableAnnotation
+          # Handle type annotations for instance variables
           if type_location = result.annotation.type.location
             if type_location.start_pos <= position && position <= type_location.end_pos
               type_result = InlineTypeResult.new(result.annotation.type, result)

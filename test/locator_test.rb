@@ -633,4 +633,73 @@ end
       end
     end
   end
+
+  def test_inline__instance_variable
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+class Person
+  # @rbs @name: String
+  # @rbs @age: Integer? --
+  #   how old is the person?
+  #   `nil` means it's unspecified.
+
+  # @rbs (String name, Integer? age) -> void
+  def initialize(name, age)
+    @name = name
+    @age = age
+  end
+end
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      # Test finding on the @name instance variable annotation
+      locator.find(2, 10).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal "@rbs @name: String", result.annotation.location.source
+      end
+
+      # Test finding on 'String' type in @name annotation
+      locator.find(2, 16).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::String", result.type_name.to_s
+      end
+
+      # Test finding on the @age instance variable annotation
+      locator.find(3, 10).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal "@rbs @age: Integer? --\n  #   how old is the person?\n  #   `nil` means it's unspecified.", result.annotation.location.source
+      end
+
+      # Test finding on 'Integer' type in @age annotation
+      locator.find(3, 17).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Integer", result.type_name.to_s
+      end
+
+      # Test finding on the method type annotation
+      locator.find(6, 10).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal "@rbs (String name, Integer? age) -> void", result.annotation.location.source
+      end
+
+      # Test finding on instance variable usage inside method
+      locator.find(8, 5).tap do |result|
+        assert_nil result
+      end
+
+      # Test finding on instance variable usage inside method
+      locator.find(9, 5).tap do |result|
+        assert_nil result
+      end
+    end
+  end
 end
