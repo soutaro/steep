@@ -5309,7 +5309,11 @@ module Steep
             end
           end
         when RBS::Environment::ConstantEntry, RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-          entry.decl.annotations
+          if entry.decl.is_a?(RBS::AST::Declarations::Base)
+            entry.decl.annotations
+          else
+            [] #: Array[RBS::AST::Annotation]
+          end
         end
 
       if annotations

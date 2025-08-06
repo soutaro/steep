@@ -355,7 +355,9 @@ module Steep
 
           env.constant_decls.each do |name, decl|
             index.add_constant_declaration(name, decl.decl)
-            type_reference decl.decl.type, from: decl.decl
+            if decl.decl.is_a?(RBS::AST::Declarations::Constant)
+              type_reference decl.decl.type, from: decl.decl
+            end
           end
 
           env.global_decls.each do |name, decl|

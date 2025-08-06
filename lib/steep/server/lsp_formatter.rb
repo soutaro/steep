@@ -445,6 +445,8 @@ module Steep
           "class #{decl.class_name.relative!}"
         when RBS::AST::Ruby::Declarations::ModuleDecl
           "module #{decl.module_name.relative!}"
+        when RBS::AST::Ruby::Declarations::ConstantDecl
+          "#{decl.constant_name.relative!}: #{decl.type}"
         end
       end
 
