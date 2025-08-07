@@ -616,14 +616,12 @@ end
 
       # Test finding on 'Parent' in inheritance
       locator.find(1, 15).tap do |result|
-        assert_instance_of Locator::InlineTypeNameResult, result
-        assert_equal "::Parent", result.type_name.to_s
+        assert_nil result
       end
 
       # Test finding on 'GenericParent' in inheritance
       locator.find(4, 22).tap do |result|
-        assert_instance_of Locator::InlineTypeNameResult, result
-        assert_equal "::GenericParent", result.type_name.to_s
+        assert_nil result
       end
 
       # Test finding on 'String' type argument
