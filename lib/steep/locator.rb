@@ -183,10 +183,6 @@ module Steep
             # Check if position is within super class
             if ast.super_class
               if ast.super_class.location.start_pos <= position && position <= ast.super_class.location.end_pos
-                # Check if position is on the super class type name
-                if ast.super_class.type_name_location.start_pos <= position && position <= ast.super_class.type_name_location.end_pos
-                  return InlineAnnotationResult.new(ast.super_class, ast)
-                end
                 # Check if position is on type arguments
                 if ast.super_class.type_annotation
                   if ast.super_class.type_annotation.location.start_pos <= position && position <= ast.super_class.type_annotation.location.end_pos
@@ -321,26 +317,6 @@ module Steep
           if type_location = result.annotation.type.location
             if type_location.start_pos <= position && position <= type_location.end_pos
               type_result = InlineTypeResult.new(result.annotation.type, result)
-            end
-          end
-        when RBS::AST::Ruby::Declarations::ClassDecl::SuperClass
-          # Handle super class type name navigation
-          if result.annotation.type_name_location.start_pos <= position && position <= result.annotation.type_name_location.end_pos
-            # For super class type name, we can directly create the type name result
-            return InlineTypeNameResult.new(
-              result.annotation.type_name,
-              result.annotation.type_name_location,
-              result
-            )
-          elsif result.annotation.type_annotation
-            # Handle type arguments
-            type = result.annotation.type_annotation.type_args.find do |type_arg|
-              if type_location = type_arg.location
-                type_location.start_pos <= position && position <= type_location.end_pos
-              end
-            end
-            if type
-              type_result = InlineTypeResult.new(type, result)
             end
           end
         end
