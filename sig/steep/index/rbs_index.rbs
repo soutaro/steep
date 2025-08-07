@@ -65,7 +65,7 @@ module Steep
       class ConstantEntry
         attr_reader const_name: RBS::TypeName
 
-        type decl = RBS::AST::Declarations::Constant
+        type decl = RBS::AST::Declarations::Constant | RBS::AST::Ruby::Declarations::ConstantDecl
 
         attr_reader declarations: Set[decl]
 

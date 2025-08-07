@@ -77,6 +77,7 @@ module Steep
                         | RBS::AST::Declarations::ModuleAlias
                         | RBS::AST::Ruby::Declarations::ClassDecl
                         | RBS::AST::Ruby::Declarations::ModuleDecl
+                        | RBS::AST::Ruby::Declarations::ConstantDecl
 
         def decl: () -> const_decl
 

@@ -49,4 +49,6 @@ class LocatorTest < Minitest::Test
   def test_inline__inheritance_super_class: () -> untyped
 
   def test_inline__instance_variable: () -> untyped
+
+  def test_inline__find__constant_type_assertion: () -> untyped
 end

@@ -171,12 +171,12 @@ module Steep
               next unless SignatureSymbolProvider.test_const_name(query, entry.const_name)
 
               entry.declarations.each do |decl|
-                next unless decl.location
-                next unless assigned?(target, Pathname(decl.location.buffer.name))
+                loc = decl.location or next
+                next unless assigned?(target, Pathname(loc.buffer.name))
 
                 symbols << SymbolInformation.new(
                   name: entry.const_name.name.to_s,
-                  location: decl.location,
+                  location: loc,
                   kind: LSP::Constant::SymbolKind::CONSTANT,
                   container_name: entry.const_name.namespace.relative!.to_s.delete_suffix("::")
                 )

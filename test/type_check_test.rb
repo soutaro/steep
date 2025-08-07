@@ -4078,4 +4078,196 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_inline_constant_declaration_basic
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class MyClass
+            CONSTANT = "hello" #: String
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_type_mismatch
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class MyClass
+            NUMBER = 42 #: String
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 11
+              end:
+                line: 2
+                character: 23
+            severity: ERROR
+            message: 'Assertion cannot hold: no relationship between inferred type (`::Integer`)
+              and asserted type (`::String`)'
+            code: Ruby::FalseAssertion
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_with_complex_type
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class MyClass
+            CONFIG = { name: "test", count: 42 } #: Hash[Symbol, String | Integer]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_nested_class
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class Outer
+            class Inner
+              VALUE = ["a", "b", "c"] #: Array[String]
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_module
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          module MyModule
+            DEFAULT_SIZE = 100 #: Integer
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_with_nil
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class MyClass
+            OPTIONAL = nil #: String?
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_generic_type
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class Container
+            ITEMS = [{ "count" => 1 }, { "total" => 100 }] #: Array[Hash[String, Integer]]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_inheritance
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class Parent
+            BASE_VALUE = "parent" #: String
+          end
+
+          class Child < Parent
+            CHILD_VALUE = 42 #: Integer
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_top_level
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          # Version of the library
+          VERSION = "1.2.3".freeze #: String
+
+          ITEMS = [1, "hello"] #: [Integer, String]
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_constant_declaration_type_inference
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class Config
+            MAX_SIZE = 100           # Should infer as Integer
+            PI = 3.14159            # Should infer as Float
+            DEBUG = false           # Should infer as bool
+            APP_NAME = "MyApp"      # Should infer as String
+            DEFAULT_MODE = :strict  # Should infer as :strict
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

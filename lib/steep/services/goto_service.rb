@@ -364,8 +364,15 @@ module Steep
 
           case entry = env.constant_entry(name)
           when RBS::Environment::ConstantEntry
-            if entry.decl.location
-              locations << [target, entry.decl.location[:name]]
+            case decl = entry.decl
+            when RBS::AST::Declarations::Constant
+              if entry.decl.location
+                locations << [target, entry.decl.location[:name]]
+              end
+            when RBS::AST::Ruby::Declarations::ConstantDecl
+              locations << [target, entry.decl.name_location]
+            else
+              raise "Unknown declaration: #{entry.decl.inspect}"
             end
           when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
             entry.each_decl do |decl|

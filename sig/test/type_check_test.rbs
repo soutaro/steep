@@ -252,4 +252,24 @@ class TypeCheckTest < Minitest::Test
   def test_inline__inheritance: () -> untyped
 
   def test_inline__instance_variables: () -> untyped
+
+  def test_inline_constant_declaration_basic: () -> untyped
+
+  def test_inline_constant_declaration_type_mismatch: () -> untyped
+
+  def test_inline_constant_declaration_with_complex_type: () -> untyped
+
+  def test_inline_constant_declaration_nested_class: () -> untyped
+
+  def test_inline_constant_declaration_module: () -> untyped
+
+  def test_inline_constant_declaration_with_nil: () -> untyped
+
+  def test_inline_constant_declaration_generic_type: () -> untyped
+
+  def test_inline_constant_declaration_inheritance: () -> untyped
+
+  def test_inline_constant_declaration_top_level: () -> untyped
+
+  def test_inline_constant_declaration_type_inference: () -> untyped
 end
