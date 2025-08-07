@@ -195,7 +195,7 @@ module Steep
                 end
               end
             end
-            
+
             ast.members.each do |member|
               if sub = find0(position, member)
                 return sub
@@ -248,6 +248,12 @@ module Steep
           annotation = ast.annotation
           if annotation.location.start_pos <= position && position <= annotation.location.end_pos
             return InlineAnnotationResult.new(annotation, ast)
+          end
+        when RBS::AST::Ruby::Declarations::ConstantDecl
+          if annotation = ast.type_annotation
+            if annotation.location.start_pos <= position && position <= annotation.location.end_pos
+              return InlineAnnotationResult.new(annotation, ast)
+            end
           end
         end
 

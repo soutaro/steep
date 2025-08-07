@@ -570,7 +570,7 @@ end
       end
 
       # Test finding on the type annotation for :items
-      locator.find(3, 24).tap do |result| 
+      locator.find(3, 24).tap do |result|
         assert_instance_of Locator::InlineAnnotationResult, result
         assert_equal ": Array[String]", result.annotation.location.source
       end
@@ -699,6 +699,53 @@ end
       # Test finding on instance variable usage inside method
       locator.find(9, 5).tap do |result|
         assert_nil result
+      end
+    end
+  end
+
+  def test_inline__find__constant_type_assertion
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+class MyClass
+end
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+class MyClass
+  MAX_SIZE = 100 #: Integer
+  CONFIG = { timeout: 30 } #: Hash[Symbol, Integer]
+end
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      # Test finding on type annotation for MAX_SIZE
+      locator.find(2, 18).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": Integer", result.annotation.location.source
+      end
+
+      # Test finding on 'Integer' type name
+      locator.find(2, 20).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Integer", result.type_name.to_s
+      end
+
+      # Test finding on 'Symbol' type name
+      locator.find(3, 36).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Symbol", result.type_name.to_s
+      end
+
+      # Test finding on 'Integer' type name in Hash
+      locator.find(3, 48).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::Integer", result.type_name.to_s
       end
     end
   end
