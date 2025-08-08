@@ -51,4 +51,10 @@ class LocatorTest < Minitest::Test
   def test_inline__instance_variable: () -> untyped
 
   def test_inline__find__constant_type_assertion: () -> untyped
+
+  def test_inline__class_alias_basic: () -> untyped
+
+  def test_inline__module_alias_basic: () -> untyped
+
+  def test_inline__class_alias_with_explicit_type: () -> untyped
 end

@@ -747,4 +747,97 @@ end
       end
     end
   end
+
+  def test_inline__class_alias_basic
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+class OriginalClass
+end
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+MyClass = OriginalClass #: class-alias
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      locator.find(1, 25).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": class-alias", result.annotation.location.source
+      end
+
+      locator.find(1, 34).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": class-alias", result.annotation.location.source
+      end
+    end
+  end
+
+  def test_inline__module_alias_basic
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+module OriginalModule
+end
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+MyModule = OriginalModule #: module-alias
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      locator.find(1, 27).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": module-alias", result.annotation.location.source
+      end
+
+      locator.find(1, 36).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": module-alias", result.annotation.location.source
+      end
+    end
+  end
+
+  def test_inline__class_alias_with_explicit_type
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+class SomeClass
+end
+      RBS
+
+      env = factory.env
+
+      env.add_source parse_inline(<<-'RUBY', path: Pathname("a.rb"))
+klass = SomeClass
+AliasedClass = klass #: class-alias SomeClass
+      RUBY
+
+      env = env.resolve_type_names()
+
+      source = env.sources.find { _1.buffer.name == Pathname("a.rb") }
+
+      locator = Locator::Inline.new(source)
+
+      # Test finding on the class-alias annotation itself
+      locator.find(2, 22).tap do |result|
+        assert_instance_of Locator::InlineAnnotationResult, result
+        assert_equal ": class-alias SomeClass", result.annotation.location.source
+      end
+
+      # Test finding on the explicit type name 'SomeClass'
+      locator.find(2, 40).tap do |result|
+        assert_instance_of Locator::InlineTypeNameResult, result
+        assert_equal "::SomeClass", result.type_name.to_s
+      end
+    end
+  end
 end
