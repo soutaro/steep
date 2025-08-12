@@ -4270,4 +4270,162 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_inline_class_alias_basic
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class OriginalClass
+            def foo
+              "hello"
+            end
+          end
+
+          MyClass = OriginalClass #: class-alias
+
+          # Should be able to use MyClass as OriginalClass
+          obj = MyClass.new
+          obj.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_module_alias_basic
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          module OriginalModule
+            def bar
+              42
+            end
+          end
+
+          MyModule = OriginalModule #: module-alias
+
+          class MyClass
+            include MyModule
+
+            def test
+              bar
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_class_alias_with_explicit_type
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          class SomeClass
+            def method1
+              "test"
+            end
+          end
+
+          # Using a variable that references the class
+          klass = SomeClass
+          AliasedClass = klass #: class-alias SomeClass
+
+          # Should work with the explicit type annotation
+          instance = AliasedClass.new
+          instance.method1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_module_alias_with_explicit_type
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          module SomeModule
+            def helper
+              true
+            end
+          end
+
+          # Using a variable that references the module
+          mod = SomeModule
+          AliasedModule = mod #: module-alias SomeModule
+
+          class TestClass
+            include AliasedModule
+
+            def use_helper
+              helper
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_class_alias_nested
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          module Namespace
+            class InnerClass
+              def inner_method
+                "inner"
+              end
+            end
+
+            MyInnerClass = InnerClass #: class-alias
+          end
+
+          # Should work with nested alias
+          obj = Namespace::MyInnerClass.new
+          obj.inner_method
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_inline_class_alias_type_name
+    run_type_check_test(
+      inline_code: {
+        "a.rb" => <<~RUBY
+          MyString = String #: class-alias
+          MyKernel = Kernel #: module-alias
+
+          string = nil #: MyString?
+          kernel = nil #: MyKernel?
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

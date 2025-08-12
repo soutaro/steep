@@ -26,6 +26,8 @@ module Steep
             declarations << decl
           when RBS::AST::Ruby::Declarations::ModuleDecl
             declarations << decl
+          when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
+            declarations << decl
           else
             raise "Unexpected type declaration: #{decl}"
           end
@@ -50,6 +52,8 @@ module Steep
           when RBS::AST::Declarations::TypeAlias
             references << ref
           when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
+            references << ref
+          when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
             references << ref
           else
             raise "Unexpected type reference: #{ref}"

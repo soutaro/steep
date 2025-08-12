@@ -981,4 +981,27 @@ RUBY
       assert locs.find {|loc| loc.source == "Array" }
     end
   end
+
+  def test_go_to_definition_class_alias
+    type_check = type_check_service do |changes|
+      changes[Pathname("inline/test.rb")] = [ContentChange.string(<<~RUBY)]
+MyString = String #: class-alias
+MyString
+x = nil #: MyString?
+      RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.type_definition(path: dir + "inline/test.rb", line: 2, column: 3).tap do |locs|
+      assert_equal 1, locs.size
+      assert_equal "MyString", locs[0].source
+    end
+
+    service.type_definition(path: dir + "inline/test.rb", line: 3, column: 15).tap do |locs|
+      assert_equal 2, locs.size
+      assert locs.find {|loc| loc.source == "MyString" }
+      assert locs.find {|loc| loc.source == "NilClass" }
+    end
+  end
 end

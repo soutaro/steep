@@ -388,8 +388,12 @@ module Steep
               end
             end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-            if entry.decl.location
-              locations << [target, entry.decl.location[:new_name]]
+            if entry.decl.is_a?(RBS::AST::Declarations::Base)
+              if entry.decl.location
+                locations << [target, entry.decl.location[:new_name]]
+              end
+            else
+              locations << [target, entry.decl.name_location]
             end
           end
         end
@@ -504,6 +508,8 @@ module Steep
                 locations << [target, decl.location[:new_name]]
               end
             when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl
+              locations << [target, decl.name_location]
+            when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
               locations << [target, decl.name_location]
             else
               raise

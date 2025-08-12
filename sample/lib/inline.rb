@@ -38,4 +38,6 @@ module Inline
   foo.foo(1, 2, "3")
 
   foo.hello_world
+
+  x = nil #: String?
 end

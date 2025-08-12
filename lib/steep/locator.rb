@@ -251,6 +251,12 @@ module Steep
               return InlineAnnotationResult.new(annotation, ast)
             end
           end
+        when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
+          if annotation = ast.annotation
+            if annotation.location.start_pos <= position && position <= annotation.location.end_pos
+              return InlineAnnotationResult.new(annotation, ast)
+            end
+          end
         end
 
         nil
@@ -317,6 +323,17 @@ module Steep
           if type_location = result.annotation.type.location
             if type_location.start_pos <= position && position <= type_location.end_pos
               type_result = InlineTypeResult.new(result.annotation.type, result)
+            end
+          end
+        when RBS::AST::Ruby::Annotations::ClassAliasAnnotation, RBS::AST::Ruby::Annotations::ModuleAliasAnnotation
+          # Handle class-alias and module-alias annotations with explicit type names
+          if result.annotation.type_name && result.annotation.type_name_location
+            if result.annotation.type_name_location.start_pos <= position && position <= result.annotation.type_name_location.end_pos
+              return InlineTypeNameResult.new(
+                result.annotation.type_name,
+                result.annotation.type_name_location,
+                result
+              )
             end
           end
         end

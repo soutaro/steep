@@ -232,7 +232,10 @@ module Steep
             comments = class_entry.each_decl.map {|decl| decl.is_a?(RBS::AST::Declarations::Base) ? decl.comment : nil }.compact
             decl = class_entry.primary_decl
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-            comments = [class_entry.decl.comment].compact
+            comments = [] #: Array[RBS::AST::Comment]
+            if comment = class_entry.decl.comment
+              comments << comment
+            end
             decl = class_entry.decl
           end
 
