@@ -67,4 +67,6 @@ class GotoServiceTest < Minitest::Test
   def test_go_to_type_definition: () -> untyped
 
   def test_go_to_type_definition2: () -> untyped
+
+  def test_go_to_definition_class_alias: () -> untyped
 end

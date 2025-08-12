@@ -447,6 +447,14 @@ module Steep
           "module #{decl.module_name.relative!}"
         when RBS::AST::Ruby::Declarations::ConstantDecl
           "#{decl.constant_name.relative!}: #{decl.type}"
+        when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
+          keyword =
+            if decl.annotation.is_a?(RBS::AST::Ruby::Annotations::ClassAliasAnnotation)
+              "class"
+            else
+              "module"
+            end
+          "#{keyword} #{decl.new_name} = #{decl.old_name}"
         end
       end
 
