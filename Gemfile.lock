@@ -32,7 +32,7 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (8.0.2)
+    activesupport (8.0.2.1)
       base64
       benchmark (>= 0.3)
       bigdecimal
