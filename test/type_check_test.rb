@@ -1948,6 +1948,37 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_unnamed_restarg
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def foo: (*untyped, **untyped) -> void
+
+            def bar: { (*untyped, **untyped) -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Foo
+            def foo(*, **)
+              bar { |*, **| }
+            end
+
+            def bar
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_rescue_assignment
     run_type_check_test(
       signatures: {
