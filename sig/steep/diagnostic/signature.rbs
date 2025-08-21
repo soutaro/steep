@@ -257,17 +257,23 @@ module Steep
       end
 
       class InconsistentClassModuleAliasError < Base
-        attr_reader decl: RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias
+        type decl = RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias
+                  | RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
 
-        def initialize: (decl: RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias) -> void
+        attr_reader decl: decl
+
+        def initialize: (decl: decl) -> void
 
         def header_line: () -> String
       end
 
       class CyclicClassAliasDefinitionError < Base
-        attr_reader decl: RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias
+        type decl = RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias
+                  | RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
 
-        def initialize: (decl: RBS::AST::Declarations::ModuleAlias | RBS::AST::Declarations::ClassAlias) -> void
+        attr_reader decl: decl
+
+        def initialize: (decl: decl) -> void
 
         def header_line: () -> String
       end

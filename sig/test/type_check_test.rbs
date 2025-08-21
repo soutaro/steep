@@ -272,4 +272,16 @@ class TypeCheckTest < Minitest::Test
   def test_inline_constant_declaration_top_level: () -> untyped
 
   def test_inline_constant_declaration_type_inference: () -> untyped
+
+  def test_inline_class_alias_basic: () -> untyped
+
+  def test_inline_module_alias_basic: () -> untyped
+
+  def test_inline_class_alias_with_explicit_type: () -> untyped
+
+  def test_inline_module_alias_with_explicit_type: () -> untyped
+
+  def test_inline_class_alias_nested: () -> untyped
+
+  def test_inline_class_alias_type_name: () -> untyped
 end

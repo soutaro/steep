@@ -29,7 +29,11 @@ module Steep
               end
             end
           when decl = env.class_alias_decls.fetch(type_name, nil)
-            decl.decl.annotations
+            if decl.decl.is_a?(RBS::AST::Declarations::Base)
+              decl.decl.annotations
+            else
+              [] #: Array[RBS::AST::Annotation]
+            end
           end
         when type_name.interface?
           if decl = env.interface_decls.fetch(type_name, nil)

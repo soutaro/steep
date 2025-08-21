@@ -437,8 +437,12 @@ module Steep
               "module"
             when RBS::AST::Declarations::ClassAlias
               "class"
-            else
-              raise
+            when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
+              if decl.annotation.is_a?(RBS::AST::Ruby::Annotations::ClassAliasAnnotation)
+                "class"
+              else
+                "module"
+              end
             end
 
           "A #{expected_kind} `#{decl.new_name}` cannot be an alias of `#{decl.old_name}`"
