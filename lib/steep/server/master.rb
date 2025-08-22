@@ -445,7 +445,14 @@ module Steep
             unless controller.open_paths.include?(path)
               updated_watched_files << path
 
-              controller.add_dirty_path(path)
+              case
+              when controller.code_path?(path)
+                controller.add_dirty_code_path(path)
+              when controller.signature_path?(path)
+                controller.add_dirty_signature_path(path)
+              when controller.inline_path?(path)
+                controller.add_dirty_inline_path(path)
+              end
 
               case type
               when LSP::Constant::FileChangeType::CREATED, LSP::Constant::FileChangeType::CHANGED
@@ -485,7 +492,15 @@ module Steep
         when "textDocument/didChange"
           if path = pathname(message[:params][:textDocument][:uri])
             broadcast_notification(message)
-            controller.add_dirty_path(path)
+
+            case
+            when controller.code_path?(path)
+              controller.add_dirty_code_path(path)
+            when controller.signature_path?(path)
+              controller.add_dirty_signature_path(path)
+            when controller.inline_path?(path)
+              controller.add_dirty_inline_path(path)
+            end
 
             if typecheck_automatically
               start_type_checking_queue.execute do

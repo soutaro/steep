@@ -8,8 +8,8 @@ module Steep
     # ```rb
     # controller = TypeCheckController.new(project: project)
     #
-    # controller.push_changes(file_path)           # Remember that the path is changed
-    # controller.update_priority(open: file_path)  # Remember that an editor opens the path
+    # controller.add_dirty_code_path(file_path)    # Remember that the path is changed
+    # controller.open_path(file_path)              # Remember that an editor opens the path
     # controller.make_request(...)                 # Make an instance of TypeCheckRequest that contains list of all paths to type check
     # ```
     #
@@ -143,8 +143,16 @@ module Steep
       #
       attr_reader active_groups: Set[group]
 
-      # Set of paths that content is changed since last type checking request
-      attr_reader dirty_paths: Set[Pathname]
+      # Set of Ruby code paths that content is changed since last type checking request
+      attr_reader dirty_code_paths: Set[Pathname]
+
+      # Set of RBS file paths that content is changed since last type checking request
+      attr_reader dirty_signature_paths: Set[Pathname]
+
+      # Set of inline RBS file paths that content is changed since last type checking request
+      attr_reader dirty_inline_paths: Set[Pathname]
+
+      attr_reader inline_path_changes: InlineSourceChangeDetector
 
       attr_reader files: TargetGroupFiles
 
@@ -154,9 +162,22 @@ module Steep
       #
       def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
 
-      # Mark a path as dirty
-      #
-      def add_dirty_path: (Pathname path) -> void
+      def code_path?: (Pathname path) -> bool
+
+      def signature_path?: (Pathname path) -> bool
+
+      def inline_path?: (Pathname path) -> bool
+
+      def add_dirty_code_path: (Pathname path) -> void
+
+      def add_dirty_signature_path: (Pathname path) -> void
+
+      def add_dirty_inline_path: (Pathname path, String | Array[Services::ContentChange] update) -> void
+
+      def open_inline_path: (Pathname path, String content) -> void
+
+      def each_dirty_path: () { (Pathname) -> void } -> void
+                           | () -> Enumerator[Pathname]
 
       # Delete everything from changed_paths
       #
