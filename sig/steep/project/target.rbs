@@ -41,10 +41,20 @@ module Steep
       #
       def options: () -> Options
 
+      # Returns `true` if the given `path` (relative to the project root) is a source file that belongs to this target or its sub-group
+      #
+      # Returns `false` if the path is an inline source file.
+      #
       def possible_source_file?: (Pathname path) -> (Group | Target | nil)
 
+      # Returns `true` if the given `path` (relative to the project root) is a signature file that belongs to this target or its sub-group
+      #
       def possible_signature_file?: (Pathname path) -> (Group | Target | nil)
 
+      # Returns `true` if the given `path` (relative to the project root) is an inline source file that belongs to this target or its sub-group
+      #
+      # Returns `true` even if the `possible_source_file?` returns `true` for the same path.
+      # 
       def possible_inline_source_file?: (Pathname path) -> (Group | Target | nil)
 
       def new_env_loader: () -> RBS::EnvironmentLoader

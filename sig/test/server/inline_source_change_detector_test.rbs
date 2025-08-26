@@ -1,0 +1,17 @@
+# Generated from test/server/inline_source_change_detector_test.rb with RBS::Inline
+
+class Steep::Server::InlineSourceChangeDetectorTest < Minitest::Test
+  def path: () -> Pathname
+
+  def test_detector_source_initialize: () -> untyped
+
+  def test_detector_source_no_type_update: () -> untyped
+
+  def test_detector_source_type_update: () -> untyped
+
+  def test_detector: () -> untyped
+
+  def test_detector_unchanged: () -> untyped
+
+  def test_detector_no_file: () -> untyped
+end

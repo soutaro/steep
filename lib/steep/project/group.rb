@@ -22,7 +22,7 @@ module Steep
       end
 
       def possible_source_file?(path)
-        source_pattern =~ path
+        source_pattern =~ path && inline_source_pattern !~ path
       end
 
       def possible_signature_file?(path)

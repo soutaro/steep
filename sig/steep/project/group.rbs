@@ -25,12 +25,20 @@ module Steep
 
       def initialize: (Target, Symbol, Pattern source_pattern, Pattern inline_source_pattern, Pattern signature_pattern, diagnostics_config) -> void
 
+      # Returns `true` if given `path` relative to the project root matches `#source_pattern`
+      #
+      # Returns `false` if the path matches `#inline_source_pattern`.
+      #
       def possible_source_file?: (Pathname path) -> bool
 
+      # Returns `true` if given `path` matches `#signature_pattern`
+      #
       def possible_signature_file?: (Pathname path) -> bool
 
       # Returns `true` if given `path` matches `#inline_source_pattern`
       #
+      # Returns `true` even if the path matches `#source_pattern`.
+      # 
       def possible_inline_source_file?: (Pathname path) -> bool
     end
   end

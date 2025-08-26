@@ -53,8 +53,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
-      master.controller.add_dirty_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -119,8 +119,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -172,8 +172,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 10, needs_response: true)
@@ -218,8 +218,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
-      master.controller.add_dirty_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -305,8 +305,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -429,7 +429,9 @@ end
         typecheck_workers: [worker]
       )
 
-      assert_empty master.controller.dirty_paths
+      assert_empty master.controller.dirty_code_paths
+      assert_empty master.controller.dirty_signature_paths
+      assert_empty master.controller.dirty_inline_paths
 
       master.process_message_from_client(
         {
@@ -450,7 +452,7 @@ end
         assert_equal "textDocument/didChange", job.message[:method]
       end
 
-      assert_operator master.controller.dirty_paths, :include?, current_dir + "lib/customer.rb"
+      assert_operator master.controller.dirty_code_paths, :include?, current_dir + "lib/customer.rb"
     end
   end
 
@@ -477,7 +479,9 @@ end
         typecheck_workers: [worker]
       )
 
-      assert_empty master.controller.dirty_paths
+      assert_empty master.controller.dirty_code_paths
+      assert_empty master.controller.dirty_signature_paths
+      assert_empty master.controller.dirty_inline_paths
 
       master.process_message_from_client(
         {
@@ -881,7 +885,9 @@ end
         typecheck_workers: [worker]
       )
 
-      assert_empty master.controller.dirty_paths
+      assert_empty master.controller.dirty_code_paths
+      assert_empty master.controller.dirty_signature_paths
+      assert_empty master.controller.dirty_inline_paths
 
       master.process_message_from_client(
         {

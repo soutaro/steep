@@ -445,8 +445,6 @@ module Steep
             unless controller.open_paths.include?(path)
               updated_watched_files << path
 
-              controller.add_dirty_path(path)
-
               case type
               when LSP::Constant::FileChangeType::CREATED, LSP::Constant::FileChangeType::CHANGED
                 content = path.read
@@ -455,6 +453,15 @@ module Steep
               end
 
               content or raise
+
+              case
+              when controller.code_path?(path)
+                controller.add_dirty_code_path(path)
+              when controller.signature_path?(path)
+                controller.add_dirty_signature_path(path)
+              when controller.inline_path?(path)
+                controller.add_dirty_inline_path(path, content)
+              end
 
               broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: content }))
             end
@@ -485,7 +492,21 @@ module Steep
         when "textDocument/didChange"
           if path = pathname(message[:params][:textDocument][:uri])
             broadcast_notification(message)
-            controller.add_dirty_path(path)
+
+            Steep.logger.fatal { path.to_s }
+
+            case
+            when controller.code_path?(path)
+              Steep.logger.fatal { "code_path?" }
+              controller.add_dirty_code_path(path)
+            when controller.signature_path?(path)
+              Steep.logger.fatal { "signature_path?" }
+              controller.add_dirty_signature_path(path)
+            when controller.inline_path?(path)
+              Steep.logger.fatal { "inline_path?" }
+              changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
+              controller.add_dirty_inline_path(path, changes)
+            end
 
             if typecheck_automatically
               start_type_checking_queue.execute do
@@ -513,7 +534,12 @@ module Steep
 
           if path = pathname(uri)
             if target = project.group_for_path(path)
-              controller.open_path(path)
+              if controller.inline_path?(path)
+                controller.open_inline_path(path, text)
+              else
+                controller.open_path(path)
+              end
+
               # broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
 
               start_type_checking_queue.execute do
@@ -763,6 +789,14 @@ module Steep
           if last_request
             request.merge!(last_request)
           end
+
+          Steep.logger.fatal {
+            {
+              code_paths: request.code_paths.map { _1[1].to_s },
+              signature_paths: request.signature_paths.map { _1[1].to_s },
+              inline_paths: request.inline_paths.map { _1[1].to_s }
+            }.inspect
+          }
 
           if request.total > report_progress_threshold
             request.report_progress!

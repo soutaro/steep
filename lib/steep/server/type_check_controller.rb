@@ -190,8 +190,9 @@ module Steep
       attr_reader :open_paths
       attr_reader :active_groups
       attr_reader :new_active_groups
-      attr_reader :dirty_paths
+      attr_reader :dirty_code_paths, :dirty_signature_paths, :dirty_inline_paths
       attr_reader :files
+      attr_reader :inline_path_changes
 
       def initialize(project:)
         @project = project
@@ -200,7 +201,10 @@ module Steep
         @open_paths = Set[]
         @active_groups = Set[].compare_by_identity
         @new_active_groups = Set[].compare_by_identity
-        @dirty_paths = Set[]
+        @dirty_code_paths = Set[]
+        @dirty_signature_paths = Set[]
+        @dirty_inline_paths = Set[]
+        @inline_path_changes = InlineSourceChangeDetector.new
       end
 
       def load(command_line_args:)
@@ -215,12 +219,17 @@ module Steep
 
         project.targets.each do |target|
           loader.each_path_in_target(target, command_line_args) do |path|
-            path = project.absolute_path(path)
-            self.files.add_path(path)
-            files[project.relative_path(path).to_s] = path.read
+            absolute_path = project.absolute_path(path)
+            self.files.add_path(absolute_path)
+            content = absolute_path.read
+            files[path.to_s] = content
             if files.size > 1000
               yield files.dup
               files.clear
+            end
+
+            if inline_path?(path)
+              inline_path_changes.add_source(path, content)
             end
           end
         end
@@ -228,11 +237,78 @@ module Steep
         yield files.dup unless files.empty?
       end
 
-      def add_dirty_path(path)
+      def code_path?(path)
+        files.source_paths.registered_path?(path) || project.target_for_source_path(path) != nil
+      end
+
+      def signature_path?(path)
+        files.signature_paths.registered_path?(path) || project.target_for_signature_path(path) != nil
+      end
+
+      def inline_path?(path)
+        Steep.logger.fatal { {
+          path: path,
+          inline: files.inline_paths.paths.map(&:to_s),
+          target: project.target_for_inline_source_path(path)&.name
+        }.inspect }
+        files.inline_paths.registered_path?(path) || project.target_for_inline_source_path(path) != nil
+      end
+
+      def add_dirty_code_path(path)
+        return if files.library_path?(path)
+        if code_path?(path)
+          files.add_path(path)
+          dirty_code_paths << path
+        end
+      end
+
+      def add_dirty_signature_path(path)
+        return if files.library_path?(path)
+        if signature_path?(path)
+          files.add_path(path)
+          dirty_signature_paths << path
+        end
+      end
+
+      def add_dirty_inline_path(path, update)
+        return if files.library_path?(path)
+        if inline_path?(path)
+          files.add_path(path)
+          dirty_inline_paths << path
+
+          unless inline_path_changes.has_source?(path)
+            inline_path_changes.add_source(path, "")
+          end
+
+          if update.is_a?(String)
+            inline_path_changes.replace_source(path, update)
+          else
+            inline_path_changes.accumulate_change(path, update)
+          end
+        end
+      end
+
+      def open_inline_path(path, content)
         return if files.library_path?(path)
 
-        if files.registered_path?(path) || files.add_path(path)
-          dirty_paths << path
+        if inline_path?(path)
+          open_path(path)
+
+          if inline_path_changes.has_source?(path)
+            inline_path_changes.replace_source(path, content)
+          else
+            inline_path_changes.add_source(path, content)
+          end
+        end
+      end
+
+      def each_dirty_path(&block)
+        if block
+          dirty_code_paths.each(&block)
+          dirty_signature_paths.each(&block)
+          dirty_inline_paths.each(&block)
+        else
+          enum_for(:each_dirty_path)
         end
       end
 
@@ -254,8 +330,11 @@ module Steep
       end
 
       def reset()
-        dirty_paths.clear()
+        dirty_code_paths.clear()
+        dirty_signature_paths.clear()
+        dirty_inline_paths.clear()
         new_active_groups.clear()
+        inline_path_changes.reset
       end
 
       def open_path(path)
@@ -323,15 +402,15 @@ module Steep
 
             files.signature_paths.each_group_path(type_check_group) do |path, target|
               request.signature_paths << [target.name, path]
-              dirty_paths.delete(path)
+              dirty_signature_paths.delete(path)
             end
             files.inline_paths.each_group_path(type_check_group) do |path, target|
               request.inline_paths << [target.name, path]
-              dirty_paths.delete(path)
+              dirty_inline_paths.delete(path)
             end
             files.source_paths.each_group_path(type_check_group) do |path, target|
               request.code_paths << [target.name, path]
-              dirty_paths.delete(path)
+              dirty_code_paths.delete(path)
             end
           end
 
@@ -363,21 +442,32 @@ module Steep
           signature_paths = Set[] #: Set[[group, Pathname]]
           inline_paths = Set[] #: Set[[group, Pathname]]
 
-          dirty_paths.each do |path|
-            case
-            when group = files.source_paths[path]
-              code_paths << [group, path]
-            when group = files.signature_paths[path]
-              signature_paths << [group, path]
-            when group = files.inline_paths[path]
-              inline_paths << [group, path]
-            end
+          dirty_code_paths.each do |path|
+            group = files.source_paths[path] or raise "#{path} is not a code path"
+            code_paths << [group, path]
+          end
+
+          dirty_signature_paths.each do |path|
+            group = files.signature_paths[path] or raise "#{path} is not a signature path"
+            signature_paths << [group, path]
+          end
+
+          dirty_inline_paths.each do |path|
+            group = files.inline_paths[path] or raise "#{path} is not an inline path"
+            inline_paths << [group, path]
           end
 
           signature_updated_groups = Set[] #: Set[group]
 
-          Enumerator::Chain.new(signature_paths, inline_paths).each do |group, path|
+          signature_paths.each do |group, path|
             signature_updated_groups << group
+          end
+
+          updated_inline_paths = inline_path_changes.type_updated_paths(dirty_inline_paths)
+          inline_paths.each do |group, path|
+            if updated_inline_paths.include?(path)
+              signature_updated_groups << group
+            end
           end
 
           type_check_groups = Set[] #: Set[group]

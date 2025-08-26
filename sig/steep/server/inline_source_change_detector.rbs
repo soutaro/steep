@@ -1,0 +1,65 @@
+module Steep
+  module Server
+    # InlineSourceChangeDetector keeps track of changes in Ruby files with inline RBS
+    #
+    #
+    class InlineSourceChangeDetector
+      class Source
+        attr_reader content: String
+
+        attr_reader changes: Array[Services::ContentChange]
+
+        attr_reader last_fingerprint: untyped
+
+        # Initialize the source with initial content
+        #
+        # Updates `last_fingerprint` and `content`.
+        #
+        def initialize: (String content) -> void
+
+        def <<: (Services::ContentChange) -> void
+
+        # Returns `true` if the content is changed
+        #
+        # Apply the accumulated changes to the content and update the fingerprint.
+        # Returns `true` if the fingerprint is changed.
+        #
+        def updated?: () -> bool
+
+        def update_fingerprint!: () -> bool
+
+        # Drop the pending changes, marking the source not-updated
+        #
+        def clear: () -> void
+      end
+
+      attr_reader sources: Hash[Pathname, Source]
+
+      # Add the source and mark as not-updated
+      #
+      def add_source: (Pathname path, String content) -> void
+
+      # Replace the source content and mark as updated
+      #
+      def replace_source: (Pathname path, String content) -> void
+
+      # Accumulate a change to the source
+      #
+      def accumulate_change: (Pathname path, Array[Services::ContentChange] changes) -> void
+
+      # Returns paths that is changed
+      #
+      # Resets the pending updates of the sources.
+      #
+      def type_updated_paths: (Enumerable[Pathname]) -> Set[Pathname]
+
+      # Returns `true` if the path is registered in this detector
+      #
+      def has_source?: (Pathname path) -> bool
+
+      # Applies pending changes and resets the fingerprint status
+      #
+      def reset: () -> void
+    end
+  end
+end

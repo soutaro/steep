@@ -133,6 +133,7 @@ require "steep/server/interaction_worker"
 require "steep/server/type_check_worker"
 require "steep/server/target_group_files"
 require "steep/server/type_check_controller"
+require "steep/server/inline_source_change_detector"
 require "steep/server/master"
 
 require "steep/project"

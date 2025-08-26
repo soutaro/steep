@@ -35,7 +35,7 @@ module Steep
           return target
         end
 
-        if source_pattern =~ path
+        if source_pattern =~ path && inline_source_pattern !~ path
           return self
         end
 

@@ -31,7 +31,13 @@ class ServerTypeCheckControllerTest < Minitest::Test
 
   def test_make_all_request: () -> untyped
 
-  def test_make_request: () -> untyped
+  def test_make_request__update_code: () -> untyped
+
+  def test_make_request__update_signature: () -> untyped
+
+  def test_make_request__inline: () -> untyped
+
+  def test_make_request__active_targets: () -> untyped
 
   def test_make_group_request: () -> untyped
 end

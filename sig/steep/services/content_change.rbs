@@ -31,6 +31,8 @@ module Steep
 
       def self.string: (String) -> ContentChange
 
+      def self.from_lsp: (Array[untyped]) -> Array[ContentChange]
+
       def apply_to: (String text) -> String
     end
   end
