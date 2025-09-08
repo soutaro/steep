@@ -21,6 +21,10 @@ class CLITest < Minitest::Test
 
   def test_check_failure: () -> untyped
 
+  def test_erb_check_failure: () -> untyped
+
+  def test_erb_check_success: () -> untyped
+
   def test_check_failure_with_formatter: () -> untyped
 
   def test_check_group__target: () -> untyped
