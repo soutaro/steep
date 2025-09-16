@@ -10495,7 +10495,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
           when 1
             next
           when 2
-            retry
+            next
           when 3
             break
           end
