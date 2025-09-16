@@ -31,9 +31,16 @@ module Steep
     end
 
     def self.new_parser
-      ::Parser::Ruby33.new(Builder.new).tap do |parser|
-        parser.diagnostics.all_errors_are_fatal = true
-        parser.diagnostics.ignore_warnings = true
+      if Gem::Version.new(RUBY_VERSION) <= '3.3'
+        ::Parser::Ruby33.new(Builder.new).tap do |parser|
+          parser.diagnostics.all_errors_are_fatal = true
+          parser.diagnostics.ignore_warnings = true
+        end
+      else
+        Prism::Translation::Parser33.new(Builder.new).tap do |parser|
+          parser.diagnostics.all_errors_are_fatal = true
+          parser.diagnostics.ignore_warnings = true
+        end
       end
     end
 

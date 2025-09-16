@@ -111,10 +111,21 @@ RUBY
       service.source_files[Pathname("lib/core.rb")].tap do |file|
         assert_any!(file.errors, size: 1) do |error|
           assert_instance_of Diagnostic::Ruby::SyntaxError, error
-          assert_equal 2, error.location.line
-          assert_equal 0, error.location.column
-          assert_equal 2, error.location.last_line
-          assert_equal 0, error.location.last_column
+
+          # Handle different diagnostic positions between parser and prism gems
+          if Gem::Version.new(RUBY_VERSION) > Gem::Version.new('3.3.0')
+            # Prism-based parser case
+            assert_equal 1, error.location.line
+            assert_equal 13, error.location.column
+            assert_equal 2, error.location.last_line
+            assert_equal 0, error.location.last_column
+          else
+            # Parser gem case
+            assert_equal 2, error.location.line
+            assert_equal 0, error.location.column
+            assert_equal 2, error.location.last_line
+            assert_equal 0, error.location.last_column
+          end
         end
       end
     end
