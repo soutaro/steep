@@ -1,0 +1,26 @@
+module Steep
+  module ParserCompatibility
+    self.@parser_engine: :parser | :prism
+
+    def self.parser_engine: () -> (:parser | :prism)
+    def self.parser_engine=: (:parser | :prism) -> (:parser | :prism)
+
+    def self.use_prism!: () -> void
+    def self.use_parser!: () -> void
+
+    def self.prism?: () -> bool
+    def self.parser?: () -> bool
+
+    # Factory method to create the appropriate parser class
+    def self.parser_class: () -> (singleton(Parser::Ruby33) | singleton(Prism::Translation::Parser33))
+
+    # Factory method for AST node creation
+    def self.create_node: (Symbol type, Array[untyped] children, ?Hash[untyped, untyped] properties) -> Parser::AST::Node
+
+    # Factory method for source buffer creation
+    def self.create_buffer: (String name, String source) -> Parser::Source::Buffer
+
+    # Factory method for source map creation
+    def self.create_source_map: (Parser::Source::Range range) -> Parser::Source::Map
+  end
+end
