@@ -1068,14 +1068,24 @@ class TypeCheckTest < Minitest::Test
       code: {
         "a.rb" => <<~RUBY
           x = [1].find { true }
-          return and true unless x
+          false and return unless x
           x + 1
         RUBY
       },
       expectations: <<~YAML
         ---
         - file: a.rb
-          diagnostics: []
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 2
+              end:
+                line: 3
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
       YAML
     )
   end
