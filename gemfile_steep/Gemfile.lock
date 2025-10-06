@@ -66,9 +66,10 @@ GEM
     rbs-inline (0.12.0)
       prism (>= 0.29)
       rbs (>= 3.8.0)
-    rdoc (6.14.2)
+    rdoc (6.15.0)
       erb
       psych (>= 4.0.0)
+      tsort
     reline (0.6.2)
       io-console (~> 0.5)
     ruby-lsp (0.26.1)
@@ -97,6 +98,7 @@ GEM
     strscan (3.1.5)
     terminal-table (4.0.0)
       unicode-display_width (>= 1.1.1, < 4)
+    tsort (0.2.0)
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
     unicode-display_width (3.2.0)
