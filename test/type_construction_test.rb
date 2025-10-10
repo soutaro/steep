@@ -7575,6 +7575,29 @@ RUBY
     end
   end
 
+  def test_proc_for_block_pass_argument
+    with_checker() do |checker|
+      source = parse_ruby(<<-'RUBY')
+# @type var f: Proc
+f = _ = nil
+r = [1, 2, 3].map(&f)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnsupportedSyntax, error
+            assert_equal "Unsupported block-pass-argument given `::Proc`", error.message
+          end
+        end
+        assert_equal parse_type("::Array[untyped]"), context.type_env[:r]
+      end
+    end
+  end
+
+
   def test_next_with_next_type
     with_checker(<<RBS) do |checker|
 class NextTest
