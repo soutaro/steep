@@ -115,7 +115,7 @@ GEM
       unicode-emoji (~> 4.1)
     unicode-emoji (4.1.0)
     uri (1.1.0)
-    vernier (1.5.0)
+    vernier (1.8.1)
 
 PLATFORMS
   ruby
@@ -131,7 +131,7 @@ DEPENDENCIES
   rbs!
   stackprof
   steep!
-  vernier (~> 1.5)
+  vernier (~> 1.8)
 
 BUNDLED WITH
    2.5.17
