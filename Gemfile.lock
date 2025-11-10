@@ -100,7 +100,7 @@ GEM
       erb
       psych (>= 4.0.0)
       tsort
-    reline (0.6.2)
+    reline (0.6.3)
       io-console (~> 0.5)
     securerandom (0.4.1)
     stackprof (0.2.27)
