@@ -74,7 +74,7 @@ GEM
     logger (1.7.0)
     majo (1.0.1)
     memory_profiler (1.1.0)
-    minitest (5.25.5)
+    minitest (5.26.1)
     minitest-hooks (1.5.2)
       minitest (> 5.3)
     minitest-slow_test (0.2.0)
@@ -124,7 +124,7 @@ DEPENDENCIES
   debug
   majo
   memory_profiler
-  minitest (~> 5.25)
+  minitest (~> 5.26)
   minitest-hooks
   minitest-slow_test
   rake
