@@ -29,7 +29,7 @@ module Steep
       def string_value: (untyped token) -> untyped
     end
 
-    def self.new_parser: () -> Parser::Ruby33
+    def self.new_parser: () -> Prism::Translation::Parser33
 
     def self.parse: (String source_code, path: Pathname, factory: AST::Types::Factory) -> Source
 
