@@ -22,6 +22,7 @@ PATH
       logger (>= 1.3.0)
       mutex_m (>= 0.3.0)
       parser (>= 3.2)
+      prism (>= 0.25.0)
       rainbow (>= 2.2.2, < 4.0)
       rbs (~> 4.0.0.dev)
       securerandom (>= 0.1)
