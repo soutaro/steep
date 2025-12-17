@@ -52,7 +52,7 @@ GEM
       prettyprint
     prettyprint (0.2.0)
     prism (1.6.0)
-    psych (5.3.0)
+    psych (5.3.1)
       date
       stringio
     racc (1.8.1)
@@ -93,7 +93,7 @@ GEM
       strscan (>= 1.0.0)
       terminal-table (>= 2, < 5)
       uri (>= 0.12.0)
-    stringio (3.1.9)
+    stringio (3.2.0)
     strscan (3.1.6)
     terminal-table (4.0.0)
       unicode-display_width (>= 1.1.1, < 4)
