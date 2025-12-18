@@ -65,7 +65,7 @@ GEM
     rbs-inline (0.12.0)
       prism (>= 0.29)
       rbs (>= 3.8.0)
-    rdoc (6.17.0)
+    rdoc (7.0.1)
       erb
       psych (>= 4.0.0)
       tsort
