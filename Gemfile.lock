@@ -75,7 +75,7 @@ GEM
     majo (1.0.1)
     memory_profiler (1.1.0)
     minitest (5.25.5)
-    minitest-hooks (1.5.2)
+    minitest-hooks (1.5.3)
       minitest (> 5.3)
     minitest-slow_test (0.2.0)
       minitest (>= 5.0)
