@@ -245,7 +245,7 @@ module Steep
               required_positionals: params.required.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
               optional_positionals: params.optional.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
               rest_positionals: params.rest&.yield_self {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
-              trailing_positionals: [],
+              trailing_positionals: params.trailing.map {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
               required_keywords: params.required_keywords.transform_values {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
               optional_keywords: params.optional_keywords.transform_values {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
               rest_keywords: params.rest_keywords&.yield_self {|type| RBS::Types::Function::Param.new(name: nil, type: type_1(type)) },
@@ -263,6 +263,7 @@ module Steep
               required: type.required_positionals.map {|param| type(param.type) },
               optional: type.optional_positionals.map {|param| type(param.type) },
               rest: type.rest_positionals&.yield_self {|param| type(param.type) },
+              trailing: type.trailing_positionals.map {|param| type(param.type) },
               required_keywords: type.required_keywords.transform_values {|param| type(param.type) },
               optional_keywords: type.optional_keywords.transform_values {|param| type(param.type) },
               rest_keywords: type.rest_keywords&.yield_self {|param| type(param.type) }
