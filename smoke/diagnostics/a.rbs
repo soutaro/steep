@@ -4,6 +4,10 @@ end
 
 class MethodDefinitionMissing
   def foo: () -> void
+
+  attr_reader    bar: untyped
+  attr_writer    baz: untyped
+  attr_accessor  qux: untyped
 end
 
 class UnexpectedDynamicMethod
