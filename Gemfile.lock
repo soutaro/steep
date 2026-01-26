@@ -1,9 +1,9 @@
 GIT
   remote: https://github.com/ruby/rbs.git
-  revision: 28dfe329200b26d1ee73fcbec6c14d3c7e8cf16b
+  revision: 8527ed51a4d21952613f16a2f058a0c8c00f35e8
   branch: master
   specs:
-    rbs (4.0.0.dev.4)
+    rbs (4.0.0.dev.5)
       logger
       prism (>= 1.3.0)
       tsort
