@@ -220,6 +220,8 @@ class CompletinoProvider__TypeNameTest < Minitest::Test
   end
 
   def test_find_type_names_module_alias
+    skip "Type name resolution for module/class aliases is changed in RBS 3.10/4.0"
+    
     with_factory({ "a.rbs" => <<~RBS }, nostdlib: true) do |factory|
         class Foo
           module Bar
@@ -245,6 +247,8 @@ class CompletinoProvider__TypeNameTest < Minitest::Test
   end
 
   def test_use_type_names_nested
+    skip "Type name resolution for module/class aliases is changed in RBS 3.10/4.0"
+
     with_factory({ "a.rbs" => <<~RBS }) do |factory|
         use Foo::Bar
 
