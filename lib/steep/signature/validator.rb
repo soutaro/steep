@@ -49,7 +49,7 @@ module Steep
       end
 
       def type_name_resolver
-        @type_name_resolver ||= RBS::Resolver::TypeNameResolver.new(env)
+        @type_name_resolver ||= RBS::Resolver::TypeNameResolver.build(env)
       end
 
       def validator

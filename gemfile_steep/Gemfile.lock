@@ -26,9 +26,7 @@ GEM
       reline (>= 0.3.8)
     drb (2.2.3)
     erb (6.0.1)
-    ffi (1.17.3-aarch64-linux-gnu)
-    ffi (1.17.3-arm64-darwin)
-    ffi (1.17.3-x86_64-linux-gnu)
+    ffi (1.17.3)
     fileutils (1.8.0)
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
@@ -109,12 +107,7 @@ GEM
     uri (1.1.1)
 
 PLATFORMS
-  aarch64-linux
-  arm64-darwin-21
-  arm64-darwin-22
-  arm64-darwin-23
-  arm64-darwin-24
-  x86_64-linux
+  ruby
 
 DEPENDENCIES
   debug
@@ -125,4 +118,4 @@ DEPENDENCIES
   steep (~> 1.10.0)
 
 BUNDLED WITH
-   2.5.17
+   4.0.5

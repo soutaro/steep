@@ -10,7 +10,13 @@ class SourceTest < Minitest::Test
   include FactoryHelper
 
   def test_foo
-    with_factory do |factory|
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+module Foo
+  class Bar
+  end
+end
+      RBS
+
       code = <<-EOF
 # @type var x1: untyped
 
@@ -422,7 +428,11 @@ a = test() ? foo : bar
   end
 
   def test_defs
-    with_factory do |factory|
+    with_factory({ "a.rbs" => <<-RBS }) do |factory|
+class A
+end
+      RBS
+
       source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 class A
   def self.foo()

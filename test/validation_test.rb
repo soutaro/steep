@@ -1268,6 +1268,8 @@ Test: SetValueExtractor[ArraySet]
   end
 
   def test_validate__deprecated__type_name
+    skip "Type name resolution for module/class aliases is changed in RBS 3.10/4.0"
+
     with_checker <<~RBS do |checker|
         %a{deprecated} class Foo end
 

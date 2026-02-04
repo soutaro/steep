@@ -1,11 +1,11 @@
 GIT
   remote: https://github.com/ruby/rbs.git
-  revision: 28dfe329200b26d1ee73fcbec6c14d3c7e8cf16b
+  revision: 088d66a8dd6ac6bcddf5bdf4e467aab3d0cac9e1
   branch: master
   specs:
-    rbs (4.0.0.dev.4)
+    rbs (4.0.0.dev.5)
       logger
-      prism (>= 1.3.0)
+      prism (>= 1.6.0)
       tsort
 
 PATH
@@ -75,7 +75,7 @@ GEM
     logger (1.7.0)
     majo (1.0.1)
     memory_profiler (1.1.0)
-    minitest (5.25.5)
+    minitest (5.27.0)
     minitest-hooks (1.5.3)
       minitest (> 5.3)
     minitest-slow_test (0.2.0)
@@ -135,4 +135,4 @@ DEPENDENCIES
   vernier (~> 1.5)
 
 BUNDLED WITH
-   2.5.17
+   4.0.5

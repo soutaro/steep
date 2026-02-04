@@ -73,7 +73,7 @@ module Steep
             end
           end
 
-          @type_name_resolver = ::RBS::Resolver::TypeNameResolver.new(env)
+          @type_name_resolver = ::RBS::Resolver::TypeNameResolver.build(env)
         end
 
         def each_outer_module(context = self.context, &block)
@@ -187,7 +187,7 @@ module Steep
           end
 
           name.absolute? or raise
-          
+
           if normalized_name = env.normalize_type_name?(name)
             name.namespace.path.reverse_each.inject(::RBS::TypeName.new(namespace: ::RBS::Namespace.empty, name: name.name)) do |relative_name, component|
               if type_name_resolver.resolve(relative_name, context: context) == name
