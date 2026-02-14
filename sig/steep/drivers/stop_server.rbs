@@ -1,0 +1,13 @@
+module Steep
+  module Drivers
+    class StopServer
+      attr_reader stdout: IO
+
+      attr_reader stderr: IO
+
+      def initialize: (stdout: IO, stderr: IO) -> void
+
+      def run: () -> Integer
+    end
+  end
+end

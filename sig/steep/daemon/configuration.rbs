@@ -1,0 +1,14 @@
+module Steep
+  module Daemon
+    # Configuration value object for daemon paths and settings
+    class Configuration
+      attr_reader socket_path: String
+      attr_reader pid_path: String
+      attr_reader log_path: String
+      attr_reader project_id: String
+      attr_reader socket_dir: String
+
+      def initialize: (?base_dir: String) -> void
+    end
+  end
+end

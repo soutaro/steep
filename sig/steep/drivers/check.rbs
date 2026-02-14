@@ -29,6 +29,8 @@ module Steep
 
       attr_accessor formatter: ("code" | "github")
 
+      attr_accessor use_daemon: bool
+
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO) -> void
@@ -45,6 +47,18 @@ module Steep
       def active_group?: (Project::Target | Project::Group) -> bool
 
       def load_files: (Server::TargetGroupFiles, Project::Target, Project::Target | Project::Group, params: Server::CustomMethods::TypeCheck::params) -> void
+
+      private
+
+      def run_with_server: () -> Integer
+
+      def run_standard_check: () -> Integer
+
+      def print_typecheck_result: (project: Project, diagnostic_notifications: Array[untyped], error_messages: Array[String]) -> Integer
+
+      def build_typecheck_params: (Project project) -> Server::CustomMethods::TypeCheck::params
+
+      def wait_for_daemon: (?timeout: Integer) -> bool
     end
   end
 end

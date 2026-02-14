@@ -1,0 +1,100 @@
+module Steep
+  module Daemon
+    # Server orchestrates the persistent daemon components
+    class Server
+      attr_reader config: Configuration
+      attr_reader project: Project
+      attr_reader file_tracker: FileTracker
+      attr_reader shutdown_flag: bool
+      attr_reader warmup_status: Symbol
+      attr_reader warmup_mutex: Thread::Mutex
+
+      MAX_REQUEST_SIZE: Integer
+
+      FILE_CHANGE_TYPE: Hash[Symbol, Integer]
+
+      # Tracks file modification times to detect changes between checks
+      class FileTracker
+        @mtimes: Hash[String, Time?]
+        @pending_changes: Hash[String, Symbol]
+        @mutex: Thread::Mutex
+
+        def initialize: () -> void
+
+        def register: (Array[String] paths) -> void
+
+        def record_changes: (Array[[String, Symbol]] changes) -> void
+
+        def flush_pending_changes: () -> Array[[String, Symbol]]
+
+        def track_and_detect: (Array[String] paths) -> Array[[String, Symbol]]
+
+        private
+
+        def safe_mtime: (String path) -> Time?
+      end
+
+      def initialize: (config: Configuration, project: Project) -> void
+
+      def run: () -> void
+
+      private
+
+      def warmup_ready?: () -> bool
+
+      def set_warmup_status: (Symbol status) -> void
+
+      def handle_client: (
+        UNIXSocket client_socket,
+        LanguageServer::Protocol::Transport::Io::Writer master_writer,
+        LanguageServer::Protocol::Transport::Io::Reader master_reader
+      ) -> void
+
+      def sync_changed_files: (
+        LanguageServer::Protocol::Transport::Io::Writer master_writer,
+        Hash[Symbol, untyped] params
+      ) -> void
+
+      def collect_all_project_paths: () -> Array[String]
+
+      def start_background_watcher: (
+        LanguageServer::Protocol::Transport::Io::Writer master_writer,
+        LanguageServer::Protocol::Transport::Io::Reader master_reader
+      ) -> Thread
+
+      def categorize_path_changes: (
+        Array[String] all_paths,
+        Array[String] added,
+        Array[String] removed
+      ) -> Array[Symbol]
+
+      def build_lsp_changes: (
+        Array[String] all_paths,
+        Array[String] added,
+        Array[String] removed
+      ) -> Array[Hash[Symbol, untyped]]
+
+      def collect_warmup_files: () -> ::Steep::Server::CustomMethods::TypeCheck::params
+
+      def warm_typecheck: (
+        LanguageServer::Protocol::Transport::Io::Writer master_writer,
+        LanguageServer::Protocol::Transport::Io::Reader master_reader
+      ) -> void
+
+      def warm_typecheck_on_startup: (
+        LanguageServer::Protocol::Transport::Io::Writer master_writer,
+        LanguageServer::Protocol::Transport::Io::Reader master_reader
+      ) -> void
+
+      def wait_for_response: (
+        LanguageServer::Protocol::Transport::Io::Reader reader,
+        String id
+      ) -> untyped
+
+      def shutdown_master: (
+        LanguageServer::Protocol::Transport::Io::Writer writer,
+        LanguageServer::Protocol::Transport::Io::Reader reader
+      ) -> void
+    end
+  end
+end
