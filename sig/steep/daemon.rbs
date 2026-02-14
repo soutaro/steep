@@ -1,0 +1,38 @@
+module Steep
+  module Daemon
+    SOCKET_DIR: String
+
+    LARGE_LOG_FILE_THRESHOLD: Integer
+
+    # Module-level class methods for daemon lifecycle management
+    self.@config: Configuration
+
+    def self.config: () -> Configuration
+
+    def self.project_id: () -> String
+
+    def self.socket_path: () -> String
+
+    def self.pid_path: () -> String
+
+    def self.log_path: () -> String
+
+    def self.running?: () -> bool
+
+    def self.starting?: () -> bool
+
+    def self.cleanup: () -> void
+
+    def self.start: () -> bool
+
+    def self.stop: () -> void
+
+    def self.status: () -> void
+
+    private
+
+    def self.run_server: () -> void
+
+    def self.load_project: () -> Project
+  end
+end
