@@ -105,7 +105,7 @@ GEM
     reline (0.6.3)
       io-console (~> 0.5)
     securerandom (0.4.1)
-    stackprof (0.2.27)
+    stackprof (0.2.28)
     stringio (3.2.0)
     strscan (3.1.7)
     terminal-table (4.0.0)
