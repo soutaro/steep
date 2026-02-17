@@ -82,7 +82,7 @@ GEM
     minitest-slow_test (0.2.0)
       minitest (>= 5.0)
     mutex_m (0.3.0)
-    parser (3.3.10.1)
+    parser (3.3.10.2)
       ast (~> 2.4.1)
       racc
     pp (0.6.3)
