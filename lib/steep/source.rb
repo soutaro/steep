@@ -38,6 +38,8 @@ module Steep
     end
 
     def self.parse(source_code, path:, factory:)
+      source_code = ErbToRubyCode.convert(source_code) if path.to_s.end_with?(".erb")
+
       buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)
       node, comments = new_parser().parse_with_comments(buffer)
 
