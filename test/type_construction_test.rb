@@ -3050,6 +3050,29 @@ EOF
     end
   end
 
+  def test_when_record_typing
+    with_checker do |checker|
+      source = parse_ruby(<<EOF)
+# @type var x: { type: :foo, value: Integer } | { type: :bar, value: String }
+x = (_ = nil)
+case x[:type]
+when :foo
+  y = x[:value]
+when :bar
+  z = x[:value]
+end
+EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:y]
+        assert_equal parse_type("::String"), pair.context.type_env[:z]
+      end
+    end
+  end
+
   def test_while_typing
     with_checker do |checker|
       source = parse_ruby(<<EOF)
