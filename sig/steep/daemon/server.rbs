@@ -9,8 +9,6 @@ module Steep
       attr_reader warmup_status: Symbol
       attr_reader warmup_mutex: Thread::Mutex
 
-      MAX_REQUEST_SIZE: Integer
-
       FILE_CHANGE_TYPE: Hash[Symbol, Integer]
 
       # Tracks file modification times to detect changes between checks
@@ -85,6 +83,10 @@ module Steep
         LanguageServer::Protocol::Transport::Io::Writer master_writer,
         LanguageServer::Protocol::Transport::Io::Reader master_reader
       ) -> void
+
+      def read_one_message: (
+        LanguageServer::Protocol::Transport::Io::Reader reader
+      ) -> Hash[Symbol, untyped]?
 
       def wait_for_response: (
         LanguageServer::Protocol::Transport::Io::Reader reader,
