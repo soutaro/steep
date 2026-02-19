@@ -215,28 +215,27 @@ module Steep
         }
 
         socket = UNIXSocket.new(Daemon.socket_path)
-        socket.puts(JSON.generate({ params: params }))
+        reader = LSP::Transport::Io::Reader.new(socket)
+        writer = LSP::Transport::Io::Writer.new(socket)
+
+        request_guid = SecureRandom.uuid
+        writer.write(Server::CustomMethods::TypeCheck.request(request_guid, params))
 
         diagnostic_notifications = [] #: Array[LanguageServer::Protocol::Interface::PublishDiagnosticsParams]
         error_messages = [] #: Array[String]
 
-        while (line = socket.gets)
-          msg = JSON.parse(line, symbolize_names: true)
-
-          case msg[:type]
-          when "diagnostic"
-            ds = msg[:params][:diagnostics]
+        wait_for_response_id(reader: reader, id: request_guid) do |message|
+          case message[:method]
+          when "textDocument/publishDiagnostics"
+            ds = message[:params][:diagnostics]
             ds.select! { |d| keep_diagnostic?(d, severity_level: severity_level) }
             stdout.print(ds.empty? ? "." : "F")
-            diagnostic_notifications << msg[:params]
+            diagnostic_notifications << message[:params]
             stdout.flush
-          when "message"
-            lsp_error = LanguageServer::Protocol::Constant::MessageType::ERROR
-            if msg[:params][:type] == lsp_error
-              error_messages << msg[:params][:message]
+          when "window/showMessage"
+            if message[:params][:type] == LSP::Constant::MessageType::ERROR
+              error_messages << message[:params][:message]
             end
-          when "complete"
-            break
           end
         end
 

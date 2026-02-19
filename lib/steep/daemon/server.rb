@@ -7,10 +7,6 @@ module Steep
       attr_reader :file_tracker, :shutdown_flag
       attr_reader :warmup_status, :warmup_mutex
 
-      # SAFE: Maximum size of client request in bytes (10MB)
-      # Prevents memory exhaustion from malformed or malicious requests
-      MAX_REQUEST_SIZE = 10 * 1024 * 1024
-
       # LSP file change types (from Language Server Protocol specification)
       FILE_CHANGE_TYPE = {
         created: 1,
@@ -225,20 +221,12 @@ module Steep
       end
 
       def handle_client(client_socket, master_writer, master_reader)
-        line = client_socket.gets
-        return unless line
+        client_reader = LanguageServer::Protocol::Transport::Io::Reader.new(client_socket)
+        client_writer = LanguageServer::Protocol::Transport::Io::Writer.new(client_socket)
 
-        # SAFE: Protect against oversized requests that could cause memory exhaustion
-        if line.bytesize > MAX_REQUEST_SIZE
-          Steep.logger.warn { "Request too large: #{line.bytesize} bytes (limit: #{MAX_REQUEST_SIZE})" }
-          client_socket.puts(JSON.generate({
-            type: "error",
-            message: "Request too large (#{line.bytesize} bytes, limit: #{MAX_REQUEST_SIZE})"
-          }))
-          return
-        end
+        request = read_one_message(client_reader) or return
 
-        request = JSON.parse(line, symbolize_names: true)
+        client_request_id = request[:id]
         params = request[:params]
 
         code_count = params[:code_paths]&.size || 0
@@ -254,16 +242,11 @@ module Steep
 
         master_reader.read do |message|
           if message[:id] == request_guid
-            client_socket.puts(JSON.generate({ type: "complete", result: message[:result] }))
+            client_writer.write({ id: client_request_id, result: message[:result] })
             return
           end
 
-          case message[:method]
-          when "textDocument/publishDiagnostics"
-            client_socket.puts(JSON.generate({ type: "diagnostic", params: message[:params] }))
-          when "window/showMessage"
-            client_socket.puts(JSON.generate({ type: "message", params: message[:params] }))
-          end
+          client_writer.write(message)
         end
       rescue Errno::EPIPE, IOError
         Steep.logger.warn { "Client disconnected during check" }
@@ -435,6 +418,12 @@ module Steep
       def wait_for_response(reader, id)
         reader.read do |message|
           return message if message[:id] == id
+        end
+      end
+
+      def read_one_message(reader)
+        reader.read do |message|
+          return message
         end
       end
 
