@@ -593,9 +593,27 @@ module Steep
             location: error.location
           )
         when RBS::SuperclassMismatchError
+          # Try to find a declaration in a user file (not in core/stdlib)
+          # If the type is reopened in user code, use that location instead of the core library location
+          location = error.entry.primary_decl.location
+          
+          # Check if there are other declarations in non-core files
+          # context_decls is an array of [context, decl] pairs
+          error.entry.context_decls.each do |context, decl|
+            decl_location = decl.location
+            if decl_location
+              buffer_name = decl_location.buffer.name.to_s
+              # Prefer locations that are not in core/stdlib (gems directory)
+              unless buffer_name.include?('/gems/') || buffer_name.include?('/core/') || buffer_name.include?('/stdlib/')
+                location = decl_location
+                break
+              end
+            end
+          end
+          
           Diagnostic::Signature::SuperclassMismatch.new(
             name: error.name,
-            location: error.entry.primary_decl.location
+            location: location
           )
         when RBS::InvalidVarianceAnnotationError
           Diagnostic::Signature::InvalidVarianceAnnotation.new(

@@ -41,11 +41,17 @@ module Steep
 
         attr_reader last_builder: RBS::DefinitionBuilder
 
+        attr_reader implicitly_returns_nil: bool
+
         @rbs_index: Index::RBSIndex?
+
+        @subtyping: Subtyping::Check?
 
         @constant_resolver: RBS::Resolver::ConstantResolver?
 
-        def initialize: (files: Hash[Pathname, file_status], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder) -> void
+        def initialize: (files: Hash[Pathname, file_status], changed_paths: Set[Pathname], diagnostics: Array[Diagnostic::Signature::Base], last_builder: RBS::DefinitionBuilder, implicitly_returns_nil: bool) -> void
+
+        def subtyping: () -> Subtyping::Check
 
         def rbs_index: () -> Index::RBSIndex
 

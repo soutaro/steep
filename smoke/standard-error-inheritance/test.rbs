@@ -1,0 +1,13 @@
+module X509
+  class RequestError < StandardError
+  end
+end
+
+module Errno
+  class ECONNRESET < StandardError
+  end
+end
+
+class Foo
+  def bar: () -> String
+end

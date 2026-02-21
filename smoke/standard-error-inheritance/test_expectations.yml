@@ -1,0 +1,25 @@
+---
+- file: test.rb
+  diagnostics:
+  - range:
+      start:
+        line: 5
+        character: 4
+      end:
+        line: 5
+        character: 7
+    severity: ERROR
+    message: Type `::Foo` does not have method `baz`
+    code: Ruby::NoMethod
+- file: test.rbs
+  diagnostics:
+  - range:
+      start:
+        line: 7
+        character: 2
+      end:
+        line: 8
+        character: 5
+    severity: ERROR
+    message: Different superclasses are specified for `::Errno::ECONNRESET`
+    code: RBS::SuperclassMismatch
