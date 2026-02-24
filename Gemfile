@@ -4,7 +4,7 @@ source 'https://rubygems.org'
 gemspec
 
 gem "rake"
-gem "minitest", "~> 5.25"
+gem "minitest", "~> 6.0"
 gem "minitest-hooks"
 gem 'minitest-slow_test'
 
