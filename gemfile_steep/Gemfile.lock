@@ -25,7 +25,7 @@ GEM
       irb (~> 1.10)
       reline (>= 0.3.8)
     drb (2.2.3)
-    erb (6.0.1)
+    erb (6.0.2)
     ffi (1.17.3)
     fileutils (1.8.0)
     i18n (1.14.8)
