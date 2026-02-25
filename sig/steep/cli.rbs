@@ -59,5 +59,7 @@ module Steep
     def process_version: () -> Integer
 
     def process_worker: () -> Integer
+
+    def process_server: () -> Integer
   end
 end
