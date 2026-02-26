@@ -1745,13 +1745,18 @@ module Steep
               if hint
                 tuples = select_flatten_types(hint) {|type| type.is_a?(AST::Types::Tuple) } #: Array[AST::Types::Tuple]
                 unless tuples.empty?
+                  fallback_pair = nil #: Pair?
                   tuples.each do |tuple|
                     typing.new_child() do |child_typing|
                       if pair = with_new_typing(child_typing).try_tuple_type(node, tuple)
-                        return pair.with(constr: pair.constr.save_typing)
+                        if pair.constr.check_relation(sub_type: pair.type, super_type: tuple).success?
+                          return pair.with(constr: pair.constr.save_typing)
+                        end
+                        fallback_pair ||= pair.with(constr: pair.constr.save_typing)
                       end
                     end
                   end
+                  return fallback_pair if fallback_pair
                 end
               end
 
