@@ -26,13 +26,22 @@ module Steep
       end
 
       class AncestorErrorStatus
-        attr_reader :files, :changed_paths, :diagnostics, :last_builder
+        attr_reader :files, :changed_paths, :diagnostics, :last_builder, :implicitly_returns_nil
 
-        def initialize(files:, changed_paths:, diagnostics:, last_builder:)
+        def initialize(files:, changed_paths:, diagnostics:, last_builder:, implicitly_returns_nil:)
           @files = files
           @changed_paths = changed_paths
           @diagnostics = diagnostics
           @last_builder = last_builder
+          @implicitly_returns_nil = implicitly_returns_nil
+        end
+
+        def subtyping
+          @subtyping ||= begin
+            factory = AST::Types::Factory.new(builder: last_builder)
+            interface_builder = Interface::Builder.new(factory, implicitly_returns_nil: implicitly_returns_nil)
+            Subtyping::Check.new(builder: interface_builder)
+          end
         end
 
         def rbs_index
@@ -146,7 +155,8 @@ module Steep
       end
 
       def current_subtyping
-        if status.is_a?(LoadedStatus)
+        case status = status()
+        when LoadedStatus, AncestorErrorStatus
           status.subtyping
         end
       end
@@ -268,11 +278,13 @@ module Steep
 
             @status = case result
                       when Array
+                        diagnostics, definition_builder = result
                         AncestorErrorStatus.new(
                           changed_paths: paths,
-                          last_builder: latest_builder,
-                          diagnostics: result,
-                          files: files
+                          last_builder: definition_builder,
+                          diagnostics: diagnostics,
+                          files: files,
+                          implicitly_returns_nil: implicitly_returns_nil
                         )
                       when RBS::DefinitionBuilder::AncestorBuilder
                         builder2 = update_builder(ancestor_builder: result, paths: paths)
@@ -317,10 +329,12 @@ module Steep
           end
 
           unless errors.empty?
-            return errors.map {|error|
+            diagnostics = errors.map {|error|
               # Factory will not be used because of the possible error types.
               Diagnostic::Signature.from_rbs_error(error, factory: _ = nil)
             }
+            definition_builder = RBS::DefinitionBuilder.new(env: env)
+            return [diagnostics, definition_builder]
           end
 
           Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
@@ -341,8 +355,9 @@ module Steep
 
           unless errors.empty?
             errors.uniq! { |e| [e.class, e.message] }
-            factory = AST::Types::Factory.new(builder: RBS::DefinitionBuilder.new(env: env, ancestor_builder: builder))
-            return errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
+            definition_builder = RBS::DefinitionBuilder.new(env: env, ancestor_builder: builder)
+            factory = AST::Types::Factory.new(builder: definition_builder)
+            return [errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }, definition_builder]
           end
 
           builder

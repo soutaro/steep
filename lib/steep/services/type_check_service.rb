@@ -179,6 +179,8 @@ module Steep
               raise "#{path} is not library nor signature of #{target.name}"
             end
 
+            diagnostics = []
+
             case service.status
             when SignatureService::SyntaxErrorStatus
               diagnostics = service.status.diagnostics.select do |diag|
@@ -188,10 +190,12 @@ module Steep
               end
 
             when SignatureService::AncestorErrorStatus
-              diagnostics = service.status.diagnostics.select do |diag|
-                diag.location or raise
-                Pathname(diag.location.buffer.name) == path
-              end
+              # For ancestor errors, we report ALL diagnostics because:
+              # 1. They affect the entire RBS environment
+              # 2. Their locations often point to core library files (primary declarations)
+              # 3. But they're triggered by user code reopening/extending core types
+              # The original filtering by path would hide these errors
+              diagnostics = service.status.diagnostics
 
             when SignatureService::LoadedStatus
               validator = Signature::Validator.new(checker: service.current_subtyping || raise)
@@ -251,6 +255,7 @@ module Steep
             end
 
             signature_validation_diagnostics.fetch(target.name)[path] = diagnostics
+            diagnostics
           end
         end
       end
