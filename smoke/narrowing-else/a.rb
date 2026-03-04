@@ -1,10 +1,10 @@
 class SteepTest
-  def str_fn
+  def union_fn
     :some_symbol
   end
 
   def test
-    res = str_fn
+    res = union_fn
     if res == :some_symbol
       puts "got symbol: #{res}"
     else
