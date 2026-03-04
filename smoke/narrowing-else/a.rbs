@@ -1,0 +1,8 @@
+class Result
+  def str: () -> String
+end
+
+class SteepTest
+  def str_fn: () -> (Result | :some_symbol)
+  def test: () -> void
+end

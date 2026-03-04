@@ -345,6 +345,22 @@ module Steep
               falsy_result.unreachable! unless falsy_type
 
               [truthy_result, falsy_result]
+            elsif (truthy_types, falsy_types = literal_receiver_type_case_select(arg, receiver_type))
+              # Handle literal equality: receiver == literal_value
+              truthy_env, falsy_env = refine_node_type(
+                env: env,
+                node: receiver,
+                truthy_type: truthy_types.empty? ? BOT : AST::Types::Union.build(types: truthy_types),
+                falsy_type: falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types)
+              )
+
+              truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
+              truthy_result.unreachable! if truthy_types.empty?
+
+              falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
+              falsy_result.unreachable! if falsy_types.empty?
+
+              [truthy_result, falsy_result]
             end
           end
 
@@ -549,6 +565,69 @@ module Steep
                 end
               else
                 true_types << AST::Types::Literal.new(value: value_node.children[0])
+                false_types << type
+              end
+            end
+          end
+        end
+      end
+
+      def literal_receiver_type_case_select(value_node, receiver_type)
+        case receiver_type
+        when AST::Types::Union
+          # @type var truthy_types: Array[AST::Types::t]
+          truthy_types = []
+          # @type var falsy_types: Array[AST::Types::t]
+          falsy_types = []
+
+          receiver_type.types.each do |type|
+            if (ts, fs = literal_receiver_type_case_select(value_node, type))
+              truthy_types.push(*ts)
+              falsy_types.push(*fs)
+            else
+              return
+            end
+          end
+
+          [truthy_types, falsy_types]
+        when AST::Types::Boolean
+          [[receiver_type], [receiver_type]]
+        when AST::Types::Top, AST::Types::Any
+          [[receiver_type], [receiver_type]]
+        else
+          types = [receiver_type]
+
+          case value_node.type
+          when :nil
+            types.partition do |type|
+              type.is_a?(AST::Types::Nil) || AST::Builtin::NilClass.instance_type?(type)
+            end
+          when :true
+            types.partition do |type|
+              AST::Builtin::TrueClass.instance_type?(type) ||
+                (type.is_a?(AST::Types::Literal) && type.value == true)
+            end
+          when :false
+            types.partition do |type|
+              AST::Builtin::FalseClass.instance_type?(type) ||
+                (type.is_a?(AST::Types::Literal) && type.value == false)
+            end
+          when :int, :str, :sym
+            # @type var pairs: [Array[AST::Types::t], Array[AST::Types::t]]
+            pairs = [[], []]
+
+            types.each_with_object(pairs) do |type, pair|
+              true_types, false_types = pair
+
+              case
+              when type.is_a?(AST::Types::Literal)
+                if type.value == value_node.children[0]
+                  true_types << type
+                else
+                  false_types << type
+                end
+              else
+                # Non-literal types don't match the literal value, so they only go to false branch
                 false_types << type
               end
             end
