@@ -127,6 +127,7 @@ BANNER
         OptionParser.new do |opts|
           opts.banner = <<BANNER
 Usage: steep check [options] [paths]
+       steep check [options] -e 'expr' [-e 'expr' ...]
 
 Description:
     Type check the program.
@@ -138,6 +139,9 @@ Options:
 BANNER
 
           handle_steepfile_option(opts, command)
+          opts.on("-e", "--expression=EXPRESSION", "Type check a Ruby expression (may be specified multiple times)") do |expr|
+            command.expressions << expr
+          end
           opts.on("--with-expectations[=PATH]", "Type check with expectations saved in PATH (or steep_expectations.yml)") do |path|
             command.with_expectations_path = Pathname(path || "steep_expectations.yml")
           end
@@ -198,6 +202,10 @@ BANNER
         setup_jobs_for_ci(command.jobs_option)
 
         command.command_line_patterns.push(*argv)
+
+        unless command.expressions.empty? || argv.empty?
+          abort "Cannot specify both -e and file paths"
+        end
       end.run
     end
 
