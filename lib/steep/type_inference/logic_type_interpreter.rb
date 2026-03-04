@@ -345,6 +345,22 @@ module Steep
               falsy_result.unreachable! unless falsy_type
 
               [truthy_result, falsy_result]
+            elsif (truthy_types, falsy_types = literal_var_type_case_select(arg, receiver_type, for_receiver: true))
+              # Handle literal equality: receiver == literal_value
+              truthy_env, falsy_env = refine_node_type(
+                env: env,
+                node: receiver,
+                truthy_type: truthy_types.empty? ? BOT : AST::Types::Union.build(types: truthy_types),
+                falsy_type: falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types)
+              )
+
+              truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
+              truthy_result.unreachable! if truthy_types.empty?
+
+              falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
+              falsy_result.unreachable! if falsy_types.empty?
+
+              [truthy_result, falsy_result]
             end
           end
 
@@ -493,7 +509,7 @@ module Steep
         end
       end
 
-      def literal_var_type_case_select(value_node, arg_type)
+      def literal_var_type_case_select(value_node, arg_type, for_receiver: false)
         case arg_type
         when AST::Types::Union
           # @type var truthy_types: Array[AST::Types::t]
@@ -502,7 +518,7 @@ module Steep
           falsy_types = []
 
           arg_type.types.each do |type|
-            if (ts, fs = literal_var_type_case_select(value_node, type))
+            if (ts, fs = literal_var_type_case_select(value_node, type, for_receiver: for_receiver))
               truthy_types.push(*ts)
               falsy_types.push(*fs)
             else
@@ -548,7 +564,9 @@ module Steep
                   false_types << type
                 end
               else
-                true_types << AST::Types::Literal.new(value: value_node.children[0])
+                # For === (for_receiver: false), non-literal types can match the literal in truthy branch
+                # For == (for_receiver: true), non-literal types only go to falsy branch
+                true_types << AST::Types::Literal.new(value: value_node.children[0]) unless for_receiver
                 false_types << type
               end
             end
