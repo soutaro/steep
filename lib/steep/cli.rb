@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :checkfile]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :checkfile, :server]
     end
 
     def process_global_options
@@ -58,7 +58,8 @@ module Steep
       process_global_options or return 1
       setup_command or return 1
 
-      __send__(:"process_#{command}")
+      method_name = command.to_s.gsub('-', '_')
+      __send__(:"process_#{method_name}")
     end
 
     def handle_steepfile_option(opts, command)
@@ -189,6 +190,10 @@ BANNER
 
           opts.on("--format=FORMATTER", ["code", "github"], "Output formatters (default: code, options: code,github)") do |formatter|
             command.formatter = formatter
+          end
+
+          opts.on("--[no-]daemon", "Use daemon server if available (default: true)") do |v|
+            command.use_daemon = v ? true : false
           end
 
           handle_jobs_option command.jobs_option, opts
@@ -475,6 +480,108 @@ BANNER
 
         command.commandline_args.push(*argv)
       end.run
+    end
+
+    def process_server
+      subcommand = argv.shift
+
+      if subcommand.nil? || subcommand == "--help" || subcommand == "-h"
+        stderr.puts <<~HELP
+          Usage: steep server <subcommand> [options]
+
+          Description:
+              Manage the Steep daemon server for faster type checking.
+              The daemon keeps RBS environment loaded in memory.
+
+          Available subcommands:
+              start     Start the daemon server
+              stop      Stop the daemon server
+              restart   Restart the daemon server
+              status    Show daemon server status
+
+          Options:
+              --help    Show this help message
+
+          Examples:
+              steep server start
+              steep server stop
+              steep server restart
+              steep server status
+        HELP
+        return 0
+      end
+
+      case subcommand
+      when "start"
+        Drivers::StartServer.new(stdout: stdout, stderr: stderr).tap do |command|
+          OptionParser.new do |opts|
+            opts.banner = <<BANNER
+Usage: steep server start [options]
+
+Description:
+    Starts a persistent daemon server for faster type checking.
+    The daemon keeps RBS environment loaded in memory.
+
+Options:
+BANNER
+            handle_logging_options opts
+          end.parse!(argv)
+        end.run
+      when "stop"
+        Drivers::StopServer.new(stdout: stdout, stderr: stderr).tap do |command|
+          OptionParser.new do |opts|
+            opts.banner = <<BANNER
+Usage: steep server stop [options]
+
+Description:
+    Stops the running daemon server.
+
+Options:
+BANNER
+            handle_logging_options opts
+          end.parse!(argv)
+        end.run
+      when "restart"
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep server restart [options]
+
+Description:
+    Restarts the daemon server (stops and then starts it).
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        stop_command = Drivers::StopServer.new(stdout: stdout, stderr: stderr)
+        stop_command.run
+
+        # Brief pause to ensure clean shutdown
+        sleep 0.5
+
+        start_command = Drivers::StartServer.new(stdout: stdout, stderr: stderr)
+        start_command.run
+      when "status"
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep server status [options]
+
+Description:
+    Shows the status of the daemon server.
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        Daemon.status(stderr: stderr)
+        0
+      else
+        stderr.puts "Unknown server subcommand: #{subcommand}"
+        stderr.puts "  available subcommands: start, stop, restart, status"
+        1
+      end
     end
   end
 end

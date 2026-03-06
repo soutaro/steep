@@ -153,6 +153,10 @@ gems:
   version: '0'
   source:
     type: stdlib
+- name: tmpdir
+  version: '0'
+  source:
+    type: stdlib
 - name: tsort
   version: '0'
   source:
