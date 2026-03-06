@@ -29,11 +29,15 @@ module Steep
 
       attr_accessor formatter: ("code" | "github")
 
+      attr_reader expressions: Array[String]
+
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> Integer
+
+      def run_expressions: (Project) -> Integer
 
       def print_expectations: (project: Project, all_files: Array[Pathname], expectations_path: Pathname, notifications: Array[untyped]) -> Integer
 
