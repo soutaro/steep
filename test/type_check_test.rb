@@ -4428,4 +4428,34 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_tuple_type_with_if_branch
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          module M
+            def test_if: (bool flag) -> (["yes", "ok"] | ["no", "error"])
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          module M
+            def test_if(flag)
+              if flag
+                ['yes', 'ok']
+              else
+                ['no', 'error']
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end
