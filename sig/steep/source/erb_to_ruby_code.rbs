@@ -1,0 +1,27 @@
+module Steep
+  class Source
+    module ErbToRubyCode
+      def self.convert: (String erb_code) -> String
+
+      private
+
+      ERB_TAG_PREFIX_POSITION_REGEX: Regexp
+      ERB_TAG_SUFIX_POSITION_REGEX: Regexp
+      ERB_TAG_PREFIX_REGEX: Regexp
+      ERB_TAG_SUFFIX_REGEX: Regexp
+      NON_NEWLINE_REGEX: Regexp
+
+      def self.replace_everything_before_erb_tag_with_whitespace: (idx: Integer, erb_tag_prefix_position: Integer, source_code: String) -> String
+
+      def self.erb_tag_prefix_length: (erb_tag_full_content: String) -> Integer
+
+      def self.erb_tag_sufix_length: (erb_tag_full_content: String) -> Integer
+
+      def self.inner_with_tags_removed: (erb_tag_full_content: String, erb_tag_prefix_length: Integer, erb_tag_sufix_length: Integer) -> String
+
+      def self.generate_replacement: (erb_tag_full_content: String, erb_tag_prefix_length: Integer, erb_tag_sufix_length: Integer) -> String
+
+      def self.replace_everything_after_erb_tag_with_whitespace: (idx: Integer, source_code: String) -> String
+    end
+  end
+end
