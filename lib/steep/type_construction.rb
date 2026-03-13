@@ -4307,6 +4307,16 @@ module Steep
                   )
                 else
                   # non-nil value is given
+                  if node_type.is_a?(AST::Types::Name::Instance) && node_type.name.to_s == '::Proc'
+                    errors << Diagnostic::Ruby::UnsupportedSyntax.new(
+                      node: arg.node,
+                      message: "Unsupported block-pass-argument given `#{node_type}`"
+                    )
+
+                    type = Interface::Function.new(params: nil, return_type: AST::Builtin.any_type, location: nil)
+                    node_type = AST::Types::Proc.new(type: type, self_type: nil, block: nil)
+                  end
+
                   constr.check_relation(sub_type: node_type, super_type: arg.node_type, constraints: constraints).else do |result|
                     errors << Diagnostic::Ruby::BlockTypeMismatch.new(
                       node: arg.node,
