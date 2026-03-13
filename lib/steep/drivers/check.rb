@@ -17,6 +17,7 @@ module Steep
       attr_accessor :validate_project_signatures
       attr_accessor :validate_library_signatures
       attr_accessor :formatter
+      attr_reader :expressions
 
       include Utils::DriverHelper
 
@@ -32,6 +33,7 @@ module Steep
         @validate_project_signatures = false
         @validate_library_signatures = false
         @formatter = 'code'
+        @expressions = []
       end
 
       def active_group?(group)
@@ -52,6 +54,10 @@ module Steep
 
       def run
         project = load_config()
+
+        unless expressions.empty?
+          return run_expressions(project)
+        end
 
         stdout.puts Rainbow("# Type checking files:").bold
         stdout.puts
@@ -204,6 +210,63 @@ module Steep
       rescue Errno::EPIPE => error
         stdout.puts Rainbow("Steep shutdown with an error: #{error.inspect}").red.bold
         return 1
+      end
+
+      def run_expressions(project)
+        target = project.targets.first or raise "No targets configured"
+
+        stdout.puts Rainbow("# Type checking expression:").bold
+        stdout.puts
+
+        loader = Project::Target.construct_env_loader(options: target.options, project: project)
+        signature_service = Services::SignatureService.load_from(loader, implicitly_returns_nil: target.implicitly_returns_nil)
+        subtyping = signature_service.current_subtyping or raise "Failed to build subtyping"
+
+        lsp_formatter = Diagnostic::LSPFormatter.new(target.code_diagnostics_config)
+        total = 0
+
+        expressions.each_with_index do |expr, index|
+          expr_path = Pathname(expressions.size > 1 ? "(expression:#{index})" : "(expression)")
+
+          begin
+            source = Source.parse(expr, path: expr_path, factory: subtyping.factory)
+          rescue ::Parser::SyntaxError => exn
+            stdout.puts Rainbow("Syntax error in #{expr_path}: #{exn.message}").red.bold
+            total += 1
+            next
+          end
+
+          typing = Services::TypeCheckService.type_check(
+            source: source,
+            subtyping: subtyping,
+            constant_resolver: signature_service.latest_constant_resolver,
+            cursor: nil
+          )
+
+          diagnostics = typing.errors.filter_map { |error| lsp_formatter.format(error) }
+          diagnostics.select! { |d| keep_diagnostic?(d, severity_level: severity_level) }
+
+          unless diagnostics.empty?
+            buffer = RBS::Buffer.new(name: expr_path, content: expr)
+            printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout, formatter: self.formatter)
+
+            diagnostics.each do |diag|
+              printer.print(diag)
+              stdout.puts
+            end
+
+            total += diagnostics.size
+          end
+        end
+
+        if total == 0
+          emoji = %w(🫖 🫖 🫖 🫖 🫖 🫖 🫖 🫖 🍵 🧋 🧉).sample
+          stdout.puts Rainbow("No type error detected. #{emoji}").green.bold
+          0
+        else
+          stdout.puts Rainbow("Detected #{total} #{"problem".pluralize(total)} from #{expressions.size} #{"expression".pluralize(expressions.size)}").red.bold
+          1
+        end
       end
 
       def load_files(files, target, group, params:)
