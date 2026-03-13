@@ -39,3 +39,4 @@ gems:
   - name: digest
   - name: uri
   - name: socket
+  - name: tmpdir
