@@ -2213,6 +2213,32 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_method_def__trailing
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Hello
+            def f: (?untyped a, untyped b) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Hello
+            def f(a = nil, b)
+              a.to_i + b
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_method_yield__untyped
     run_type_check_test(
       signatures: {
