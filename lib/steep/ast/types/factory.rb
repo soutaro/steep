@@ -21,7 +21,7 @@ module Steep
         end
 
         def type_name_resolver
-          @type_name_resolver ||= RBS::Resolver::TypeNameResolver.new(definition_builder.env)
+          @type_name_resolver ||= RBS::Resolver::TypeNameResolver.build(definition_builder.env)
         end
 
         def type_opt(type)

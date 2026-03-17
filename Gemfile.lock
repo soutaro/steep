@@ -1,11 +1,11 @@
 GIT
   remote: https://github.com/ruby/rbs.git
-  revision: 28dfe329200b26d1ee73fcbec6c14d3c7e8cf16b
+  revision: 927ca592755d74bf6267b3c3183872e40f08be09
   branch: master
   specs:
-    rbs (4.0.0.dev.4)
+    rbs (4.0.0.dev.5)
       logger
-      prism (>= 1.3.0)
+      prism (>= 1.6.0)
       tsort
 
 PATH
@@ -20,7 +20,6 @@ PATH
       language_server-protocol (>= 3.17.0.4, < 4.0)
       listen (~> 3.0)
       logger (>= 1.3.0)
-      mutex_m (>= 0.3.0)
       parser (>= 3.2)
       rainbow (>= 2.2.2, < 4.0)
       rbs (~> 4.0.0.dev)
@@ -32,14 +31,14 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (8.0.3)
+    activesupport (8.1.2)
       base64
-      benchmark (>= 0.3)
       bigdecimal
       concurrent-ruby (~> 1.0, >= 1.3.1)
       connection_pool (>= 2.2.5)
       drb
       i18n (>= 1.6, < 2)
+      json
       logger (>= 1.4.2)
       minitest (>= 5.1)
       securerandom (>= 0.3)
@@ -47,66 +46,66 @@ GEM
       uri (>= 0.13.1)
     ast (2.4.3)
     base64 (0.3.0)
-    benchmark (0.4.1)
-    bigdecimal (3.3.1)
-    concurrent-ruby (1.3.5)
-    connection_pool (2.5.4)
+    bigdecimal (4.0.1)
+    concurrent-ruby (1.3.6)
+    connection_pool (3.0.2)
     csv (3.3.5)
-    date (3.4.1)
-    debug (1.11.0)
+    date (3.5.1)
+    debug (1.11.1)
       irb (~> 1.10)
       reline (>= 0.3.8)
     drb (2.2.3)
-    erb (5.1.1)
-    ffi (1.17.2)
-    fileutils (1.7.3)
-    i18n (1.14.7)
+    erb (6.0.2)
+    ffi (1.17.3)
+    fileutils (1.8.0)
+    i18n (1.14.8)
       concurrent-ruby (~> 1.0)
-    io-console (0.8.1)
-    irb (1.15.2)
+    io-console (0.8.2)
+    irb (1.17.0)
       pp (>= 0.6.0)
+      prism (>= 1.3.0)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
-    json (2.15.1)
+    json (2.19.1)
     language_server-protocol (3.17.0.5)
-    listen (3.9.0)
+    listen (3.10.0)
+      logger
       rb-fsevent (~> 0.10, >= 0.10.3)
       rb-inotify (~> 0.9, >= 0.9.10)
     logger (1.7.0)
     majo (1.0.1)
     memory_profiler (1.1.0)
-    minitest (5.25.5)
-    minitest-hooks (1.5.2)
+    minitest (5.27.0)
+    minitest-hooks (1.5.3)
       minitest (> 5.3)
     minitest-slow_test (0.2.0)
       minitest (>= 5.0)
-    mutex_m (0.3.0)
-    parser (3.3.9.0)
+    parser (3.3.10.2)
       ast (~> 2.4.1)
       racc
     pp (0.6.3)
       prettyprint
     prettyprint (0.2.0)
-    prism (1.6.0)
-    psych (5.2.6)
+    prism (1.9.0)
+    psych (5.3.1)
       date
       stringio
     racc (1.8.1)
     rainbow (3.1.1)
-    rake (13.3.0)
+    rake (13.3.1)
     rb-fsevent (0.11.2)
     rb-inotify (0.11.1)
       ffi (~> 1.0)
-    rdoc (6.15.0)
+    rdoc (7.2.0)
       erb
       psych (>= 4.0.0)
       tsort
-    reline (0.6.2)
+    reline (0.6.3)
       io-console (~> 0.5)
     securerandom (0.4.1)
-    stackprof (0.2.27)
-    stringio (3.1.7)
-    strscan (3.1.5)
+    stackprof (0.2.28)
+    stringio (3.2.0)
+    strscan (3.1.7)
     terminal-table (4.0.0)
       unicode-display_width (>= 1.1.1, < 4)
     tsort (0.2.0)
@@ -114,8 +113,8 @@ GEM
       concurrent-ruby (~> 1.0)
     unicode-display_width (3.2.0)
       unicode-emoji (~> 4.1)
-    unicode-emoji (4.1.0)
-    uri (1.0.4)
+    unicode-emoji (4.2.0)
+    uri (1.1.1)
     vernier (1.5.0)
 
 PLATFORMS
@@ -135,4 +134,4 @@ DEPENDENCIES
   vernier (~> 1.5)
 
 BUNDLED WITH
-   2.5.17
+   4.0.5

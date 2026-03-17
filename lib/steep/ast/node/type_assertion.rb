@@ -18,7 +18,7 @@ module Steep
 
         def rbs_type(context, subtyping, type_vars)
           if ty = RBS::Parser.parse_type(type_location.buffer, range: type_location.range, variables: type_vars, require_eof: true)
-            resolver = RBS::Resolver::TypeNameResolver.new(subtyping.factory.env)
+            resolver = RBS::Resolver::TypeNameResolver.build(subtyping.factory.env)
             ty = ty.map_type_name {|name| resolver.resolve(name, context: context) || name.absolute! }
           end
         end

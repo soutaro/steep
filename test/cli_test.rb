@@ -868,4 +868,50 @@ GEMFILE
       end
     end
   end
+
+  def test_check_expression_success
+    stdout, status = sh(*steep, "check", "-e", "1 + 2")
+
+    assert_predicate status, :success?, stdout
+    assert_match(/No type error detected\./, stdout)
+  end
+
+  def test_check_expression_failure
+    stdout, status = sh(*steep, "check", "-e", '123 + "ABC"')
+
+    refute_predicate status, :success?, stdout
+    assert_match(/Ruby::UnresolvedOverloading/, stdout)
+    assert_match(/Detected 1 problem from 1 expression/, stdout)
+  end
+
+  def test_check_multiple_expressions
+
+    stdout, status = sh(*steep, "check", "-e", '123 + "ABC"', "-e", "1 + 2", "-e", '"hello" + 3')
+
+    refute_predicate status, :success?, stdout
+    assert_match(/Detected 2 problems from 3 expressions/, stdout)
+  end
+
+  def test_check_expression_with_paths_error
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "."
+end
+      EOF
+
+      (current_dir + "foo.rb").write("1 + 2")
+
+      _, status = sh(*steep, "check", "-e", "1 + 2", "foo.rb")
+
+      refute_predicate status, :success?
+    end
+  end
+
+  def test_check_expression_syntax_error
+    stdout, status = sh(*steep, "check", "-e", "def foo(")
+
+    refute_predicate status, :success?, stdout
+    assert_match(/Syntax error/, stdout)
+  end
 end
