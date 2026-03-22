@@ -16,6 +16,7 @@ PATH
       concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
       fileutils (>= 1.1.0)
+      herb (>= 0.9.0)
       json (>= 2.1.0)
       language_server-protocol (>= 3.17.0.4, < 4.0)
       listen (~> 3.0)
@@ -58,6 +59,7 @@ GEM
     erb (6.0.2)
     ffi (1.17.3)
     fileutils (1.8.0)
+    herb (0.9.0)
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
     io-console (0.8.2)
@@ -122,6 +124,7 @@ PLATFORMS
 
 DEPENDENCIES
   debug
+  herb (~> 0.9)
   majo
   memory_profiler
   minitest (~> 5.25)
