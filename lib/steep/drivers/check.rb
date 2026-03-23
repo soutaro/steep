@@ -21,6 +21,13 @@ module Steep
 
       include Utils::DriverHelper
 
+      PLURALIZE = {
+        "diagnostic" => "diagnostics",
+        "expression" => "expressions",
+        "file" => "files",
+        "problem" => "problems",
+      }.freeze
+
       def initialize(stdout:, stderr:)
         @stdout = stdout
         @stderr = stderr
@@ -264,7 +271,7 @@ module Steep
           stdout.puts Rainbow("No type error detected. #{emoji}").green.bold
           0
         else
-          stdout.puts Rainbow("Detected #{total} #{"problem".pluralize(total)} from #{expressions.size} #{"expression".pluralize(expressions.size)}").red.bold
+          stdout.puts Rainbow("Detected #{total} #{pluralize("problem", total)} from #{expressions.size} #{pluralize("expression", expressions.size)}").red.bold
           1
         end
       end
@@ -335,13 +342,13 @@ module Steep
           stdout.puts
 
           stdout.puts Rainbow("Expectations unsatisfied:").bold.red
-          stdout.puts "  #{expected_count} expected #{"diagnostic".pluralize(expected_count)}"
-          stdout.puts Rainbow("  + #{unexpected_count} unexpected #{"diagnostic".pluralize(unexpected_count)}").green
-          stdout.puts Rainbow("  - #{missing_count} missing #{"diagnostic".pluralize(missing_count)}").red
+          stdout.puts "  #{expected_count} expected #{pluralize("diagnostic", expected_count)}"
+          stdout.puts Rainbow("  + #{unexpected_count} unexpected #{pluralize("diagnostic", unexpected_count)}").green
+          stdout.puts Rainbow("  - #{missing_count} missing #{pluralize("diagnostic", missing_count)}").red
           1
         else
           stdout.puts Rainbow("Expectations satisfied:").bold.green
-          stdout.puts "  #{expected_count} expected #{"diagnostic".pluralize(expected_count)}"
+          stdout.puts "  #{expected_count} expected #{pluralize("diagnostic", expected_count)}"
           0
         end
       end
@@ -393,8 +400,16 @@ module Steep
             end
           end
 
-          stdout.puts Rainbow("Detected #{total} #{"problem".pluralize(total)} from #{errors.size} #{"file".pluralize(errors.size)}").red.bold
+          stdout.puts Rainbow("Detected #{total} #{pluralize("problem", total)} from #{errors.size} #{pluralize("file", errors.size)}").red.bold
           1
+        end
+      end
+
+      def pluralize(string, count)
+        if count == 1
+          string
+        else
+          PLURALIZE.fetch(string)
         end
       end
     end
