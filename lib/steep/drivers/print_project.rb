@@ -1,5 +1,3 @@
-require "active_support/core_ext/hash/keys"
-
 module Steep
   module Drivers
     class PrintProject
@@ -19,11 +17,11 @@ module Steep
 
       def as_json(project)
         {
-          steepfile: project.steepfile_path.to_s,
-          targets: project.targets.map do |target|
+          "steepfile" => project.steepfile_path.to_s,
+          "targets" => project.targets.map do |target|
             target_as_json(target)
           end
-        }.stringify_keys
+        }
       end
 
       def target_as_json(target)

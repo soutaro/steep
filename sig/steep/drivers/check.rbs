@@ -33,6 +33,8 @@ module Steep
 
       include Utils::DriverHelper
 
+      PLURALIZE: Hash[String, String]
+
       def initialize: (stdout: IO, stderr: IO) -> void
 
       def run: () -> Integer
@@ -44,6 +46,8 @@ module Steep
       def save_expectations: (project: Project, all_files: Array[Pathname], expectations_path: Pathname, notifications: Array[untyped]) -> Integer
 
       def print_result: (project: Project, notifications: Array[untyped]) -> Integer
+
+      def pluralize: (String, Integer count) -> String
 
       # Returns true if the given target is active for this invocation
       def active_group?: (Project::Target | Project::Group) -> bool
