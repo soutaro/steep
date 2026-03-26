@@ -56,7 +56,7 @@ GEM
       reline (>= 0.3.8)
     drb (2.2.3)
     erb (6.0.2)
-    ffi (1.17.3)
+    ffi (1.17.4)
     fileutils (1.8.0)
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
