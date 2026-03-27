@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ['3.2', '3.3', '3.4']
+        ruby: ['3.3', '3.4', '4.0']
         task:
           - test
           - test:output
@@ -40,7 +40,7 @@ jobs:
     - uses: actions/checkout@v6
     - uses: ruby/setup-ruby@v1
       with:
-        ruby-version: "3.4"
+        ruby-version: "4.0"
         bundler: none
     - name: Fix permission
       run: |
@@ -59,7 +59,7 @@ jobs:
     - uses: actions/checkout@v6
     - uses: ruby/setup-ruby@v1
       with:
-        ruby-version: "3.3"
+        ruby-version: "4.0"
         bundler: none
     - name: Fix permission
       run: |
