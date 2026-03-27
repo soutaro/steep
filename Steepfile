@@ -63,6 +63,8 @@ target :bin do
   check "bin/generate-diagnostics-docs.rb"
   signature "tmp/rbs-inline/bin"
 
+  configure_code_diagnostics(D::Ruby.lenient)
+  
   unless tmp_rbs_dir.directory?
     library "rbs"
   end
