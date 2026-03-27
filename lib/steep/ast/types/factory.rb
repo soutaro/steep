@@ -39,7 +39,7 @@ module Steep
         def normalize_args(type_name, args)
           case
           when type_name.class?
-            if entry = env.normalized_module_class_entry(type_name)
+            if entry = env.module_class_entry(type_name, normalized: true)
               type_params = entry.type_params
             end
           when type_name.interface?

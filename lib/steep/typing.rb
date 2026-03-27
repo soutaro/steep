@@ -208,8 +208,6 @@ module Steep
     end
 
     def type_of(node:)
-      raise "`nil` given to `Typing#type_of(node:)`" unless node
-
       type = typing[node]
 
       if type
