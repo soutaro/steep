@@ -34,6 +34,25 @@ jobs:
         gem install bundler
         bin/setup
         bundle exec rake ${{matrix.task}}
+  type_check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "3.4"
+        bundler: none
+    - name: Fix permission
+      run: |
+        gem env gemdir
+        chmod 775 `gem env gemdir`/gems
+    - name: Type check
+      run: |
+        git config --global --add safe.directory /__w/steep/steep
+        ruby -v
+        gem install bundler
+        bin/setup
+        bin/steep check
   diagnostics:
     runs-on: ubuntu-latest
     steps:
