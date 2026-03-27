@@ -18,3 +18,4 @@ end
 
 # gem "rbs", path: "../rbs"
 gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"
+gem "herb", "~> 0.9"
