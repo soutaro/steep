@@ -493,17 +493,17 @@ module Steep
           if path = pathname(message[:params][:textDocument][:uri])
             broadcast_notification(message)
 
-            Steep.logger.fatal { path.to_s }
+            Steep.logger.debug { path.to_s }
 
             case
             when controller.code_path?(path)
-              Steep.logger.fatal { "code_path?" }
+              Steep.logger.debug { "code_path?" }
               controller.add_dirty_code_path(path)
             when controller.signature_path?(path)
-              Steep.logger.fatal { "signature_path?" }
+              Steep.logger.debug { "signature_path?" }
               controller.add_dirty_signature_path(path)
             when controller.inline_path?(path)
-              Steep.logger.fatal { "inline_path?" }
+              Steep.logger.debug { "inline_path?" }
               changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
               controller.add_dirty_inline_path(path, changes)
             end
@@ -790,7 +790,7 @@ module Steep
             request.merge!(last_request)
           end
 
-          Steep.logger.fatal {
+          Steep.logger.debug {
             {
               code_paths: request.code_paths.map { _1[1].to_s },
               signature_paths: request.signature_paths.map { _1[1].to_s },
