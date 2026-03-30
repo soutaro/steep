@@ -32,6 +32,7 @@ jobs:
         git config --global --add safe.directory /__w/steep/steep
         ruby -v
         gem install bundler
+        bundle config --global without development
         bin/setup
         bundle exec rake ${{matrix.task}}
   type_check:
