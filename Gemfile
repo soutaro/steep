@@ -9,7 +9,7 @@ gem "minitest-hooks"
 gem 'minitest-slow_test'
 
 group :development, optional: true do
-  gem "stackprof"
+  gem "stackprof", platform: :mri, require: false
   gem "debug", require: false, platform: :mri
   gem "vernier", "~> 1.5", require: false, platform: :mri
   gem "memory_profiler"
@@ -17,4 +17,4 @@ group :development, optional: true do
 end
 
 # gem "rbs", path: "../rbs"
-gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"
+# gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"
