@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 6050444a5a066d9ff12848a60be2560e0fb168cc
+  revision: 4fae9700e1a7dcd707c7453e95185514a9cef31a
   branch: master
   specs:
     steep (2.0.0.dev)
