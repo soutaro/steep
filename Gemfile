@@ -9,7 +9,7 @@ gem "minitest-hooks"
 gem 'minitest-slow_test'
 
 group :development, optional: true do
-  gem "stackprof"
+  gem "stackprof", platform: :mri, require: false
   gem "debug", require: false, platform: :mri
   gem "vernier", "~> 1.5", require: false, platform: :mri
   gem "memory_profiler"
