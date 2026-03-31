@@ -53,7 +53,7 @@ jobs:
         ruby -v
         gem install bundler
         bin/setup
-        bin/steep check
+        bin/steep check --validate=library --severity=error
   diagnostics:
     runs-on: ubuntu-latest
     steps:
