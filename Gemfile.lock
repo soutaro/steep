@@ -79,7 +79,7 @@ GEM
     securerandom (0.4.1)
     stackprof (0.2.28)
     stringio (3.2.0)
-    strscan (3.1.7)
+    strscan (3.1.8)
     terminal-table (4.0.0)
       unicode-display_width (>= 1.1.1, < 4)
     tsort (0.2.0)
