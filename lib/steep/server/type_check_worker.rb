@@ -145,9 +145,11 @@ module Steep
 
             worker = self.class.new(project: project, reader: reader, writer: writer, assignment: assignment, commandline_args: commandline_args, io_socket: nil, buffered_changes: buffered_changes, service: service)
 
-            tags = Steep.logger.formatter.current_tags.dup
-            tags[tags.find_index("typecheck:typecheck@0")] = "typecheck:typecheck@#{index}-reforked"
-            Steep.logger.formatter.push_tags(tags)
+            tags = Steep.logger.current_tags.dup
+            if (index = tags.find_index("typecheck:typecheck@0"))
+              tags[index] = "typecheck:typecheck@#{index}-reforked"
+            end
+            Steep.logger.push_tags(*tags)
             worker.run()
 
             raise "unreachable"
