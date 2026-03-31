@@ -419,7 +419,7 @@ module Steep
           else
             raise "Unexpected node: #{node.type}"
           end
-          super(node: node, location: location)   # steep:ignore NoMethod
+          super(node: node, location: location)
 
           @name = name
         end

@@ -82,7 +82,7 @@ module Steep
       end
 
       def fetch_cache(cache, key)
-        if cache.key?(key)
+        if cache.key?(key) # steep:ignore ArgumentTypeMismatch
           return cache.fetch(key)
         end
 
