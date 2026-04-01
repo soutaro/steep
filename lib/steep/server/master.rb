@@ -648,6 +648,9 @@ module Steep
           params[:library_paths].each do |target_name, path|
             request.library_paths << [target_name.to_sym, Pathname(path)]
           end
+          params[:inline_paths].each do |target_name, path|
+            request.inline_paths << [target_name.to_sym, Pathname(path)]
+          end
 
           start_type_check(request: request, last_request: nil)
 

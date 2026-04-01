@@ -69,6 +69,12 @@ class CLITest < Minitest::Test
 
   def test_ci_jobs_setup_message: () -> untyped
 
+  def test_check_inline_success: () -> untyped
+
+  def test_check_inline_failure: () -> untyped
+
+  def test_check_inline_with_command_line_pattern: () -> untyped
+
   def test_check_expression_success: () -> untyped
 
   def test_check_expression_failure: () -> untyped
