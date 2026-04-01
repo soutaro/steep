@@ -983,7 +983,7 @@ module Steep
 
       def enqueue_write_job(job)
         Steep.logger.info { "Write_queue has #{write_queue.size} items"}
-        write_queue.push(job) # steep:ignore InsufficientKeywordArguments
+        write_queue.push(job)
       end
 
       def work_done_progress(guid)
