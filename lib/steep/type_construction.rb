@@ -368,7 +368,7 @@ module Steep
       end
 
       if implement_module_name
-        module_entry = checker.factory.definition_builder.env.normalized_module_entry(implement_module_name.name)
+        module_entry = checker.factory.definition_builder.env.module_entry(implement_module_name.name, normalized: true)
         if module_entry
           module_context = module_context.update(
             instance_type: AST::Types::Intersection.build(
@@ -397,7 +397,7 @@ module Steep
               ].compact
             )
           )
-        elsif checker.factory.definition_builder.env.normalized_class_entry(implement_module_name.name)
+        elsif checker.factory.definition_builder.env.class_entry(implement_module_name.name, normalized:true)
           typing.add_error(
             Diagnostic::Ruby::ClassModuleMismatch.new(node: node, name: new_module_name)
           )
@@ -489,8 +489,8 @@ module Steep
           module_context = module_context.update(instance_definition: nil, module_definition: nil)
         end
 
-        if !checker.factory.definition_builder.env.normalized_class_entry(implement_module_name.name) &&
-          checker.factory.definition_builder.env.normalized_module_entry(implement_module_name.name)
+        if !checker.factory.definition_builder.env.class_entry(implement_module_name.name, normalized: true) &&
+          checker.factory.definition_builder.env.module_entry(implement_module_name.name, normalized: true)
           typing.add_error(
             Diagnostic::Ruby::ClassModuleMismatch.new(node: node, name: new_class_name)
           )
@@ -4709,7 +4709,7 @@ module Steep
 
     def validate_method_definitions(node, module_name)
       module_name_1 = module_name.name
-      module_entry = checker.factory.env.normalized_module_class_entry(module_name_1) or raise
+      module_entry = checker.factory.env.module_class_entry(module_name_1, normalized: true) or raise
       member_decl_count = module_entry.each_decl.count do |decl|
         case decl
         when RBS::AST::Declarations::Base
@@ -4893,7 +4893,7 @@ module Steep
     def to_instance_type(type, args: nil)
       args = args || case type
                      when AST::Types::Name::Singleton
-                       decl = checker.factory.env.normalized_module_class_entry(type.name) or raise
+                       decl = checker.factory.env.module_class_entry(type.name, normalized: true) or raise
                        decl.type_params.each.map { AST::Builtin.any_type }
                      else
                        raise "unexpected type to to_instance_type: #{type}"

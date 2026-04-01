@@ -49,7 +49,7 @@ module Steep
       end
 
       def type_name_resolver
-        @type_name_resolver ||= RBS::Resolver::TypeNameResolver.new(env)
+        @type_name_resolver ||= RBS::Resolver::TypeNameResolver.build(env)
       end
 
       def validator
@@ -655,7 +655,7 @@ module Steep
         inner_most_outer_module_name = entry.context&.last
 
         if inner_most_outer_module_name
-          inner_most_outer_module = env.normalized_module_class_entry(inner_most_outer_module_name)
+          inner_most_outer_module = env.module_class_entry(inner_most_outer_module_name, normalized: true)
           if inner_most_outer_module
             class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name)
             instance_type = AST::Types::Name::Instance.new(

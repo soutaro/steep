@@ -518,15 +518,15 @@ module ShellHelper
   end
 
   def sh(*command, **opts)
-    Open3.capture2(env_vars, *command, chdir: current_dir.to_s, **opts)
+    Open3.capture2(env_vars, *command, chdir: current_dir&.to_s || Dir.pwd, **opts)
   end
 
   def sh3(*command)
-    Open3.capture3(env_vars, *command, chdir: current_dir.to_s)
+    Open3.capture3(env_vars, *command, chdir: current_dir&.to_s || Dir.pwd)
   end
 
   def sh2e(*command)
-    Open3.capture2e(env_vars, *command, chdir: current_dir.to_s)
+    Open3.capture2e(env_vars, *command, chdir: current_dir&.to_s || Dir.pwd)
   end
 
   def sh!(*command, **opts)

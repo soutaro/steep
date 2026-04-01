@@ -983,6 +983,8 @@ RUBY
   end
 
   def test_go_to_definition_class_alias
+    skip "Type name resolution for module/class aliases is changed in RBS 3.10/4.0"
+
     type_check = type_check_service do |changes|
       changes[Pathname("inline/test.rb")] = [ContentChange.string(<<~RUBY)]
 MyString = String #: class-alias

@@ -12,16 +12,16 @@ jobs:
       fail-fast: false
       matrix:
         ruby_version:
-        - "3.2"
         - "3.3"
         - "3.4"
+        - "4.0"
         task:
         - test
         # - test:output  Ignored because the order of diagnostics changes somehow
         - build
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby_version }}
@@ -30,6 +30,7 @@ jobs:
         git config --global --add safe.directory /__w/steep/steep
         ruby -v
         gem install bundler
+        bundle config --global with development
         bundle install --jobs 4 --retry 3
         bin/setup
         bundle exec rake ${{matrix.task}}

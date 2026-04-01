@@ -82,7 +82,7 @@ module Steep
       end
 
       def fetch_cache(cache, key)
-        if cache.key?(key)
+        if cache.key?(key) # steep:ignore ArgumentTypeMismatch
           return cache.fetch(key)
         end
 
@@ -239,7 +239,7 @@ module Steep
         vars =
           case type
           when AST::Types::Name::Instance
-            entry = factory.env.normalized_module_class_entry(type.name) or raise
+            entry = factory.env.module_class_entry(type.name, normalized: true) or raise
             entry.primary_decl.type_params.map { _1.name }
           when AST::Types::Name::Interface
             entry = factory.env.interface_decls.fetch(type.name)

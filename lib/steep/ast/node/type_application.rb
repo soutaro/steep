@@ -57,7 +57,7 @@ module Steep
         end
 
         def each_rbs_type(context, subtyping, type_vars)
-          resolver = RBS::Resolver::TypeNameResolver.new(subtyping.factory.env)
+          resolver = RBS::Resolver::TypeNameResolver.build(subtyping.factory.env)
 
           loc = type_location
 

@@ -68,4 +68,14 @@ class CLITest < Minitest::Test
   def test_binstub_force: () -> untyped
 
   def test_ci_jobs_setup_message: () -> untyped
+
+  def test_check_expression_success: () -> untyped
+
+  def test_check_expression_failure: () -> untyped
+
+  def test_check_multiple_expressions: () -> untyped
+
+  def test_check_expression_with_paths_error: () -> untyped
+
+  def test_check_expression_syntax_error: () -> untyped
 end

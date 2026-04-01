@@ -17,8 +17,16 @@ module Steep
       attr_accessor :validate_project_signatures
       attr_accessor :validate_library_signatures
       attr_accessor :formatter
+      attr_reader :expressions
 
       include Utils::DriverHelper
+
+      PLURALIZE = {
+        "diagnostic" => "diagnostics",
+        "expression" => "expressions",
+        "file" => "files",
+        "problem" => "problems",
+      }.freeze
 
       def initialize(stdout:, stderr:)
         @stdout = stdout
@@ -32,6 +40,7 @@ module Steep
         @validate_project_signatures = false
         @validate_library_signatures = false
         @formatter = 'code'
+        @expressions = []
       end
 
       def active_group?(group)
@@ -52,6 +61,10 @@ module Steep
 
       def run
         project = load_config()
+
+        unless expressions.empty?
+          return run_expressions(project)
+        end
 
         stdout.puts Rainbow("# Type checking files:").bold
         stdout.puts
@@ -206,23 +219,80 @@ module Steep
         return 1
       end
 
+      def run_expressions(project)
+        target = project.targets.first or raise "No targets configured"
+
+        stdout.puts Rainbow("# Type checking expression:").bold
+        stdout.puts
+
+        loader = Project::Target.construct_env_loader(options: target.options, project: project)
+        signature_service = Services::SignatureService.load_from(loader, implicitly_returns_nil: target.implicitly_returns_nil)
+        subtyping = signature_service.current_subtyping or raise "Failed to build subtyping"
+
+        lsp_formatter = Diagnostic::LSPFormatter.new(target.code_diagnostics_config)
+        total = 0
+
+        expressions.each_with_index do |expr, index|
+          expr_path = Pathname(expressions.size > 1 ? "(expression:#{index})" : "(expression)")
+
+          begin
+            source = Source.parse(expr, path: expr_path, factory: subtyping.factory)
+          rescue ::Parser::SyntaxError => exn
+            stdout.puts Rainbow("Syntax error in #{expr_path}: #{exn.message}").red.bold
+            total += 1
+            next
+          end
+
+          typing = Services::TypeCheckService.type_check(
+            source: source,
+            subtyping: subtyping,
+            constant_resolver: signature_service.latest_constant_resolver,
+            cursor: nil
+          )
+
+          diagnostics = typing.errors.filter_map { |error| lsp_formatter.format(error) }
+          diagnostics.select! { |d| keep_diagnostic?(d, severity_level: severity_level) }
+
+          unless diagnostics.empty?
+            buffer = RBS::Buffer.new(name: expr_path, content: expr)
+            printer = DiagnosticPrinter.new(buffer: buffer, stdout: stdout, formatter: self.formatter)
+
+            diagnostics.each do |diag|
+              printer.print(diag)
+              stdout.puts
+            end
+
+            total += diagnostics.size
+          end
+        end
+
+        if total == 0
+          emoji = %w(🫖 🫖 🫖 🫖 🫖 🫖 🫖 🫖 🍵 🧋 🧉).sample
+          stdout.puts Rainbow("No type error detected. #{emoji}").green.bold
+          0
+        else
+          stdout.puts Rainbow("Detected #{total} #{pluralize("problem", total)} from #{expressions.size} #{pluralize("expression", expressions.size)}").red.bold
+          1
+        end
+      end
+
       def load_files(files, target, group, params:)
         if type_check_code
-          files.source_paths.each_group_path(group) do |path, *|
+          files.source_paths.each_group_path(group) do |path,|
             params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
         if validate_group_signatures
-          files.signature_paths.each_group_path(group) do |path, *|
+          files.signature_paths.each_group_path(group) do |path,|
             params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
         if validate_project_signatures
-          files.signature_paths.each_project_path(except: target) do |path, path_target, *|
+          files.signature_paths.each_project_path(except: target) do |path, path_target|
             params[:signature_paths] << [path_target.name.to_s, target.project.absolute_path(path).to_s]
           end
           if group.is_a?(Project::Group)
-            files.signature_paths.each_target_path(target, except: group) do |path, *|
+            files.signature_paths.each_target_path(target, except: group) do |path,|
               params[:signature_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
             end
           end
@@ -272,13 +342,13 @@ module Steep
           stdout.puts
 
           stdout.puts Rainbow("Expectations unsatisfied:").bold.red
-          stdout.puts "  #{expected_count} expected #{"diagnostic".pluralize(expected_count)}"
-          stdout.puts Rainbow("  + #{unexpected_count} unexpected #{"diagnostic".pluralize(unexpected_count)}").green
-          stdout.puts Rainbow("  - #{missing_count} missing #{"diagnostic".pluralize(missing_count)}").red
+          stdout.puts "  #{expected_count} expected #{pluralize("diagnostic", expected_count)}"
+          stdout.puts Rainbow("  + #{unexpected_count} unexpected #{pluralize("diagnostic", unexpected_count)}").green
+          stdout.puts Rainbow("  - #{missing_count} missing #{pluralize("diagnostic", missing_count)}").red
           1
         else
           stdout.puts Rainbow("Expectations satisfied:").bold.green
-          stdout.puts "  #{expected_count} expected #{"diagnostic".pluralize(expected_count)}"
+          stdout.puts "  #{expected_count} expected #{pluralize("diagnostic", expected_count)}"
           0
         end
       end
@@ -330,8 +400,16 @@ module Steep
             end
           end
 
-          stdout.puts Rainbow("Detected #{total} #{"problem".pluralize(total)} from #{errors.size} #{"file".pluralize(errors.size)}").red.bold
+          stdout.puts Rainbow("Detected #{total} #{pluralize("problem", total)} from #{errors.size} #{pluralize("file", errors.size)}").red.bold
           1
+        end
+      end
+
+      def pluralize(string, count)
+        if count == 1
+          string
+        else
+          PLURALIZE.fetch(string)
         end
       end
     end

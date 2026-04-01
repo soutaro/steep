@@ -4321,7 +4321,7 @@ class TypeCheckTest < Minitest::Test
           class MyClass
             include MyModule
 
-            def test
+            def my_test
               bar
             end
           end

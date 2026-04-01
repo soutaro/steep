@@ -3,9 +3,6 @@ require "steep/version"
 require "pathname"
 require "parser/ruby33"
 require "prism"
-require "active_support"
-require "active_support/core_ext/object/try"
-require "active_support/core_ext/string/inflections"
 require "logger"
 require "rainbow"
 require "listen"
@@ -16,7 +13,6 @@ require "stringio"
 require 'uri'
 require "yaml"
 require "securerandom"
-require "base64"
 require "time"
 require 'socket'
 
@@ -27,6 +23,7 @@ require "rbs"
 
 require "steep/path_helper"
 require "steep/located_value"
+require "steep/tagged_logging"
 require "steep/thread_waiter"
 require "steep/equatable"
 require "steep/method_name"
@@ -180,19 +177,7 @@ module Steep
   end
 
   def self.new_logger(output, prev_level)
-    logger = Logger.new(output)
-    logger.formatter = proc do |severity, datetime, progname, msg|
-      # @type var severity: String
-      # @type var datetime: Time
-      # @type var progname: untyped
-      # @type var msg: untyped
-      # @type block: String
-      "#{datetime.strftime('%Y-%m-%d %H:%M:%S.%L')}: #{severity}: #{msg}\n"
-    end
-    ActiveSupport::TaggedLogging.new(logger).tap do |logger|
-      logger.push_tags "Steep #{VERSION}"
-      logger.level = prev_level || Logger::ERROR
-    end
+    TaggedLogging.new(output, level: prev_level || Logger::ERROR)
   end
 
   def self.log_output
@@ -202,11 +187,17 @@ module Steep
   def self.log_output=(output)
     @log_output = output
 
+    if output.is_a?(String)
+      io = File.open(output, "a")
+    else
+      io = output
+    end
+
     prev_level = @logger&.level
-    @logger = new_logger(output, prev_level)
+    @logger = new_logger(io, prev_level)
 
     prev_level = @ui_logger&.level
-    @ui_logger = new_logger(output, prev_level)
+    @ui_logger = new_logger(io, prev_level)
 
     output
   end

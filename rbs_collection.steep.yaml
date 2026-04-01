@@ -14,7 +14,6 @@ gems:
   - name: rbs
     ignore: true
   - name: prism
-  - name: activesupport
   - name: rainbow
   - name: listen
   - name: json
@@ -28,6 +27,7 @@ gems:
     ignore: true
   - name: base64
   - name: rdoc
+  - name: erb
   - name: monitor
   - name: tsort
   - name: yaml
