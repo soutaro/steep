@@ -19,7 +19,7 @@ module Steep
       @ignores = ignores
     end
 
-    class Builder < ::Parser::Builders::Default
+    class Builder < Prism::Translation::Parser::Builder
       def string_value(token)
         value(token)
       end

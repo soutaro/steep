@@ -25,7 +25,7 @@ module Steep
       ignores: Array[AST::Ignore::t]
     ) -> void
 
-    class Builder < ::Parser::Builders::Default
+    class Builder < Prism::Translation::Parser::Builder
       def string_value: (untyped token) -> untyped
     end
 

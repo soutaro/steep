@@ -1,6 +1,11 @@
 module Prism
   module Translation
-    class Parser33
+    class Parser
+      class Builder < ::Parser::Builders::Default
+      end
+    end
+
+    class Parser33 < Parser
       def initialize: (Parser::Builders::Default builder) -> void
 
       def parse: (Parser::Source::Buffer) -> Parser::AST::Node
