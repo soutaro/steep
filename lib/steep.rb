@@ -2,6 +2,7 @@ require "steep/version"
 
 require "pathname"
 require "parser/ruby33"
+require "prism"
 require "logger"
 require "rainbow"
 require "listen"

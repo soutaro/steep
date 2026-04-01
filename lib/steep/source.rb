@@ -19,7 +19,7 @@ module Steep
       @ignores = ignores
     end
 
-    class Builder < ::Parser::Builders::Default
+    class Builder < Prism::Translation::Parser::Builder
       def string_value(token)
         value(token)
       end
@@ -31,7 +31,7 @@ module Steep
     end
 
     def self.new_parser
-      ::Parser::Ruby33.new(Builder.new).tap do |parser|
+      Prism::Translation::Parser33.new(Builder.new).tap do |parser|
         parser.diagnostics.all_errors_are_fatal = true
         parser.diagnostics.ignore_warnings = true
       end
