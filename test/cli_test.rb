@@ -823,6 +823,66 @@ GEMFILE
     end
   end
 
+  def test_check_inline_success
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      assert_predicate status, :success?, stdout
+      assert_match(/No type error detected\./, stdout)
+    end
+  end
+
+  def test_check_inline_failure
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/Detected 1 problem from 1 file/, stdout)
+    end
+  end
+
+  def test_check_inline_with_command_line_pattern
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, status = sh(*steep, "check", "lib/foo.rb")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/Detected 1 problem from 1 file/, stdout)
+    end
+  end
+
   def test_check_expression_success
     stdout, status = sh(*steep, "check", "-e", "1 + 2")
 

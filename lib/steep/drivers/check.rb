@@ -145,6 +145,9 @@ module Steep
             if target = project.target_for_signature_path(path)
               params[:signature_paths] << [target.name.to_s, path.to_s]
             end
+            if target = project.target_for_inline_source_path(path)
+              params[:inline_paths] << [target.name.to_s, path.to_s]
+            end
           end
         end
 
@@ -280,6 +283,9 @@ module Steep
         if type_check_code
           files.source_paths.each_group_path(group) do |path,|
             params[:code_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
+          end
+          files.inline_paths.each_group_path(group) do |path,|
+            params[:inline_paths] << [target.name.to_s, target.project.absolute_path(path).to_s]
           end
         end
         if validate_group_signatures
