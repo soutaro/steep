@@ -582,6 +582,7 @@ end
           library_paths: [["lib", "/rbs/core/object.rbs"]],
           signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
           code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
+          inline_paths: []
         }
       })
 
@@ -1050,7 +1051,8 @@ end
         params: {
           code_paths: [],
           signature_paths: [],
-          library_paths: []
+          library_paths: [],
+          inline_paths: []
         }
       })
 
@@ -1130,7 +1132,8 @@ end
         params: {
           code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
           signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
-          library_paths: []
+          library_paths: [],
+          inline_paths: []
         }
       })
 
