@@ -3430,6 +3430,23 @@ module Steep
         constr = self
       else
         receiver, method_name, *arguments = send_node.children
+
+        case method_name
+        when :attr_reader
+          arguments.each do |argnode|
+            module_context.defined_instance_methods << argnode.children[0]
+          end
+        when :attr_writer
+          arguments.each do |argnode|
+            module_context.defined_instance_methods << :"#{argnode.children[0]}="
+          end
+        when :attr_accessor
+          arguments.each do |argnode|
+            module_context.defined_instance_methods << argnode.children[0]
+            module_context.defined_instance_methods << :"#{argnode.children[0]}="
+          end
+        end
+
         if receiver
           recv_type, constr = synthesize(receiver)
         else
