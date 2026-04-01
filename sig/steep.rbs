@@ -12,7 +12,7 @@ module Steep
 
   def self.new_logger: (IO output, Integer? prev_level) -> (Steep::TaggedLogging)
 
-  attr_accessor self.log_output: IO
+  attr_accessor self.log_output: IO | String
 
   def self.measure: [A] (String message, ?level: ::Symbol, ?threshold: Float) { () -> A } -> A
 

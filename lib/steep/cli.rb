@@ -67,11 +67,13 @@ module Steep
 
     def handle_logging_options(opts)
       opts.on("--log-level=LEVEL", "Specify log level: debug, info, warn, error, fatal") do |level|
+        # @type var level: String
         Steep.logger.level = level
         Steep.ui_logger.level = level
       end
 
       opts.on("--log-output=PATH", "Print logs to given path") do |file|
+        # @type var file: String
         Steep.log_output = file
       end
 

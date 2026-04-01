@@ -186,11 +186,17 @@ module Steep
   def self.log_output=(output)
     @log_output = output
 
+    if output.is_a?(String)
+      io = File.open(output, "a")
+    else
+      io = output
+    end
+
     prev_level = @logger&.level
-    @logger = new_logger(output, prev_level)
+    @logger = new_logger(io, prev_level)
 
     prev_level = @ui_logger&.level
-    @ui_logger = new_logger(output, prev_level)
+    @ui_logger = new_logger(io, prev_level)
 
     output
   end
