@@ -39,6 +39,10 @@ module Steep
 
     SPECIAL_LVAR_NAMES = Set[:_, :__any__, :__skip__]
 
+    # a synthetic variable name for anonymous block params (can't conflict with
+    # user variables since Ruby doesn't allow * in local variable names).
+    ANONYMOUS_BLOCK_PASSABLE_LVAR = :"*block"
+
     include ModuleHelper
 
     attr_reader :checker
@@ -212,13 +216,21 @@ module Steep
           TypeInference::MethodParams.empty(node: node)
         end
 
+      block_param_name = nil #: Symbol?
+      method_params.each_param do |param|
+        if param.is_a?(TypeInference::MethodParams::BlockParameter)
+          block_param_name = param.name || ANONYMOUS_BLOCK_PASSABLE_LVAR
+        end
+      end
+
       method_context = TypeInference::Context::MethodContext.new(
         name: method_name,
         method: definition && definition.methods[method_name],
         method_type: method_type,
         return_type: annots.return_type || method_type&.type&.return_type || AST::Builtin.any_type,
         super_method: super_method,
-        forward_arg_type: method_params.forward_arg_type
+        forward_arg_type: method_params.forward_arg_type,
+        block_param_name: block_param_name
       )
 
       local_variable_types = method_params.each_param.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t]
@@ -226,6 +238,8 @@ module Steep
           unless SPECIAL_LVAR_NAMES.include?(param.name)
             hash[param.name] = param.var_type
           end
+        elsif param.is_a?(TypeInference::MethodParams::BlockParameter)
+          hash[ANONYMOUS_BLOCK_PASSABLE_LVAR] = param.var_type
         end
       end
       type_env = context.type_env.assign_local_variables(local_variable_types)
@@ -2508,7 +2522,9 @@ module Steep
               end
             else
               # Anonymous block_pass only happens inside method definition
-              if block_type = method_context!.block_type
+              if (type = context.type_env[ANONYMOUS_BLOCK_PASSABLE_LVAR])
+                # Use type from type_env (may have been narrowed by block_given?)
+              elsif block_type = method_context!.block_type
                 type = AST::Types::Proc.new(
                   type: block_type.type,
                   block: nil,
@@ -3364,6 +3380,32 @@ module Steep
             errors: errors,
             method_decls: decls
           )
+        end
+
+        # Handle block_given? type narrowing
+        if method_name == :block_given? && call.is_a?(TypeInference::MethodCall::Typed)
+          if (block_var = constr.method_context&.block_param_name)
+            if (var_type = constr.context.type_env[block_var])
+              unwrapped = constr.checker.factory.unwrap_optional(var_type)
+
+              if unwrapped
+                truthy_env = constr.context.type_env.refine_types(
+                  local_variable_types: { block_var => unwrapped }
+                )
+                falsy_env = constr.context.type_env.refine_types(
+                  local_variable_types: { block_var => AST::Builtin.nil_type }
+                )
+
+                env_type = AST::Types::Logic::Env.new(
+                  truthy: truthy_env,
+                  falsy: falsy_env,
+                  type: call.return_type
+                )
+
+                call = call.with_return_type(env_type)
+              end
+            end
+          end
         end
 
         constr.add_call(call)
