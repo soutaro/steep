@@ -793,7 +793,8 @@ module Steep
                   return_type: AST::Types::Logic::ArgIsReceiver.instance()
                 )
               )
-            when RBS::BuiltinNames::Object.name,
+            when RBS::BuiltinNames::BasicObject.name,
+              RBS::BuiltinNames::Object.name,
               RBS::BuiltinNames::Kernel.name,
               RBS::BuiltinNames::String.name,
               RBS::BuiltinNames::Integer.name,
@@ -805,6 +806,24 @@ module Steep
               return method_type.with(
                 type: method_type.type.with(
                   return_type: AST::Types::Logic::ArgEqualsReceiver.instance()
+                )
+              )
+            end
+          when :==
+            case defined_in
+            when RBS::BuiltinNames::BasicObject.name,
+              RBS::BuiltinNames::Object.name,
+              RBS::BuiltinNames::Kernel.name,
+              RBS::BuiltinNames::String.name,
+              RBS::BuiltinNames::Integer.name,
+              RBS::BuiltinNames::Symbol.name,
+              RBS::BuiltinNames::TrueClass.name,
+              RBS::BuiltinNames::FalseClass.name,
+              RBS::TypeName.parse("::NilClass")
+              # For ==, we use ReceiverIsArg to narrow the receiver based on the argument
+              return method_type.with(
+                type: method_type.type.with(
+                  return_type: AST::Types::Logic::ReceiverIsArg.instance()
                 )
               )
             end
