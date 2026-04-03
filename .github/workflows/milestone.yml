@@ -1,0 +1,80 @@
+name: Check milestone
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, unlabeled, milestoned, demilestoned, synchronize]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract Steep::VERSION
+        id: version
+        run: |
+          # Extract version string from lib/steep/version.rb
+          version=$(ruby -e 'load "lib/steep/version.rb"; print Steep::VERSION')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Parse major.minor.patch
+          IFS='.' read -r major minor patch _rest <<<"$version"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+          echo "minor=$minor" >> "$GITHUB_OUTPUT"
+          echo "patch=$patch" >> "$GITHUB_OUTPUT"
+
+          echo "Steep::VERSION = $version (major=$major, minor=$minor, patch=$patch)"
+
+      - name: Check milestone
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const milestone = pr.milestone;
+            const labels = pr.labels.map(l => l.name);
+
+            const version = '${{ steps.version.outputs.version }}';
+            const major = '${{ steps.version.outputs.major }}';
+            const minor = '${{ steps.version.outputs.minor }}';
+            const patch = parseInt('${{ steps.version.outputs.patch }}', 10);
+
+            if (!milestone) {
+              if (labels.includes('no-milestone')) {
+                core.info('No milestone set, but no-milestone label is present – OK');
+                return;
+              }
+              core.setFailed(
+                'No milestone set. Add a milestone or add the "no-milestone" label.'
+              );
+              return;
+            }
+
+            if (labels.includes('no-milestone')) {
+              core.setFailed(
+                'Milestone is set but "no-milestone" label is present. Remove the label or the milestone.'
+              );
+              return;
+            }
+
+            const milestoneName = milestone.title;
+            core.info(`Milestone: "${milestoneName}", Steep::VERSION: ${version}`);
+
+            // Expected milestone based on version:
+            //   patch == 0 ⇒ "Steep major.minor"    (e.g. "Steep 2.0")
+            //   patch >= 1 ⇒ "Steep major.minor.x"  (e.g. "Steep 2.0.x")
+            let expectedMilestone;
+            if (patch === 0) {
+              expectedMilestone = `Steep ${major}.${minor}`;
+            } else {
+              expectedMilestone = `Steep ${major}.${minor}.x`;
+            }
+
+            if (milestoneName !== expectedMilestone) {
+              core.setFailed(
+                `Milestone "${milestoneName}" does not match Steep::VERSION ${version}. ` +
+                `Expected milestone: "${expectedMilestone}"`
+              );
+            } else {
+              core.info(`Milestone "${milestoneName}" matches Steep::VERSION ${version}`);
+            }
