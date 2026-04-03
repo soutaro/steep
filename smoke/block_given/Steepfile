@@ -1,0 +1,8 @@
+target :test do
+  check "*.rb"
+  signature "*.rbs"
+
+  implicitly_returns_nil! true
+
+  configure_code_diagnostics(Steep::Diagnostic::Ruby.all_error)
+end
