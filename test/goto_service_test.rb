@@ -816,6 +816,39 @@ RBS
     end
   end
 
+  def test_definition__inline__const_assign_without_annotation
+    type_check = type_check_service do |changes|
+      changes[Pathname("inline/a.rb")] = [ContentChange.string(<<RUBY)]
+module Foo
+end
+
+module Bar
+  Foo2 = Foo
+
+  # @rbs () -> void
+  def foo
+  end
+
+  # @rbs () -> void
+  def bar
+    foo
+  end
+end
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    # Cursor on `foo` call inside `bar` method (line 13, column 4)
+    service.definition(path: dir + "inline/a.rb", line: 13, column: 6).tap do |locs|
+      assert_any!(locs) do |loc|
+        assert_instance_of RBS::Location, loc
+        assert_equal "foo", loc.source
+        assert_equal Pathname("inline/a.rb"), loc.buffer.name
+      end
+    end
+  end
+
   def test_new_method_impl
     type_check = type_check_service do |changes|
       changes[Pathname("sig/a.rbs")] = [ContentChange.string(<<RBS)]
