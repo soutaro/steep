@@ -42,6 +42,8 @@ class DaemonTest < Minitest::Test
   end
 
   def test_start_server_command
+    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -67,6 +69,8 @@ x = 1 + 2
   end
 
   def test_start_server_when_already_running
+    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -105,6 +109,8 @@ end
   end
 
   def test_check_with_daemon
+    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -164,6 +170,8 @@ end
   end
 
   def test_daemon_detects_file_changes
+    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -200,6 +208,8 @@ x = "string"
   end
 
   def test_restart_server_command
+    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -255,6 +265,8 @@ end
   end
 
   def test_check_waits_for_daemon_warmup
+    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
@@ -281,6 +293,8 @@ x = 1 + 2
   end
 
   def test_check_with_no_daemon_flag
+    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
 target :app do
