@@ -1670,7 +1670,7 @@ module Steep
           end
 
         when :yield
-          if method_context && method_context.method_type
+          if method_context && (method_type = method_context.method_type)
             if block_type = method_context.block_type
               if block_type.type.params
                 type = AST::Types::Proc.new(
@@ -1701,7 +1701,7 @@ module Steep
               end
 
               add_typing(node, type: block_type.type.return_type)
-            elsif method_context.method_type.type.params
+            elsif method_type.type.params
               typing.add_error(Diagnostic::Ruby::UnexpectedYield.new(node: node))
               fallback_to_any node
             else
