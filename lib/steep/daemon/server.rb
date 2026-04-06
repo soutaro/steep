@@ -161,7 +161,7 @@ module Steep
           set_warmup_status(:ready)
         rescue StandardError => e
           Steep.logger.error { "Warm-up error: #{e.class}: #{e.message}" }
-          Steep.logger.debug { e.backtrace.first(10).join("\n") }
+          Steep.logger.debug { e.backtrace&.first(10)&.join("\n") }
           set_warmup_status(:failed)
         end
 
@@ -191,7 +191,7 @@ module Steep
             raise
           rescue StandardError => e
             Steep.logger.error { "Error handling client: #{e.class}: #{e.message}" }
-            Steep.logger.debug { e.backtrace.first(10).join("\n") }
+            Steep.logger.debug { e.backtrace&.first(10)&.join("\n") }
           ensure
             client_socket&.close rescue nil
           end
@@ -204,7 +204,7 @@ module Steep
         master_thread.join(10)
       rescue StandardError => e
         Steep.logger.fatal { "Fatal error: #{e.class}: #{e.message}" }
-        Steep.logger.error { e.backtrace.join("\n") }
+        Steep.logger.error { e.backtrace&.join("\n") }
       ensure
         Daemon.cleanup
         Steep.logger.info { "Server stopped." }
@@ -321,7 +321,7 @@ module Steep
           end
         rescue StandardError => e
           Steep.logger.error { "Watcher error: #{e.class}: #{e.message}" }
-          Steep.logger.debug { e.backtrace.first(5).join("\n") }
+          Steep.logger.debug { e.backtrace&.first(5)&.join("\n") }
         end
 
         Thread.new do

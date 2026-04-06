@@ -4,10 +4,13 @@ module Steep
     class Server
       attr_reader config: Configuration
       attr_reader project: Project
+      attr_reader stderr: IO
       attr_reader file_tracker: FileTracker
       attr_reader shutdown_flag: bool
       attr_reader warmup_status: Symbol
       attr_reader warmup_mutex: Thread::Mutex
+
+      @unix_server: UNIXServer?
 
       FILE_CHANGE_TYPE: Hash[Symbol, Integer]
 
@@ -32,7 +35,7 @@ module Steep
         def safe_mtime: (String path) -> Time?
       end
 
-      def initialize: (config: Configuration, project: Project) -> void
+      def initialize: (config: Configuration, project: Project, stderr: IO) -> void
 
       def run: () -> void
 
