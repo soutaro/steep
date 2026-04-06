@@ -1983,6 +1983,38 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_ensure_annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            def self.open: () { (String) -> void } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = nil #: String?
+
+          begin
+            x = "hello"
+            x + ""
+          ensure
+            # @type var x: String?
+            if x
+              x + ""
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_defined?
     run_type_check_test(
       signatures: {
