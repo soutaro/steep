@@ -234,7 +234,15 @@ module Steep
   end
 
   def self.can_fork?
-    defined?(fork)
+    return @can_fork if defined?(@can_fork)
+
+    @can_fork = begin
+      pid = fork { exit!(0) }
+      Process.waitpid(pid) if pid
+      true
+    rescue NotImplementedError
+      false
+    end
   end
 
   class Sampler

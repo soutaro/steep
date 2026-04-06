@@ -7,8 +7,6 @@ module Steep
     # Module-level class methods for daemon lifecycle management
     self.@config: Configuration
 
-    def self.supported?: () -> bool
-
     def self.config: () -> Configuration
 
     def self.project_id: () -> String

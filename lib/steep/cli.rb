@@ -495,7 +495,7 @@ BANNER
     def process_server
       subcommand = argv.shift
 
-      unless Daemon.supported?
+      unless Steep.can_fork?
         stderr.puts "Error: `steep server` is not supported on this platform (fork() is not available)"
         return 1
       end
