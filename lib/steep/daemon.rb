@@ -16,6 +16,10 @@ module Steep
         @config ||= Configuration.new
       end
 
+      def supported?
+        Process.respond_to?(:fork)
+      end
+
       def project_id
         config.project_id
       end
@@ -71,8 +75,8 @@ module Steep
 
         cleanup
 
-        unless Process.respond_to?(:fork)
-          stderr.puts "fork() not available, cannot start steep server daemon"
+        unless supported?
+          stderr.puts "The daemon server is not supported on this platform (fork() is not available)"
           return false
         end
 
