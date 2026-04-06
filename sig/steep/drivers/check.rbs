@@ -58,9 +58,13 @@ module Steep
 
       private
 
-      def run_with_server: () -> Integer
+      def setup_connection: [T] (Project) { (LanguageServer::Protocol::Transport::Io::Reader, LanguageServer::Protocol::Transport::Io::Writer) -> T } -> T
 
-      def run_standard_check: () -> Integer
+      def daemon_available?: () -> bool
+
+      def with_daemon_connection: [T] () { (LanguageServer::Protocol::Transport::Io::Reader, LanguageServer::Protocol::Transport::Io::Writer) -> T } -> T
+
+      def with_local_server: [T] (Project) { (LanguageServer::Protocol::Transport::Io::Reader, LanguageServer::Protocol::Transport::Io::Writer) -> T } -> T
 
       def print_typecheck_result: (project: Project, diagnostic_notifications: Array[untyped], error_messages: Array[String]) -> Integer
 
