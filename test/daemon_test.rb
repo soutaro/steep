@@ -41,6 +41,30 @@ class DaemonTest < Minitest::Test
     refute Steep::Daemon.running?, "Daemon should not be running initially"
   end
 
+  def test_start_returns_false_when_not_supported
+    stderr = StringIO.new
+
+    Steep::Daemon.stub(:supported?, false) do
+      result = Steep::Daemon.start(stderr: stderr)
+      refute result, "start should return false when not supported"
+      assert_match(/not supported on this platform/, stderr.string)
+    end
+  end
+
+  def test_server_command_returns_error_when_not_supported
+    require "steep/cli"
+
+    stderr = StringIO.new
+
+    Steep::Daemon.stub(:supported?, false) do
+      cli = Steep::CLI.new(stdout: StringIO.new, stdin: StringIO.new, stderr: stderr, argv: ["server", "start"])
+      result = cli.run
+
+      assert_equal 1, result
+      assert_match(/not supported on this platform/, stderr.string)
+    end
+  end
+
   def test_start_server_command
     skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
 
