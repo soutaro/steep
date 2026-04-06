@@ -10034,6 +10034,27 @@ end
     end
   end
 
+  def test_yield_with_untyped_method_type
+    with_checker(<<-RBS) do |checker|
+class YieldUntyped
+  def foo: (?) -> void
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+class YieldUntyped
+  def foo
+    yield 1
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_self_type_binding_proc_with_type_declaration
     with_checker() do |checker|
       source = parse_ruby(<<RUBY)

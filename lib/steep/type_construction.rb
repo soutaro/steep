@@ -1701,9 +1701,12 @@ module Steep
               end
 
               add_typing(node, type: block_type.type.return_type)
-            else
+            elsif method_context.method_type.type.params
               typing.add_error(Diagnostic::Ruby::UnexpectedYield.new(node: node))
               fallback_to_any node
+            else
+              constr = type_check_untyped_args(node.children)
+              add_typing(node, type: AST::Builtin.any_type)
             end
           else
             fallback_to_any node
