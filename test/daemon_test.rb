@@ -44,7 +44,7 @@ class DaemonTest < Minitest::Test
   def test_start_returns_false_when_not_supported
     stderr = StringIO.new
 
-    Steep::Daemon.stub(:supported?, false) do
+    Steep.stub(:can_fork?, false) do
       result = Steep::Daemon.start(stderr: stderr)
       refute result, "start should return false when not supported"
       assert_match(/not supported on this platform/, stderr.string)
@@ -56,7 +56,7 @@ class DaemonTest < Minitest::Test
 
     stderr = StringIO.new
 
-    Steep::Daemon.stub(:supported?, false) do
+    Steep.stub(:can_fork?, false) do
       cli = Steep::CLI.new(stdout: StringIO.new, stdin: StringIO.new, stderr: stderr, argv: ["server", "start"])
       result = cli.run
 
@@ -66,7 +66,7 @@ class DaemonTest < Minitest::Test
   end
 
   def test_start_server_command
-    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+    skip "fork() is not available on this platform" unless Steep.can_fork?
 
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -93,7 +93,7 @@ x = 1 + 2
   end
 
   def test_start_server_when_already_running
-    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+    skip "fork() is not available on this platform" unless Steep.can_fork?
 
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -133,7 +133,7 @@ end
   end
 
   def test_check_with_daemon
-    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+    skip "fork() is not available on this platform" unless Steep.can_fork?
 
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -194,7 +194,7 @@ end
   end
 
   def test_daemon_detects_file_changes
-    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+    skip "fork() is not available on this platform" unless Steep.can_fork?
 
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -232,7 +232,7 @@ x = "string"
   end
 
   def test_restart_server_command
-    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+    skip "fork() is not available on this platform" unless Steep.can_fork?
 
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -289,7 +289,7 @@ end
   end
 
   def test_check_waits_for_daemon_warmup
-    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+    skip "fork() is not available on this platform" unless Steep.can_fork?
 
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -317,7 +317,7 @@ x = 1 + 2
   end
 
   def test_check_with_no_daemon_flag
-    skip "Daemon is not supported on this platform" unless Steep::Daemon.supported?
+    skip "fork() is not available on this platform" unless Steep.can_fork?
 
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

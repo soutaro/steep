@@ -495,11 +495,6 @@ BANNER
     def process_server
       subcommand = argv.shift
 
-      unless Daemon.supported?
-        stderr.puts "Error: `steep server` is not supported on this platform (fork() is not available)"
-        return 1
-      end
-
       if subcommand.nil? || subcommand == "--help" || subcommand == "-h"
         stderr.puts <<~HELP
           Usage: steep server <subcommand> [options]
@@ -528,6 +523,10 @@ BANNER
 
       case subcommand
       when "start"
+        unless Steep.can_fork?
+          stderr.puts "Error: `steep server start` is not supported on this platform (fork() is not available)"
+          return 1
+        end
         Drivers::StartServer.new(stdout: stdout, stderr: stderr).tap do |command|
           OptionParser.new do |opts|
             opts.banner = <<BANNER
@@ -557,6 +556,10 @@ BANNER
           end.parse!(argv)
         end.run
       when "restart"
+        unless Steep.can_fork?
+          stderr.puts "Error: `steep server restart` is not supported on this platform (fork() is not available)"
+          return 1
+        end
         OptionParser.new do |opts|
           opts.banner = <<BANNER
 Usage: steep server restart [options]
