@@ -814,4 +814,59 @@ RUBY
       end
     end
   end
+
+  def test_validate_signature__ancestor_error_with_library_location
+    # Regression test for #2176: When conflicting RBS signatures cause
+    # AncestorErrorStatus and the error location points to a library file,
+    # the diagnostics should still be reported (not silently dropped).
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+
+    {
+      # Integer is declared as `class Integer < Numeric` in the core library.
+      # Redefining it with a different superclass causes SuperclassMismatchError
+      # whose location points to the library file, not the user's file.
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+class Integer < String
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      sig_service = service.signature_services[:core]
+      assert_instance_of Services::SignatureService::AncestorErrorStatus, sig_service.status
+
+      # validate_signature should return the ancestor error diagnostics
+      # even though the error's location is in a library file
+      diagnostics = service.validate_signature(path: Pathname("sig/core.rbs"), target: project.targets.find { _1.name == :core })
+      refute_empty diagnostics, "Ancestor error diagnostics should not be silently dropped when location is in library file"
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Signature::SuperclassMismatch, error
+      end
+    end
+  end
+
+  def test_signature_diagnostics__ancestor_error_with_library_location
+    # Regression test for #2176: signature_diagnostics should include
+    # diagnostics from AncestorErrorStatus even when locations are in library files
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+
+    {
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+class Integer < String
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      sig_service = service.signature_services[:core]
+      assert_instance_of Services::SignatureService::AncestorErrorStatus, sig_service.status
+
+      # signature_diagnostics should not crash with KeyError and should include the diagnostics
+      all_diagnostics = service.signature_diagnostics
+      has_error = all_diagnostics.values.any? { |diags| !diags.empty? }
+      assert has_error, "Ancestor error diagnostics should be present in signature_diagnostics"
+    end
+  end
 end
