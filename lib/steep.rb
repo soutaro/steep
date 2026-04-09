@@ -133,6 +133,7 @@ require "steep/server/target_group_files"
 require "steep/server/type_check_controller"
 require "steep/server/inline_source_change_detector"
 require "steep/server/master"
+require "steep/daemon"
 
 require "steep/project"
 require "steep/project/pattern"
@@ -154,6 +155,8 @@ require "steep/drivers/print_project"
 require "steep/drivers/init"
 require "steep/drivers/vendor"
 require "steep/drivers/worker"
+require "steep/drivers/start_server"
+require "steep/drivers/stop_server"
 require "steep/drivers/diagnostic_printer"
 require "steep/drivers/diagnostic_printer/base_formatter"
 require "steep/drivers/diagnostic_printer/code_formatter"
@@ -231,7 +234,15 @@ module Steep
   end
 
   def self.can_fork?
-    defined?(fork)
+    return @can_fork if defined?(@can_fork)
+
+    @can_fork = begin
+      pid = fork { exit!(0) }
+      Process.waitpid(pid) if pid
+      true
+    rescue NotImplementedError
+      false
+    end
   end
 
   class Sampler
