@@ -125,25 +125,20 @@ module Steep
 
           case service.status
           when SignatureService::SyntaxErrorStatus, SignatureService::AncestorErrorStatus
-            orphan_diagnostics = [] #: Array[Diagnostic::Signature::Base]
-
             service.status.diagnostics.group_by {|diag| diag.location&.buffer&.name&.to_s }.each do |path_string, diagnostics|
               if path_string
                 path = Pathname(path_string)
                 if signature_diagnostics.key?(path)
                   signature_diagnostics[path].push(*diagnostics)
                 else
-                  orphan_diagnostics.concat(diagnostics)
+                  # Diagnostics with locations in library/env files don't match any
+                  # user file path. Attach them to one of the changed paths so they
+                  # are not silently lost. (See #2176)
+                  anchor = service.status.changed_paths.min_by(&:to_s)
+                  if anchor && signature_diagnostics.key?(anchor)
+                    signature_diagnostics[anchor].push(*diagnostics)
+                  end
                 end
-              end
-            end
-
-            # Diagnostics with locations in library/env files don't match any user
-            # file path. Attach them to a changed path so they're not lost. (See #2176)
-            unless orphan_diagnostics.empty?
-              anchor = service.status.changed_paths.min_by(&:to_s)
-              if anchor && signature_diagnostics.key?(anchor)
-                signature_diagnostics[anchor].push(*orphan_diagnostics)
               end
             end
           when SignatureService::LoadedStatus
@@ -197,31 +192,11 @@ module Steep
             case service.status
             when SignatureService::SyntaxErrorStatus
               diagnostics = service.status.diagnostics.select do |diag|
-                diag.location or raise
-                Pathname(diag.location.buffer.name) == path &&
-                  (diag.is_a?(Diagnostic::Signature::SyntaxError) || diag.is_a?(Diagnostic::Signature::UnexpectedError))
+                diag.is_a?(Diagnostic::Signature::SyntaxError) || diag.is_a?(Diagnostic::Signature::UnexpectedError)
               end
 
             when SignatureService::AncestorErrorStatus
-              diagnostics = service.status.diagnostics.select do |diag|
-                diag.location or raise
-                Pathname(diag.location.buffer.name) == path
-              end
-
-              # Diagnostics with locations in library/env files won't match any user
-              # file path and would be silently dropped. Attach them to one of the
-              # changed paths so they remain visible to the user. (See #2176)
-              orphan_diagnostics = service.status.diagnostics.select do |diag|
-                diag_path = diag.location && Pathname(diag.location.buffer.name)
-                diag_path && diag_path != path && !service.status.files.key?(diag_path)
-              end
-
-              unless orphan_diagnostics.empty?
-                anchor = service.status.changed_paths.min_by(&:to_s)
-                if path == anchor
-                  diagnostics.concat(orphan_diagnostics)
-                end
-              end
+              diagnostics = service.status.diagnostics.dup
 
             when SignatureService::LoadedStatus
               validator = Signature::Validator.new(checker: service.current_subtyping || raise)
