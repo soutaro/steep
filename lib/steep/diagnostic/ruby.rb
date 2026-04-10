@@ -944,6 +944,33 @@ module Steep
         end
       end
 
+      class LibraryRBSError < Base
+        attr_reader :error
+
+        def initialize(error:, location:)
+          @error = error
+          super(node: nil, location: location)
+        end
+
+        def header_line
+          "Type checking failed due to error in library RBS file"
+        end
+
+        def detail_lines
+          lines = [] #: Array[String]
+          lines << error.header_line
+          if error.location
+            lines << "(#{error.location.buffer.name.to_s}:#{error.location.start_line}:#{error.location.start_column})"
+          end
+
+          if detail = error.detail_lines
+            lines << "" << detail
+          end
+
+          lines.join("\n")
+        end
+      end
+
       class InvalidIgnoreComment < Base
         attr_reader :comment
 
@@ -1093,6 +1120,7 @@ module Steep
             MethodParameterMismatch => :error,
             MethodReturnTypeAnnotationMismatch => :hint,
             MultipleAssignmentConversionError => :hint,
+            LibraryRBSError => :error,
             NoMethod => :error,
             ProcHintIgnored => :hint,
             ProcTypeExpected => :hint,
@@ -1221,6 +1249,7 @@ module Steep
             MethodParameterMismatch => :warning,
             MethodReturnTypeAnnotationMismatch => nil,
             MultipleAssignmentConversionError => nil,
+            LibraryRBSError => :error,
             NoMethod => :information,
             ProcHintIgnored => nil,
             ProcTypeExpected => nil,

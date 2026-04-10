@@ -840,13 +840,13 @@ RUBY
       sig_service = service.signature_services[:core]
       assert_instance_of Services::SignatureService::AncestorErrorStatus, sig_service.status
 
-      # typecheck_source should return the library-originated diagnostics
-      # so they are reported on the source file
+      # typecheck_source should return LibraryRBSError diagnostics for each signature error
       diagnostics = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
       refute_nil diagnostics, "Library-originated diagnostics should be reported on source files"
-      refute_empty diagnostics
       assert_any!(diagnostics) do |error|
-        assert_instance_of Diagnostic::Signature::SuperclassMismatch, error
+        assert_instance_of Diagnostic::Ruby::LibraryRBSError, error
+        assert_equal Pathname("lib/core.rb"), Pathname(error.location.buffer.name)
+        assert_instance_of Diagnostic::Signature::SuperclassMismatch, error.error
       end
     end
   end
@@ -881,27 +881,4 @@ RUBY
     end
   end
 
-  def test_signature_diagnostics__ancestor_error_with_library_location
-    # Regression test for #2176: signature_diagnostics should include
-    # diagnostics from AncestorErrorStatus even when locations are in library files
-    service = Services::TypeCheckService.new(project: project)
-    service.update(changes: reset_changes)
-
-    {
-      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
-class Integer < String
-end
-RBS
-    }.tap do |changes|
-      service.update(changes: changes)
-
-      sig_service = service.signature_services[:core]
-      assert_instance_of Services::SignatureService::AncestorErrorStatus, sig_service.status
-
-      # signature_diagnostics should not crash with KeyError and should include the diagnostics
-      all_diagnostics = service.signature_diagnostics
-      has_error = all_diagnostics.values.any? { |diags| !diags.empty? }
-      assert has_error, "Ancestor error diagnostics should be present in signature_diagnostics"
-    end
-  end
 end

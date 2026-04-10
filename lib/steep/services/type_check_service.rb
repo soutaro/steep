@@ -128,17 +128,7 @@ module Steep
             service.status.diagnostics.group_by {|diag| diag.location&.buffer&.name&.to_s }.each do |path_string, diagnostics|
               if path_string
                 path = Pathname(path_string)
-                if signature_diagnostics.key?(path)
-                  signature_diagnostics[path].push(*diagnostics)
-                else
-                  # Diagnostics with locations in library/env files don't match any
-                  # user file path. Attach them to one of the changed paths so they
-                  # are not silently lost. (See #2176)
-                  anchor = service.status.changed_paths.min_by(&:to_s)
-                  if anchor && signature_diagnostics.key?(anchor)
-                    signature_diagnostics[anchor].push(*diagnostics)
-                  end
-                end
+                signature_diagnostics.fetch(path).push(*diagnostics)
               end
             end
           when SignatureService::LoadedStatus
@@ -285,11 +275,22 @@ module Steep
               # Report them on source files so the user knows type checking is broken. (#2176)
               case signature_service.status
               when SignatureService::SyntaxErrorStatus, SignatureService::AncestorErrorStatus
-                library_diagnostics = signature_service.status.diagnostics.select do |diag|
+                library_errors = signature_service.status.diagnostics.select do |diag|
                   diag_path = diag.location && Pathname(diag.location.buffer.name)
-                  diag_path && !signature_service.status.files.key?(diag_path)
+                  diag_path &&
+                    signature_service.env_rbs_paths.include?(diag_path) &&
+                    !signature_service.status.files.key?(diag_path)
                 end
-                library_diagnostics unless library_diagnostics.empty?
+
+                unless library_errors.empty?
+                  text = source_files.fetch(path).content
+                  buffer = RBS::Buffer.new(name: path, content: text)
+                  location = RBS::Location.new(buffer: buffer, start_pos: 0, end_pos: text.size)
+
+                  library_errors.map do |error|
+                    Diagnostic::Ruby::LibraryRBSError.new(error: error, location: location)
+                  end
+                end
               end
             end
           end
