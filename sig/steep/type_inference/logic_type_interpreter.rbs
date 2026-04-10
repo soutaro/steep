@@ -81,20 +81,24 @@ module Steep
 
       def guess_type_from_method: (Parser::AST::Node node) -> (AST::Types::Logic::ReceiverIsArg | AST::Types::Logic::ReceiverIsNil | AST::Types::Logic::Not | AST::Types::Logic::ArgIsReceiver | nil)
 
-      # Decompose to given type to truthy and falsy types.
+      # Partition `arg_type` into truthy and falsy types based on a literal AST node.
       #
-      # This directly corresponds to case-when syntax with literals:
+      # Returns a pair of `[truthy_types, falsy_types]`, or `nil` if the value_node is not a literal.
       #
       # ```ruby
       # case x
-      # when nil       # value_node == {nil}, arg_type = type_of({x})
+      # when nil       # value_node = {nil}, arg_type = type_of({x}), for_receiver: false
       #   ...
-      # when 123       # value_node == {nil}, arg_type = type_of({x})
+      # when 123       # value_node = {123}, arg_type = type_of({x}), for_receiver: false
+      #   ...
+      # end
+      #
+      # if x == :symbol    # value_node = {:symbol}, arg_type = type_of({x}), for_receiver: true
       #   ...
       # end
       # ```
       #
-      def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type) -> [Array[AST::Types::t], Array[AST::Types::t]]?
+      def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type, ?for_receiver: bool) -> [Array[AST::Types::t], Array[AST::Types::t]]?
 
       def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t?, AST::Types::t?]
 
