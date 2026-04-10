@@ -20,6 +20,8 @@ module Steep
 
     SPECIAL_LVAR_NAMES: Set[Symbol]
 
+    ANONYMOUS_BLOCK_PASSABLE_LVAR: Symbol
+
     include NodeHelper
 
     include ModuleHelper
