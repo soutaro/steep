@@ -286,4 +286,8 @@ class TypeCheckTest < Minitest::Test
   def test_inline_class_alias_nested: () -> untyped
 
   def test_inline_class_alias_type_name: () -> untyped
+
+  def test_tuple_type_with_if_branch: () -> untyped
+
+  def test_or_asgn_send_chain: () -> untyped
 end
