@@ -1,0 +1,21 @@
+module Steep
+  module Drivers
+    class Query
+      LSP: untyped
+
+      attr_reader stdout: IO
+
+      attr_reader stderr: IO
+
+      def initialize: (stdout: IO, stderr: IO) -> void
+
+      def run_hover: (locations: Array[[String, Integer, Integer]]) -> Integer
+
+      private
+
+      def to_absolute_path: (String path) -> Pathname?
+
+      def send_request: (Hash[Symbol, untyped] request) -> untyped
+    end
+  end
+end

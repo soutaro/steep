@@ -51,6 +51,20 @@ module Steep
         LanguageServer::Protocol::Transport::Io::Reader master_reader
       ) -> void
 
+      def handle_typecheck_request: (
+        Hash[Symbol, untyped] request,
+        LanguageServer::Protocol::Transport::Io::Writer client_writer,
+        LanguageServer::Protocol::Transport::Io::Writer master_writer,
+        LanguageServer::Protocol::Transport::Io::Reader master_reader
+      ) -> void
+
+      def handle_lsp_request: (
+        Hash[Symbol, untyped] request,
+        LanguageServer::Protocol::Transport::Io::Writer client_writer,
+        LanguageServer::Protocol::Transport::Io::Writer master_writer,
+        LanguageServer::Protocol::Transport::Io::Reader master_reader
+      ) -> void
+
       def sync_changed_files: (
         LanguageServer::Protocol::Transport::Io::Writer master_writer,
         Hash[Symbol, untyped] params

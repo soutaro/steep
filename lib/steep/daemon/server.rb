@@ -115,11 +115,18 @@ module Steep
           count: job_count
         )
 
+        interaction_worker = ::Steep::Server::WorkerProcess.start_worker(
+          :interaction,
+          name: "interaction",
+          steepfile: @project.steepfile_path,
+          steep_command: nil
+        )
+
         master = ::Steep::Server::Master.new(
           project: @project,
           reader: server_reader,
           writer: server_writer,
-          interaction_worker: nil,
+          interaction_worker: interaction_worker,
           typecheck_workers: workers,
           refork: true
         )
@@ -226,6 +233,16 @@ module Steep
 
         request = read_one_message(client_reader) or return
 
+        if request[:method] == ::Steep::Server::CustomMethods::TypeCheck::METHOD || request[:method].nil?
+          handle_typecheck_request(request, client_writer, master_writer, master_reader)
+        else
+          handle_lsp_request(request, client_writer, master_writer, master_reader)
+        end
+      rescue Errno::EPIPE, IOError
+        Steep.logger.warn { "Client disconnected during request" }
+      end
+
+      def handle_typecheck_request(request, client_writer, master_writer, master_reader)
         client_request_id = request[:id]
         params = request[:params]
 
@@ -248,8 +265,27 @@ module Steep
 
           client_writer.write(message)
         end
-      rescue Errno::EPIPE, IOError
-        Steep.logger.warn { "Client disconnected during check" }
+      end
+
+      def handle_lsp_request(request, client_writer, master_writer, master_reader)
+        client_request_id = request[:id]
+        method = request[:method]
+
+        Steep.logger.info { "LSP request: #{method}" }
+
+        request_guid = SecureRandom.uuid
+        master_writer.write({
+          id: request_guid,
+          method: method,
+          params: request[:params]
+        })
+
+        master_reader.read do |message|
+          if message[:id] == request_guid
+            client_writer.write({ id: client_request_id, result: message[:result] })
+            return
+          end
+        end
       end
 
       def sync_changed_files(master_writer, params)

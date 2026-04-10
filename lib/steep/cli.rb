@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :checkfile, :server]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :checkfile, :server, :query]
     end
 
     def process_global_options
@@ -598,6 +598,83 @@ BANNER
       else
         stderr.puts "Unknown server subcommand: #{subcommand}"
         stderr.puts "  available subcommands: start, stop, restart, status"
+        1
+      end
+    end
+
+    def process_query
+      subcommand = argv.shift
+
+      if subcommand.nil? || subcommand == "--help" || subcommand == "-h"
+        stderr.puts <<~HELP
+          Usage: steep query <subcommand> [options]
+
+          Description:
+              Query type information from the Steep daemon server.
+              The daemon must be running (start it with `steep server start`).
+
+          Available subcommands:
+              hover     Get hover information (type, documentation) for a position
+
+          Options:
+              --help    Show this help message
+
+          Examples:
+              steep query hover lib/foo.rb:10:5
+        HELP
+        return 0
+      end
+
+      case subcommand
+      when "hover"
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep query hover [options] FILE:LINE:COL [FILE:LINE:COL ...]
+
+Description:
+    Get hover information for the specified position(s).
+    Connects to the running Steep daemon and returns type information as JSONL
+    (one JSON object per line for each queried position).
+
+    FILE:LINE:COL - File path with 1-based line and column numbers.
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        if argv.empty?
+          stderr.puts "Error: Missing FILE:LINE:COL argument"
+          stderr.puts "  Usage: steep query hover FILE:LINE:COL [FILE:LINE:COL ...]"
+          return 1
+        end
+
+        locations = [] #: Array[[String, Integer, Integer]]
+
+        argv.each do |location|
+          match = location.match(/\A(.+):(\d+):(\d+)\z/)
+          unless match
+            stderr.puts "Error: Invalid format: #{location}"
+            stderr.puts "  Expected format: FILE:LINE:COL (e.g., lib/foo.rb:10:5)"
+            return 1
+          end
+
+          path = match[1] or raise
+          line = match[2].to_i
+          column = match[3].to_i
+
+          if line < 1 || column < 1
+            stderr.puts "Error: LINE and COL must be positive integers (1-based)"
+            return 1
+          end
+
+          locations << [path, line, column]
+        end
+
+        Drivers::Query.new(stdout: stdout, stderr: stderr).run_hover(locations: locations)
+      else
+        stderr.puts "Unknown query subcommand: #{subcommand}"
+        stderr.puts "  available subcommands: hover"
         1
       end
     end
