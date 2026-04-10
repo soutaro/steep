@@ -131,6 +131,8 @@ class TypeCheckTest < Minitest::Test
 
   def test_rescue_assignment: () -> untyped
 
+  def test_ensure_annotation: () -> untyped
+
   def test_defined?: () -> untyped
 
   def test_string_match: () -> untyped
