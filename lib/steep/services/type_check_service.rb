@@ -192,11 +192,16 @@ module Steep
             case service.status
             when SignatureService::SyntaxErrorStatus
               diagnostics = service.status.diagnostics.select do |diag|
-                diag.is_a?(Diagnostic::Signature::SyntaxError) || diag.is_a?(Diagnostic::Signature::UnexpectedError)
+                diag.location or raise
+                Pathname(diag.location.buffer.name) == path &&
+                  (diag.is_a?(Diagnostic::Signature::SyntaxError) || diag.is_a?(Diagnostic::Signature::UnexpectedError))
               end
 
             when SignatureService::AncestorErrorStatus
-              diagnostics = service.status.diagnostics.dup
+              diagnostics = service.status.diagnostics.select do |diag|
+                diag.location or raise
+                Pathname(diag.location.buffer.name) == path
+              end
 
             when SignatureService::LoadedStatus
               validator = Signature::Validator.new(checker: service.current_subtyping || raise)
@@ -274,6 +279,18 @@ module Steep
               source_files[path] = file
 
               file.diagnostics
+            else
+              # Signature loading failed. If the errors originate from library RBS files,
+              # they won't be reported by validate_signature (which filters by user file path).
+              # Report them on source files so the user knows type checking is broken. (#2176)
+              case signature_service.status
+              when SignatureService::SyntaxErrorStatus, SignatureService::AncestorErrorStatus
+                library_diagnostics = signature_service.status.diagnostics.select do |diag|
+                  diag_path = diag.location && Pathname(diag.location.buffer.name)
+                  diag_path && !signature_service.status.files.key?(diag_path)
+                end
+                library_diagnostics unless library_diagnostics.empty?
+              end
             end
           end
         end
