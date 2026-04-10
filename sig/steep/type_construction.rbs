@@ -20,6 +20,8 @@ module Steep
 
     SPECIAL_LVAR_NAMES: Set[Symbol]
 
+    ANONYMOUS_BLOCK_PASSABLE_LVAR: Symbol
+
     include NodeHelper
 
     include ModuleHelper
@@ -276,6 +278,8 @@ module Steep
     SPECIAL_METHOD_NAMES: Hash[Symbol, Set[method_name]]
 
     KNOWN_PURE_METHODS: Set[method_name]
+
+    KERNEL_BLOCK_GIVEN: method_name
 
     def inspect: () -> ::String
 
