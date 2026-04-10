@@ -2,7 +2,7 @@ name: Check milestone
 
 on:
   pull_request:
-    types: [opened, edited, labeled, unlabeled, milestoned, demilestoned, synchronize]
+    types: [opened, edited, labeled, unlabeled, milestoned, demilestoned, synchronize, converted_to_draft, ready_for_review]
 
 permissions:
   contents: read
@@ -36,6 +36,7 @@ jobs:
             const pr = context.payload.pull_request;
             const milestone = pr.milestone;
             const labels = pr.labels.map(l => l.name);
+            const isDraft = pr.draft;
 
             const version = '${{ steps.version.outputs.version }}';
             const major = '${{ steps.version.outputs.major }}';
@@ -43,6 +44,10 @@ jobs:
             const patch = parseInt('${{ steps.version.outputs.patch }}', 10);
 
             if (!milestone) {
+              if (isDraft) {
+                core.info('Draft PR without milestone – OK');
+                return;
+              }
               if (labels.includes('no-milestone')) {
                 core.info('No milestone set, but no-milestone label is present – OK');
                 return;
@@ -53,7 +58,7 @@ jobs:
               return;
             }
 
-            if (labels.includes('no-milestone')) {
+            if (!isDraft && labels.includes('no-milestone')) {
               core.setFailed(
                 'Milestone is set but "no-milestone" label is present. Remove the label or the milestone.'
               );
