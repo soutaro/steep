@@ -3243,6 +3243,8 @@ module Steep
       MethodName("::Hash#[]")
     ]
 
+    KERNEL_BLOCK_GIVEN = MethodName("::Kernel#block_given?")
+
     def pure_send?(call, receiver, arguments)
       return false unless call.node.type == :send || call.node.type == :csend
       return false unless call.pure? || KNOWN_PURE_METHODS.superset?(Set.new(call.method_decls.map(&:method_name)))
@@ -3384,25 +3386,27 @@ module Steep
 
         # Handle block_given? type narrowing
         if method_name == :block_given? && call.is_a?(TypeInference::MethodCall::Typed)
-          if (block_var = constr.method_context&.block_param_name)
-            if (var_type = constr.context.type_env[block_var])
-              unwrapped = constr.checker.factory.unwrap_optional(var_type)
+          if call.method_decls.all? { _1.method_name == KERNEL_BLOCK_GIVEN }
+            if (block_var = constr.method_context&.block_param_name)
+              if (var_type = constr.context.type_env[block_var])
+                unwrapped = constr.checker.factory.unwrap_optional(var_type)
 
-              if unwrapped
-                truthy_env = constr.context.type_env.refine_types(
-                  local_variable_types: { block_var => unwrapped }
-                )
-                falsy_env = constr.context.type_env.refine_types(
-                  local_variable_types: { block_var => AST::Builtin.nil_type }
-                )
+                if unwrapped
+                  truthy_env = constr.context.type_env.refine_types(
+                    local_variable_types: { block_var => unwrapped }
+                  )
+                  falsy_env = constr.context.type_env.refine_types(
+                    local_variable_types: { block_var => AST::Builtin.nil_type }
+                  )
 
-                env_type = AST::Types::Logic::Env.new(
-                  truthy: truthy_env,
-                  falsy: falsy_env,
-                  type: call.return_type
-                )
+                  env_type = AST::Types::Logic::Env.new(
+                    truthy: truthy_env,
+                    falsy: falsy_env,
+                    type: call.return_type
+                  )
 
-                call = call.with_return_type(env_type)
+                  call = call.with_return_type(env_type)
+                end
               end
             end
           end

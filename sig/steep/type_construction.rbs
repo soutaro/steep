@@ -277,6 +277,8 @@ module Steep
 
     KNOWN_PURE_METHODS: Set[method_name]
 
+    KERNEL_BLOCK_GIVEN: method_name
+
     def inspect: () -> ::String
 
     def with_child_typing: [A] () { (TypeConstruction) -> A } -> A
