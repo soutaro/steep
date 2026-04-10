@@ -814,4 +814,71 @@ RUBY
       end
     end
   end
+
+  def test_typecheck_source__ancestor_error_with_library_location
+    # Regression test for #2176: When conflicting RBS signatures cause
+    # AncestorErrorStatus and the error location points to a library file,
+    # typecheck_source should report the errors on source files so the user
+    # knows type checking is broken.
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+
+    {
+      # Integer is declared as `class Integer < Numeric` in the core library.
+      # Redefining it with a different superclass causes SuperclassMismatchError
+      # whose location points to the library file, not the user's file.
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+class Integer < String
+end
+RBS
+      Pathname("lib/core.rb") => [ContentChange.string(<<RUBY)],
+1 + 2
+RUBY
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      sig_service = service.signature_services[:core]
+      assert_instance_of Services::SignatureService::AncestorErrorStatus, sig_service.status
+
+      # typecheck_source should return LibraryRBSError diagnostics for each signature error
+      diagnostics = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+      refute_nil diagnostics, "Library-originated diagnostics should be reported on source files"
+      assert_any!(diagnostics) do |error|
+        assert_instance_of Diagnostic::Ruby::LibraryRBSError, error
+        assert_equal Pathname("lib/core.rb"), Pathname(error.location.buffer.name)
+        assert_instance_of Diagnostic::Signature::SuperclassMismatch, error.error
+      end
+    end
+  end
+
+  def test_typecheck_source__ancestor_error_with_user_file_location
+    # When the error location is in a user's RBS file (not a library file),
+    # typecheck_source should NOT report it on source files — validate_signature
+    # will handle it.
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+
+    {
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+class Hello
+end
+
+module Hello
+end
+RBS
+      Pathname("lib/core.rb") => [ContentChange.string(<<RUBY)],
+1 + 2
+RUBY
+    }.tap do |changes|
+      service.update(changes: changes)
+
+      sig_service = service.signature_services[:core]
+      assert_instance_of Services::SignatureService::AncestorErrorStatus, sig_service.status
+
+      # Error is in a user file, so typecheck_source should not report it
+      diagnostics = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+      assert_nil diagnostics
+    end
+  end
+
 end

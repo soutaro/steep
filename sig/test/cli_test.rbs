@@ -84,4 +84,6 @@ class CLITest < Minitest::Test
   def test_check_expression_with_paths_error: () -> untyped
 
   def test_check_expression_syntax_error: () -> untyped
+
+  def test_check_library_rbs_error: () -> untyped
 end
