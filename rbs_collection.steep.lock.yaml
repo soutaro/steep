@@ -1,11 +1,11 @@
 ---
 path: ".gem_rbs_collection"
 gems:
-- name: base64
-  version: 0.3.0
-  source:
-    type: rubygems
 - name: csv
+  version: '0'
+  source:
+    type: stdlib
+- name: date
   version: '0'
   source:
     type: stdlib
@@ -118,10 +118,6 @@ gems:
   source:
     type: stdlib
 - name: strscan
-  version: '0'
-  source:
-    type: stdlib
-- name: time
   version: '0'
   source:
     type: stdlib

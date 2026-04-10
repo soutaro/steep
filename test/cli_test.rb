@@ -928,4 +928,36 @@ end
     refute_predicate status, :success?, stdout
     assert_match(/Syntax error/, stdout)
   end
+
+  def test_check_library_rbs_error
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "a.rb"
+  signature "a.rbs"
+  configure_code_diagnostics(Steep::Diagnostic::Ruby.all_error)
+end
+      EOF
+
+      (current_dir + "a.rbs").write(<<~RBS)
+        class Integer < String
+        end
+
+        class Float < Rational
+        end
+      RBS
+
+      (current_dir + "a.rb").write(<<~RUBY)
+        1 + 2
+      RUBY
+
+      stdout, status = sh(*steep, "check")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/Ruby::LibraryRBSError/, stdout)
+      assert_match(/Different superclasses are specified for `::Integer`.*core\/integer\.rbs/m, stdout)
+      assert_match(/Different superclasses are specified for `::Float`.*core\/float\.rbs/m, stdout)
+      assert_match(/Detected 2 problems from 1 file/, stdout)
+    end
+  end
 end

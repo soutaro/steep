@@ -17,7 +17,6 @@ gems:
   - name: rainbow
   - name: listen
   - name: json
-  - name: logger
   - name: fileutils
   - name: strscan
   - name: csv
@@ -25,7 +24,6 @@ gems:
   - name: securerandom
   - name: ffi
     ignore: true
-  - name: base64
   - name: rdoc
   - name: erb
   - name: monitor
@@ -40,3 +38,4 @@ gems:
   - name: uri
   - name: socket
   - name: tmpdir
+  - name: date

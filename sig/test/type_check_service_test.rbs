@@ -62,4 +62,8 @@ class TypeCheckServiceTest < Minitest::Test
   def test_update__inline__inheritance_generic_missing_type_args: () -> untyped
 
   def test_update__inline__instance_variable_duplication: () -> untyped
+
+  def test_typecheck_source__ancestor_error_with_library_location: () -> untyped
+
+  def test_typecheck_source__ancestor_error_with_user_file_location: () -> untyped
 end

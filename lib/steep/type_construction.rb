@@ -2209,7 +2209,10 @@ module Steep
           yield_self do
             body, ensure_body = node.children
             body_type = synthesize(body).type if body
-            synthesize(ensure_body) if ensure_body
+            if ensure_body
+              ensure_constr = for_branch(node)
+              ensure_constr.synthesize(ensure_body)
+            end
             if body_type
               add_typing(node, type: body_type)
             else

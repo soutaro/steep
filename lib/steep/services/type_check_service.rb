@@ -269,6 +269,29 @@ module Steep
               source_files[path] = file
 
               file.diagnostics
+            else
+              # Signature loading failed. If the errors originate from library RBS files,
+              # they won't be reported by validate_signature (which filters by user file path).
+              # Report them on source files so the user knows type checking is broken. (#2176)
+              case signature_service.status
+              when SignatureService::SyntaxErrorStatus, SignatureService::AncestorErrorStatus
+                library_errors = signature_service.status.diagnostics.select do |diag|
+                  diag_path = diag.location && Pathname(diag.location.buffer.name)
+                  diag_path &&
+                    signature_service.env_rbs_paths.include?(diag_path) &&
+                    !signature_service.status.files.key?(diag_path)
+                end
+
+                unless library_errors.empty?
+                  text = source_files.fetch(path).content
+                  buffer = RBS::Buffer.new(name: path, content: text)
+                  location = RBS::Location.new(buffer: buffer, start_pos: 0, end_pos: text.size)
+
+                  library_errors.map do |error|
+                    Diagnostic::Ruby::LibraryRBSError.new(error: error, location: location)
+                  end
+                end
+              end
             end
           end
         end
