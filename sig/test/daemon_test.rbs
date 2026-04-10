@@ -1,0 +1,45 @@
+# Generated from test/daemon_test.rb with RBS::Inline
+
+class DaemonTest < Minitest::Test
+  include ShellHelper
+
+  include TestHelper
+
+  def dirs: () -> untyped
+
+  def envs: () -> untyped
+
+  def steep: () -> untyped
+
+  def setup: () -> untyped
+
+  def teardown: () -> untyped
+
+  def test_daemon_socket_path: () -> untyped
+
+  def test_daemon_not_running_initially: () -> untyped
+
+  def test_start_returns_false_when_not_supported: () -> untyped
+
+  def test_server_command_returns_error_when_not_supported: () -> untyped
+
+  def test_start_server_command: () -> untyped
+
+  def test_start_server_when_already_running: () -> untyped
+
+  def test_stop_server_when_not_running: () -> untyped
+
+  def test_check_with_daemon: () -> untyped
+
+  def test_check_falls_back_without_daemon: () -> untyped
+
+  def test_daemon_detects_file_changes: () -> untyped
+
+  def test_restart_server_command: () -> untyped
+
+  def test_server_help: () -> untyped
+
+  def test_check_waits_for_daemon_warmup: () -> untyped
+
+  def test_check_with_no_daemon_flag: () -> untyped
+end

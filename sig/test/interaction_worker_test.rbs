@@ -48,5 +48,7 @@ class InteractionWorkerTest < Minitest::Test
 
   def test_handle_completion_request: () -> untyped
 
+  def test_handle_completion_request_inline: () -> untyped
+
   def test_completion_on_signature: () -> untyped
 end

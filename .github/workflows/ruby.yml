@@ -6,6 +6,9 @@ on:
       - master
   pull_request: {}
 
+permissions:
+  contents: read
+
 jobs:
   test:
     strategy:
@@ -74,4 +77,24 @@ jobs:
         bin/setup
         bundle exec ruby bin/generate-diagnostics-docs.rb
         git diff --exit-code HEAD -- manual
+  test_rbs_check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "4.0"
+        bundler: none
+    - name: Fix permission
+      run: |
+        gem env gemdir
+        chmod 775 `gem env gemdir`/gems
+    - name: Check generated RBS files are up to date
+      run: |
+        git config --global --add safe.directory /__w/steep/steep
+        ruby -v
+        gem install bundler
+        bin/setup
+        bundle exec rake rbs:generate
+        git diff --exit-code HEAD -- sig/test
 
