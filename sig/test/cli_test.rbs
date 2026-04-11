@@ -85,5 +85,19 @@ class CLITest < Minitest::Test
 
   def test_check_expression_syntax_error: () -> untyped
 
+  def test_query_hover_no_subcommand: () -> untyped
+
+  def test_query_hover_help: () -> untyped
+
+  def test_query_hover_missing_argument: () -> untyped
+
+  def test_query_hover_invalid_format: () -> untyped
+
+  def test_query_hover_unknown_subcommand: () -> untyped
+
+  def test_query_hover_returns_result: () -> untyped
+
+  def test_query_hover_multiple_locations: () -> untyped
+
   def test_check_library_rbs_error: () -> untyped
 end

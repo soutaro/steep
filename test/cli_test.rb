@@ -929,6 +929,118 @@ end
     assert_match(/Syntax error/, stdout)
   end
 
+  def test_query_hover_no_subcommand
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query")
+      assert_predicate status, :success?
+      assert_match(/Available subcommands:/, stderr)
+      assert_match(/hover/, stderr)
+    end
+  end
+
+  def test_query_hover_help
+    in_tmpdir do
+      stdout, status = sh(*steep, "query", "hover", "--help")
+      assert_predicate status, :success?
+      assert_match(/FILE:LINE:COL/, stdout)
+    end
+  end
+
+  def test_query_hover_missing_argument
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query", "hover")
+      refute_predicate status, :success?
+      assert_match(/Missing FILE:LINE:COL argument/, stderr)
+    end
+  end
+
+  def test_query_hover_invalid_format
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query", "hover", "lib/foo.rb:10")
+      refute_predicate status, :success?
+      assert_match(/Invalid format/, stderr)
+    end
+  end
+
+  def test_query_hover_unknown_subcommand
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query", "unknown")
+      refute_predicate status, :success?
+      assert_match(/Unknown query subcommand/, stderr)
+    end
+  end
+
+  def test_query_hover_returns_result
+    skip "fork() is not available on this platform" unless Steep.can_fork?
+
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<~RUBY)
+        # @type var x: Integer
+        x = 1 + 2
+      RUBY
+
+      sh!(*steep, "server", "start", err: [:child, :out])
+
+      begin
+        finally_holds(timeout: 30) do
+          stdout, status = sh(*steep, "query", "hover", "foo.rb:2:1")
+          assert_predicate status, :success?
+
+          result = JSON.parse(stdout.lines.first, symbolize_names: true)
+          assert_equal "foo.rb", result[:file]
+          assert_equal 2, result[:line]
+          assert_equal 1, result[:column]
+          assert result[:result], "Expected hover result"
+        end
+      ensure
+        sh(*steep, "server", "stop", err: [:child, :out])
+      end
+    end
+  end
+
+  def test_query_hover_multiple_locations
+    skip "fork() is not available on this platform" unless Steep.can_fork?
+
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<~RUBY)
+        # @type var x: Integer
+        x = 1 + 2
+      RUBY
+
+      sh!(*steep, "server", "start", err: [:child, :out])
+
+      begin
+        finally_holds(timeout: 30) do
+          stdout, status = sh(*steep, "query", "hover", "foo.rb:2:1", "foo.rb:2:5")
+          assert_predicate status, :success?
+
+          lines = stdout.lines
+          assert_equal 2, lines.size
+
+          lines.each do |line|
+            result = JSON.parse(line, symbolize_names: true)
+            assert_equal "foo.rb", result[:file]
+            assert result.key?(:result), "Expected result key in #{line}"
+          end
+        end
+      ensure
+        sh(*steep, "server", "stop", err: [:child, :out])
+      end
+    end
+  end
+
   def test_check_library_rbs_error
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
