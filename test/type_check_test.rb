@@ -4495,4 +4495,39 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_or_asgn_send_chain
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class OrAssignBox[T]
+            attr_accessor value: T?
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          array = OrAssignBox.new #: OrAssignBox[Array[String]]
+          (array.value ||= []) << "foo"
+
+          string = OrAssignBox.new #: OrAssignBox[String]
+          (string.value ||= "").encoding
+
+          integer = OrAssignBox.new #: OrAssignBox[Integer]
+          (integer.value ||= 0) + 1
+
+          symbol = OrAssignBox.new #: OrAssignBox[Symbol]
+          (symbol.value ||= :default).to_s
+
+          hash = OrAssignBox.new #: OrAssignBox[Hash[Symbol, String]]
+          (hash.value ||= {}).keys
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

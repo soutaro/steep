@@ -1456,7 +1456,7 @@ module Steep
 
           case
           when hint && check_relation(sub_type: ty, super_type: hint).success? && !hint.is_a?(AST::Types::Any) && !hint.is_a?(AST::Types::Top)
-            add_typing(node, type: hint)
+            add_typing(node, type: unwrap(hint))
           when condition
             add_typing(node, type: ty)
           else
@@ -1750,7 +1750,7 @@ module Steep
               if hint
                 array = AST::Builtin::Array.instance_type(AST::Builtin.any_type)
                 if check_relation(sub_type: array, super_type: hint).success?
-                  add_typing node, type: hint
+                  add_typing node, type: unwrap(hint)
                 else
                   add_typing node, type: array
                 end
@@ -4941,7 +4941,7 @@ module Steep
         else
           literal_type = AST::Types::Literal.new(value: literal)
           if check_relation(sub_type: literal_type, super_type: hint).success?
-            hint
+            unwrap(hint)
           end
         end
       end
