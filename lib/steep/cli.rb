@@ -613,6 +613,10 @@ BANNER
               Query type information from the Steep daemon server.
               The daemon must be running (start it with `steep server start`).
 
+          Note:
+              `steep query` is an experimental command.
+              The user interface and output format may change without deprecation.
+
           Available subcommands:
               hover     Get hover information (type, documentation) for a position
 
@@ -637,6 +641,10 @@ Description:
     (one JSON object per line for each queried position).
 
     FILE:LINE:COL - File path with 1-based line and column numbers.
+
+Note:
+    This is an experimental command.
+    The user interface and output format may change without deprecation.
 
 Options:
 BANNER
