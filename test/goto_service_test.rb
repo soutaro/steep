@@ -1039,4 +1039,152 @@ x = nil #: MyString?
       assert locs.find {|loc| loc.source == "NilClass" }
     end
   end
+
+  def test_parse_name_type_name
+    Services::GotoService.parse_name("RBS::Location").tap do |name|
+      assert_instance_of RBS::TypeName, name
+      assert_equal RBS::TypeName.parse("::RBS::Location"), name
+    end
+
+    Services::GotoService.parse_name("::Customer").tap do |name|
+      assert_instance_of RBS::TypeName, name
+      assert_equal RBS::TypeName.parse("::Customer"), name
+    end
+
+    Services::GotoService.parse_name("_Each").tap do |name|
+      assert_instance_of RBS::TypeName, name
+      assert_equal RBS::TypeName.parse("::_Each"), name
+    end
+  end
+
+  def test_parse_name_instance_method
+    Services::GotoService.parse_name("RBS::Parser#parse_type").tap do |name|
+      assert_instance_of Steep::InstanceMethodName, name
+      assert_equal RBS::TypeName.parse("::RBS::Parser"), name.type_name
+      assert_equal :parse_type, name.method_name
+    end
+  end
+
+  def test_parse_name_singleton_method
+    Services::GotoService.parse_name("RBS::Parser.parse_signature").tap do |name|
+      assert_instance_of Steep::SingletonMethodName, name
+      assert_equal RBS::TypeName.parse("::RBS::Parser"), name.type_name
+      assert_equal :parse_signature, name.method_name
+    end
+  end
+
+  def test_parse_name_returns_nil_for_empty
+    assert_nil Services::GotoService.parse_name("")
+    assert_nil Services::GotoService.parse_name(nil)
+  end
+
+  def test_query_definition_class
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<~RBS)]
+        class Customer
+          VERSION: String
+        end
+      RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<~RUBY)]
+        class Customer
+          VERSION = "0.1.0"
+        end
+      RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    name = Services::GotoService.parse_name("Customer") or raise
+    service.query_definition(name).tap do |locs|
+      refute_empty locs
+      # One location from the RBS file
+      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("customer.rbs") }
+      # One location from the Ruby file
+      assert locs.any? {|loc| !loc.is_a?(RBS::Location) && loc.source_buffer.name.to_s.end_with?("customer.rb") }
+    end
+  end
+
+  def test_query_definition_type_alias
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/types.rbs")] = [ContentChange.string(<<~RBS)]
+        type name_or_id = String | Integer
+      RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    name = Services::GotoService.parse_name("name_or_id") or raise
+    service.query_definition(name).tap do |locs|
+      refute_empty locs
+      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("types.rbs") }
+    end
+  end
+
+  def test_query_definition_interface
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/interface.rbs")] = [ContentChange.string(<<~RBS)]
+        interface _MyInterface
+          def foo: () -> void
+        end
+      RBS
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    name = Services::GotoService.parse_name("_MyInterface") or raise
+    service.query_definition(name).tap do |locs|
+      refute_empty locs
+      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("interface.rbs") }
+    end
+  end
+
+  def test_query_definition_method
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<~RBS)]
+        class Customer
+          def greet: () -> String
+        end
+      RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<~RUBY)]
+        class Customer
+          def greet
+            "hi"
+          end
+        end
+      RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    name = Services::GotoService.parse_name("Customer#greet") or raise
+    service.query_definition(name).tap do |locs|
+      refute_empty locs
+      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("customer.rbs") }
+      assert locs.any? {|loc| !loc.is_a?(RBS::Location) && loc.source_buffer.name.to_s.end_with?("customer.rb") }
+    end
+  end
+
+  def test_query_definition_constant
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<~RBS)]
+        class Customer
+          VERSION: String
+        end
+      RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<~RUBY)]
+        class Customer
+          VERSION = "0.1.0"
+        end
+      RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    name = Services::GotoService.parse_name("Customer::VERSION") or raise
+    service.query_definition(name).tap do |locs|
+      refute_empty locs
+      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("customer.rbs") }
+      assert locs.any? {|loc| !loc.is_a?(RBS::Location) && loc.source_buffer.name.to_s.end_with?("customer.rb") }
+    end
+  end
 end
