@@ -173,6 +173,26 @@ module Steep
         def self.response: (String id, result) -> untyped
       end
 
+      # Request to search for references matching a resolved symbol
+      #
+      # Sent from the master to typecheck workers. Each worker searches its assigned
+      # files and returns matching locations.
+      #
+      module References__Search
+        METHOD: String
+
+        type params = {
+          query: String,
+          include_declaration: bool
+        }
+
+        type result = Array[link]
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result) -> untyped
+      end
+
       # Request to resolve the definition(s) of a name (class, module, type alias, constant, or method)
       #
       # Used by `steep query definition NAME`. The master broadcasts the request to every

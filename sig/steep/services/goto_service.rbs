@@ -116,9 +116,17 @@ module Steep
       #
       def query_definition: (name) -> Array[loc]
 
+      # Returns array of locations that is a response to a *Find references* request
+      #
+      def references: (path: Pathname, line: Integer, column: Integer, include_declaration: bool) -> Array[loc]
+
       # Resolves the symbol at the given position into reference queries
       #
       def resolve_references_queries: (path: Pathname, line: Integer, column: Integer) -> Array[query]
+
+      # Finds references matching the given queries
+      #
+      def find_references: (queries: Array[query], include_declaration: bool) -> Array[loc]
 
       # Returns array of locations that is a response to a *Go to type-definition* request
       #
@@ -147,6 +155,12 @@ module Steep
       def type_name_locations: (TypeName name, ?locations: Array[target_loc]) -> Array[target_loc]
 
       def interface_and_type_alias_locations: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
+
+      def constant_references_in_ruby: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
+
+      def method_references_in_ruby: (method_name name, locations: Array[target_loc]) -> Array[target_loc]
+
+      def type_name_references_in_rbs: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
     end
   end
 end
