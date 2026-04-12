@@ -386,7 +386,8 @@ module Steep
                       definition_provider: true,
                       declaration_provider: false,
                       implementation_provider: true,
-                      type_definition_provider: true
+                      type_definition_provider: true,
+                      references_provider: true
                     ),
                     server_info: {
                       name: "steep",
@@ -662,6 +663,56 @@ module Steep
                 )
               )
             end
+          end
+
+        when "textDocument/references"
+          if interaction_worker && pathname(message[:params][:textDocument][:uri])
+            result_controller << send_request(
+              method: CustomMethods::ResolveSymbol::METHOD,
+              params: message[:params],
+              worker: interaction_worker
+            ) do |handler|
+              handler.on_completion do |response|
+                queries = response[:result] || []
+
+                if queries.empty?
+                  enqueue_write_job SendMessageJob.to_client(
+                    message: {
+                      id: message[:id],
+                      result: [] #: Array[untyped]
+                    }
+                  )
+                else
+                  include_declaration = message[:params].dig(:context, :includeDeclaration) || false
+                  search_params = { queries: queries, include_declaration: include_declaration }
+
+                  result_controller << group_request do |group|
+                    typecheck_workers.each do |worker|
+                      group << send_request(
+                        method: CustomMethods::References__Search::METHOD,
+                        params: search_params,
+                        worker: worker
+                      )
+                    end
+
+                    group.on_completion do |handlers|
+                      links = handlers.flat_map(&:result)
+                      links.uniq!
+                      enqueue_write_job SendMessageJob.to_client(
+                        message: { id: message[:id], result: links }
+                      )
+                    end
+                  end
+                end
+              end
+            end
+          else
+            enqueue_write_job SendMessageJob.to_client(
+              message: {
+                id: message[:id],
+                result: [] #: Array[untyped]
+              }
+            )
           end
 
         when CustomMethods::TypeCheck::METHOD

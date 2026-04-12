@@ -138,21 +138,10 @@ module Steep
         def self.response: (String id, result) -> untyped
       end
 
-      type position = { line: Integer, character: Integer }
-
-      type range = { start: position, end: position }
-
-      # LSP TextDocumentPositionParams
-      type text_document_position = {
-        textDocument: { uri: String },
-        position: position
-      }
-
-      type link = { uri: String, range: range }
-
-      # Request to resolve a cursor position into a symbol name
+      # Request to resolve references queries from a position
       #
-      # Sent from the master to the interaction worker.
+      # Sent from the master to the interaction worker. The interaction worker resolves
+      # the cursor position into a symbol that the typecheck workers can search.
       #
       module ResolveSymbol
         METHOD: String
@@ -173,7 +162,18 @@ module Steep
         def self.response: (String id, result) -> untyped
       end
 
-      # Request to search for references matching a resolved symbol
+      type position = { line: Integer, character: Integer }
+
+      type range = { start: position, end: position }
+
+      type text_document_position = {
+        textDocument: { uri: String },
+        position: position
+      }
+
+      type link = { uri: String, range: range }
+
+      # Request to search for references matching resolved queries
       #
       # Sent from the master to typecheck workers. Each worker searches its assigned
       # files and returns matching locations.
@@ -181,14 +181,11 @@ module Steep
       module References__Search
         METHOD: String
 
-        type params = {
-          query: String,
-          include_declaration: bool
-        }
-
-        type result = Array[link]
+        type params = String
 
         def self.request: (String id, params) -> untyped
+
+        type result = Array[link]
 
         def self.response: (String id, result) -> untyped
       end
