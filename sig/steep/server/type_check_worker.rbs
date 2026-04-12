@@ -96,6 +96,16 @@ module Steep
         def initialize: (id: String, name: String) -> void
       end
 
+      class ReferencesJob
+        attr_reader id: String
+
+        attr_reader queries: Array[Services::GotoService::query]
+
+        attr_reader include_declaration: bool
+
+        def initialize: (id: String, queries: Array[Services::GotoService::query], include_declaration: bool) -> void
+      end
+
       class GotoJob
         type kind = :implementation | :definition | :type_definition
 
@@ -156,6 +166,7 @@ module Steep
                | GotoJob
                | StatsJob
                | QueryDefinitionJob
+               | ReferencesJob
 
       def handle_job: (job) -> void
 
@@ -168,6 +179,10 @@ module Steep
       def goto: (GotoJob job) -> Array[untyped]
 
       def query_definition_result: (String name_string) -> CustomMethods::Query__Definition::result
+
+      def references: (ReferencesJob job) -> Array[untyped]
+
+      def locations_to_links: (Array[Services::GotoService::loc] locations) -> Array[untyped]
     end
   end
 end
