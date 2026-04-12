@@ -618,13 +618,16 @@ BANNER
               The user interface and output format may change without deprecation.
 
           Available subcommands:
-              hover     Get hover information (type, documentation) for a position
+              hover      Get hover information (type, documentation) for a position
+              definition Get the definition(s) of a class, type alias, constant, or method name
 
           Options:
               --help    Show this help message
 
           Examples:
               steep query hover lib/foo.rb:10:5
+              steep query definition RBS::Location
+              steep query definition RBS::Parser.parse_signature
         HELP
         return 0
       end
@@ -680,9 +683,40 @@ BANNER
         end
 
         Drivers::Query.new(stdout: stdout, stderr: stderr).run_hover(locations: locations)
+      when "definition"
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep query definition [options] NAME [NAME ...]
+
+Description:
+    Get the definition(s) of the specified name(s).
+    Connects to the running Steep daemon and returns both RBS declarations and
+    Ruby definitions as JSONL (one JSON object per line for each queried name).
+
+    NAME can be one of:
+      * A class, module, interface, type alias, or constant (e.g., RBS::Location)
+      * An instance method (e.g., RBS::Parser#parse_type)
+      * A singleton method (e.g., RBS::Parser.parse_signature)
+
+Note:
+    This is an experimental command.
+    The user interface and output format may change without deprecation.
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        if argv.empty?
+          stderr.puts "Error: Missing NAME argument"
+          stderr.puts "  Usage: steep query definition NAME [NAME ...]"
+          return 1
+        end
+
+        Drivers::Query.new(stdout: stdout, stderr: stderr).run_definition(names: argv.dup)
       else
         stderr.puts "Unknown query subcommand: #{subcommand}"
-        stderr.puts "  available subcommands: hover"
+        stderr.puts "  available subcommands: hover, definition"
         1
       end
     end

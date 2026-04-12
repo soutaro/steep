@@ -11,6 +11,8 @@ module Steep
 
       def run_hover: (locations: Array[[String, Integer, Integer]]) -> Integer
 
+      def run_definition: (names: Array[String]) -> Integer
+
       private
 
       def to_absolute_path: (String path) -> Pathname?
