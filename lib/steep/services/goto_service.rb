@@ -15,11 +15,48 @@ module Steep
 
       class ConstantQuery < Struct.new(:name, :from, keyword_init: true)
         include SourceHelper
+
+        def as_json
+          { kind: "constant", name: name.to_s, from: from.to_s }
+        end
+
+        def self.from_json(hash)
+          new(name: RBS::TypeName.parse(hash[:name] || hash["name"]), from: (hash[:from] || hash["from"]).to_sym)
+        end
       end
       class MethodQuery < Struct.new(:name, :from, keyword_init: true)
         include SourceHelper
+
+        def as_json
+          { kind: "method", name: name.to_s, from: from.to_s }
+        end
+
+        def self.from_json(hash)
+          new(name: MethodName(hash[:name] || hash["name"]), from: (hash[:from] || hash["from"]).to_sym)
+        end
       end
       class TypeNameQuery < Struct.new(:name, keyword_init: true)
+        def as_json
+          { kind: "type_name", name: name.to_s }
+        end
+
+        def self.from_json(hash)
+          new(name: RBS::TypeName.parse(hash[:name] || hash["name"]))
+        end
+      end
+
+      def self.query_from_json(hash)
+        kind = hash[:kind] || hash["kind"]
+        case kind
+        when "constant"
+          ConstantQuery.from_json(hash)
+        when "method"
+          MethodQuery.from_json(hash)
+        when "type_name"
+          TypeNameQuery.from_json(hash)
+        else
+          raise "Unknown query kind: #{kind}"
+        end
       end
 
       attr_reader :type_check, :assignment
@@ -209,6 +246,12 @@ module Steep
             loc
           end
         end.uniq
+      end
+
+      def resolve_references_queries(path:, line:, column:)
+        queries = query_at(path: path, line: line, column: column)
+        queries.uniq!
+        queries
       end
 
       def type_definition(path:, line:, column:)

@@ -73,6 +73,18 @@ module Steep
         end
       end
 
+      module ResolveSymbol
+        METHOD = "$/steep/resolve_symbol"
+
+        def self.request(id, params)
+          { method: METHOD, id: id, params: params }
+        end
+
+        def self.response(id, result)
+          { id: id, result: result }
+        end
+      end
+
       module Refork
         METHOD = "$/steep/refork"
 

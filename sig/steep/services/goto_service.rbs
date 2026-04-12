@@ -33,6 +33,10 @@ module Steep
         attr_reader from: from
 
         def initialize: (name: TypeName, from: from) -> void
+
+        def as_json: () -> Hash[Symbol, String]
+
+        def self.from_json: (untyped hash) -> ConstantQuery
       end
 
       # Query a method
@@ -46,6 +50,10 @@ module Steep
         attr_reader from: from
 
         def initialize: (name: method_name, from: from) -> void
+
+        def as_json: () -> Hash[Symbol, String]
+
+        def self.from_json: (untyped hash) -> MethodQuery
       end
 
       # Query a type name
@@ -56,9 +64,15 @@ module Steep
         attr_reader name: TypeName
 
         def initialize: (name: TypeName) -> void
+
+        def as_json: () -> Hash[Symbol, String]
+
+        def self.from_json: (untyped hash) -> TypeNameQuery
       end
 
       type query = ConstantQuery | MethodQuery | TypeNameQuery
+
+      def self.query_from_json: (untyped hash) -> query
 
       # Parsed result of a name string given to `steep query definition NAME`.
       #
@@ -101,6 +115,10 @@ module Steep
       # Used by `steep query definition NAME`.
       #
       def query_definition: (name) -> Array[loc]
+
+      # Resolves the symbol at the given position into reference queries
+      #
+      def resolve_references_queries: (path: Pathname, line: Integer, column: Integer) -> Array[query]
 
       # Returns array of locations that is a response to a *Go to type-definition* request
       #

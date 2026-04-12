@@ -138,6 +138,41 @@ module Steep
         def self.response: (String id, result) -> untyped
       end
 
+      type position = { line: Integer, character: Integer }
+
+      type range = { start: position, end: position }
+
+      # LSP TextDocumentPositionParams
+      type text_document_position = {
+        textDocument: { uri: String },
+        position: position
+      }
+
+      type link = { uri: String, range: range }
+
+      # Request to resolve a cursor position into a symbol name
+      #
+      # Sent from the master to the interaction worker.
+      #
+      module ResolveSymbol
+        METHOD: String
+
+        type params = text_document_position
+
+        def self.request: (String id, params) -> untyped
+
+        # result is String that represents a symbol at the position refers to:
+        #
+        # 1. Type name (or constant name): `::RBS::Parser`
+        # 2. Instance method name: `::Array#map`
+        # 3. Singleton method name: `::File.read`
+        # 4. Unresolved symbol: `nil`
+        #
+        type result = String?
+
+        def self.response: (String id, result) -> untyped
+      end
+
       # Request to resolve the definition(s) of a name (class, module, type alias, constant, or method)
       #
       # Used by `steep query definition NAME`. The master broadcasts the request to every
