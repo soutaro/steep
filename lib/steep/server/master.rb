@@ -632,6 +632,38 @@ module Steep
             )
           end
 
+        when CustomMethods::Query__Definition::METHOD
+          params = message[:params] #: CustomMethods::Query__Definition::params
+          result_controller << group_request do |group|
+            typecheck_workers.each do |worker|
+              group << send_request(method: CustomMethods::Query__Definition::METHOD, params: params, worker: worker)
+            end
+
+            group.on_completion do |handlers|
+              kind = "unknown" #: CustomMethods::Query__Definition::kind
+              locations = [] #: Array[CustomMethods::Query__Definition::location]
+
+              handlers.each do |handler|
+                result = handler.result #: CustomMethods::Query__Definition::result
+                next unless result
+
+                if kind == "unknown"
+                  kind = result[:kind]
+                end
+                locations.concat(result[:locations])
+              end
+
+              locations.uniq!
+
+              enqueue_write_job SendMessageJob.to_client(
+                message: CustomMethods::Query__Definition.response(
+                  message[:id],
+                  { name: params[:name], kind: kind, locations: locations }
+                )
+              )
+            end
+          end
+
         when CustomMethods::TypeCheck::METHOD
           id = message[:id]
           params = message[:params] #: CustomMethods::TypeCheck::params

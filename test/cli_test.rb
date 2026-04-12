@@ -1041,6 +1041,95 @@ end
     end
   end
 
+  def test_query_definition_missing_argument
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query", "definition")
+      refute_predicate status, :success?
+      assert_match(/Missing NAME argument/, stderr)
+    end
+  end
+
+  def test_query_definition_help
+    in_tmpdir do
+      stdout, status = sh(*steep, "query", "definition", "--help")
+      assert_predicate status, :success?
+      assert_match(/NAME/, stdout)
+    end
+  end
+
+  def test_query_definition_returns_result
+    skip "fork() is not available on this platform" unless Steep.can_fork?
+
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+  signature "foo.rbs"
+end
+      EOF
+
+      (current_dir + "foo.rbs").write(<<~RBS)
+        class Foo
+          def greet: () -> String
+        end
+      RBS
+
+      (current_dir + "foo.rb").write(<<~RUBY)
+        class Foo
+          def greet
+            "hi"
+          end
+        end
+      RUBY
+
+      sh!(*steep, "server", "start", err: [:child, :out])
+
+      begin
+        # Run check first to populate source index for Ruby definitions
+        _, status = sh(*steep, "check")
+        assert_predicate status, :success?
+
+        stdout, status = sh(*steep, "query", "definition", "Foo")
+        assert_predicate status, :success?
+
+        result = JSON.parse(stdout.lines.first, symbolize_names: true)
+        assert_equal "Foo", result[:name]
+        assert_equal "type_name", result[:result][:kind]
+
+        locations = result[:result][:locations]
+        rbs_loc = locations.find { |l| l[:uri].end_with?("foo.rbs") }
+        assert rbs_loc, "Expected RBS location for Foo in foo.rbs"
+        assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 9 } }, rbs_loc[:range])
+        assert_equal "rbs", rbs_loc[:source]
+
+        rb_loc = locations.find { |l| l[:uri].end_with?("foo.rb") }
+        assert rb_loc, "Expected Ruby location for Foo in foo.rb"
+        assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 9 } }, rb_loc[:range])
+        assert_equal "ruby", rb_loc[:source]
+
+        stdout, status = sh(*steep, "query", "definition", "Foo#greet")
+        assert_predicate status, :success?
+
+        result = JSON.parse(stdout.lines.first, symbolize_names: true)
+        assert_equal "Foo#greet", result[:name]
+        assert_equal "instance_method", result[:result][:kind]
+
+        locations = result[:result][:locations]
+        rbs_loc = locations.find { |l| l[:uri].end_with?("foo.rbs") }
+        assert rbs_loc, "Expected RBS location for Foo#greet in foo.rbs"
+        assert_equal({ start: { line: 1, character: 6 }, end: { line: 1, character: 11 } }, rbs_loc[:range])
+        assert_equal "rbs", rbs_loc[:source]
+
+        rb_loc = locations.find { |l| l[:uri].end_with?("foo.rb") }
+        assert rb_loc, "Expected Ruby location for Foo#greet in foo.rb"
+        assert_equal({ start: { line: 1, character: 6 }, end: { line: 1, character: 11 } }, rb_loc[:range])
+        assert_equal "ruby", rb_loc[:source]
+      ensure
+        sh(*steep, "server", "stop", err: [:child, :out])
+      end
+    end
+  end
+
   def test_check_library_rbs_error
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

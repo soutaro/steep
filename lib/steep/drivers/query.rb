@@ -47,6 +47,31 @@ module Steep
         1
       end
 
+      # @rbs names: Array[String]
+      # @rbs return: Integer
+      def run_definition(names:)
+        unless Daemon.running?
+          stderr.puts "Error: Steep daemon is not running. Start it with `steep server start`."
+          return 1
+        end
+
+        names.each do |name|
+          request = {
+            id: SecureRandom.uuid,
+            method: Server::CustomMethods::Query__Definition::METHOD,
+            params: { name: name }
+          }
+
+          result = send_request(request)
+          stdout.puts JSON.generate({ name: name, result: result })
+        end
+
+        0
+      rescue Errno::ECONNREFUSED, Errno::ENOENT => e
+        stderr.puts "Error: Failed to connect to Steep daemon: #{e.message}"
+        1
+      end
+
       private
 
       def to_absolute_path(path)

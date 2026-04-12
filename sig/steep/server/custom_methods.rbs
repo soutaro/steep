@@ -137,6 +137,39 @@ module Steep
 
         def self.response: (String id, result) -> untyped
       end
+
+      # Request to resolve the definition(s) of a name (class, module, type alias, constant, or method)
+      #
+      # Used by `steep query definition NAME`. The master broadcasts the request to every
+      # typecheck worker; each worker returns the locations it knows about and the master
+      # merges and deduplicates the results.
+      #
+      module Query__Definition
+        METHOD: String
+
+        type params = {
+          name: String
+        }
+
+        type source = "rbs" | "ruby"
+
+        type location = {
+          uri: String,
+          range: {
+            start: { line: Integer, character: Integer },
+            end: { line: Integer, character: Integer }
+          },
+          source: source
+        }
+
+        type kind = "type_name" | "instance_method" | "singleton_method" | "unknown"
+
+        type result = { name: String, kind: kind, locations: Array[location] }
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result) -> untyped
+      end
     end
   end
 end
