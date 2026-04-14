@@ -80,15 +80,32 @@ module Steep
 
       attr_reader :implicitly_returns_nil
 
-      def initialize(env:, implicitly_returns_nil:)
-        builder = RBS::DefinitionBuilder.new(env: env)
-        @status = LoadedStatus.new(builder: builder, files: {}, implicitly_returns_nil: implicitly_returns_nil)
+      def initialize(status:, implicitly_returns_nil:)
+        @status = status
         @implicitly_returns_nil = implicitly_returns_nil
       end
 
       def self.load_from(loader, implicitly_returns_nil:)
         env = RBS::Environment.from_loader(loader).resolve_type_names
-        new(env: env, implicitly_returns_nil: implicitly_returns_nil)
+        builder = RBS::DefinitionBuilder.new(env: env)
+        status = LoadedStatus.new(builder: builder, files: {}, implicitly_returns_nil: implicitly_returns_nil)
+        new(status: status, implicitly_returns_nil: implicitly_returns_nil)
+      rescue RBS::ParsingError => exn
+        # When library RBS contains syntax error, load only *core* libraries and set `SyntaxErrorStatus`.
+        core_loader = RBS::EnvironmentLoader.new(core_root: loader.core_root)
+        core_env = RBS::Environment.from_loader(core_loader).resolve_type_names
+        status = SyntaxErrorStatus.new(
+          files: {},
+          changed_paths: Set[],
+          diagnostics: [Diagnostic::Signature.from_rbs_error(exn, factory: _ = nil)],
+          last_builder: RBS::DefinitionBuilder.new(env: core_env)
+        )
+        service = new(status: status, implicitly_returns_nil: implicitly_returns_nil)
+        # Add the failed library path to env_rbs_paths so it's recognized as a library path by TypeCheckService
+        if exn.location
+          service.env_rbs_paths << Pathname(exn.location.buffer.name)
+        end
+        service
       end
 
       def env_rbs_paths

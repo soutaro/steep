@@ -446,6 +446,34 @@ end
     end
   end
 
+  def test_check_repo_path_rbs_syntax_error
+    in_tmpdir do
+      (current_dir + "my_repo/broken_lib/0").mkpath
+
+      (current_dir + "my_repo/broken_lib/0/broken.rbs").write(<<~RBS)
+        class BrokenLib
+          def bar: () ->
+        end
+      RBS
+
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "a.rb"
+  repo_path "my_repo"
+  library "broken_lib"
+end
+      EOF
+
+      (current_dir + "a.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      refute_predicate status, :success?, stdout
+    end
+  end
+
   def test_check_unknown
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)

@@ -43,6 +43,8 @@ class CLITest < Minitest::Test
 
   def test_check_broken: () -> untyped
 
+  def test_check_repo_path_rbs_syntax_error: () -> untyped
+
   def test_check_unknown: () -> untyped
 
   def test_check_no_steepfile: () -> untyped
