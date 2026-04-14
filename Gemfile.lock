@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    steep (2.0.0.dev)
+    steep (2.0.0)
       concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
       fileutils (>= 1.1.0)
