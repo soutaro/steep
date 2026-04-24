@@ -625,7 +625,7 @@ BANNER
               --help    Show this help message
 
           Examples:
-              steep query hover lib/foo.rb:10:5
+              steep query hover lib/foo.rb:9:4
               steep query definition RBS::Location
               steep query definition RBS::Parser.parse_signature
         HELP
@@ -643,7 +643,7 @@ Description:
     Connects to the running Steep daemon and returns type information as JSONL
     (one JSON object per line for each queried position).
 
-    FILE:LINE:COL - File path with 1-based line and column numbers.
+    FILE:LINE:COL - File path with 0-based line and column numbers (LSP convention).
 
 Note:
     This is an experimental command.
@@ -666,18 +666,13 @@ BANNER
           match = location.match(/\A(.+):(\d+):(\d+)\z/)
           unless match
             stderr.puts "Error: Invalid format: #{location}"
-            stderr.puts "  Expected format: FILE:LINE:COL (e.g., lib/foo.rb:10:5)"
+            stderr.puts "  Expected format: FILE:LINE:COL (e.g., lib/foo.rb:9:4)"
             return 1
           end
 
           path = match[1] or raise
           line = match[2].to_i
           column = match[3].to_i
-
-          if line < 1 || column < 1
-            stderr.puts "Error: LINE and COL must be positive integers (1-based)"
-            return 1
-          end
 
           locations << [path, line, column]
         end
