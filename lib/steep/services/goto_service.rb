@@ -22,6 +22,14 @@ module Steep
       class TypeNameQuery < Struct.new(:name, keyword_init: true)
       end
 
+      # A pair of locations describing a definition, mirroring LSP's `LocationLink`:
+      #
+      # * `target_range` -- the full declaration range (`class Foo ... end`)
+      # * `target_selection_range` -- the identifier (name) range (`Foo`)
+      #
+      class DefinitionLocation < Struct.new(:target_range, :target_selection_range, keyword_init: true)
+      end
+
       attr_reader :type_check, :assignment
 
       def initialize(type_check:, assignment:)
@@ -95,13 +103,14 @@ module Steep
         nil
       end
 
-      # Returns array of locations that is a response to a *Query definition* request.
+      # Returns array of `DefinitionLocation` values that is a response to a *Query definition* request.
       #
       # Unlike `#definition`, this method takes a parsed name value instead of a source position.
       # The caller is expected to parse the name via `.parse_name` before calling this method.
       #
-      # Each returned entry is either an `RBS::Location` (for RBS declarations) or a
-      # `Parser::Source::Range` (for Ruby source locations).
+      # Each entry carries a `target_range` (the full declaration) and a `target_selection_range`
+      # (the identifier/name range). The wrapped location objects are either `RBS::Location` values
+      # (for RBS declarations) or `Parser::Source::Range` values (for Ruby source locations).
       #
       def query_definition(name)
         locations = [] #: Array[target_loc]
@@ -118,16 +127,7 @@ module Steep
           method_locations(name, in_ruby: true, in_rbs: true, locations: locations)
         end
 
-        locations.filter_map do |target, loc|
-          case loc
-          when RBS::Location
-            if assignment =~ [target, loc.name]
-              loc
-            end
-          else
-            loc
-          end
-        end.uniq
+        filter_assigned_locations(locations)
       end
 
       def interface_and_type_alias_locations(name, locations:)
@@ -138,14 +138,14 @@ module Steep
           if entry = env.interface_decls[name]
             decl = entry.decl
             if loc = decl.location
-              locations << [target, loc[:name]]
+              locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:name])]
             end
           end
 
           if entry = env.type_alias_decls[name]
             decl = entry.decl
             if loc = decl.location
-              locations << [target, loc[:name]]
+              locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:name])]
             end
           end
         end
@@ -199,16 +199,7 @@ module Steep
         # Drop un-assigned paths here.
         # The path assignment makes sense only for `.rbs` files, because un-assigned `.rb` files are already skipped since they are not type checked.
         #
-        locations.filter_map do |target, loc|
-          case loc
-          when RBS::Location
-            if assignment =~ [target, loc.name]
-              loc
-            end
-          else
-            loc
-          end
-        end.uniq
+        filter_assigned_locations(locations)
       end
 
       def type_definition(path:, line:, column:)
@@ -234,14 +225,24 @@ module Steep
           type_name_locations(name, locations: locations)
         end
 
-        locations.filter_map do |target, loc|
-          case loc
+        filter_assigned_locations(locations)
+      end
+
+      # Filter entries whose RBS-based `target_range` is not assigned to the given target,
+      # and drop the `target` component, returning only the `DefinitionLocation` values.
+      #
+      # Used by `definition`, `type_definition`, and `query_definition` to ensure we only
+      # emit results whose `.rbs` source files belong to the querying target.
+      #
+      def filter_assigned_locations(locations)
+        locations.filter_map do |target, def_loc|
+          case def_loc.target_range
           when RBS::Location
-            if assignment =~ [target, loc.name]
-              loc
+            if assignment =~ [target, def_loc.target_range.name]
+              def_loc
             end
           else
-            loc
+            def_loc
           end
         end.uniq
       end
@@ -486,11 +487,11 @@ module Steep
           when RBS::Environment::ConstantEntry
             case decl = entry.decl
             when RBS::AST::Declarations::Constant
-              if entry.decl.location
-                locations << [target, entry.decl.location[:name]]
+              if loc = entry.decl.location
+                locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:name])]
               end
             when RBS::AST::Ruby::Declarations::ConstantDecl
-              locations << [target, entry.decl.name_location]
+              locations << [target, DefinitionLocation.new(target_range: entry.decl.location, target_selection_range: entry.decl.name_location)]
             else
               raise "Unknown declaration: #{entry.decl.inspect}"
             end
@@ -498,22 +499,22 @@ module Steep
             entry.each_decl do |decl|
               case decl
               when RBS::AST::Declarations::Base
-                if decl.location
-                  locations << [target, decl.location[:name]]
+                if loc = decl.location
+                  locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:name])]
                 end
               when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl
-                locations << [target, decl.name_location]
+                locations << [target, DefinitionLocation.new(target_range: decl.location, target_selection_range: decl.name_location)]
               else
                 raise "Unknown declaration: #{decl.inspect}"
               end
             end
           when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
             if entry.decl.is_a?(RBS::AST::Declarations::Base)
-              if entry.decl.location
-                locations << [target, entry.decl.location[:new_name]]
+              if loc = entry.decl.location
+                locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:new_name])]
               end
             else
-              locations << [target, entry.decl.name_location]
+              locations << [target, DefinitionLocation.new(target_range: entry.decl.location, target_selection_range: entry.decl.name_location)]
             end
           end
         end
@@ -529,16 +530,17 @@ module Steep
             entry.definitions.each do |node|
               case node.type
               when :const
-                locations << [target, node.location.expression]
+                expr = node.location.expression
+                locations << [target, DefinitionLocation.new(target_range: expr, target_selection_range: expr)]
               when :casgn
                 parent = node.children[0]
-                location =
+                name_range =
                   if parent
                     parent.location.expression.join(node.location.name)
                   else
                     node.location.name
                   end
-                locations << [target, location]
+                locations << [target, DefinitionLocation.new(target_range: node.location.expression, target_selection_range: name_range)]
               end
             end
           end
@@ -563,10 +565,8 @@ module Steep
 
               entry.definitions.each do |node|
                 case node.type
-                when :def
-                  locations << [target, node.location.name]
-                when :defs
-                  locations << [target, node.location.name]
+                when :def, :defs
+                  locations << [target, DefinitionLocation.new(target_range: node.location.expression, target_selection_range: node.location.name)]
                 end
               end
             end
@@ -590,19 +590,19 @@ module Steep
             entry.declarations.each do |decl|
               case decl
               when RBS::AST::Members::MethodDefinition
-                if decl.location
-                  locations << [target, decl.location[:name]]
+                if loc = decl.location
+                  locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:name])]
                 end
               when RBS::AST::Members::Alias
-                if decl.location
-                  locations << [target, decl.location[:new_name]]
+                if loc = decl.location
+                  locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:new_name])]
                 end
               when RBS::AST::Members::AttrAccessor, RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter
-                if decl.location
-                  locations << [target, decl.location[:name]]
+                if loc = decl.location
+                  locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:name])]
                 end
               when RBS::AST::Ruby::Members::DefMember
-                locations << [target, decl.name_location]
+                locations << [target, DefinitionLocation.new(target_range: decl.location, target_selection_range: decl.name_location)]
               end
             end
           end
@@ -620,17 +620,17 @@ module Steep
           entry.declarations.each do |decl|
             case decl
             when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module, RBS::AST::Declarations::Interface, RBS::AST::Declarations::TypeAlias
-              if decl.location
-                locations << [target, decl.location[:name]]
+              if loc = decl.location
+                locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:name])]
               end
             when RBS::AST::Declarations::AliasDecl
-              if decl.location
-                locations << [target, decl.location[:new_name]]
+              if loc = decl.location
+                locations << [target, DefinitionLocation.new(target_range: loc, target_selection_range: loc[:new_name])]
               end
             when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl
-              locations << [target, decl.name_location]
+              locations << [target, DefinitionLocation.new(target_range: decl.location, target_selection_range: decl.name_location)]
             when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
-              locations << [target, decl.name_location]
+              locations << [target, DefinitionLocation.new(target_range: decl.location, target_selection_range: decl.name_location)]
             else
               raise
             end

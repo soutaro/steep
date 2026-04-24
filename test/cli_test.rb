@@ -1127,12 +1127,16 @@ end
         locations = result[:result][:locations]
         rbs_loc = locations.find { |l| l[:uri].end_with?("foo.rbs") }
         assert rbs_loc, "Expected RBS location for Foo in foo.rbs"
-        assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 9 } }, rbs_loc[:range])
+        # Selection range: just the class name "Foo"
+        assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 9 } }, rbs_loc[:targetSelectionRange])
+        # Target range: the whole class declaration (`class Foo ... end`)
+        assert_equal({ start: { line: 0, character: 0 }, end: { line: 2, character: 3 } }, rbs_loc[:targetRange])
         assert_equal "rbs", rbs_loc[:source]
 
         rb_loc = locations.find { |l| l[:uri].end_with?("foo.rb") }
         assert rb_loc, "Expected Ruby location for Foo in foo.rb"
-        assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 9 } }, rb_loc[:range])
+        assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 9 } }, rb_loc[:targetSelectionRange])
+        assert_equal({ start: { line: 0, character: 0 }, end: { line: 4, character: 3 } }, rb_loc[:targetRange])
         assert_equal "ruby", rb_loc[:source]
 
         stdout, status = sh(*steep, "query", "definition", "Foo#greet")
@@ -1145,12 +1149,17 @@ end
         locations = result[:result][:locations]
         rbs_loc = locations.find { |l| l[:uri].end_with?("foo.rbs") }
         assert rbs_loc, "Expected RBS location for Foo#greet in foo.rbs"
-        assert_equal({ start: { line: 1, character: 6 }, end: { line: 1, character: 11 } }, rbs_loc[:range])
+        # Selection range: just the method name "greet"
+        assert_equal({ start: { line: 1, character: 6 }, end: { line: 1, character: 11 } }, rbs_loc[:targetSelectionRange])
+        # Target range: the whole `def greet: () -> String` line
+        assert_equal({ start: { line: 1, character: 2 }, end: { line: 1, character: 25 } }, rbs_loc[:targetRange])
         assert_equal "rbs", rbs_loc[:source]
 
         rb_loc = locations.find { |l| l[:uri].end_with?("foo.rb") }
         assert rb_loc, "Expected Ruby location for Foo#greet in foo.rb"
-        assert_equal({ start: { line: 1, character: 6 }, end: { line: 1, character: 11 } }, rb_loc[:range])
+        assert_equal({ start: { line: 1, character: 6 }, end: { line: 1, character: 11 } }, rb_loc[:targetSelectionRange])
+        # Target range: `def greet\n    "hi"\n  end` (lines 1-3)
+        assert_equal({ start: { line: 1, character: 2 }, end: { line: 3, character: 5 } }, rb_loc[:targetRange])
         assert_equal "ruby", rb_loc[:source]
       ensure
         sh(*steep, "server", "stop", err: [:child, :out])
