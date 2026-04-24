@@ -530,8 +530,19 @@ module Steep
             entry.definitions.each do |node|
               case node.type
               when :const
-                expr = node.location.expression
-                locations << [target, DefinitionLocation.new(target_range: expr, target_selection_range: expr)]
+                # For a class/module definition, `source_index` stores the `:const`
+                # name node only. Walk up the AST to find the enclosing `:class`
+                # or `:module` so `target_range` can cover the full declaration.
+                name_loc = node.location.expression
+                enclosing_nodes = typing.source.find_nodes(line: name_loc.line, column: name_loc.column) || []
+                enclosing = enclosing_nodes.find do |n|
+                  (n.type == :class || n.type == :module) && n.children[0].equal?(node)
+                end
+                if enclosing
+                  locations << [target, DefinitionLocation.new(target_range: enclosing.location.expression, target_selection_range: name_loc)]
+                else
+                  locations << [target, DefinitionLocation.new(target_range: name_loc, target_selection_range: name_loc)]
+                end
               when :casgn
                 parent = node.children[0]
                 name_range =

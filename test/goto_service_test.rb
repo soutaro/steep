@@ -982,7 +982,7 @@ RUBY
 
     service.type_definition(path: dir + "lib/test.rb", line: 1, column: 5).tap do |locs|
       assert_equal 1, locs.size
-      assert_equal "Foo", locs[0].source
+      assert_equal "Foo", locs[0].target_selection_range.source
     end
   end
 
