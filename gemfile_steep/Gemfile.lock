@@ -1,9 +1,9 @@
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 652568f78160da8cffefc6f62ac1dd6fca3d36a7
+  revision: b2836ee80f7651e4007678e4e04479ca43c6f678
   branch: master
   specs:
-    steep (2.0.0)
+    steep (2.1.0.dev)
       concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
       fileutils (>= 1.1.0)
@@ -31,11 +31,11 @@ GEM
       irb (~> 1.10)
       reline (>= 0.3.8)
     drb (2.2.3)
-    erb (6.0.3)
+    erb (6.0.4)
     ffi (1.17.4)
     fileutils (1.8.0)
     io-console (0.8.2)
-    irb (1.17.0)
+    irb (1.18.0)
       pp (>= 0.6.0)
       prism (>= 1.3.0)
       rdoc (>= 4.0.0)
