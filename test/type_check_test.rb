@@ -1566,6 +1566,56 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  # Regression test for `==` narrowing against a literal whose superclass is the
+  # receiver type. `Symbol`/`Integer`/`String` include the corresponding literal
+  # values, so the truthy branch is reachable.
+  def test_type_narrowing__literal_equality_with_supertype
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class A
+            def foo_symbol: (Symbol symbol) -> void
+            def foo_integer: (Integer integer) -> void
+            def foo_string: (String string) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class A
+            def foo_symbol(symbol)
+              if symbol == :qux
+                puts "qux"
+              else
+                puts "other"
+              end
+            end
+
+            def foo_integer(integer)
+              if integer == 1
+                puts "one"
+              else
+                puts "other"
+              end
+            end
+
+            def foo_string(string)
+              if string == "x"
+                puts "x"
+              else
+                puts "other"
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 
   def test_argument_error__unexpected_unexpected_positional_argument
     run_type_check_test(
