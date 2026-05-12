@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 575a7af507b07543edb9b3b53da69c34af9ec17e
+  revision: 2ca2853440a667153329b87fcf27e383825dec24
   branch: master
   specs:
     steep (2.1.0.dev)
@@ -70,9 +70,9 @@ GEM
       logger
       prism (>= 1.6.0)
       tsort
-    rbs-inline (0.13.0)
+    rbs-inline (0.14.0)
       prism (>= 0.29)
-      rbs (>= 3.8.0)
+      rbs (~> 4.0)
     rdoc (7.2.0)
       erb
       psych (>= 4.0.0)

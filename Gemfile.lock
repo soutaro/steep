@@ -88,7 +88,7 @@ GEM
       unicode-emoji (~> 4.1)
     unicode-emoji (4.2.0)
     uri (1.1.1)
-    vernier (1.10.0)
+    vernier (1.10.1)
 
 PLATFORMS
   ruby
