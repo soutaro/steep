@@ -103,6 +103,11 @@ class TypeCheckTest < Minitest::Test
 
   def test_type_narrowing__union_send2: () -> untyped
 
+  # Regression test for `==` narrowing against a literal whose superclass is the
+  # receiver type. `Symbol`/`Integer`/`String` include the corresponding literal
+  # values, so the truthy branch is reachable.
+  def test_type_narrowing__literal_equality_with_supertype: () -> untyped
+
   def test_argument_error__unexpected_unexpected_positional_argument: () -> untyped
 
   def test_type_assertion__type_error: () -> untyped

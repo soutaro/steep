@@ -564,9 +564,12 @@ module Steep
                   false_types << type
                 end
               else
-                # For === (for_receiver: false), non-literal types can match the literal in truthy branch
-                # For == (for_receiver: true), non-literal types only go to falsy branch
-                true_types << AST::Types::Literal.new(value: value_node.children[0]) unless for_receiver
+                # For `==`, narrow only when the literal can be a value of `type`.
+                # e.g. `Symbol == :fatal` can be true, but `SomeClass == :fatal` cannot.
+                literal_type = AST::Types::Literal.new(value: value_node.children[0])
+                if !for_receiver || subtyping?(sub_type: literal_type, super_type: type)
+                  true_types << literal_type
+                end
                 false_types << type
               end
             end
