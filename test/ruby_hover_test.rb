@@ -472,6 +472,13 @@ RUBY
         assert_instance_of HoverProvider::MethodCallContent, content
         assert_equal [4,8]...[4,12], [content.location.line,content.location.column]...[content.location.last_line, content.location.last_column]
         assert_instance_of TypeInference::MethodCall::Typed, content.method_call
+
+        # Pure-call narrowing (#9) refined `hello.name` to non-nil
+        # inside the truthy branch. The narrowing lives in `env.pure_method_calls`,
+        # not on the MethodCall::Typed, so hover used to keep showing the
+        # method's declared return type (`String?`). Verify the fix shows
+        # the refined non-nil type.
+        assert_equal "::String", content.narrowed_type.to_s
       end
     end
   end

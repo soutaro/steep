@@ -121,6 +121,88 @@ class PostconditionsTest < Minitest::Test
     end
   end
 
+  def test_parses_via_receiver
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "Inner",
+          "method" => "ready?",
+          "when_true" => {
+            "self" => "Inner & Inner::Ready",
+            "via_receiver" => [
+              { "through" => "Host#inner", "as" => "Host & Host::Refined" }
+            ]
+          }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("Inner", :ready?)
+
+    refute_nil entry
+    assert_equal "Inner & Inner::Ready", entry.when_true.self_type_string
+    assert_equal 1, entry.when_true.via_receivers.size
+
+    via = entry.when_true.via_receivers.first
+    assert_equal "Host#inner", via.through_string
+    assert_equal "Host & Host::Refined", via.as_type_string
+    assert_equal :inner, via.through_method_name
+    assert_equal RBS::TypeName.parse("::Host"), via.through_type_name
+  end
+
+  def test_parses_via_receiver_only_branch_without_self
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "Inner",
+          "method" => "ready?",
+          "when_true" => {
+            "via_receiver" => [
+              { "through" => "Host#inner", "as" => "Host" }
+            ]
+          }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("Inner", :ready?)
+
+    refute_nil entry
+    assert_nil entry.when_true.self_type_string
+    assert_equal 1, entry.when_true.via_receivers.size
+  end
+
+  def test_via_receiver_skipped_when_through_missing_hash_sign
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "Inner",
+          "method" => "ready?",
+          "when_true" => {
+            "self" => "Inner",
+            "via_receiver" => [
+              { "through" => "Host_no_hash_sign", "as" => "Host" }
+            ]
+          }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("Inner", :ready?)
+    refute_nil entry
+    assert_empty entry.when_true.via_receivers
+  end
+
+  def test_via_receiver_caches_rbs_type
+    via = Postconditions::ViaReceiver.new(
+      through_string: "Host#inner",
+      as_type_string: "Host & Host::Refined"
+    )
+    parsed = via.as_rbs_type
+    assert_kind_of RBS::Types::Intersection, parsed
+    assert_same parsed, via.as_rbs_type
+  end
+
   def test_load_skips_invalid_yaml
     Dir.mktmpdir do |dir|
       base = Pathname.new(dir)

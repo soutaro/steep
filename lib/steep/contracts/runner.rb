@@ -59,13 +59,18 @@ module Steep
                      next
                    end
 
+          # Real postconditions matter here: with via_receiver / self
+          # narrowing in scope, the inferrer can prove nil-safety inside
+          # method bodies and *avoid* emitting a precondition the body no
+          # longer needs. Always pass the project's loaded store, not
+          # `Store.empty` — felixefelip/steep#14 follow-up.
           typing = Services::TypeCheckService.type_check(
             source: source,
             subtyping: subtyping,
             constant_resolver: resolver,
             cursor: nil,
             contracts: Store.empty,
-            postconditions: Steep::Postconditions::Store.empty
+            postconditions: @project.postconditions
           )
 
           out.concat(Inferrer.infer(source, typing))

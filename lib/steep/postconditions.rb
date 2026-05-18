@@ -121,30 +121,96 @@ module Steep
     end
 
     class Branch
-      attr_reader :self_type_string
+      attr_reader :self_type_string, :via_receivers
 
       def self.parse(raw, source:)
         return nil unless raw.is_a?(Hash)
         self_str = raw["self"]
-        return nil unless self_str.is_a?(String) && !self_str.empty?
-        new(self_type_string: self_str)
+        via_receivers = parse_via_receivers(raw["via_receiver"], source: source)
+        return nil unless (self_str.is_a?(String) && !self_str.empty?) || via_receivers.any?
+
+        new(self_type_string: self_str, via_receivers: via_receivers)
       end
 
-      def initialize(self_type_string:)
+      def self.parse_via_receivers(raw, source:)
+        return [] unless raw.is_a?(Array)
+        raw.filter_map { |entry| ViaReceiver.parse(entry, source: source) }
+      end
+
+      def initialize(self_type_string:, via_receivers: [])
         @self_type_string = self_type_string
+        @via_receivers = via_receivers
       end
 
       # Parses the YAML `self:` payload into an `RBS::Types::t`. Cached so
       # repeated lookups (the same predicate called many times) don't keep
-      # re-parsing. Returns `nil` if the string fails to parse.
+      # re-parsing. Returns `nil` if the string fails to parse or if no
+      # `self:` was declared (the branch may have only `via_receiver`).
       def rbs_type
         return @rbs_type if defined?(@rbs_type)
-        @rbs_type = begin
-          RBS::Parser.parse_type(self_type_string)
-        rescue RBS::ParsingError => e
-          Steep.logger.warn { "[postconditions] failed to parse self type #{self_type_string.inspect}: #{e.message}" }
-          nil
-        end
+        @rbs_type =
+          if self_type_string.is_a?(String) && !self_type_string.empty?
+            begin
+              RBS::Parser.parse_type(self_type_string)
+            rescue RBS::ParsingError => e
+              Steep.logger.warn { "[postconditions] failed to parse self type #{self_type_string.inspect}: #{e.message}" }
+              nil
+            end
+          end
+      end
+    end
+
+    # Refinement of a receiver other than `self`, indexed by the immediate
+    # receiver's method (`through:`). When the predicate is called like
+    # `host.<through_method>.<predicate>`, the receiver-of-receiver (`host`)
+    # is intersected with `as:`. This is felixefelip/steep#14.
+    class ViaReceiver
+      attr_reader :through_string, :as_type_string
+
+      def self.parse(raw, source:)
+        return nil unless raw.is_a?(Hash)
+        through = raw["through"]
+        as_str = raw["as"]
+        return nil unless through.is_a?(String) && as_str.is_a?(String)
+        return nil if through.empty? || as_str.empty?
+        return nil unless through.include?("#")
+        new(through_string: through, as_type_string: as_str)
+      end
+
+      def initialize(through_string:, as_type_string:)
+        @through_string = through_string
+        @as_type_string = as_type_string
+      end
+
+      # `"Order#order_import"` → `RBS::TypeName.parse("::Order")`
+      def through_type_name
+        return @through_type_name if defined?(@through_type_name)
+        @through_type_name =
+          begin
+            type_str, _ = through_string.split("#", 2)
+            RBS::TypeName.parse(type_str.to_s).absolute!
+          rescue RBS::ParsingError, StandardError => e
+            Steep.logger.warn { "[postconditions] failed to parse via_receiver through #{through_string.inspect}: #{e.message}" }
+            nil
+          end
+      end
+
+      # `"Order#order_import"` → `:order_import`
+      def through_method_name
+        return @through_method_name if defined?(@through_method_name)
+        @through_method_name = through_string.split("#", 2).last&.to_sym
+      end
+
+      # `"Order & Order::Validated"` → `RBS::Types::Intersection(...)`
+      def as_rbs_type
+        return @as_rbs_type if defined?(@as_rbs_type)
+        @as_rbs_type =
+          begin
+            RBS::Parser.parse_type(as_type_string)
+          rescue RBS::ParsingError => e
+            Steep.logger.warn { "[postconditions] failed to parse via_receiver as #{as_type_string.inspect}: #{e.message}" }
+            nil
+          end
       end
     end
   end

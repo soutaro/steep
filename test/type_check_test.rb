@@ -4914,6 +4914,390 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  # ---------------------------------------------------------------------------
+  # via_receiver — Phase 2 (felixefelip/steep#14)
+  #
+  # Refines the *receiver of the receiver* of a predicate call. Covers
+  # delegation patterns: POROs (`def x; y.x; end`) and `has_one through:`.
+  # ---------------------------------------------------------------------------
+
+  def test_postconditions__via_receiver_poro_delegation
+    # account.profile.display_ready? narrows account.profile (via `self`)
+    # AND narrows account itself (via via_receiver), so the delegated
+    # accessor `account.nickname` resolves through Account's marker class.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCProfile
+            attr_reader nickname: String?
+            def display_ready?: () -> bool
+
+            class DisplayReady
+              attr_reader nickname: String
+            end
+          end
+
+          class PCAccount
+            attr_reader profile: PCProfile
+            def nickname: () -> String?
+
+            class WithDisplayReadyProfile
+              def nickname: () -> String
+            end
+
+            def self.first: () -> PCAccount
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          account = PCAccount.first
+          if account.profile.display_ready?
+            account.nickname.upcase
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCProfile",
+          "method" => "display_ready?",
+          "when_true" => {
+            "self" => "PCProfile & PCProfile::DisplayReady",
+            "via_receiver" => [
+              { "through" => "PCAccount#profile",
+                "as" => "PCAccount & PCAccount::WithDisplayReadyProfile" }
+            ]
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__via_receiver_does_not_match_other_method
+    # The via_receiver only fires when the through method matches.
+    # Calling .display_ready? on a *different* parent chain (.other.profile.display_ready?)
+    # must not narrow the irrelevant host.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCProfile2
+            def display_ready?: () -> bool
+          end
+
+          class PCOtherHost
+            attr_reader profile: PCProfile2
+            def nickname: () -> String?
+            def self.first: () -> PCOtherHost
+          end
+
+          class PCHost
+            attr_reader profile: PCProfile2
+            def nickname: () -> String?
+
+            class Refined
+              def nickname: () -> String
+            end
+
+            def self.first: () -> PCHost
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          host = PCOtherHost.first
+          if host.profile.display_ready?
+            host.nickname.upcase
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCProfile2",
+          "method" => "display_ready?",
+          "when_true" => {
+            "via_receiver" => [
+              { "through" => "PCHost#profile",
+                "as" => "PCHost & PCHost::Refined" }
+            ]
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 16
+              end:
+                line: 3
+                character: 22
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__via_receiver_when_false_branch
+    # via_receiver under `when_false` narrows the host in the falsy branch.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCInner
+            def fail?: () -> bool
+          end
+
+          class PCOuter
+            attr_reader inner: PCInner
+            def message: () -> String?
+
+            class WhenNotFail
+              def message: () -> String
+            end
+
+            def self.first: () -> PCOuter
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          outer = PCOuter.first
+          unless outer.inner.fail?
+            outer.message.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCInner",
+          "method" => "fail?",
+          "when_false" => {
+            "via_receiver" => [
+              { "through" => "PCOuter#inner",
+                "as" => "PCOuter & PCOuter::WhenNotFail" }
+            ]
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__phase1_send_receiver_narrowing
+    # Sanity check: Phase 1's `self:` refinement should already narrow a
+    # pure-send receiver (account.profile). This isolates whether the
+    # bug in compose_with_self is in Phase 2 or pre-existing.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCSendProfile
+            attr_reader nickname: String?
+            def display_ready?: () -> bool
+
+            class Ready
+              attr_reader nickname: String
+            end
+          end
+
+          class PCSendAccount
+            attr_reader profile: PCSendProfile
+            def self.first: () -> PCSendAccount
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          account = PCSendAccount.first
+          if account.profile.display_ready?
+            account.profile.nickname.upcase
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCSendProfile",
+          "method" => "display_ready?",
+          "when_true" => { "self" => "PCSendProfile & PCSendProfile::Ready" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__via_receiver_composes_with_self
+    # Both `self:` and `via_receiver` apply at once: account.profile
+    # (the inner receiver) gets the Profile marker AND account gets the
+    # Account marker. Accessor on both should narrow.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCComProfile
+            attr_reader nickname: String?
+            def display_ready?: () -> bool
+
+            class Ready
+              attr_reader nickname: String
+            end
+          end
+
+          class PCComAccount
+            attr_reader profile: PCComProfile
+            def nickname: () -> String?
+
+            class WithReady
+              def nickname: () -> String
+            end
+
+            def self.first: () -> PCComAccount
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          account = PCComAccount.first
+          if account.profile.display_ready?
+            account.profile.nickname.upcase
+            account.nickname.upcase
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCComProfile",
+          "method" => "display_ready?",
+          "when_true" => {
+            "self" => "PCComProfile & PCComProfile::Ready",
+            "via_receiver" => [
+              { "through" => "PCComAccount#profile",
+                "as" => "PCComAccount & PCComAccount::WithReady" }
+            ]
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__predicate_from_included_module_matches_by_receiver_type
+    # Predicate `verified?` is defined in module `PCVerifiable`, which
+    # `PCDocument` includes. The sidecar is keyed on `PCDocument` (the
+    # receiver's concrete type), not on the module. Lookup must walk the
+    # receiver type to find the entry. Hits the same shape as Rails AR
+    # column predicates that live in `Model::GeneratedAttributeMethods`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          module PCVerifiable
+            def verified?: () -> bool
+          end
+
+          class PCDocument
+            include PCVerifiable
+            attr_reader content: String?
+
+            class Verified
+              attr_reader content: String
+            end
+
+            def self.first!: () -> PCDocument
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          doc = PCDocument.first!
+          if doc.verified?
+            doc.content.upcase
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCDocument",
+          "method" => "verified?",
+          "when_true" => { "self" => "PCDocument & PCDocument::Verified" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__via_receiver_matches_intersected_inner_type
+    # The inner receiver may already be narrowed (e.g. another marker
+    # applied earlier). The `through:` check walks intersections.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCIntInner
+            def ready?: () -> bool
+          end
+
+          class PCIntHost
+            attr_reader inner: PCIntInner
+            def value: () -> String?
+
+            class Marker
+            end
+
+            class Refined
+              def value: () -> String
+            end
+
+            def self.first: () -> (PCIntHost & PCIntHost::Marker)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          host = PCIntHost.first
+          if host.inner.ready?
+            host.value.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCIntInner",
+          "method" => "ready?",
+          "when_true" => {
+            "via_receiver" => [
+              { "through" => "PCIntHost#inner",
+                "as" => "PCIntHost & PCIntHost::Refined" }
+            ]
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_postconditions__dropout_on_attribute_write
     run_type_check_test(
       signatures: {
@@ -4998,6 +5382,521 @@ class TypeCheckTest < Minitest::Test
             severity: ERROR
             message: Type `(::String | nil)` does not have method `length`
             code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  # ---------------------------------------------------------------------------
+  # Edge cases — felixefelip/steep#14 issue comment
+  #
+  # Each test below corresponds to a numbered scenario in the issue thread.
+  # Scenarios that depend on undecided semantics (#9 safe-nav) or that fall
+  # outside Phase 1/2 scope (#10 arg-dependent, #11 recursive marker) are not
+  # covered here. Some tests document *current* behavior of edge cases that
+  # may not yet be supported (generics with free vars, union receivers,
+  # missing marker classes) — when the behavior changes, the assertion shifts.
+  # ---------------------------------------------------------------------------
+
+  # #1 — Predicate inherited from a superclass.
+  # Sidecar is keyed on `Base#authenticated?`. The call site uses an `Admin`
+  # receiver, which inherits `authenticated?`. Lookup must fall back through
+  # `call.method_decls.type_name` (Base) to find the entry.
+  def test_postconditions__edge_01_inherited_predicate
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeBase
+            attr_reader token: String?
+            def authenticated?: () -> bool
+
+            class Authenticated
+              attr_reader token: String
+            end
+          end
+
+          class PCEdgeAdmin < PCEdgeBase
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          admin = PCEdgeAdmin.new
+          if admin.authenticated?
+            admin.token.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeBase",
+          "method" => "authenticated?",
+          "when_true" => { "self" => "PCEdgeBase & PCEdgeBase::Authenticated" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  # #3 — Marker references a generic parameter. The sidecar declares
+  # `Container[T] & Container::WithValue[T]`. The free type variable `T` in
+  # the parsed RBS is not substituted by the factory; `build_instance` raises
+  # `Unknown name for build_instance: ::T` from RBS's definition builder.
+  # This is a real bug — generic markers are not supported and crash the type
+  # check. Skipped until fixed; remove the skip when the factory grows a
+  # substitution step for the receiver's generic args.
+  def test_postconditions__edge_03_generic_marker
+    skip "TODO: generic free var T in postcondition marker crashes RBS::DefinitionBuilder#build_instance"
+  end
+
+  # #4 — Union receiver. `pet : (Cat | Dog)` calls `.hungry?`, sidecars on
+  # both Cat and Dog. Steep dispatches the call separately for each union
+  # member, so narrowing applies independently to each side and both
+  # accessors resolve through their respective markers. This passes — locks
+  # in the (surprisingly good) current behavior.
+  def test_postconditions__edge_04_union_receiver
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeCat
+            attr_reader meal_at: String?
+            def hungry?: () -> bool
+
+            class Hungry
+              attr_reader meal_at: String
+            end
+          end
+
+          class PCEdgeDog
+            attr_reader meal_at: String?
+            def hungry?: () -> bool
+
+            class Hungry
+              attr_reader meal_at: String
+            end
+          end
+
+          class PCEdgePetFactory
+            def self.pet: () -> (PCEdgeCat | PCEdgeDog)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          pet = PCEdgePetFactory.pet
+          if pet.hungry?
+            pet.meal_at.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeCat",
+          "method" => "hungry?",
+          "when_true" => { "self" => "PCEdgeCat & PCEdgeCat::Hungry" }
+        },
+        {
+          "class" => "PCEdgeDog",
+          "method" => "hungry?",
+          "when_true" => { "self" => "PCEdgeDog & PCEdgeDog::Hungry" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  # #6 — Nested control flow. Two predicates on the same receiver compose
+  # into `Door & Locked & Open` inside the inner branch.
+  def test_postconditions__edge_06_nested_control_flow
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeDoor
+            attr_reader key: String?
+            attr_reader log: String?
+            def locked?: () -> bool
+            def open?: () -> bool
+
+            class Locked
+              attr_reader key: String
+            end
+
+            class Open
+              attr_reader log: String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          door = PCEdgeDoor.new
+          if door.locked?
+            if door.open?
+              door.key.length
+              door.log.length
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeDoor",
+          "method" => "locked?",
+          "when_true" => { "self" => "PCEdgeDoor & PCEdgeDoor::Locked" }
+        },
+        {
+          "class" => "PCEdgeDoor",
+          "method" => "open?",
+          "when_true" => { "self" => "PCEdgeDoor & PCEdgeDoor::Open" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  # #7 — Rebinding the local variable inside the truthy branch drops the
+  # narrowing. After `user = PCEdgeUser.new`, the previous refinement no
+  # longer applies, so `user.name` is back to `String?`.
+  def test_postconditions__edge_07_rebind_invalidates
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeUser
+            attr_reader name: String?
+            def valid?: () -> bool
+
+            class Validated
+              attr_reader name: String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          user = PCEdgeUser.new
+          if user.valid?
+            user = PCEdgeUser.new
+            user.name.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeUser",
+          "method" => "valid?",
+          "when_true" => { "self" => "PCEdgeUser & PCEdgeUser::Validated" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 12
+              end:
+                line: 4
+                character: 18
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `length`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  # #8 — `case` with predicate-based when clauses. Each branch narrows the
+  # receiver independently to that branch's marker.
+  def test_postconditions__edge_08_case_when_predicates
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeOrder
+            attr_reader draft_log: String?
+            attr_reader published_log: String?
+            def draft?: () -> bool
+            def published?: () -> bool
+
+            class DraftOrder
+              attr_reader draft_log: String
+            end
+
+            class PublishedOrder
+              attr_reader published_log: String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          order = PCEdgeOrder.new
+          case
+          when order.draft?     then order.draft_log.length
+          when order.published? then order.published_log.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeOrder",
+          "method" => "draft?",
+          "when_true" => { "self" => "PCEdgeOrder & PCEdgeOrder::DraftOrder" }
+        },
+        {
+          "class" => "PCEdgeOrder",
+          "method" => "published?",
+          "when_true" => { "self" => "PCEdgeOrder & PCEdgeOrder::PublishedOrder" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  # #12 — Sidecar marker references a class that does not exist in RBS.
+  # `Postconditions::Branch#rbs_type` parses the marker string optimistically
+  # and `factory.type` builds an `AST::Types::Name::Instance` pointing at the
+  # non-existent class. Later, when the type checker tries to resolve methods
+  # on the intersection, `RBS::DefinitionBuilder#build_instance` raises
+  # `Unknown name for build_instance: ::Host::DoesNotExist`. Same root cause
+  # as edge_03 — the failure surfaces as `Ruby::UnexpectedError`, not as a
+  # graceful "marker missing" diagnostic.
+  #
+  # Skipped until there is a fail-safe: either validate marker names at
+  # sidecar load (preferred — same fix as `rbs_definition_resolver`), or
+  # rescue the build error and degrade to no narrowing for this entry.
+  def test_postconditions__edge_12_missing_marker_class
+    skip "TODO: postcondition marker referencing a missing RBS class crashes RBS::DefinitionBuilder#build_instance; add fail-safe at sidecar load"
+  end
+
+  # #13 — `return unless` chain where the second guard contradicts the first
+  # narrowing. Both branches narrow the receiver to different markers; the
+  # code after both guards is unreachable in practice. Documents the
+  # composed-narrowing behavior past two guards (no false diagnostics on the
+  # third statement just because the intersection becomes unsatisfiable).
+  def test_postconditions__edge_13_contradiction_guards
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeContradiction
+            attr_reader status: String?
+            def draft?: () -> bool
+            def published?: () -> bool
+
+            class DraftOrder
+              attr_reader status: String
+            end
+
+            class PublishedOrder
+              attr_reader status: String
+            end
+
+            def self.new!: () -> PCEdgeContradiction
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          order = PCEdgeContradiction.new!
+          return unless order.draft?
+          return unless order.published?
+          order.status.length
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeContradiction",
+          "method" => "draft?",
+          "when_true" => { "self" => "PCEdgeContradiction & PCEdgeContradiction::DraftOrder" }
+        },
+        {
+          "class" => "PCEdgeContradiction",
+          "method" => "published?",
+          "when_true" => { "self" => "PCEdgeContradiction & PCEdgeContradiction::PublishedOrder" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  # #14 — Bang vs question mark. Conventionally `loaded!` is impure (mutates
+  # state) and `loaded?` is pure. The user's intent was that postconditions
+  # should *only* fire on pure calls, so `loaded!` would not narrow.
+  # Current behavior: `pure?` for an RBS-declared method is determined by
+  # the call site (no Ruby def body to inspect), and the `!` suffix is not
+  # treated as an impurity marker. Both calls narrow.
+  #
+  # This test locks in current behavior. If/when bang methods are classified
+  # impure-by-convention for postcondition lookup, flip the expectation:
+  # the `cache_a.data.size` line should then raise a NoMethod on (Hash | nil).
+  def test_postconditions__edge_14_bang_predicate_currently_narrows
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeCache
+            attr_reader data: Hash[String, untyped]?
+            def loaded!: () -> Hash[String, untyped]
+            def loaded?: () -> bool
+
+            class Loaded
+              attr_reader data: Hash[String, untyped]
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          cache_a = PCEdgeCache.new
+          if cache_a.loaded!
+            cache_a.data.size
+          end
+
+          cache_b = PCEdgeCache.new
+          if cache_b.loaded?
+            cache_b.data.size
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeCache",
+          "method" => "loaded!",
+          "when_true" => { "self" => "PCEdgeCache & PCEdgeCache::Loaded" }
+        },
+        {
+          "class" => "PCEdgeCache",
+          "method" => "loaded?",
+          "when_true" => { "self" => "PCEdgeCache & PCEdgeCache::Loaded" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  # #15 — Narrowing inside a block. `item.valid?` narrows `item` within the
+  # truthy branch of the if, but does not leak past the if (still inside the
+  # `each` block) nor across iterations.
+  def test_postconditions__edge_15_loop_block
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeItem
+            attr_reader payload: String?
+            def valid?: () -> bool
+
+            class Validated
+              attr_reader payload: String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          items = [PCEdgeItem.new] #: Array[PCEdgeItem]
+          items.each do |item|
+            if item.valid?
+              item.payload.length
+            end
+            item.payload.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeItem",
+          "method" => "valid?",
+          "when_true" => { "self" => "PCEdgeItem & PCEdgeItem::Validated" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 15
+              end:
+                line: 6
+                character: 21
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `length`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  # #16 — Marker ordering in an intersection. When two predicates narrow
+  # overlapping accessors with different return types, `intersection_shape`
+  # follows last-wins: the last marker in the intersection determines which
+  # method definition wins for an overlapping name. This locks the current
+  # behavior so reordering the markers in the sidecar can't regress silently.
+  def test_postconditions__edge_16_marker_last_wins
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEdgeFoo
+            def code: () -> String?
+            def m1?: () -> bool
+            def m2?: () -> bool
+
+            class Marker1
+              def code: () -> String
+            end
+
+            class Marker2
+              def code: () -> Integer
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          foo = PCEdgeFoo.new
+          if foo.m1? && foo.m2?
+            x = foo.code #: Integer
+            x + 1
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCEdgeFoo",
+          "method" => "m1?",
+          "when_true" => { "self" => "PCEdgeFoo & PCEdgeFoo::Marker1" }
+        },
+        {
+          "class" => "PCEdgeFoo",
+          "method" => "m2?",
+          "when_true" => { "self" => "PCEdgeFoo & PCEdgeFoo::Marker2" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
       YAML
     )
   end

@@ -28,9 +28,10 @@ module Steep
 
           case call
           when TypeInference::MethodCall::Typed
+            displayed_type = content.narrowed_type || call.actual_method_type.type.return_type
             io.puts <<~MD
               ```rbs
-              #{call.actual_method_type.type.return_type}
+              #{displayed_type}
               ```
 
               ----

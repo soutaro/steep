@@ -694,13 +694,25 @@ module Steep
         call = typing.call_of(node: node) rescue nil
         return [truthy_result, falsy_result] unless call.is_a?(MethodCall::Typed)
 
-        entry = lookup_postcondition_entry(call)
-        return [truthy_result, falsy_result] unless entry
-
         receiver_type = typing.type_of(node: receiver) rescue nil
         return [truthy_result, falsy_result] unless receiver_type
 
+        entry = lookup_postcondition_entry(call: call, receiver_type: receiver_type)
+        return [truthy_result, falsy_result] unless entry
+
+        # Order matters: apply `via_receiver` (which narrows local vars / ivars)
+        # *before* `self` (which narrows a pure_call entry). Refining a local
+        # variable invalidates pure_call_types derived from it
+        # (`TypeEnv#refine_types` invalidation rule), so doing self first
+        # would have its narrowing wiped out by a subsequent via_receiver.
         if entry.when_true
+          truthy_result = apply_via_receivers(
+            branch: entry.when_true,
+            receiver: receiver,
+            result: truthy_result,
+            truthy_branch: true
+          )
+
           new_truthy = postcondition_intersect(receiver_type, entry.when_true)
           if new_truthy
             truthy_env, _ = refine_node_type(
@@ -714,6 +726,13 @@ module Steep
         end
 
         if entry.when_false
+          falsy_result = apply_via_receivers(
+            branch: entry.when_false,
+            receiver: receiver,
+            result: falsy_result,
+            truthy_branch: false
+          )
+
           new_falsy = postcondition_intersect(receiver_type, entry.when_false)
           if new_falsy
             _, falsy_env = refine_node_type(
@@ -729,14 +748,115 @@ module Steep
         [truthy_result, falsy_result]
       end
 
-      def lookup_postcondition_entry(call)
+      # When the postcondition declares `via_receiver`, also narrow the
+      # *receiver of the receiver* of the predicate call. Handles
+      # `host.<through_method>.<predicate>` patterns — delegation in POROs
+      # and `has_one through:` in Rails (felixefelip/steep#14).
+      def apply_via_receivers(branch:, receiver:, result:, truthy_branch:)
+        return result if branch.via_receivers.empty?
+        return result unless receiver.is_a?(::Parser::AST::Node)
+        return result unless receiver.type == :send
+
+        inner_receiver, method_name_sym, *_ = receiver.children
+        return result unless inner_receiver
+        return result unless method_name_sym.is_a?(::Symbol)
+
+        inner_receiver_type = typing.type_of(node: inner_receiver) rescue nil
+        return result unless inner_receiver_type
+
+        branch.via_receivers.each do |via|
+          next unless via.through_method_name == method_name_sym
+
+          through_name = via.through_type_name or next
+          next unless inner_receiver_type_matches_through?(inner_receiver_type, through_name)
+
+          marker = via_receiver_marker(via) or next
+          new_type = AST::Types::Intersection.build(types: [inner_receiver_type, marker])
+
+          truthy_t, falsy_t =
+            if truthy_branch
+              [new_type, inner_receiver_type]
+            else
+              [inner_receiver_type, new_type]
+            end
+
+          truthy_env, falsy_env = refine_node_type(
+            env: result.env,
+            node: inner_receiver,
+            truthy_type: truthy_t,
+            falsy_type: falsy_t
+          )
+
+          chosen_env = truthy_branch ? truthy_env : falsy_env
+          result = Result.new(type: result.type, env: chosen_env, unreachable: result.unreachable)
+        end
+
+        result
+      end
+
+      # Returns true when `inner_type` is a subtype of the `through:` type
+      # declared in the via_receiver entry. Walks intersections so a
+      # narrowed receiver (`Order & Order::Validated`) still matches a
+      # declaration whose through target is `Order`.
+      def inner_receiver_type_matches_through?(inner_type, through_name)
+        candidates =
+          case inner_type
+          when AST::Types::Intersection
+            inner_type.types
+          else
+            [inner_type]
+          end
+
+        candidates.any? do |t|
+          t.is_a?(AST::Types::Name::Instance) && t.name == through_name
+        end
+      end
+
+      def via_receiver_marker(via)
+        rbs_type = via.as_rbs_type or return nil
+        factory.type(absolutize_rbs_type(rbs_type))
+      rescue StandardError => e
+        Steep.logger.warn { "[postconditions] failed to materialize via_receiver marker for #{via.through_string.inspect} → #{via.as_type_string.inspect}: #{e.class}: #{e.message}" }
+        nil
+      end
+
+      # Looks up a postcondition entry for a method call. Tries the method
+      # name first against the receiver's concrete type (handles methods
+      # inherited from modules / superclasses — e.g. an AR predicate that
+      # lives in `Model::GeneratedAttributeMethods`), then falls back to
+      # the type where the method is actually defined.
+      def lookup_postcondition_entry(call:, receiver_type:)
+        method_sym = call.method_decls.map { |d| d.method_name.method_name }.compact.first
+        return nil unless method_sym
+
+        receiver_type_names(receiver_type).each do |type_name|
+          entry = postconditions.lookup_instance(type_name.to_s, method_sym)
+          return entry if entry
+        end
+
         call.method_decls.each do |decl|
           name = decl.method_name
           next unless name.is_a?(InstanceMethodName)
           entry = postconditions.lookup_instance(name.type_name.to_s, name.method_name)
           return entry if entry
         end
+
         nil
+      end
+
+      # Names that count as the receiver's type for postcondition lookup.
+      # Walks intersections so a previously narrowed receiver (e.g.
+      # `OrderImport & OrderImport::Validated`) still matches a
+      # postcondition keyed by `OrderImport`.
+      def receiver_type_names(receiver_type)
+        case receiver_type
+        when AST::Types::Intersection
+          receiver_type.types.flat_map { |t| receiver_type_names(t) }
+        when AST::Types::Name::Instance
+          [receiver_type.name]
+        else
+          []
+        end
       end
 
       def postcondition_intersect(receiver_type, branch)
