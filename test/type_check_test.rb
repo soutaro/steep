@@ -1489,6 +1489,143 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_ivar_union_assignment_narrows_to_validated_branch
+    # Phase 1 of felixefelip/steep#16: in a Rails-like controller, the
+    # backing ivar is declared as a union of "validated" and "raw" forms
+    # of the model. Calling `Model.find` (whose RBS in the
+    # `rbs_rails`/`rbs_collection` fork returns `Model & Validated`)
+    # selects the validated branch, so a subsequent call to a method
+    # declared only on the validated marker type-checks without manual
+    # `is_a?` narrowing.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class IvarUnionCompany
+            def self.find: (Integer) -> (IvarUnionCompany & IvarUnionCompany::Validated)
+            def self.new: () -> IvarUnionCompany
+          end
+
+          module IvarUnionCompany::Validated
+            def name_required: () -> String
+          end
+
+          class IvarUnionController
+            @company: (IvarUnionCompany & IvarUnionCompany::Validated) | IvarUnionCompany
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          IvarUnionController.new.instance_eval do
+            @company = IvarUnionCompany.find(1)
+            @company.name_required
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_ivar_union_assignment_narrows_does_not_apply_to_non_validated_branch
+    # Negative control: assigning the raw form (`Model.new`) selects the
+    # non-validated branch, so the validated-only method must error.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class IvarUnionCompanyB
+            def self.find: (Integer) -> (IvarUnionCompanyB & IvarUnionCompanyB::Validated)
+            def self.new: () -> IvarUnionCompanyB
+          end
+
+          module IvarUnionCompanyB::Validated
+            def name_required: () -> String
+          end
+
+          class IvarUnionControllerB
+            @company: (IvarUnionCompanyB & IvarUnionCompanyB::Validated) | IvarUnionCompanyB
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          IvarUnionControllerB.new.instance_eval do
+            @company = IvarUnionCompanyB.new
+            @company.name_required
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 11
+              end:
+                line: 3
+                character: 24
+            severity: ERROR
+            message: Type `::IvarUnionCompanyB` does not have method `name_required`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_ivar_union_reassignment_resets_narrow_to_new_branch
+    # After narrowing the ivar to the validated branch via `find`, a
+    # reassignment with the non-validated form (`new`) must reset the
+    # env's view of the ivar so the validated-only method now errors.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class IvarUnionCompanyC
+            def self.find: (Integer) -> (IvarUnionCompanyC & IvarUnionCompanyC::Validated)
+            def self.new: () -> IvarUnionCompanyC
+          end
+
+          module IvarUnionCompanyC::Validated
+            def name_required: () -> String
+          end
+
+          class IvarUnionControllerC
+            @company: (IvarUnionCompanyC & IvarUnionCompanyC::Validated) | IvarUnionCompanyC
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          IvarUnionControllerC.new.instance_eval do
+            @company = IvarUnionCompanyC.find(1)
+            @company.name_required
+
+            @company = IvarUnionCompanyC.new
+            @company.name_required
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 11
+              end:
+                line: 6
+                character: 24
+            severity: ERROR
+            message: Type `::IvarUnionCompanyC` does not have method `name_required`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_case_when__bool_value
     run_type_check_test(
       signatures: {

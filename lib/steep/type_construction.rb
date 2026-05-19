@@ -2837,23 +2837,40 @@ module Steep
     def ivasgn(node, rhs_type)
       name = node.children[0]
 
-      lhs_type = context.type_env[name]
+      declared_type = context.type_env.declared_instance_variable_type(name)
+      assignment_passed = false
 
-      if lhs_type
-        if (result = check_relation(sub_type: rhs_type, super_type: lhs_type)).failure?
+      if declared_type
+        if (result = check_relation(sub_type: rhs_type, super_type: declared_type)).failure?
           typing.add_error(
-            Diagnostic::Ruby::IncompatibleAssignment.new(node: node, lhs_type: lhs_type, rhs_type: rhs_type, result: result)
+            Diagnostic::Ruby::IncompatibleAssignment.new(node: node, lhs_type: declared_type, rhs_type: rhs_type, result: result)
           )
+        else
+          assignment_passed = true
         end
       else
         typing.add_error(Diagnostic::Ruby::UnknownInstanceVariable.new(node: node, name: name))
       end
 
-      # ivar pure-call narrowing (issue felixefelip/steep#8): once the ivar is
-      # reassigned, any pure_method_calls cached on `@name` are stale and must
-      # be dropped so subsequent `@name.foo` doesn't reuse the previous type.
-      update_type_env { |env| env.invalidate_pure_node(::Parser::AST::Node.new(:ivar, [name])) }
-        .add_typing(node, type: rhs_type)
+      # Phase 1 of felixefelip/steep#16: when the declared ivar type is a
+      # Union, refine the env's current ivar type to the RHS type. This
+      # selects the matching branch on a narrowing assignment and resets
+      # any previously narrowed view (from a prior assignment or from the
+      # intersection attr-write narrowing in felixefelip/steep#1) to the
+      # RHS type — keeping subtype checks honest against the declared
+      # union and giving readers the most precise type seen at this
+      # program point.
+      apply_union_narrowing = assignment_passed && declared_type.is_a?(AST::Types::Union)
+
+      update_type_env do |env|
+        # ivar pure-call narrowing (issue felixefelip/steep#8): once the ivar
+        # is reassigned, any pure_method_calls cached on `@name` are stale and
+        # must be dropped so subsequent `@name.foo` doesn't reuse the previous
+        # type.
+        env = env.invalidate_pure_node(::Parser::AST::Node.new(:ivar, [name]))
+        env = env.refine_types(instance_variable_types: { name => rhs_type }) if apply_union_narrowing
+        env
+      end.add_typing(node, type: rhs_type)
     end
 
     def gvasgn(node, rhs_type)

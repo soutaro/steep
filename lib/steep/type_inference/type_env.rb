@@ -5,6 +5,7 @@ module Steep
 
       attr_reader :local_variable_types
       attr_reader :instance_variable_types, :global_types, :constant_types
+      attr_reader :declared_instance_variable_types
       attr_reader :constant_env
       attr_reader :pure_method_calls
 
@@ -39,10 +40,11 @@ module Steep
         "{ #{array.join(", ")} }"
       end
 
-      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {})
+      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, declared_instance_variable_types: nil, global_types: {}, constant_types: {}, pure_method_calls: {})
         @constant_env = constant_env
         @local_variable_types = local_variable_types
         @instance_variable_types = instance_variable_types
+        @declared_instance_variable_types = declared_instance_variable_types || instance_variable_types
         @global_types = global_types
         @constant_types = constant_types
         @pure_method_calls = pure_method_calls
@@ -55,6 +57,7 @@ module Steep
           constant_env,
           local_variable_types: local_variable_types,
           instance_variable_types: instance_variable_types,
+          declared_instance_variable_types: declared_instance_variable_types,
           global_types: global_types,
           constant_types: constant_types,
           pure_method_calls: pure_method_calls
@@ -72,10 +75,30 @@ module Steep
           constant_env,
           local_variable_types: local_variable_types,
           instance_variable_types: instance_variable_types,
+          declared_instance_variable_types: declared_instance_variable_types,
           global_types:  global_types,
           constant_types: constant_types,
           pure_method_calls: pure_method_calls
         )
+      end
+
+      def with_instance_variable_declarations(types, merge: true)
+        new_current = merge ? instance_variable_types.merge(types) : types
+        new_declared = merge ? declared_instance_variable_types.merge(types) : types
+
+        TypeEnv.new(
+          constant_env,
+          local_variable_types: local_variable_types,
+          instance_variable_types: new_current,
+          declared_instance_variable_types: new_declared,
+          global_types: global_types,
+          constant_types: constant_types,
+          pure_method_calls: pure_method_calls
+        )
+      end
+
+      def declared_instance_variable_type(name)
+        declared_instance_variable_types[name]
       end
 
       def [](name)
@@ -247,6 +270,28 @@ module Steep
             .transform_values {|types| AST::Types::Union.build(types: types) }
             .reject {|var, type| self[var] == type }
 
+        # Phase 1 of felixefelip/steep#16: union ivar narrowings across branches.
+        # Without this, an assignment that narrows `@x` in one branch (or to
+        # different sub-branches in each) leaves the joined env reflecting
+        # only the pre-branch state.
+        all_ivar_types = envs.each_with_object({}) do |env, hash| #$ Hash[Symbol, Array[AST::Types::t]]
+          env.instance_variable_types.each_key do |name|
+            hash[name] = []
+          end
+        end
+
+        envs.each do |env|
+          all_ivar_types.each_key do |name|
+            type = env.instance_variable_types[name] || env.declared_instance_variable_type(name)
+            all_ivar_types.fetch(name) << type if type
+          end
+        end
+
+        ivar_updates =
+          all_ivar_types
+            .transform_values {|types| AST::Types::Union.build(types: types) }
+            .reject {|name, type| instance_variable_types[name] == type }
+
         common_pure_nodes = envs
           .map {|env| Set.new(env.pure_method_calls.each_key) }
           .inject {|s1, s2| s1.intersection(s2) } || Set[]
@@ -261,7 +306,9 @@ module Steep
           hash[node] = [call, refined_type]
         end
 
-        assign_local_variables(assignments).merge(pure_method_calls: pure_call_updates)
+        result = assign_local_variables(assignments).merge(pure_method_calls: pure_call_updates)
+        result = result.refine_types(instance_variable_types: ivar_updates) unless ivar_updates.empty?
+        result
       end
 
       def add_pure_call(node, call, type)

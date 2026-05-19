@@ -1973,6 +1973,193 @@ narrowed = @thing.value
     end
   end
 
+  def test_ivar_union_assign_narrows_to_branch
+    # Phase 1 of felixefelip/steep#16: assigning a value whose type is a
+    # subtype of one branch of a declared union narrows the ivar to the
+    # RHS type for the rest of the scope.
+    with_checker <<-EOF do |checker|
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type ivar @x: Integer | String
+# @type var src: IntProducer
+src = (_ = nil)
+@x = src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_union_assign_keeps_declared_when_rhs_matches_full_union
+    # When the RHS type equals the declared union, no narrowing — env retains
+    # the declared shape.
+    with_checker <<-EOF do |checker|
+class Provider
+  def fetch: () -> (Integer | String)
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type ivar @x: Integer | String
+# @type var src: Provider
+src = (_ = nil)
+@x = src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer | ::String"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_union_assign_errors_on_incompatible_rhs
+    # Regression: assigning a value whose type is not a subtype of any
+    # branch still raises `IncompatibleAssignment`. The narrowing rule
+    # never widens the accepted set.
+    with_checker do |checker|
+      source = parse_ruby(<<-RUBY)
+# @type ivar @x: Integer | String
+@x = :sym
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_any typing.errors do |error|
+          error.is_a?(Diagnostic::Ruby::IncompatibleAssignment)
+        end
+      end
+    end
+  end
+
+  def test_ivar_nullable_narrows_on_non_nil_assign
+    # `T?` is sugar for `Union[T, nil]`, so assigning a non-nil value
+    # narrows the ivar to `T`.
+    with_checker <<-EOF do |checker|
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type ivar @x: Integer?
+# @type var src: IntProducer
+src = (_ = nil)
+@x = src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_non_union_declared_keeps_declared_type_on_assign
+    # Control: declared type is not a union, so the env keeps the declared
+    # type after assignment. Existing intersection-attr-write narrowing
+    # (felixefelip/steep#1) is the path for refining intersections; this
+    # rule never fires when the declared shape is a single type.
+    with_checker <<-EOF do |checker|
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type ivar @x: Integer
+# @type var src: IntProducer
+src = (_ = nil)
+@x = src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_union_reassignment_updates_narrow
+    # Reassigning with a value from a different branch resets the
+    # narrowing — the subtype check runs against the declared union, not
+    # the previously narrowed type.
+    with_checker <<-EOF do |checker|
+class IntProducer
+  def fetch: () -> Integer
+end
+
+class StringProducer
+  def fetch: () -> String
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type ivar @x: Integer | String
+# @type var int_src: IntProducer
+# @type var str_src: StringProducer
+int_src = (_ = nil)
+str_src = (_ = nil)
+@x = int_src.fetch
+@x = str_src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::String"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_union_branch_join_unions_narrows
+    # When each branch of an if/else narrows the ivar to a different
+    # member of the declared union, the joined env reflects the union
+    # of the two narrowed types — equivalent to the declared union when
+    # both members are covered.
+    with_checker <<-EOF do |checker|
+class IntProducer
+  def fetch: () -> Integer
+end
+
+class StringProducer
+  def fetch: () -> String
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type ivar @x: Integer | String
+# @type var int_src: IntProducer
+# @type var str_src: StringProducer
+int_src = (_ = nil)
+str_src = (_ = nil)
+if (_ = true)
+  @x = int_src.fetch
+else
+  @x = str_src.fetch
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer | ::String"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
   def test_optimistic_pure_caches_plain_def_calls
     # Regression: `MethodCall::Typed#pure?` used to require `%a{pure}` on
     # any `def` declaration. Now plain `def` are treated as pure by

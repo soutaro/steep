@@ -67,11 +67,7 @@ module Steep
               annotations.absolute_type(annotation.type) || annotation.type
             end
 
-            if @merge
-              env.merge(instance_variable_types: ivar_types)
-            else
-              env.update(instance_variable_types: ivar_types)
-            end
+            env.with_instance_variable_declarations(ivar_types, merge: @merge)
           end
 
           def merge!(merge = true)
@@ -113,11 +109,7 @@ module Steep
               factory.type(ivar.type)
             end
 
-            if @merge
-              env.merge(instance_variable_types: instance_variable_types)
-            else
-              env.update(instance_variable_types: instance_variable_types)
-            end
+            env.with_instance_variable_declarations(instance_variable_types, merge: @merge)
           end
         end
 
