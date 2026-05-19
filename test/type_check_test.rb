@@ -4990,6 +4990,105 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_postconditions__predicate_refines_ivar_receiver
+    # Mirror of the lvar test: the receiver of the predicate is an
+    # instance variable. Before the `:ivar` case was added to
+    # `LogicTypeInterpreter#refine_node_type`, the env's
+    # `instance_variable_types[@order_import]` stayed at the declared
+    # type inside the truthy branch, so `@order_import.logistics_operator`
+    # remained `PCLogisticsOperator?` and the `.name` call errored.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCIvarOrderImport
+            attr_reader logistics_operator: PCIvarLogisticsOperator?
+            def shipment?: () -> bool
+
+            class ValidatedAsShipment
+              attr_reader logistics_operator: PCIvarLogisticsOperator
+            end
+          end
+
+          class PCIvarLogisticsOperator
+            attr_reader name: String
+          end
+
+          class PCIvarHost
+            @order_import: PCIvarOrderImport
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          PCIvarHost.new.instance_eval do
+            if @order_import.shipment?
+              @order_import.logistics_operator.name
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCIvarOrderImport",
+          "method" => "shipment?",
+          "when_true" => { "self" => "PCIvarOrderImport & PCIvarOrderImport::ValidatedAsShipment" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__update_refines_ivar_receiver
+    # Real-world Rails pattern: `if @company.save then @company.name`
+    # — `save` declared with a `when_true` postcondition that narrows the
+    # receiver to a `Validated` marker promoting `name` from `String?`
+    # to `String`. Inside the `if`, `@company.name.upcase` must type-check
+    # because the ivar is narrowed.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCIvarUser
+            attr_reader name: String?
+            def save: () -> bool
+
+            class Validated
+              attr_reader name: String
+            end
+          end
+
+          class PCIvarSaveHost
+            @user: PCIvarUser
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          PCIvarSaveHost.new.instance_eval do
+            if @user.save
+              @user.name.upcase
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCIvarUser",
+          "method" => "save",
+          "when_true" => { "self" => "PCIvarUser & PCIvarUser::Validated" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_postconditions__update_refines_receiver
     run_type_check_test(
       signatures: {

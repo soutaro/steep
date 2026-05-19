@@ -293,6 +293,31 @@ module Steep
             ]
           end
 
+        when :ivar
+          # Mirror the `:lvar` branch for instance variables. Without this,
+          # postcondition narrowing (#10/#13) and built-in predicate
+          # narrowing route through the `else` fall-through and silently
+          # leave `@x` at its declared type — even though the same
+          # predicate on a local variable or a cached attr_reader send
+          # would narrow correctly.
+          name = node.children[0]
+          [
+            env.refine_types(instance_variable_types: { name => truthy_type }),
+            env.refine_types(instance_variable_types: { name => falsy_type })
+          ]
+
+        when :ivasgn
+          # Symmetric with `:lvasgn`. Refines both the RHS (recursively)
+          # and the ivar itself in each branch.
+          name, rhs = node.children
+
+          truthy_env, falsy_env = refine_node_type(env: env, node: rhs, truthy_type: truthy_type, falsy_type: falsy_type)
+
+          [
+            truthy_env.refine_types(instance_variable_types: { name => truthy_type }),
+            falsy_env.refine_types(instance_variable_types: { name => falsy_type })
+          ]
+
         when :send
           if env[node]
             [
