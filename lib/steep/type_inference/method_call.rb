@@ -127,30 +127,17 @@ module Steep
         end
 
         def pure?
+          # Optimistic-default: every method is pure unless its RBS sig
+          # carries `%a{impure}`. The previous version layered a name-suffix
+          # heuristic on top (setters via `=`, bang methods via `!`) but it
+          # cut against the rest of the fork's "useful > sound" stance for
+          # narrowing (felixefelip/steep#8, #9, #12). The structural marker
+          # for impurity is the annotation; methods that mutate without
+          # being annotated trade slight soundness for more narrowing in
+          # real Rails code — the same trade-off TypeScript makes for
+          # `this.x`.
           method_decls.all? do |method_decl|
-            name = method_decl.method_name.method_name.to_s
-            # Setters and bang methods are conventionally mutating; treat them
-            # as impure so `invalidate_pure_node` fires on the receiver. The
-            # attribute writer (`attr_*` form) follows the same rule.
-            next false if name.end_with?("=", "!")
-
-            case method_decl.method_def.member
-            when RBS::AST::Members::Attribute
-              true
-            else
-              # Optimistic treatment for `def`: assume the method is pure
-              # unless its name marks it as mutating (handled above). This
-              # mirrors the pragmatic line we already drew for `:ivar` reads
-              # in NodeHelper#value_node? (felixefelip/steep#8) — same
-              # trade-off as TypeScript's control-flow narrowing of
-              # `this.x`. Methods that legitimately return different values
-              # across calls (Time.now, rand, counters) are rare in the
-              # narrowing patterns this enables. Opt out of narrowing
-              # explicitly with `%a{impure}` if needed.
-              annotations = method_decl.method_def.each_annotation.to_a
-              next false if annotations.any? { |a| a.string == "impure" }
-              true
-            end
+            method_decl.method_def.each_annotation.none? { |a| a.string == "impure" }
           end
         end
 
