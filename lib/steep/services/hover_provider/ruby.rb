@@ -128,6 +128,17 @@ module Steep
                     narrowed = ctx.type_env[result_node] rescue nil
                     declared = call.is_a?(TypeInference::MethodCall::Typed) ? call.actual_method_type.type.return_type : nil
                     narrowed = nil if narrowed == declared
+
+                    # When `MethodCall::Typed#return_type` carries a refined
+                    # type that the cursor's `pure_method_calls` snapshot
+                    # does not yet reflect — for example felixefelip/steep#16
+                    # Phase 2 transparent attr_reader on `self`, where the
+                    # backing ivar's env narrowing was applied before this
+                    # call was even cached as pure — surface that refined
+                    # type so hover matches what `steep check` actually sees.
+                    if narrowed.nil? && call.is_a?(TypeInference::MethodCall::Typed) && call.return_type != declared
+                      narrowed = call.return_type
+                    end
                   end
 
                   return MethodCallContent.new(

@@ -1626,6 +1626,130 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_ivar_attr_accessor_narrows_to_validated_branch
+    # Phase 2 of felixefelip/steep#16: in a PORO that exposes the
+    # backing ivar via `attr_accessor`, writing through the setter with
+    # a value typed as the validated marker narrows the env's view of
+    # the ivar, so reading back through the getter (also via attr) sees
+    # the validated branch — no manual `is_a?` required.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class IvarAttrCompany
+            def self.find: (Integer) -> (IvarAttrCompany & IvarAttrCompany::Validated)
+            def self.new: () -> IvarAttrCompany
+          end
+
+          module IvarAttrCompany::Validated
+            def name_required: () -> String
+          end
+
+          class IvarAttrForm
+            attr_accessor company: (IvarAttrCompany & IvarAttrCompany::Validated) | IvarAttrCompany
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          IvarAttrForm.new.instance_eval do
+            self.company = IvarAttrCompany.find(1)
+            self.company.name_required
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_ivar_attr_accessor_narrow_does_not_apply_to_raw_branch
+    # Negative control: assigning the raw (non-validated) form via the
+    # setter narrows the ivar to that branch; reading the getter then
+    # returns a type without the validated marker, so the validated-only
+    # method must error.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class IvarAttrCompanyB
+            def self.find: (Integer) -> (IvarAttrCompanyB & IvarAttrCompanyB::Validated)
+            def self.new: () -> IvarAttrCompanyB
+          end
+
+          module IvarAttrCompanyB::Validated
+            def name_required: () -> String
+          end
+
+          class IvarAttrFormB
+            attr_accessor company: (IvarAttrCompanyB & IvarAttrCompanyB::Validated) | IvarAttrCompanyB
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          IvarAttrFormB.new.instance_eval do
+            self.company = IvarAttrCompanyB.new
+            self.company.name_required
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 15
+              end:
+                line: 3
+                character: 28
+            severity: ERROR
+            message: Type `::IvarAttrCompanyB` does not have method `name_required`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_ivar_attr_reader_consumes_direct_ivar_narrow
+    # The read side of the rule works even when the narrowing comes
+    # from a direct `@x = …` assignment (Phase 1) rather than from the
+    # setter. The attr_reader call returns the env's current ivar type,
+    # not the declared method return type.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class IvarAttrCompanyC
+            def self.find: (Integer) -> (IvarAttrCompanyC & IvarAttrCompanyC::Validated)
+          end
+
+          module IvarAttrCompanyC::Validated
+            def name_required: () -> String
+          end
+
+          class IvarAttrReadOnlyForm
+            attr_reader company: (IvarAttrCompanyC & IvarAttrCompanyC::Validated) | IvarAttrCompanyC
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          IvarAttrReadOnlyForm.new.instance_eval do
+            @company = IvarAttrCompanyC.find(1)
+            self.company.name_required
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_case_when__bool_value
     run_type_check_test(
       signatures: {

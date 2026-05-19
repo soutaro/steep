@@ -483,6 +483,54 @@ RUBY
     end
   end
 
+  def test_hover_on_attr_reader_with_union_narrowed_ivar
+    # Phase 2 of felixefelip/steep#16: when an attr_reader resolves on
+    # self and the backing ivar's declared type is a union, the type
+    # checker narrows reads to the env's current ivar type. Hover must
+    # show that narrowed type — not the declared method return — so the
+    # editor view matches what `steep check` actually sees.
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rbs") => [ContentChange.string(<<RBS)],
+class HelloIntSource
+  def fetch: () -> Integer
+end
+
+class HelloAttrUnion
+  attr_accessor company: (Integer | String)
+
+  def load_then_read: (HelloIntSource) -> void
+end
+RBS
+          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
+class HelloAttrUnion
+  # @dynamic company, company=
+
+  def load_then_read(src)
+    self.company = src.fetch
+    self.company
+  end
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      # Cursor on `company` of `self.company` at line 6 — after the
+      # setter has narrowed the backing ivar to `Integer`. The hover
+      # should display `::Integer`, not the declared union.
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 6, column: 11).tap do |content|
+        assert_instance_of HoverProvider::MethodCallContent, content
+        assert_equal "::Integer", content.narrowed_type.to_s
+      end
+    end
+  end
+
   def test_rescue
     in_tmpdir do
       service = typecheck_service()

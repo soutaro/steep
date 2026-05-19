@@ -3384,6 +3384,35 @@ module Steep
               end
             end
 
+            # Phase 2 of felixefelip/steep#16: transparent attr_writer /
+            # attr_reader on `self`. When the call resolves to an attribute
+            # method (RBS `attr_reader`/`attr_writer`/`attr_accessor`) whose
+            # backing ivar is declared as a union, route the write through
+            # the same narrowing path as a direct `@x = expr` (Phase 1), and
+            # the read through the env's current ivar type instead of the
+            # declared method return type. This makes POROs that expose the
+            # ivar via attr methods narrow as naturally as controllers using
+            # direct ivars.
+            if self_receiver_for_attr?(receiver) &&
+                (attr_ivar = attr_method_backing_ivar(call.method_decls)) &&
+                (declared_ivar_type = constr.context.type_env.declared_instance_variable_type(attr_ivar)) &&
+                declared_ivar_type.is_a?(AST::Types::Union)
+              if method_name.to_s.end_with?("=")
+                if (last_arg = arguments.last) && typing.has_type?(last_arg)
+                  rhs_type = typing.type_of(node: last_arg)
+                  constr = constr.update_type_env do |env|
+                    env.refine_types(instance_variable_types: { attr_ivar => rhs_type })
+                  end
+                end
+              else
+                current_ivar_type = constr.context.type_env.instance_variable_types[attr_ivar]
+                if current_ivar_type && current_ivar_type != call.return_type
+                  call = call.with_return_type(current_ivar_type)
+                  constr.add_typing(node, type: current_ivar_type)
+                end
+              end
+            end
+
             if (pure_call, type = constr.context.type_env.pure_method_calls.fetch(node, nil))
               if type
                 call = pure_call.update(node: node, return_type: type)
@@ -3661,6 +3690,44 @@ module Steep
         ret = overload.method_type.type.return_type
         check_relation(sub_type: rhs_type, super_type: ret).success?
       end
+    end
+
+    # Phase 2 of felixefelip/steep#16: the attribute transparency rule
+    # only applies when the receiver of the send is the current `self`
+    # — either implicit (no receiver node) or an explicit `self` node.
+    # A non-self receiver might refer to another instance whose backing
+    # ivar is not the one in our env, so transparency would be unsound.
+    def self_receiver_for_attr?(receiver)
+      receiver.nil? || receiver.type == :self
+    end
+
+    # Phase 2 of felixefelip/steep#16: returns the backing instance
+    # variable name for an attribute method call, or nil if any decl
+    # in the call's method_decls is not an attr_reader/attr_writer/
+    # attr_accessor — including when a `def` override is in the
+    # resolution path (the override breaks transparency). When the RBS
+    # declaration sets `ivar_name: false`, the attr has no backing ivar
+    # and transparency does not apply.
+    def attr_method_backing_ivar(method_decls)
+      return nil if method_decls.empty?
+
+      ivars = method_decls.map do |decl|
+        member = decl.method_def&.member
+        case member
+        when RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter, RBS::AST::Members::AttrAccessor
+          case member.ivar_name
+          when false
+            return nil
+          else
+            member.ivar_name || :"@#{member.name}"
+          end
+        else
+          return nil
+        end
+      end
+
+      unique = ivars.uniq
+      unique.size == 1 ? unique.first : nil
     end
 
     def expand_self(type)

@@ -2160,6 +2160,248 @@ end
     end
   end
 
+  def test_ivar_attr_accessor_write_narrows_backing_ivar
+    # Phase 2 of felixefelip/steep#16: a `self.x = expr` call resolved to
+    # an attr_accessor whose backing ivar is declared as a union narrows
+    # the env's view of that ivar to the RHS type, exactly as a direct
+    # `@x = expr` does in Phase 1.
+    with_checker <<-EOF do |checker|
+class AttrUnionHost
+  attr_accessor x: Integer | String
+end
+
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type self: AttrUnionHost
+# @type var src: IntProducer
+src = (_ = nil)
+self.x = src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_attr_writer_separate_from_reader_narrows
+    # Even when reader and writer are declared independently (not as
+    # `attr_accessor`), they share the conventional backing ivar `@x`,
+    # so a write through the setter narrows what the direct ivar read
+    # sees afterwards.
+    with_checker <<-EOF do |checker|
+class AttrSplitHost
+  attr_reader x: Integer | String
+  attr_writer x: Integer | String
+end
+
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type self: AttrSplitHost
+# @type var src: IntProducer
+src = (_ = nil)
+self.x = src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_attr_accessor_non_union_declared_no_narrow
+    # Control: declared backing-ivar type is a single type, so the rule
+    # does not fire and the env keeps the declared shape.
+    with_checker <<-EOF do |checker|
+class AttrPlainHost
+  attr_accessor x: Integer
+end
+
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type self: AttrPlainHost
+# @type var src: IntProducer
+src = (_ = nil)
+self.x = src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_attr_accessor_non_self_receiver_no_narrow
+    # Receiver is another instance, not `self`. The backing ivar of the
+    # *other* object is not in our env, so the rule must not fire —
+    # touching `instance_variable_types[@x]` would be unsound.
+    with_checker <<-EOF do |checker|
+class AttrOtherHost
+  attr_accessor x: Integer | String
+end
+
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type ivar @x: Integer | String
+# @type var other: AttrOtherHost
+# @type var src: IntProducer
+other = (_ = nil)
+src = (_ = nil)
+other.x = src.fetch
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # Our own `@x` is untouched (the call was on `other`, not self).
+        assert_equal parse_type("::Integer | ::String"), pair.context.type_env[:"@x"]
+      end
+    end
+  end
+
+  def test_ivar_attr_accessor_reader_returns_narrowed_after_setter
+    # The companion to the writer test: after `self.x = a_value` narrows
+    # `@x` to `Integer`, a subsequent `self.x` call must return `Integer`
+    # — not the declared `Integer | String`. Captured by typing `narrowed`
+    # via the call expression and inspecting its type.
+    with_checker <<-EOF do |checker|
+class AttrReaderHost
+  attr_accessor x: Integer | String
+end
+
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type self: AttrReaderHost
+# @type var src: IntProducer
+src = (_ = nil)
+self.x = src.fetch
+narrowed = self.x
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:narrowed]
+      end
+    end
+  end
+
+  def test_ivar_attr_reader_returns_narrowed_after_direct_ivar_write
+    # Read transparency works even when the narrowing came from a direct
+    # `@x = …` (Phase 1) rather than from the setter. The attr_reader
+    # call surfaces the env's current view of the backing ivar.
+    with_checker <<-EOF do |checker|
+class AttrReadOnlyHost
+  attr_reader x: Integer | String
+end
+
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type self: AttrReadOnlyHost
+# @type var src: IntProducer
+src = (_ = nil)
+@x = src.fetch
+narrowed = self.x
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:narrowed]
+      end
+    end
+  end
+
+  def test_ivar_attr_reader_non_union_no_transparency
+    # Control: declared ivar type is a single type, so the read returns
+    # the declared method return type via the normal dispatch path. No
+    # behavior change from before Phase 2.
+    with_checker <<-EOF do |checker|
+class AttrPlainReadHost
+  attr_reader x: Integer
+end
+    EOF
+      source = parse_ruby(<<-RUBY)
+# @type self: AttrPlainReadHost
+narrowed = self.x
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer"), pair.context.type_env[:narrowed]
+      end
+    end
+  end
+
+  def test_ivar_attr_accessor_with_implicit_self_receiver
+    # Implicit-self call (no explicit `self.`) reaches the same
+    # transparency path. The receiver node is `nil` in this case rather
+    # than a `:self` node, so `self_receiver_for_attr?` accepts both.
+    with_checker <<-EOF do |checker|
+class AttrImplicitHost
+  attr_accessor x: Integer | String
+
+  def assign_int: () -> void
+end
+
+class IntProducer
+  def fetch: () -> Integer
+end
+    EOF
+      source = parse_ruby(<<-'RUBY')
+class AttrImplicitHost
+  # @dynamic x, x=
+
+  def assign_int
+    # @type var src: IntProducer
+    src = (_ = nil)
+    self.x = src.fetch
+    narrowed = x
+    narrowed
+  end
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_optimistic_pure_caches_plain_def_calls
     # Regression: `MethodCall::Typed#pure?` used to require `%a{pure}` on
     # any `def` declaration. Now plain `def` are treated as pure by
