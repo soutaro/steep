@@ -97,7 +97,7 @@ module Steep
     end
 
     class Entry
-      attr_reader :class_name, :method_name, :when_true, :when_false
+      attr_reader :class_name, :method_name, :when_true, :when_false, :unconditional
 
       def self.parse(row, source:)
         return nil unless row.is_a?(Hash)
@@ -107,29 +107,50 @@ module Steep
 
         when_true = Branch.parse(row["when_true"], source: source)
         when_false = Branch.parse(row["when_false"], source: source)
-        return nil unless when_true || when_false
+        # `unconditional:` fires at every call site of the method, with no
+        # regard for whether the return value is used as a guard. Carries
+        # the same shape as `when_true`/`when_false` (`self`, `via_receiver`,
+        # `ivars`) so a single mechanism covers three patterns:
+        #
+        #   - `update!`-style bang on a receiver: `unconditional.self`
+        #     narrows the receiver after the call (raises on failure, so if
+        #     it returned, the invariant holds).
+        #   - `set_company`-style side-effect method: `unconditional.ivars`
+        #     narrows the caller's ivar that the method assigned to.
+        #   - both at once for methods that mutate the receiver *and* set
+        #     another caller ivar.
+        unconditional = Branch.parse(row["unconditional"], source: source)
+        return nil unless when_true || when_false || unconditional
 
-        new(class_name: klass.to_s, method_name: method.to_sym, when_true: when_true, when_false: when_false)
+        new(
+          class_name: klass.to_s,
+          method_name: method.to_sym,
+          when_true: when_true,
+          when_false: when_false,
+          unconditional: unconditional
+        )
       end
 
-      def initialize(class_name:, method_name:, when_true:, when_false:)
+      def initialize(class_name:, method_name:, when_true:, when_false:, unconditional: nil)
         @class_name = class_name
         @method_name = method_name
         @when_true = when_true
         @when_false = when_false
+        @unconditional = unconditional
       end
     end
 
     class Branch
-      attr_reader :self_type_string, :via_receivers
+      attr_reader :self_type_string, :via_receivers, :ivar_type_strings
 
       def self.parse(raw, source:)
         return nil unless raw.is_a?(Hash)
         self_str = raw["self"]
         via_receivers = parse_via_receivers(raw["via_receiver"], source: source)
-        return nil unless (self_str.is_a?(String) && !self_str.empty?) || via_receivers.any?
+        ivars = parse_ivars(raw["ivars"], source: source)
+        return nil unless (self_str.is_a?(String) && !self_str.empty?) || via_receivers.any? || ivars.any?
 
-        new(self_type_string: self_str, via_receivers: via_receivers)
+        new(self_type_string: self_str, via_receivers: via_receivers, ivar_type_strings: ivars)
       end
 
       def self.parse_via_receivers(raw, source:)
@@ -137,15 +158,37 @@ module Steep
         raw.filter_map { |entry| ViaReceiver.parse(entry, source: source) }
       end
 
-      def initialize(self_type_string:, via_receivers: [])
+      # Parses `ivars:` payload — a hash mapping ivar names (with the leading
+      # `@`) to RBS type strings, e.g. `{ "@company": "Company & Validated" }`.
+      # Entries with non-string values or empty keys are dropped with a warn.
+      def self.parse_ivars(raw, source:)
+        return {} unless raw.is_a?(Hash)
+        result = {} #: Hash[Symbol, String]
+        raw.each do |name, type_str|
+          unless name.is_a?(String) && name.start_with?("@")
+            Steep.logger.warn { "[postconditions] ivars: key must be a string starting with `@`, got #{name.inspect} (#{source})" }
+            next
+          end
+          unless type_str.is_a?(String) && !type_str.empty?
+            Steep.logger.warn { "[postconditions] ivars: value must be a non-empty type string, got #{type_str.inspect} for #{name} (#{source})" }
+            next
+          end
+          result[name.to_sym] = type_str
+        end
+        result
+      end
+
+      def initialize(self_type_string:, via_receivers: [], ivar_type_strings: {})
         @self_type_string = self_type_string
         @via_receivers = via_receivers
+        @ivar_type_strings = ivar_type_strings
       end
 
       # Parses the YAML `self:` payload into an `RBS::Types::t`. Cached so
       # repeated lookups (the same predicate called many times) don't keep
       # re-parsing. Returns `nil` if the string fails to parse or if no
-      # `self:` was declared (the branch may have only `via_receiver`).
+      # `self:` was declared (the branch may have only `via_receiver` or
+      # `ivars`).
       def rbs_type
         return @rbs_type if defined?(@rbs_type)
         @rbs_type =
@@ -157,6 +200,20 @@ module Steep
               nil
             end
           end
+      end
+
+      # Lazy-parsed `Hash[Symbol, RBS::Types::t]` for the `ivars:` slot.
+      # Cached so a method called many times doesn't keep re-parsing.
+      # Entries that fail to parse are dropped with a warning.
+      def ivar_rbs_types
+        return @ivar_rbs_types if defined?(@ivar_rbs_types)
+        @ivar_rbs_types = ivar_type_strings.each_with_object({}) do |(name, type_str), hash|
+          begin
+            hash[name] = RBS::Parser.parse_type(type_str)
+          rescue RBS::ParsingError => e
+            Steep.logger.warn { "[postconditions] failed to parse ivars[#{name}] type #{type_str.inspect}: #{e.message}" }
+          end
+        end
       end
     end
 

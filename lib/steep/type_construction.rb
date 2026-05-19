@@ -3413,6 +3413,20 @@ module Steep
               end
             end
 
+            # Phase 1 of felixefelip/steep#23: unconditional postcondition.
+            # When a `.steep_postconditions.yml` entry declares an
+            # `unconditional:` branch for the method being called, apply
+            # its refinements to the env right after dispatch — independent
+            # of whether the call's return value is consumed as a guard.
+            # Covers `update!`-style bang methods (narrow receiver), the
+            # `set_company` pattern (narrow a caller ivar that the method
+            # body assigned to), and combinations of both.
+            constr = constr.apply_unconditional_postconditions(
+              node: node,
+              call: call,
+              receiver: receiver
+            )
+
             if (pure_call, type = constr.context.type_env.pure_method_calls.fetch(node, nil))
               if type
                 call = pure_call.update(node: node, return_type: type)
@@ -3736,6 +3750,54 @@ module Steep
       else
         type
       end
+    end
+
+    # Phase 1 of felixefelip/steep#23: applies the `unconditional:` branch
+    # of a postcondition entry to the env after a call. Distinct from the
+    # `when_true`/`when_false` slots, which fire only when the call is the
+    # guard of a conditional — `unconditional:` fires at every call site.
+    #
+    # MVP scope: only the `ivars:` sub-slot is honored. `self:` and
+    # `via_receiver:` inside `unconditional:` are parsed and stored but
+    # not applied here yet; that's a follow-up. The `ivars:` path covers
+    # the canonical `set_company` pattern (a side-effecting method that
+    # assigns to a caller ivar with a refined type).
+    def apply_unconditional_postconditions(node:, call:, receiver:)
+      return self unless call.is_a?(TypeInference::MethodCall::Typed)
+      return self if postconditions.empty?
+      return self unless self_receiver_for_attr?(receiver)
+
+      entry = lookup_unconditional_postcondition_entry(call)
+      return self unless entry&.unconditional
+
+      branch = entry.unconditional
+      return self if branch.ivar_type_strings.empty?
+
+      updates = {} #: Hash[Symbol, AST::Types::t]
+      branch.ivar_rbs_types.each do |name, rbs_type|
+        ast_type = checker.factory.type(rbs_type) rescue nil
+        updates[name] = ast_type if ast_type
+      end
+      return self if updates.empty?
+
+      update_type_env do |env|
+        env.refine_types(instance_variable_types: updates)
+      end
+    end
+
+    # Mirror of `LogicTypeInterpreter#lookup_postcondition_entry` for the
+    # type construction side. Walks method_decls and checks each defining
+    # type, since the same method may be declared in different ancestors.
+    def lookup_unconditional_postcondition_entry(call)
+      call.method_decls.each do |decl|
+        name = decl.method_name
+        case name
+        when InstanceMethodName
+          entry = postconditions.lookup_instance(name.type_name.to_s, name.method_name)
+          return entry if entry
+        end
+      end
+      nil
     end
 
     SPECIAL_METHOD_NAMES = {

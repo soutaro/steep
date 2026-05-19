@@ -5557,6 +5557,190 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  # ---------------------------------------------------------------------------
+  # Ivar postconditions (felixefelip/steep#23)
+  #
+  # `when_true.ivars` refines the caller's `instance_variable_types`
+  # after a self-receiver call. Models Rails `set_company` / form-object
+  # `load!(id)` patterns where the method body assigns an ivar to a
+  # narrower type than the ivar's declaration.
+  # ---------------------------------------------------------------------------
+
+  def test_postconditions__ivars_refined_after_self_call
+    # Explicit `set_company` call narrows `@company` from the declared
+    # union to the validated branch.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCIvarPostCompany
+            def self.find: (Integer) -> (PCIvarPostCompany & PCIvarPostCompany::Validated)
+          end
+
+          module PCIvarPostCompany::Validated
+            def name_required: () -> String
+          end
+
+          class PCIvarPostController
+            @company: (PCIvarPostCompany & PCIvarPostCompany::Validated) | PCIvarPostCompany
+
+            def set_company: () -> (PCIvarPostCompany & PCIvarPostCompany::Validated)
+            def edit: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCIvarPostController
+            # @dynamic set_company, edit
+
+            def edit
+              set_company
+              @company.name_required
+            end
+
+            def set_company
+              @company = PCIvarPostCompany.find(1)
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCIvarPostController",
+          "method" => "set_company",
+          "unconditional" => {
+            "ivars" => { "@company" => "PCIvarPostCompany & PCIvarPostCompany::Validated" }
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__ivars_not_applied_for_non_self_receiver
+    # Same shape, but the call is `other.set_company` rather than
+    # `set_company`. Refining our `@company` from someone else's call
+    # is unsound, so the rule must skip and the validated-only method
+    # errors.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCIvarPostCompanyB
+            def self.find: (Integer) -> (PCIvarPostCompanyB & PCIvarPostCompanyB::Validated)
+          end
+
+          module PCIvarPostCompanyB::Validated
+            def name_required: () -> String
+          end
+
+          class PCIvarPostControllerB
+            @company: (PCIvarPostCompanyB & PCIvarPostCompanyB::Validated) | PCIvarPostCompanyB
+
+            def set_company: () -> (PCIvarPostCompanyB & PCIvarPostCompanyB::Validated)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var other: PCIvarPostControllerB
+          other = (_ = nil)
+          PCIvarPostControllerB.new.instance_eval do
+            other.set_company
+            @company.name_required
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCIvarPostControllerB",
+          "method" => "set_company",
+          "unconditional" => {
+            "ivars" => { "@company" => "PCIvarPostCompanyB & PCIvarPostCompanyB::Validated" }
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 11
+              end:
+                line: 5
+                character: 24
+            severity: ERROR
+            message: Type `((::PCIvarPostCompanyB & ::PCIvarPostCompanyB::Validated) | ::PCIvarPostCompanyB)`
+              does not have method `name_required`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__ivars_unconditional_fires_before_conditional_use
+    # When a method that narrows an ivar via `unconditional.ivars` is
+    # called as the guard of an `if`, the narrowing applies *before*
+    # the conditional split — the ivar is already refined in both
+    # branches. Validates that `unconditional:` doesn't depend on
+    # entering through `apply_postconditions` (which only fires in
+    # conditional contexts).
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCIvarPostCompanyC
+            def self.find: (Integer) -> (PCIvarPostCompanyC & PCIvarPostCompanyC::Validated)
+          end
+
+          module PCIvarPostCompanyC::Validated
+            def name_required: () -> String
+          end
+
+          class PCIvarPostControllerC
+            @company: (PCIvarPostCompanyC & PCIvarPostCompanyC::Validated) | PCIvarPostCompanyC
+
+            def setup_then_decide: () -> void
+            private def setup: () -> (PCIvarPostCompanyC & PCIvarPostCompanyC::Validated)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCIvarPostControllerC
+            # @dynamic setup_then_decide
+
+            def setup_then_decide
+              setup
+              @company.name_required
+            end
+
+            def setup
+              @company = PCIvarPostCompanyC.find(1)
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCIvarPostControllerC",
+          "method" => "setup",
+          "unconditional" => {
+            "ivars" => { "@company" => "PCIvarPostCompanyC & PCIvarPostCompanyC::Validated" }
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_postconditions__predicate_from_included_module_matches_by_receiver_type
     # Predicate `verified?` is defined in module `PCVerifiable`, which
     # `PCDocument` includes. The sidecar is keyed on `PCDocument` (the

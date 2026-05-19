@@ -38,6 +38,7 @@ module Steep
         @project = load_config()
 
         infer_contracts(@project)
+        infer_postconditions(@project)
 
         interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, steep_command: jobs_option.steep_command)
         typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: jobs_option.steep_command, count: jobs_option.jobs_count_value)
@@ -72,6 +73,21 @@ module Steep
         end
       rescue => e
         Steep.logger.warn "Precondition inference failed: #{e.class}: #{e.message}"
+      end
+
+      def infer_postconditions(project)
+        runner = Postconditions::Runner.new(project)
+        entries = runner.run
+        runner.write(entries)
+        Steep.logger.info do
+          if entries.any?
+            "Inferred #{entries.size} postcondition(s); sidecar at #{project.relative_path(runner.output_path)}"
+          else
+            "Inferred 0 postconditions; sidecar #{runner.output_path.file? ? "kept" : "absent"}"
+          end
+        end
+      rescue => e
+        Steep.logger.warn "Postcondition inference failed: #{e.class}: #{e.message}"
       end
     end
   end

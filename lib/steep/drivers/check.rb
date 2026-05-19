@@ -54,6 +54,27 @@ module Steep
         stderr.puts "Warning: precondition inference failed: #{e.class}: #{e.message}"
       end
 
+      def infer_postconditions(project)
+        runner = Postconditions::Runner.new(project)
+        entries = runner.run
+        runner.write(entries)
+
+        if entries.any?
+          stdout.puts Rainbow("# Inferred postconditions (ivar refinements):").bold
+          entries.each do |entry|
+            sep = entry.singleton ? "." : "#"
+            stdout.puts "  #{entry.class_name}#{sep}#{entry.method_name}"
+            entry.ivars.each do |name, type|
+              stdout.puts "    #{name}: #{type}"
+            end
+          end
+          stdout.puts "  → #{project.relative_path(runner.output_path)}"
+          stdout.puts
+        end
+      rescue => e
+        stderr.puts "Warning: postcondition inference failed: #{e.class}: #{e.message}"
+      end
+
       def active_group?(group)
         return true if active_group_names.empty?
 
@@ -78,6 +99,7 @@ module Steep
         end
 
         infer_contracts(project)
+        infer_postconditions(project)
 
         stdout.puts Rainbow("# Type checking files:").bold
         stdout.puts
