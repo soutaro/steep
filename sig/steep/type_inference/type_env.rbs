@@ -41,6 +41,12 @@ module Steep
 
       attr_reader constant_env: ConstantEnv
 
+      # Overlay over `Context::ModuleContext#self_type`, set by
+      # `LogicTypeInterpreter` when a postcondition narrows the receiver
+      # of an implicit-self call (felixefelip/steep#25). When `nil`,
+      # callers fall back to the method-context's `self_type`.
+      attr_reader refined_self_type: AST::Types::t?
+
       @pure_node_descendants: Hash[Parser::AST::Node, Set[Parser::AST::Node]]
 
       def initialize: (
@@ -50,7 +56,8 @@ module Steep
           ?declared_instance_variable_types: Hash[Symbol, AST::Types::t]?,
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]],
+          ?refined_self_type: AST::Types::t?
         ) -> void
 
       def update: (
@@ -58,7 +65,8 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]],
+          ?refined_self_type: AST::Types::t?
         ) -> TypeEnv
 
       def merge: (
@@ -66,8 +74,14 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]],
+          ?refined_self_type: AST::Types::t?
         ) -> TypeEnv
+
+      # Returns a new env with `refined_self_type` set to `type`. Use
+      # this from `LogicTypeInterpreter#refine_node_type` when the node
+      # to refine is `:self` (implicit or explicit).
+      def with_refined_self: (AST::Types::t) -> TypeEnv
 
       # Returns type of `name`.
       #

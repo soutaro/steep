@@ -6444,4 +6444,285 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  # ---------------------------------------------------------------------------
+  # felixefelip/steep#25: postcondition narrowing of `self`
+  #
+  # Before the fix, `refine_node_type` had no `:self` case, so a postcondition
+  # whose receiver is `self` (implicit `if save` or explicit `if self.save`
+  # inside a method body) fell through to `[env, env]` and never narrowed.
+  # The fix routes those refinements to `TypeEnv#refined_self_type`, which
+  # overlays `Context::ModuleContext#self_type` for the narrowed branch.
+  # ---------------------------------------------------------------------------
+
+  def test_postconditions__self_refines_implicit_self_call
+    # `if save` is dispatched with `receiver = nil` (implicit self).
+    # Inside the truthy branch, `name.camelize` is also implicit-self;
+    # both reads should see `self` as `PCSelfModel & PCSelfModel::Validated`
+    # so `name` returns `String` (non-nil) and `.camelize` resolves.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCSelfModel
+            def name: () -> String?
+            def save: () -> bool
+            def teste2: () -> String?
+
+            class Validated
+              def name: () -> String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCSelfModel
+            # @dynamic name, save
+            def teste2
+              if save
+                name
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCSelfModel",
+          "method" => "save",
+          "when_true" => { "self" => "PCSelfModel & PCSelfModel::Validated" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__self_refines_explicit_self_call
+    # Same shape but the receiver is `:self` (an AST node) instead of
+    # nil. The `:self` case in `refine_node_type` should still write to
+    # `env.refined_self_type` and the inner read of `name` (implicit
+    # self) should pick that up.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCSelfExplicit
+            def name: () -> String?
+            def save: () -> bool
+            def teste2: () -> String?
+
+            class Validated
+              def name: () -> String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCSelfExplicit
+            # @dynamic name, save
+            def teste2
+              if self.save
+                name
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCSelfExplicit",
+          "method" => "save",
+          "when_true" => { "self" => "PCSelfExplicit & PCSelfExplicit::Validated" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__self_does_not_leak_to_falsy_branch
+    # In the `else` branch — where `save` returned a falsy value and
+    # no `when_false` postcondition was declared — `self` must remain
+    # at its declared (widest) shape. Reading `name` from there is
+    # still `String?`, so the truthy-branch `String`-only `.length`
+    # call inside the else MUST flag an error.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCSelfLeak
+            def name: () -> String?
+            def save: () -> bool
+            def teste2: () -> Integer?
+
+            class Validated
+              def name: () -> String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCSelfLeak
+            # @dynamic name, save
+            def teste2
+              if save
+                nil
+              else
+                name.length
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCSelfLeak",
+          "method" => "save",
+          "when_true" => { "self" => "PCSelfLeak & PCSelfLeak::Validated" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 7
+                character: 11
+              end:
+                line: 7
+                character: 17
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `length`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__refined_self_composes_with_and
+    # Both predicates refine self. Inside the truthy branch of
+    # `save && valid?`, self must be `Model & Validated & Active` so
+    # both `name` (from Validated) and `tag` (from Active) resolve to
+    # non-nil readers. This verifies that `refined_self_type` composes
+    # via intersection across `&&`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCSelfAnd
+            def name: () -> String?
+            def tag: () -> String?
+            def save: () -> bool
+            def valid?: () -> bool
+            def teste2: () -> String?
+
+            class Validated
+              def name: () -> String
+            end
+
+            class Active
+              def tag: () -> String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCSelfAnd
+            # @dynamic name, tag, save, valid?
+            def teste2
+              if save && valid?
+                name
+                tag
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCSelfAnd",
+          "method" => "save",
+          "when_true" => { "self" => "PCSelfAnd & PCSelfAnd::Validated" }
+        },
+        {
+          "class" => "PCSelfAnd",
+          "method" => "valid?",
+          "when_true" => { "self" => "PCSelfAnd & PCSelfAnd::Active" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__refined_self_cleared_on_method_entry
+    # A refinement applied in `method_a` (inside its `if save` branch)
+    # must NOT survive into `method_b`'s body. The env is rebuilt on
+    # method entry, so `refined_self_type` starts as `nil` again and
+    # `name.length` in `method_b` flags a NoMethod against `String?`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCSelfReset
+            def name: () -> String?
+            def save: () -> bool
+            def method_a: () -> String?
+            def method_b: () -> Integer
+
+            class Validated
+              def name: () -> String
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCSelfReset
+            # @dynamic name, save
+            def method_a
+              if save
+                name
+              end
+            end
+
+            def method_b
+              name.length
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCSelfReset",
+          "method" => "save",
+          "when_true" => { "self" => "PCSelfReset & PCSelfReset::Validated" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 10
+                character: 9
+              end:
+                line: 10
+                character: 15
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `length`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

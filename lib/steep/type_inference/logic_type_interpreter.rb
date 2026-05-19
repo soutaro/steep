@@ -21,12 +21,14 @@ module Steep
       attr_reader :typing
       attr_reader :config
       attr_reader :postconditions
+      attr_reader :self_type
 
-      def initialize(subtyping:, typing:, config:, postconditions: Steep::Postconditions::Store.empty)
+      def initialize(subtyping:, typing:, config:, postconditions: Steep::Postconditions::Store.empty, self_type: nil)
         @subtyping = subtyping
         @typing = typing
         @config = config
         @postconditions = postconditions
+        @self_type = self_type
       end
 
       def factory
@@ -209,14 +211,12 @@ module Steep
               end
             end
 
-            if receiver
-              truthy_result, falsy_result = apply_postconditions(
-                node: node,
-                receiver: receiver,
-                truthy_result: truthy_result,
-                falsy_result: falsy_result
-              )
-            end
+            truthy_result, falsy_result = apply_postconditions(
+              node: node,
+              receiver: receiver,
+              truthy_result: truthy_result,
+              falsy_result: falsy_result
+            )
 
             return [truthy_result, falsy_result]
           end
@@ -327,6 +327,18 @@ module Steep
           else
             [env, env]
           end
+        when :self
+          # Mirror the `:lvar`/`:ivar` branches for `self`. Without this,
+          # postcondition narrowing (#10) on a receiver of `self` (implicit
+          # `if save` inside a method body, or explicit `self.save`)
+          # falls through to `[env, env]` and leaves the receiver at its
+          # declared/widest type — even though the same predicate on a
+          # local variable or instance variable would narrow correctly
+          # (felixefelip/steep#25).
+          [
+            env.with_refined_self(truthy_type),
+            env.with_refined_self(falsy_type)
+          ]
         when :begin
           last_node = node.children.last or raise
           refine_node_type(env: env, node: last_node, truthy_type: truthy_type, falsy_type: falsy_type)
@@ -713,17 +725,40 @@ module Steep
       # entry, the receiver type is intersected with the entry's declared
       # `self` type; this intersects (not substitutes) so multiple
       # predicates compose via `&&` without losing prior narrowings.
+      #
+      # When `receiver` is nil (implicit-self call) or a `:self` AST node,
+      # uses the interpreter's `self_type` as the base for the intersection
+      # and refines `env.refined_self_type` instead of a per-node slot
+      # (felixefelip/steep#25). Without this, postcondition narrowing only
+      # worked for explicit receivers — methods called on `self` directly
+      # from within their own class body could not be narrowed.
       def apply_postconditions(node:, receiver:, truthy_result:, falsy_result:)
         return [truthy_result, falsy_result] if postconditions.empty?
 
         call = typing.call_of(node: node) rescue nil
         return [truthy_result, falsy_result] unless call.is_a?(MethodCall::Typed)
 
-        receiver_type = typing.type_of(node: receiver) rescue nil
+        receiver_is_self = receiver.nil? || receiver.type == :self
+
+        receiver_type =
+          if receiver_is_self
+            # Implicit OR explicit `self` receiver. The AST type of a `:self`
+            # node is `AST::Types::Self.instance` (a marker), so we can't
+            # intersect against it usefully; fall back to the env's
+            # narrowing (if any) and then the interpreter's bound self_type.
+            truthy_result.env.refined_self_type || self_type
+          else
+            typing.type_of(node: receiver) rescue nil
+          end
         return [truthy_result, falsy_result] unless receiver_type
 
         entry = lookup_postcondition_entry(call: call, receiver_type: receiver_type)
         return [truthy_result, falsy_result] unless entry
+
+        # When the receiver is implicit or explicit `:self`, hand
+        # `refine_node_type` a synthetic `:self` node so it routes to the
+        # `with_refined_self` slot.
+        node_for_refine = receiver || ::Parser::AST::Node.new(:self)
 
         # Order matters: apply `via_receiver` (which narrows local vars / ivars)
         # *before* `self` (which narrows a pure_call entry). Refining a local
@@ -738,13 +773,25 @@ module Steep
             truthy_branch: true
           )
 
-          new_truthy = postcondition_intersect(receiver_type, entry.when_true)
+          # When `receiver_type` was sourced from `env.refined_self_type`,
+          # we want to refine using the env *after* via_receivers ran (it
+          # might have updated refined_self_type via an inner-receiver
+          # path). Re-fetch from truthy_result.env to keep composition
+          # correct.
+          base_for_intersect =
+            if receiver_is_self
+              truthy_result.env.refined_self_type || self_type
+            else
+              receiver_type
+            end
+
+          new_truthy = postcondition_intersect(base_for_intersect, entry.when_true)
           if new_truthy
             truthy_env, _ = refine_node_type(
               env: truthy_result.env,
-              node: receiver,
+              node: node_for_refine,
               truthy_type: new_truthy,
-              falsy_type: receiver_type
+              falsy_type: base_for_intersect
             )
             truthy_result = Result.new(type: truthy_result.type, env: truthy_env, unreachable: truthy_result.unreachable)
           end
@@ -758,12 +805,19 @@ module Steep
             truthy_branch: false
           )
 
-          new_falsy = postcondition_intersect(receiver_type, entry.when_false)
+          base_for_intersect =
+            if receiver_is_self
+              falsy_result.env.refined_self_type || self_type
+            else
+              receiver_type
+            end
+
+          new_falsy = postcondition_intersect(base_for_intersect, entry.when_false)
           if new_falsy
             _, falsy_env = refine_node_type(
               env: falsy_result.env,
-              node: receiver,
-              truthy_type: receiver_type,
+              node: node_for_refine,
+              truthy_type: base_for_intersect,
               falsy_type: new_falsy
             )
             falsy_result = Result.new(type: falsy_result.type, env: falsy_env, unreachable: falsy_result.unreachable)

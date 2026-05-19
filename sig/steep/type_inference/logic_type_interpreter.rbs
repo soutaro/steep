@@ -37,7 +37,14 @@ module Steep
 
       attr_reader config: Interface::Builder::Config
 
-      def initialize: (subtyping: Subtyping::Check, typing: Typing, config: Interface::Builder::Config) -> void
+      attr_reader postconditions: Postconditions::Store
+
+      # Bound `self_type` of the method body the interpreter is evaluating
+      # within. Used by `apply_postconditions` to compute the intersection
+      # base when the receiver is implicit or `:self` (felixefelip/steep#25).
+      attr_reader self_type: AST::Types::t?
+
+      def initialize: (subtyping: Subtyping::Check, typing: Typing, config: Interface::Builder::Config, ?postconditions: Postconditions::Store, ?self_type: AST::Types::t?) -> void
 
       def eval: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result]
 

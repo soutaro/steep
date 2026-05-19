@@ -8,6 +8,7 @@ module Steep
       attr_reader :declared_instance_variable_types
       attr_reader :constant_env
       attr_reader :pure_method_calls
+      attr_reader :refined_self_type
 
       def to_s
         array = [] #: Array[String]
@@ -40,7 +41,7 @@ module Steep
         "{ #{array.join(", ")} }"
       end
 
-      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, declared_instance_variable_types: nil, global_types: {}, constant_types: {}, pure_method_calls: {})
+      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, declared_instance_variable_types: nil, global_types: {}, constant_types: {}, pure_method_calls: {}, refined_self_type: nil)
         @constant_env = constant_env
         @local_variable_types = local_variable_types
         @instance_variable_types = instance_variable_types
@@ -48,11 +49,12 @@ module Steep
         @global_types = global_types
         @constant_types = constant_types
         @pure_method_calls = pure_method_calls
+        @refined_self_type = refined_self_type
 
         @pure_node_descendants = {}
       end
 
-      def update(local_variable_types: self.local_variable_types, instance_variable_types: self.instance_variable_types, global_types: self.global_types, constant_types: self.constant_types, pure_method_calls: self.pure_method_calls)
+      def update(local_variable_types: self.local_variable_types, instance_variable_types: self.instance_variable_types, global_types: self.global_types, constant_types: self.constant_types, pure_method_calls: self.pure_method_calls, refined_self_type: self.refined_self_type)
         TypeEnv.new(
           constant_env,
           local_variable_types: local_variable_types,
@@ -60,11 +62,12 @@ module Steep
           declared_instance_variable_types: declared_instance_variable_types,
           global_types: global_types,
           constant_types: constant_types,
-          pure_method_calls: pure_method_calls
+          pure_method_calls: pure_method_calls,
+          refined_self_type: refined_self_type
         )
       end
 
-      def merge(local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {})
+      def merge(local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {}, refined_self_type: self.refined_self_type)
         local_variable_types = self.local_variable_types.merge(local_variable_types)
         instance_variable_types = self.instance_variable_types.merge(instance_variable_types)
         global_types = self.global_types.merge(global_types)
@@ -78,8 +81,18 @@ module Steep
           declared_instance_variable_types: declared_instance_variable_types,
           global_types:  global_types,
           constant_types: constant_types,
-          pure_method_calls: pure_method_calls
+          pure_method_calls: pure_method_calls,
+          refined_self_type: refined_self_type
         )
+      end
+
+      # Overlays a refined type for `self` over `context.self_type` (issue
+      # felixefelip/steep#25). Sister to `refine_types(instance_variable_types: ...)`
+      # but for the receiver of implicit-self calls and `:self` AST nodes.
+      # Cleared on method entry by the env builder; not threaded across
+      # `join` (so a branch refinement doesn't leak past the conditional).
+      def with_refined_self(type)
+        update(refined_self_type: type)
       end
 
       def with_instance_variable_declarations(types, merge: true)
