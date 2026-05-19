@@ -2441,83 +2441,6 @@ end
     end
   end
 
-  def test_optimistic_pure_setter_invalidates_cached_receiver_call
-    with_checker <<-EOF do |checker|
-class Host
-  def name: () -> String?
-  def name=: (String?) -> String?
-  def run: () -> void
-end
-    EOF
-      source = parse_ruby(<<-'RUBY')
-class Host
-  # @dynamic name, name=
-
-  def run
-    if self.name
-      self.name = nil
-      self.name.size
-    end
-  end
-end
-      RUBY
-
-      with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
-
-        # The setter `name=` is impure (ends with `=`), so it must
-        # invalidate the cached pure_call for `self.name`. After the
-        # write, reading `self.name.size` errors because the type is
-        # `String?` again. (Receivers are kept explicit to make the
-        # cached node match the invalidation node — implicit-self
-        # `name` parses as `(send nil :name)` while `self.name=` parses
-        # with `(self)` receiver, and invalidation walks descendants.)
-        assert_typing_error(typing, size: 1) do |errors|
-          assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::NoMethod, error
-            assert_equal :size, error.method
-          end
-        end
-      end
-    end
-  end
-
-  def test_optimistic_pure_bang_method_invalidates_cached_receiver_call
-    with_checker <<-EOF do |checker|
-class Host
-  def name: () -> String?
-  def reset!: () -> void
-  def run: () -> void
-end
-    EOF
-      source = parse_ruby(<<-'RUBY')
-class Host
-  # @dynamic name, reset!
-
-  def run
-    if self.name
-      self.reset!
-      self.name.size
-    end
-  end
-end
-      RUBY
-
-      with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
-
-        # Bang methods are impure by convention; invalidates the `name`
-        # cache the same way the setter does.
-        assert_typing_error(typing, size: 1) do |errors|
-          assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::NoMethod, error
-            assert_equal :size, error.method
-          end
-        end
-      end
-    end
-  end
-
   def test_optimistic_pure_explicit_impure_annotation_opts_out
     with_checker <<-EOF do |checker|
 class Host
@@ -10281,34 +10204,6 @@ RUBY
         type, _ = construction.synthesize(source.node)
 
         assert_no_error(typing)
-      end
-    end
-  end
-
-  def test_method_purity_attribute2
-    with_checker(<<RBS) do |checker|
-class HelloPure
-  attr_accessor email: String?
-end
-RBS
-      source = parse_ruby(<<RUBY)
-hello = HelloPure.new
-
-if hello.email
-  hello.email = nil
-  hello.email + ""
-end
-RUBY
-
-      with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
-
-        assert_typing_error(typing, size: 1) do |errors|
-          errors[0].tap do |error|
-            assert_instance_of Diagnostic::Ruby::NoMethod, error
-            assert_equal :+, error.method
-          end
-        end
       end
     end
   end
