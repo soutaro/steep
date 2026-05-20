@@ -7067,4 +7067,283 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  # ---------------------------------------------------------------------------
+  # felixefelip/steep#29: `drops:` slot subtracts markers from the
+  # receiver type.
+  #
+  # Intersection (`self:`) can only narrow — it cannot remove a marker.
+  # `update`/`save` on a `(T & Validated)` receiver that returned
+  # `false` lost its validation invariant, so the falsy branch type
+  # should be `T` alone. `drops: [Validated]` expresses exactly that
+  # subtraction; intersection alone can't.
+  # ---------------------------------------------------------------------------
+
+  def test_postconditions__drops_subtracts_marker_in_when_false
+    # `update` keeps `Validated` on truthy (intersection); `drops:`
+    # on falsy removes it. A `Validated`-only method works in the if
+    # block, errors in the else block.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCDropsCompany
+            def update: (untyped) -> bool
+            attr_reader name: String?
+
+            class Validated
+              attr_reader name: String
+              attr_reader strict_field: String
+            end
+
+            def self.first: () -> (PCDropsCompany & PCDropsCompany::Validated)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          company = PCDropsCompany.first
+          if company.update({})
+            company.strict_field.length
+          else
+            company.strict_field.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCDropsCompany",
+          "method" => "update",
+          "when_true" => { "self" => "PCDropsCompany & PCDropsCompany::Validated" },
+          "when_false" => { "drops" => ["PCDropsCompany::Validated"] }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 10
+              end:
+                line: 5
+                character: 22
+            severity: ERROR
+            message: Type `::PCDropsCompany` does not have method `strict_field`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__drops_with_ivar_receiver
+    # Same as above but the receiver is an ivar. `refine_node_type`'s
+    # `:ivar` case routes the post-drop type into the env's
+    # `instance_variable_types`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCDropsIvarCompany
+            def update: (untyped) -> bool
+            attr_reader name: String?
+
+            class Validated
+              attr_reader name: String
+              attr_reader strict_field: String
+            end
+
+            def self.first: () -> (PCDropsIvarCompany & PCDropsIvarCompany::Validated)
+          end
+
+          class PCDropsIvarHost
+            @company: (PCDropsIvarCompany & PCDropsIvarCompany::Validated)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          PCDropsIvarHost.new.instance_eval do
+            if @company.update({})
+              @company.strict_field
+            else
+              @company.strict_field
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCDropsIvarCompany",
+          "method" => "update",
+          "when_true" => { "self" => "PCDropsIvarCompany & PCDropsIvarCompany::Validated" },
+          "when_false" => { "drops" => ["PCDropsIvarCompany::Validated"] }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 13
+              end:
+                line: 5
+                character: 25
+            severity: ERROR
+            message: Type `::PCDropsIvarCompany` does not have method `strict_field`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__drops_keeps_other_markers_in_intersection
+    # Receiver is `T & A & B`. `drops: [A]` should leave `T & B`,
+    # NOT just `T`. The remaining markers are preserved.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCMultiMarker
+            def ok?: () -> bool
+            attr_reader base: String
+
+            class Validated
+              attr_reader strict: String
+            end
+
+            class Tagged
+              attr_reader tag: String
+            end
+
+            def self.first: () -> (PCMultiMarker & PCMultiMarker::Validated & PCMultiMarker::Tagged)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          obj = PCMultiMarker.first
+          unless obj.ok?
+            # Validated dropped; Tagged kept. `tag` works, `strict` does not.
+            obj.tag.length
+            obj.strict.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCMultiMarker",
+          "method" => "ok?",
+          "when_false" => { "drops" => ["PCMultiMarker::Validated"] }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 6
+              end:
+                line: 5
+                character: 12
+            severity: ERROR
+            message: Type `(::PCMultiMarker & ::PCMultiMarker::Tagged)` does not have method
+              `strict`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__drops_without_self_still_refines
+    # Only `drops:` declared on `when_false` — no `self:`. The drop
+    # alone should drive the env refinement on the falsy branch.
+    # `when_true` keeps the receiver as-is (no slots declared).
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCDropOnly
+            def predicate?: () -> bool
+            attr_reader base: String
+
+            class Marker
+              attr_reader marked_field: String
+            end
+
+            def self.first: () -> (PCDropOnly & PCDropOnly::Marker)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          obj = PCDropOnly.first
+          unless obj.predicate?
+            obj.marked_field.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCDropOnly",
+          "method" => "predicate?",
+          "when_false" => { "drops" => ["PCDropOnly::Marker"] }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 6
+              end:
+                line: 3
+                character: 18
+            severity: ERROR
+            message: Type `::PCDropOnly` does not have method `marked_field`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__drops_no_op_when_marker_not_present
+    # Drops listed but the receiver doesn't have the marker in its
+    # intersection. Should be a no-op — type stays as-is. Sanity
+    # against accidentally widening unrelated types.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCDropMiss
+            def predicate?: () -> bool
+            attr_reader value: String
+
+            class Other
+            end
+
+            def self.first: () -> PCDropMiss
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          obj = PCDropMiss.first
+          unless obj.predicate?
+            obj.value.length
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCDropMiss",
+          "method" => "predicate?",
+          "when_false" => { "drops" => ["PCDropMiss::Other"] }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
 end

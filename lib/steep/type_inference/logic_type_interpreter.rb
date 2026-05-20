@@ -785,8 +785,8 @@ module Steep
               receiver_type
             end
 
-          new_truthy = postcondition_intersect(base_for_intersect, entry.when_true)
-          if new_truthy
+          new_truthy, refined = compose_refinement(base_for_intersect, entry.when_true)
+          if refined
             truthy_env, _ = refine_node_type(
               env: truthy_result.env,
               node: node_for_refine,
@@ -812,8 +812,8 @@ module Steep
               receiver_type
             end
 
-          new_falsy = postcondition_intersect(base_for_intersect, entry.when_false)
-          if new_falsy
+          new_falsy, refined = compose_refinement(base_for_intersect, entry.when_false)
+          if refined
             _, falsy_env = refine_node_type(
               env: falsy_result.env,
               node: node_for_refine,
@@ -825,6 +825,22 @@ module Steep
         end
 
         [truthy_result, falsy_result]
+      end
+
+      # Combines `self:` (intersection) and `drops:` (subtraction) into
+      # a single refined type for the branch. Returns `[refined_type,
+      # changed]` — `changed` is `true` if either step did something.
+      # When neither slot is declared, returns `[base, false]` and the
+      # caller skips the env update.
+      def compose_refinement(base, branch)
+        intersected = postcondition_intersect(base, branch)
+        refined = intersected || base
+
+        dropped = postcondition_drop(refined, branch)
+        applied_drops = !dropped.equal?(refined)
+        refined = dropped if applied_drops
+
+        [refined, !intersected.nil? || applied_drops]
       end
 
       # When the postcondition declares `via_receiver`, also narrow the
@@ -942,6 +958,67 @@ module Steep
         rbs_type = branch.rbs_type or return nil
         marker = factory.type(absolutize_rbs_type(rbs_type))
         AST::Types::Intersection.build(types: [receiver_type, marker])
+      end
+
+      # Subtracts the marker types listed in `branch.drops` from the
+      # receiver type (felixefelip/steep#29). Only handles type-name
+      # markers (`ClassInstance`/`Interface`); complex drop entries
+      # are silently skipped at apply time. For intersection
+      # receivers, the components matching a drop marker are filtered
+      # out — letting predicates like `update`/`save` declare
+      # `drops: [Validated]` to express "the falsy branch loses this
+      # marker", which pure `self:` intersection can't capture.
+      def postcondition_drop(receiver_type, branch)
+        return receiver_type if branch.drops_type_strings.empty?
+
+        drop_names = branch.drops_rbs_types.filter_map do |rbs_type|
+          absolutized = absolutize_rbs_type(rbs_type)
+          case absolutized
+          when RBS::Types::ClassInstance, RBS::Types::Interface
+            absolutized.name
+          end
+        end
+        return receiver_type if drop_names.empty?
+
+        apply_drops_to_type(receiver_type, drop_names)
+      end
+
+      # Recursive walk that removes matching markers from intersection
+      # components and distributes through unions. Non-aggregate types
+      # are preserved as-is — subtracting a single type from itself
+      # would yield an empty type, which is rarely the user's intent.
+      def apply_drops_to_type(type, drop_names)
+        case type
+        when AST::Types::Intersection
+          remaining = type.types.reject { |t| drop_matches?(t, drop_names) }
+          return type if remaining.size == type.types.size
+
+          if remaining.empty?
+            # Degenerate: the receiver was exactly the dropped marker
+            # set. Fall back to `untyped` so the caller still sees
+            # *some* type rather than a malformed intersection.
+            AST::Builtin.any_type
+          elsif remaining.size == 1
+            remaining.first
+          else
+            AST::Types::Intersection.build(types: remaining)
+          end
+        when AST::Types::Union
+          new_branches = type.types.map { |t| apply_drops_to_type(t, drop_names) }
+          return type if new_branches == type.types
+          AST::Types::Union.build(types: new_branches)
+        else
+          type
+        end
+      end
+
+      def drop_matches?(type, drop_names)
+        case type
+        when AST::Types::Name::Instance, AST::Types::Name::Interface
+          drop_names.include?(type.name)
+        else
+          false
+        end
       end
 
       def absolutize_rbs_type(rbs_type)

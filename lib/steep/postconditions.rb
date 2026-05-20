@@ -141,21 +141,47 @@ module Steep
     end
 
     class Branch
-      attr_reader :self_type_string, :via_receivers, :ivar_type_strings
+      attr_reader :self_type_string, :via_receivers, :ivar_type_strings, :drops_type_strings
 
       def self.parse(raw, source:)
         return nil unless raw.is_a?(Hash)
         self_str = raw["self"]
         via_receivers = parse_via_receivers(raw["via_receiver"], source: source)
         ivars = parse_ivars(raw["ivars"], source: source)
-        return nil unless (self_str.is_a?(String) && !self_str.empty?) || via_receivers.any? || ivars.any?
+        drops = parse_drops(raw["drops"], source: source)
+        has_content = (self_str.is_a?(String) && !self_str.empty?) ||
+                      via_receivers.any? ||
+                      ivars.any? ||
+                      drops.any?
+        return nil unless has_content
 
-        new(self_type_string: self_str, via_receivers: via_receivers, ivar_type_strings: ivars)
+        new(self_type_string: self_str, via_receivers: via_receivers, ivar_type_strings: ivars, drops_type_strings: drops)
       end
 
       def self.parse_via_receivers(raw, source:)
         return [] unless raw.is_a?(Array)
         raw.filter_map { |entry| ViaReceiver.parse(entry, source: source) }
+      end
+
+      # Parses `drops:` payload — a list of type-name strings whose
+      # markers should be subtracted from the receiver type when the
+      # branch fires (felixefelip/steep#29). Used primarily on
+      # `when_false` to express "this predicate returning false means
+      # the receiver lost these markers" — something pure intersection
+      # (the `self:` slot) can't capture.
+      #
+      # Schema accepts an Array of strings. Empty list or non-Array
+      # input is treated as "no drops".
+      def self.parse_drops(raw, source:)
+        return [] unless raw.is_a?(Array)
+        raw.filter_map do |entry|
+          if entry.is_a?(String) && !entry.empty?
+            entry
+          else
+            Steep.logger.warn { "[postconditions] drops entry must be a non-empty type-name string, got #{entry.inspect} (#{source})" }
+            nil
+          end
+        end
       end
 
       # Parses `ivars:` payload — a hash mapping ivar names (with the leading
@@ -178,10 +204,11 @@ module Steep
         result
       end
 
-      def initialize(self_type_string:, via_receivers: [], ivar_type_strings: {})
+      def initialize(self_type_string:, via_receivers: [], ivar_type_strings: {}, drops_type_strings: [])
         @self_type_string = self_type_string
         @via_receivers = via_receivers
         @ivar_type_strings = ivar_type_strings
+        @drops_type_strings = drops_type_strings
       end
 
       # Parses the YAML `self:` payload into an `RBS::Types::t`. Cached so
@@ -200,6 +227,22 @@ module Steep
               nil
             end
           end
+      end
+
+      # Lazy-parsed RBS types for the `drops:` slot. Each entry is
+      # expected to be a class/module reference (the marker to drop);
+      # complex types are accepted by the parser but only
+      # ClassInstance/Interface names are used at apply time.
+      def drops_rbs_types
+        return @drops_rbs_types if defined?(@drops_rbs_types)
+        @drops_rbs_types = drops_type_strings.filter_map do |type_str|
+          begin
+            RBS::Parser.parse_type(type_str)
+          rescue RBS::ParsingError => e
+            Steep.logger.warn { "[postconditions] failed to parse drops type #{type_str.inspect}: #{e.message}" }
+            nil
+          end
+        end
       end
 
       # Lazy-parsed `Hash[Symbol, RBS::Types::t]` for the `ivars:` slot.

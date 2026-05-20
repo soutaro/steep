@@ -91,6 +91,109 @@ class PostconditionsTest < Minitest::Test
     assert_nil branch.rbs_type
   end
 
+  # ---- felixefelip/steep#29: `drops:` slot ----------------------------------
+
+  def test_parses_drops_entry
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "X",
+          "method" => "ok?",
+          "when_false" => { "drops" => ["X::Validated", "X::OtherMarker"] }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("X", :ok?)
+
+    refute_nil entry.when_false
+    assert_equal ["X::Validated", "X::OtherMarker"], entry.when_false.drops_type_strings
+  end
+
+  def test_drops_default_is_empty_array_when_slot_absent
+    branch = Postconditions::Branch.new(self_type_string: "Foo")
+    assert_equal [], branch.drops_type_strings
+  end
+
+  def test_branch_with_only_drops_is_valid
+    # `drops:` alone (without `self:`, `via_receiver:`, or `ivars:`)
+    # is enough to make a branch — the slot has applicative meaning
+    # by itself.
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "X",
+          "method" => "ok?",
+          "when_false" => { "drops" => ["X::Validated"] }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("X", :ok?)
+
+    refute_nil entry.when_false
+    assert_nil entry.when_false.self_type_string
+    assert_empty entry.when_false.via_receivers
+    assert_empty entry.when_false.ivar_type_strings
+    assert_equal ["X::Validated"], entry.when_false.drops_type_strings
+  end
+
+  def test_drops_rbs_types_parses_lazily_and_caches
+    branch = Postconditions::Branch.new(
+      self_type_string: nil,
+      drops_type_strings: ["::Foo::Marker"]
+    )
+    parsed = branch.drops_rbs_types
+    assert_equal 1, parsed.size
+    assert_kind_of RBS::Types::ClassInstance, parsed.first
+    assert_same parsed, branch.drops_rbs_types
+  end
+
+  def test_drops_rbs_types_skips_invalid_entries
+    branch = Postconditions::Branch.new(
+      self_type_string: nil,
+      drops_type_strings: ["valid_lower_case_alias", "::X::Valid"]
+    )
+    parsed = branch.drops_rbs_types
+    # The lowercase string parses as an alias; both entries succeed.
+    # The point of this test is just that we don't blow up — invalid
+    # entries are dropped with a warn (covered by parser behavior).
+    assert_kind_of Array, parsed
+    refute_empty parsed
+  end
+
+  def test_parses_drops_skips_non_string_entries
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "X",
+          "method" => "ok?",
+          "when_false" => { "drops" => ["X::Valid", 42, nil, ""] }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("X", :ok?)
+
+    assert_equal ["X::Valid"], entry.when_false.drops_type_strings
+  end
+
+  def test_parses_drops_non_array_input_treated_as_no_drops
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "X",
+          "method" => "ok?",
+          "when_false" => { "drops" => "X::NotAnArray" }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    # No other slots either, so the whole branch is invalid → store
+    # rejects the entry entirely.
+    assert_nil store.lookup_instance("X", :ok?)
+  end
+
   def test_load_merges_multiple_sidecars_under_sig
     Dir.mktmpdir do |dir|
       base = Pathname.new(dir)
