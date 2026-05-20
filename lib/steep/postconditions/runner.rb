@@ -90,7 +90,8 @@ module Steep
             constant_resolver: resolver,
             cursor: nil,
             contracts: @project.contracts,
-            postconditions: @project.postconditions
+            postconditions: @project.postconditions,
+            callbacks: @project.callbacks
           )
 
           out.concat(Inferrer.infer(source, typing, subtyping))

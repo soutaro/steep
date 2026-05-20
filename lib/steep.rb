@@ -152,6 +152,7 @@ require "steep/postconditions"
 require "steep/postconditions/writer"
 require "steep/postconditions/inferrer"
 require "steep/postconditions/runner"
+require "steep/callbacks"
 
 require "steep/expectations"
 require "steep/drivers/utils/driver_helper"

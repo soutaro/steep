@@ -660,8 +660,8 @@ module TypeConstructionHelper
   AST = Steep::AST #: singleton(AST)
   TypeInference = Steep::TypeInference #: singleton(TypeInference)
 
-  # @rbs (Subtyping::Check, Source, ?cursor: untyped, ?contracts: Steep::Contracts::Store, ?postconditions: Steep::Postconditions::Store) { (TypeConstruction, Typing) -> void } -> void
-  def with_standard_construction(checker, source, cursor: nil, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty)
+  # @rbs (Subtyping::Check, Source, ?cursor: untyped, ?contracts: Steep::Contracts::Store, ?postconditions: Steep::Postconditions::Store, ?callbacks: Steep::Callbacks::Store) { (TypeConstruction, Typing) -> void } -> void
+  def with_standard_construction(checker, source, cursor: nil, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty)
     annotations = source.annotations(block: source.node, factory: checker.factory, context: nil)
     resolver = RBS::Resolver::ConstantResolver.new(builder: checker.factory.definition_builder)
     const_env = ConstantEnv.new(factory: checker.factory, context: nil, resolver: resolver)
@@ -722,7 +722,8 @@ module TypeConstructionHelper
                                         context: context,
                                         typing: typing,
                                         contracts: contracts,
-                                        postconditions: postconditions)
+                                        postconditions: postconditions,
+                                        callbacks: callbacks)
 
     yield construction, typing
   end

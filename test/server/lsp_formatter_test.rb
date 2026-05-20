@@ -13,7 +13,7 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
     builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
     subtyping = Subtyping::Check.new(builder: builder)
     resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
-    Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: nil, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty)
+    Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: nil, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty)
   end
 
   def test_ruby_hover_variable

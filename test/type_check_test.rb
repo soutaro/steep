@@ -21,9 +21,10 @@ class TypeCheckTest < Minitest::Test
   # @rbs inline_code: Hash[String, String]
   # @rbs expectations: String?
   # @rbs postconditions: Steep::Postconditions::Store
+  # @rbs callbacks: Steep::Callbacks::Store
   # @rbs &block: ? (Hash[String, Steep::Typing]) -> void
   # @rbs return: void
-  def run_type_check_test(signatures: {}, code: {}, inline_code: {}, expectations: nil, postconditions: Steep::Postconditions::Store.empty, &block)
+  def run_type_check_test(signatures: {}, code: {}, inline_code: {}, expectations: nil, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty, &block)
     typings = {}
 
     with_factory(signatures, inline_code, nostdlib: false) do |factory|
@@ -32,7 +33,7 @@ class TypeCheckTest < Minitest::Test
 
       code.merge(inline_code).each do |path, content|
         source = Source.parse(content, path: Pathname(path), factory: factory)
-        with_standard_construction(subtyping, source, postconditions: postconditions) do |construction, typing|
+        with_standard_construction(subtyping, source, postconditions: postconditions, callbacks: callbacks) do |construction, typing|
           if source.node
             construction.synthesize(source.node)
           end
@@ -6721,6 +6722,347 @@ class TypeCheckTest < Minitest::Test
                 character: 15
             severity: ERROR
             message: Type `(::String | nil)` does not have method `length`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  # ---------------------------------------------------------------------------
+  # felixefelip/steep#27: generic callback sidecar.
+  #
+  # When `.steep_callbacks.yml` declares that handler H runs before
+  # method M of class C, Steep applies H's `unconditional` postcondition
+  # to M's initial env. This lets `before_action :set_post`-style hooks
+  # (translated by the generator into the sidecar) refine ivars at the
+  # entry of every action they cover, without H being called explicitly
+  # in M's body.
+  # ---------------------------------------------------------------------------
+
+  def callbacks_store(entries)
+    Steep::Callbacks::Store.from_hash(
+      { "callbacks" => entries },
+      source: "test"
+    )
+  end
+
+  def test_callbacks__refines_ivar_at_method_entry
+    # `set_post` writes `@post: PCBaCompany & Validated`. The callback
+    # declares it runs before `show`. Inside `show`'s body, `@post.title`
+    # must typecheck because the env starts with the refinement already
+    # applied. Without the callback hook, `@post` stays at the declared
+    # nilable union and `@post.title` flags NoMethod.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCBaCompany
+            def self.find: (Integer) -> (PCBaCompany & PCBaCompany::Validated)
+          end
+
+          module PCBaCompany::Validated
+            def title: () -> String
+          end
+
+          class PCBaController
+            @company: (PCBaCompany & PCBaCompany::Validated) | PCBaCompany | nil
+
+            def show: () -> String
+            def set_company: () -> (PCBaCompany & PCBaCompany::Validated)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCBaController
+            # @dynamic show, set_company
+            def show
+              @company.title
+            end
+
+            def set_company
+              @company = PCBaCompany.find(1)
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCBaController",
+          "method" => "set_company",
+          "unconditional" => {
+            "ivars" => { "@company" => "PCBaCompany & PCBaCompany::Validated" }
+          }
+        }
+      ]),
+      callbacks: callbacks_store([
+        {
+          "class" => "PCBaController",
+          "apply_postcondition_of" => "set_company",
+          "runs_before" => ["show"]
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_callbacks__methods_not_in_runs_before_stay_at_declared_type
+    # `set_company runs_before [show]` — but `index` is NOT covered. In
+    # `index`, `@company` must remain at the declared nilable union, so
+    # `@company.title` reports NoMethod on `nil`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCNotCoveredCompany
+            def self.find: (Integer) -> (PCNotCoveredCompany & PCNotCoveredCompany::Validated)
+          end
+
+          module PCNotCoveredCompany::Validated
+            def title: () -> String
+          end
+
+          class PCNotCoveredController
+            @company: (PCNotCoveredCompany & PCNotCoveredCompany::Validated) | PCNotCoveredCompany | nil
+
+            def show: () -> String
+            def index: () -> String?
+            def set_company: () -> (PCNotCoveredCompany & PCNotCoveredCompany::Validated)
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCNotCoveredController
+            # @dynamic show, index, set_company
+            def index
+              @company.title
+            end
+
+            def show
+              @company.title
+            end
+
+            def set_company
+              @company = PCNotCoveredCompany.find(1)
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCNotCoveredController",
+          "method" => "set_company",
+          "unconditional" => {
+            "ivars" => { "@company" => "PCNotCoveredCompany & PCNotCoveredCompany::Validated" }
+          }
+        }
+      ]),
+      callbacks: callbacks_store([
+        {
+          "class" => "PCNotCoveredController",
+          "apply_postcondition_of" => "set_company",
+          "runs_before" => ["show"]
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 13
+              end:
+                line: 4
+                character: 18
+            severity: ERROR
+            message: Type `((::PCNotCoveredCompany & ::PCNotCoveredCompany::Validated) | ::PCNotCoveredCompany
+              | nil)` does not have method `title`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_callbacks__handler_without_unconditional_postcondition_is_ignored
+    # Callback references `set_company`, but `set_company` has only a
+    # `when_true` postcondition (or none at all). The callback hook
+    # silently no-ops — body sees `@company` at the declared widest
+    # type, errors out as if no callback was declared.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCNoUncondCompany
+            def self.find: (Integer) -> PCNoUncondCompany
+            def specific_method: () -> Integer
+          end
+
+          class PCNoUncondController
+            @company: PCNoUncondCompany | nil
+
+            def show: () -> Integer
+            def set_company: () -> PCNoUncondCompany
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCNoUncondController
+            # @dynamic show, set_company
+            def show
+              @company.specific_method
+            end
+
+            def set_company
+              @company = PCNoUncondCompany.find(1)
+            end
+          end
+        RUBY
+      },
+      # No postconditions store entry → callback hook finds nothing to apply.
+      callbacks: callbacks_store([
+        {
+          "class" => "PCNoUncondController",
+          "apply_postcondition_of" => "set_company",
+          "runs_before" => ["show"]
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 13
+              end:
+                line: 4
+                character: 28
+            severity: ERROR
+            message: Type `(::PCNoUncondCompany | nil)` does not have method `specific_method`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_callbacks__multiple_handlers_compose_via_last_wins
+    # Two callbacks for `show`: `set_company` and `set_extra`. Each
+    # writes a distinct ivar. Both refinements must compose so the body
+    # sees BOTH ivars narrowed at entry.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCMultiCompany
+            def self.find: (Integer) -> (PCMultiCompany & PCMultiCompany::Validated)
+          end
+
+          module PCMultiCompany::Validated
+            def title: () -> String
+          end
+
+          class PCMultiExtra
+            def label: () -> String
+          end
+
+          class PCMultiController
+            @company: (PCMultiCompany & PCMultiCompany::Validated) | PCMultiCompany | nil
+            @extra: PCMultiExtra | nil
+
+            def show: () -> Integer
+            def set_company: () -> (PCMultiCompany & PCMultiCompany::Validated)
+            def set_extra: () -> PCMultiExtra
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCMultiController
+            # @dynamic show, set_company, set_extra
+            def show
+              @company.title.length + @extra.label.length
+            end
+
+            def set_company
+              @company = PCMultiCompany.find(1)
+            end
+
+            def set_extra
+              @extra = PCMultiExtra.new
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCMultiController",
+          "method" => "set_company",
+          "unconditional" => {
+            "ivars" => { "@company" => "PCMultiCompany & PCMultiCompany::Validated" }
+          }
+        },
+        {
+          "class" => "PCMultiController",
+          "method" => "set_extra",
+          "unconditional" => {
+            "ivars" => { "@extra" => "PCMultiExtra" }
+          }
+        }
+      ]),
+      callbacks: callbacks_store([
+        { "class" => "PCMultiController", "apply_postcondition_of" => "set_company", "runs_before" => ["show"] },
+        { "class" => "PCMultiController", "apply_postcondition_of" => "set_extra",   "runs_before" => ["show"] }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_callbacks__empty_store_no_op
+    # Regression guard: passing the default empty store must NOT change
+    # behavior. Body sees the declared nilable ivar and errors as
+    # before.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCEmptyCompany
+            def specific_method: () -> Integer
+          end
+
+          class PCEmptyController
+            @company: PCEmptyCompany | nil
+
+            def show: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCEmptyController
+            # @dynamic show
+            def show
+              @company.specific_method
+            end
+          end
+        RUBY
+      },
+      # No callbacks passed → default empty store.
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 13
+              end:
+                line: 4
+                character: 28
+            severity: ERROR
+            message: Type `(::PCEmptyCompany | nil)` does not have method `specific_method`
             code: Ruby::NoMethod
       YAML
     )

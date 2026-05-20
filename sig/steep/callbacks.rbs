@@ -1,0 +1,40 @@
+module Steep
+  module Callbacks
+    DEFAULT_SIDECAR_GLOB: String
+
+    def self.load: (Pathname | String base_dir, ?glob: String) -> Store
+
+    class Store
+      attr_reader entries_by_class: Hash[String, Array[Entry]]
+      attr_reader source: String?
+
+      def self.empty: () -> Store
+      def self.from_hash: (Hash[String, untyped]? raw, source: String) -> Store
+
+      def initialize: (entries_by_class: Hash[String, Array[Entry]], source: String?) -> void
+      def empty?: () -> bool
+
+      # Returns callback entries declared on `type_name` whose `runs_before`
+      # includes `method_name`. Entries appear in declaration order.
+      def lookup_callbacks_for_method: (RBS::TypeName | String type_name, Symbol | String method_name) -> Array[Entry]
+    end
+
+    class Entry
+      attr_reader class_name: String
+      attr_reader handler_method: Symbol
+      attr_reader runs_before: Array[Symbol]
+      attr_reader singleton: bool
+      attr_reader source: String?
+
+      def self.parse: (Hash[String, untyped] row, source: String?) -> Entry?
+
+      def initialize: (
+          class_name: String,
+          handler_method: Symbol,
+          runs_before: Array[Symbol],
+          ?singleton: bool,
+          ?source: String?
+        ) -> void
+    end
+  end
+end

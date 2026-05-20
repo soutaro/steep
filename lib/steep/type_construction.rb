@@ -47,6 +47,7 @@ module Steep
     attr_reader :typing
     attr_reader :contracts
     attr_reader :postconditions
+    attr_reader :callbacks
 
     attr_reader :context
 
@@ -89,7 +90,7 @@ module Steep
       context.variable_context
     end
 
-    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty)
+    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty)
       @checker = checker
       @source = source
       @annotations = annotations
@@ -97,6 +98,7 @@ module Steep
       @context = context
       @contracts = contracts
       @postconditions = postconditions
+      @callbacks = callbacks
     end
 
     def with_new_typing(typing)
@@ -107,7 +109,8 @@ module Steep
         typing: typing,
         context: context,
         contracts: contracts,
-        postconditions: postconditions
+        postconditions: postconditions,
+        callbacks: callbacks
       )
     end
 
@@ -128,7 +131,8 @@ module Steep
           typing: typing,
           context: context,
           contracts: contracts,
-          postconditions: postconditions
+          postconditions: postconditions,
+          callbacks: callbacks
         )
       else
         self
@@ -287,6 +291,8 @@ module Steep
         TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableAnnotations.new(annots).merge!
       ).build(type_env)
 
+      type_env = apply_callbacks_for_method(method_name, type_env)
+
       method_params.errors.each do |error|
         typing.add_error error
       end
@@ -322,7 +328,8 @@ module Steep
         ),
         typing: typing,
         contracts: contracts,
-        postconditions: postconditions
+        postconditions: postconditions,
+        callbacks: callbacks
       )
     end
 
@@ -503,7 +510,8 @@ module Steep
           variable_context: variable_context
         ),
         contracts: contracts,
-        postconditions: postconditions
+        postconditions: postconditions,
+        callbacks: callbacks
       )
     end
 
@@ -596,7 +604,8 @@ module Steep
         typing: typing,
         context: class_body_context,
         contracts: contracts,
-        postconditions: postconditions
+        postconditions: postconditions,
+        callbacks: callbacks
       )
     end
 
@@ -711,7 +720,8 @@ module Steep
         typing: typing,
         context: body_context,
         contracts: contracts,
-        postconditions: postconditions
+        postconditions: postconditions,
+        callbacks: callbacks
       )
     end
 
@@ -3792,6 +3802,48 @@ module Steep
       end
     end
 
+    # Applies callback-declared postconditions at method entry (issue
+    # felixefelip/steep#27). For each callback entry whose `runs_before`
+    # includes `method_name`, look up the handler's `unconditional`
+    # postcondition (already loaded from `.steep_postconditions.yml`,
+    # issue #23) and refine the env's `instance_variable_types`.
+    #
+    # Returns the (possibly refined) env. Pure: doesn't mutate self.
+    #
+    # Order matters for last-wins composition: callback entries are
+    # applied in their stored order, so the gen-erator emits in
+    # declaration order and the latest declaration wins on conflicting
+    # ivar writes. Mirrors Rails' `before_action` ordering semantics.
+    def apply_callbacks_for_method(method_name, type_env)
+      return type_env if callbacks.empty?
+      return type_env if postconditions.empty?
+
+      class_name = module_context&.class_name
+      return type_env unless class_name
+
+      matching = callbacks.lookup_callbacks_for_method(class_name.to_s, method_name)
+      return type_env if matching.empty?
+
+      matching.each do |entry|
+        postcondition_entry = postconditions.lookup_instance(entry.class_name, entry.handler_method)
+        next unless postcondition_entry&.unconditional
+
+        branch = postcondition_entry.unconditional
+        next if branch.ivar_type_strings.empty?
+
+        updates = {} #: Hash[Symbol, AST::Types::t]
+        branch.ivar_rbs_types.each do |name, rbs_type|
+          ast_type = checker.factory.type(rbs_type) rescue nil
+          updates[name] = ast_type if ast_type
+        end
+        next if updates.empty?
+
+        type_env = type_env.refine_types(instance_variable_types: updates)
+      end
+
+      type_env
+    end
+
     # Mirror of `LogicTypeInterpreter#lookup_postcondition_entry` for the
     # type construction side. Walks method_decls and checks each defining
     # type, since the same method may be declared in different ancestors.
@@ -4875,7 +4927,8 @@ module Steep
           variable_context: variable_context
         ),
         contracts: contracts,
-        postconditions: postconditions
+        postconditions: postconditions,
+        callbacks: callbacks
       )
     end
 

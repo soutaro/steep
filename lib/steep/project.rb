@@ -29,6 +29,15 @@ module Steep
       @postconditions ||= Postconditions.load(base_dir)
     end
 
+    # Generic callback sidecar (felixefelip/steep#27). Loaded lazily from
+    # `sig/**/.steep_callbacks.yml`. External generators emit these to
+    # declare that a handler method runs before a target — Steep applies
+    # the handler's unconditional postcondition at the target's method
+    # entry, framework-agnostic.
+    def callbacks
+      @callbacks ||= Callbacks.load(base_dir)
+    end
+
     def relative_path(path)
       path.relative_path_from(base_dir)
     rescue ArgumentError

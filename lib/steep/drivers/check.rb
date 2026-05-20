@@ -284,7 +284,8 @@ module Steep
             constant_resolver: signature_service.latest_constant_resolver,
             cursor: nil,
             contracts: project.contracts,
-            postconditions: project.postconditions
+            postconditions: project.postconditions,
+            callbacks: project.callbacks
           )
 
           diagnostics = typing.errors.filter_map { |error| lsp_formatter.format(error) }
