@@ -145,7 +145,7 @@ module Steep
           name = ivasgn_node.children[0]
           rhs_node = ivasgn_node.children[1]
           next unless rhs_node
-          rhs_type = type_of(rhs_node)
+          rhs_type = intrinsic_type_of(rhs_node)
           next unless rhs_type
           last_writes[name] = rhs_type
         end
@@ -173,6 +173,50 @@ module Steep
         @typing.type_of(node: node)
       rescue Typing::UnknownNodeError
         nil
+      end
+
+      # Returns the intrinsic (hint-free) type of a node. For literal
+      # AST nodes — `:str`, `:int`, `:sym`, etc. — Steep's `:ivasgn`
+      # handler passes the LHS's declared type to `synthesize` as a
+      # `hint:`, which widens the literal's emitted type to match the
+      # declared one (e.g. `@name = "x"` with `@name: String?` ends up
+      # with the str node typed as `(String | nil)`, not `String`).
+      # The widening is useful for collections (`Array[Integer] !<:
+      # Array[Numeric]` would otherwise fail to assign), but it makes
+      # narrowing detection silently no-op for the common
+      # setter-with-literal pattern.
+      #
+      # For literal nodes we compute the type directly from the node
+      # shape, matching what `synthesize` would return if hint were
+      # nil. For non-literal nodes (sends, lvars, dstrs, arrays, …)
+      # we fall back to the typed-out `type_of` — those rarely suffer
+      # the widening issue since the hint mostly affects literal
+      # value-class lookups.
+      #
+      # Tracked in felixefelip/steep#34; the upstream-friendly
+      # follow-up would expose `synthesize(node, hint: nil)` as a
+      # general-purpose helper.
+      def intrinsic_type_of(node)
+        case node.type
+        when :nil
+          AST::Builtin.nil_type
+        when :str, :dstr
+          AST::Builtin::String.instance_type
+        when :int
+          AST::Builtin::Integer.instance_type
+        when :float
+          AST::Builtin::Float.instance_type
+        when :sym, :dsym
+          AST::Builtin::Symbol.instance_type
+        when :true
+          AST::Types::Literal.new(value: true)
+        when :false
+          AST::Types::Literal.new(value: false)
+        when :regexp
+          AST::Builtin::Regexp.instance_type
+        else
+          type_of(node)
+        end
       end
 
       def declared_ivar_types(class_name, singleton:)
