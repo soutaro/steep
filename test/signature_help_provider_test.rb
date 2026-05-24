@@ -19,7 +19,7 @@ class SignatureHelpProviderTest < Minitest::Test
         TestClass&.foo()
       RUBY
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         items, index = provider.run(line: 1, column: 14)
         assert_nil index
         assert_equal ["(::String, ::Integer) -> ::Array[::Symbol]"], items.map(&:method_type).map(&:to_s)
@@ -44,7 +44,7 @@ class SignatureHelpProviderTest < Minitest::Test
         TestClass&.foo("", 123)
       RUBY
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         items, index = provider.run(line: 2, column: 14)
         assert_equal 0, index
         assert_equal ["(::String, ::Integer) -> ::Array[::Symbol]", "() -> ::Array[::Symbol]"], items.map(&:method_type).map(&:to_s)
@@ -67,7 +67,7 @@ class SignatureHelpProviderTest < Minitest::Test
         #   5   10   15   20   25   30   35   40   45   50   55   60   65   70   75
       RUBY
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         items, index = provider.run(line: 1, column: 14)
         assert_equal 0, items.first.active_parameter
 
@@ -118,7 +118,7 @@ class SignatureHelpProviderTest < Minitest::Test
         #   5   10   15   20   25   30   35   40   45   50   55   60   65   70   75
       RUBY
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         items, index = provider.run(line: 1, column: 14)
         assert_equal 0, items.first.active_parameter
 
@@ -161,7 +161,7 @@ class SignatureHelpProviderTest < Minitest::Test
         end
       RUBY
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         items, index = provider.run(line: 1, column: 9)
         assert_equal 0, index
         assert_equal ["() { (::Integer) -> untyped } -> ::Array[::Integer]"], items.map(&:method_type).map(&:to_s)
@@ -180,7 +180,7 @@ class SignatureHelpProviderTest < Minitest::Test
         end
       RUBY
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         items, index = provider.run(line: 2, column: 10)
         assert_equal 0, index
         assert_equal ["() -> bool"], items.map(&:method_type).map(&:to_s)
@@ -197,7 +197,7 @@ class SignatureHelpProviderTest < Minitest::Test
         end
       RUBY
 
-      SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
+      SignatureHelpProvider.new(source: source, subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         assert_nil provider.run(line: 2, column: 10)
       end
     end

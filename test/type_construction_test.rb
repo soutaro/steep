@@ -1089,7 +1089,8 @@ end
                                           source: source,
                                           annotations: annotations,
                                           context: context,
-                                          typing: typing)
+                                          typing: typing,
+                                          delegation_registry: Steep::Project::DelegationRegistry.new)
 
       for_module = construction.for_class(module_name_class_node, RBS::TypeName.parse("::Steep::Names::Module"), nil)
 
@@ -1180,7 +1181,8 @@ class Steep end
                                           source: source,
                                           annotations: annotations,
                                           context: context,
-                                          typing: typing)
+                                          typing: typing,
+                                          delegation_registry: Steep::Project::DelegationRegistry.new)
 
       for_module = construction.for_module(module_node, RBS::TypeName.parse("::Steep::Printable"))
 

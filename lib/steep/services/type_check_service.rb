@@ -337,7 +337,7 @@ module Steep
         SourceFile.no_data(path: path, content: text)
       end
 
-      def self.type_check(source:, subtyping:, constant_resolver:, cursor:, contracts:, postconditions:, callbacks:, delegation_registry: nil)
+      def self.type_check(source:, subtyping:, constant_resolver:, cursor:, contracts:, postconditions:, callbacks:, delegation_registry:)
         annotations = source.annotations(block: source.node, factory: subtyping.factory, context: nil)
 
         case annotations.self_type

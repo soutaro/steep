@@ -12,7 +12,7 @@ class CompletionProvider__RubyTest < Minitest::Test
 
   def test_on_lower_identifier
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 req
 
 lvar1 = 1
@@ -42,7 +42,7 @@ class Object
   def Array: (untyped) -> Array[untyped]
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 Arr
       EOR
 
@@ -64,7 +64,7 @@ Arr
 
   def test_on_method_identifier
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 self.cl
       EOR
 
@@ -81,7 +81,7 @@ self.cl
 
   def test_on_method_identifier_colon2
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 self::cl
       EOR
 
@@ -105,7 +105,7 @@ class Hello
   def world: () -> void
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 class Hello
   def world
     @foo
@@ -127,7 +127,7 @@ end
 
   def test_dot_trigger
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 " ".
       EOR
 
@@ -150,7 +150,7 @@ end
 
   def test_qcall_trigger
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 n = [1].first
 n&.to
       EOR
@@ -185,7 +185,7 @@ class Hello
   def world: () -> void
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 class Hello
   def world
     @
@@ -209,7 +209,7 @@ class Hello
   def world: () -> void
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 class Hello
   def world
 
@@ -261,7 +261,7 @@ interface _ToStr
   def to_str: () -> String
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 # @type var x: _ToStr
 x = _ = nil
 
@@ -288,7 +288,7 @@ module TestModule : _Named
   def bar: () -> Integer
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 module TestModule
   def foo
     self.
@@ -307,7 +307,7 @@ end
   def test_on_paren
     with_checker <<EOF do
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 require()
       EOR
 
@@ -323,7 +323,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 Hello::W
       EOR
 
@@ -341,7 +341,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 Hello::
       EOR
 
@@ -366,7 +366,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 ::
       EOR
 
@@ -390,7 +390,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 Hello::
 bar()
       EOR
@@ -421,7 +421,7 @@ class Hello
   end
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 Hello::
 a, b = []
       EOR
@@ -444,7 +444,7 @@ a, b = []
                  | ...
         end
       RBS
-      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
           TestClass.new.f
         RUBY
 
@@ -473,7 +473,7 @@ a, b = []
   def test_generated_method_name_item
     with_checker <<~RBS do
       RBS
-      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
           a = [] #: [Integer, String]
           a.fir
         RUBY
@@ -500,7 +500,7 @@ a, b = []
           def to_s: () -> String
         end
       RBS
-      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
           a = [] #: Integer | String
           a.to_s
         RUBY
@@ -519,7 +519,7 @@ a, b = []
 
   def test_run_at_comment__normal_comment
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         x = [] # Hoge hoge
       RUBY
 
@@ -535,7 +535,7 @@ a, b = []
 
   def test_run_at_comment__steep_inline_comment
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         # @type var x: Ar
         x = []
       RUBY
@@ -549,7 +549,7 @@ a, b = []
 
   def test_run_at_comment__on_steep_type_assertion
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         x = [] #: Ar
       RUBY
 
@@ -562,7 +562,7 @@ a, b = []
 
   def test_run_at_comment__on_steep_type_application
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~RUBY, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         [1, 2].inject([]) do |x, y| #$ Ar
         end
       RUBY
@@ -580,7 +580,7 @@ class TestClass
   def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) -> void
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 TestClass.new.foo(a)
       EOR
 
@@ -597,7 +597,7 @@ class TestClass
   def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) -> void
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 TestClass.new.foo(arg1: 1, a)
       EOR
 
@@ -614,7 +614,7 @@ class TestClass
   def foo: (arg1: Integer, arg2: Integer, ?arg3: Integer, ?arg4: Integer) { () -> void } -> void
 end
 EOF
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 TestClass.new.foo(arg1: 1, a) do
 end
 #                         ^
@@ -629,7 +629,7 @@ end
 
   def test_run_at_comment__ignore
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 # s
       EOR
 
@@ -642,7 +642,7 @@ end
 
   def test_run_at_comment__type
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 # @
       EOR
 
@@ -655,7 +655,7 @@ end
 
   def test_self_receiver_call_type
     with_checker do
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
 puts i
       EOR
 
@@ -673,7 +673,7 @@ puts i
 
         %a{deprecated} BAZ: String
       RBS
-      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<-EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         Foo
         Bar
         BAZ
@@ -708,7 +708,7 @@ puts i
           %a{deprecated} alias m3 m1
         end
       RBS
-      CompletionProvider::Ruby.new(source_text: <<~EOR, path: Pathname("foo.rb"), subtyping: checker).tap do |provider|
+      CompletionProvider::Ruby.new(source_text: <<~EOR, path: Pathname("foo.rb"), subtyping: checker, delegation_registry: Steep::Project::DelegationRegistry.new).tap do |provider|
         Foo.new.m
       EOR
 

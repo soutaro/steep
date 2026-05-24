@@ -37,7 +37,7 @@ module Steep
           resolver = ::RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
           pos = source.buffer.loc_to_pos([line, column])
           [
-            Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos, contracts: project.contracts, postconditions: project.postconditions, callbacks: project.callbacks),
+            Services::TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos, contracts: project.contracts, postconditions: project.postconditions, callbacks: project.callbacks, delegation_registry: project.delegation_registry),
             subtyping
           ]
         rescue

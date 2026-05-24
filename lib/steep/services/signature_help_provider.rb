@@ -32,14 +32,16 @@ module Steep
       attr_reader :contracts
       attr_reader :postconditions
       attr_reader :callbacks
+      attr_reader :delegation_registry
 
-      def initialize(source:, subtyping:, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty)
+      def initialize(source:, subtyping:, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty, delegation_registry:)
         @source = source
         @subtyping = subtyping
         @buffer = source.buffer
         @contracts = contracts
         @postconditions = postconditions
         @callbacks = callbacks
+        @delegation_registry = delegation_registry
       end
 
       def run(line:, column:)
@@ -84,7 +86,7 @@ module Steep
         source = self.source.without_unrelated_defs(line: line, column: column)
         resolver = RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
         pos = self.source.buffer.loc_to_pos([line, column])
-        TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos, contracts: contracts, postconditions: postconditions, callbacks: callbacks)
+        TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: pos, contracts: contracts, postconditions: postconditions, callbacks: callbacks, delegation_registry: delegation_registry)
       end
 
       def last_argument_nodes_for(argument_nodes:, line:, column:)

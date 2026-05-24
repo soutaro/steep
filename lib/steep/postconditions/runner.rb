@@ -91,7 +91,8 @@ module Steep
             cursor: nil,
             contracts: @project.contracts,
             postconditions: @project.postconditions,
-            callbacks: @project.callbacks
+            callbacks: @project.callbacks,
+            delegation_registry: @project.delegation_registry
           )
 
           out.concat(Inferrer.infer(source, typing, subtyping))

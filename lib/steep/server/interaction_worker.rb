@@ -158,7 +158,7 @@ module Steep
               file = service.source_files[job.path] or return
               subtyping = service.signature_services.fetch(target.name).current_subtyping or return
 
-              provider = Services::CompletionProvider::Ruby.new(source_text: file.content, path: job.path, subtyping: subtyping, contracts: project.contracts, postconditions: project.postconditions)
+              provider = Services::CompletionProvider::Ruby.new(source_text: file.content, path: job.path, subtyping: subtyping, contracts: project.contracts, postconditions: project.postconditions, delegation_registry: project.delegation_registry)
 
               if (prefix_size, items = provider.run_at_comment(line: job.line, column: job.column))
                 completion_items = items.map { format_completion_item(_1) }
@@ -435,7 +435,7 @@ module Steep
               Source.parse(file.content, path: file.path, factory: subtyping.factory)
                 .without_unrelated_defs(line: job.line, column: job.column)
 
-            provider = Services::SignatureHelpProvider.new(source: source, subtyping: subtyping, contracts: project.contracts, postconditions: project.postconditions)
+            provider = Services::SignatureHelpProvider.new(source: source, subtyping: subtyping, contracts: project.contracts, postconditions: project.postconditions, delegation_registry: project.delegation_registry)
 
             if (items, index = provider.run(line: job.line, column: job.column))
               signatures = items.map do |item|

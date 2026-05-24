@@ -91,7 +91,7 @@ module Steep
       context.variable_context
     end
 
-    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty, delegation_registry: nil)
+    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty, delegation_registry:)
       @checker = checker
       @source = source
       @annotations = annotations
@@ -5974,7 +5974,45 @@ module Steep
       end
 
       pair.constr.add_typing(node, type: pair.type)
+      # Mirror the inlined call's `MethodCall` onto the original
+      # node. Without this, `typing.call_of(node: original)` returns
+      # nil and consumers that go through method_calls — LSP hover,
+      # signature-help, etc. — render the call as untyped even
+      # though `steep check` (which consults `typing.type_of` for
+      # errors) reports the refined type correctly. The two paths
+      # should agree.
+      mirror_inlined_method_call(original: node, inlined: inlined, constr: pair.constr, method_name: method_name, receiver_type: recv_type)
       [pair.type, pair.constr]
+    end
+
+    def mirror_inlined_method_call(original:, inlined:, constr:, method_name:, receiver_type:)
+      inlined_call = constr.typing.call_of(node: inlined) rescue nil
+      return unless inlined_call
+
+      case inlined_call
+      when TypeInference::MethodCall::Typed
+        constr.typing.add_call(
+          original,
+          TypeInference::MethodCall::Typed.new(
+            node: original,
+            context: inlined_call.context,
+            method_name: method_name,
+            receiver_type: receiver_type,
+            actual_method_type: inlined_call.actual_method_type,
+            method_decls: inlined_call.method_decls,
+            return_type: inlined_call.return_type
+          )
+        )
+      when TypeInference::MethodCall::Untyped
+        constr.typing.add_call(
+          original,
+          TypeInference::MethodCall::Untyped.new(
+            node: original,
+            context: inlined_call.context,
+            method_name: method_name
+          )
+        )
+      end
     end
 
     # Best-effort class-name extraction from a Steep AST type. Covers

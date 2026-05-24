@@ -14,14 +14,16 @@ module Steep
         attr_reader :contracts
         attr_reader :postconditions
         attr_reader :callbacks
+        attr_reader :delegation_registry
 
-        def initialize(source_text:, path:, subtyping:, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty)
+        def initialize(source_text:, path:, subtyping:, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty, delegation_registry:)
           @source_text = source_text
           @path = path
           @subtyping = subtyping
           @contracts = contracts
           @postconditions = postconditions
           @callbacks = callbacks
+          @delegation_registry = delegation_registry
         end
 
         def type_check!(text, line:, column:)
@@ -36,7 +38,7 @@ module Steep
           Steep.measure "typechecking" do
             location = source.buffer.loc_to_pos([line, column])
             resolver = ::RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
-            @typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: location, contracts: contracts, postconditions: postconditions, callbacks: callbacks)
+            @typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: location, contracts: contracts, postconditions: postconditions, callbacks: callbacks, delegation_registry: delegation_registry)
           end
         end
 

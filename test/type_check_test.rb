@@ -4952,6 +4952,21 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  # Walks a parsed source's AST returning the first `:send` node
+  # whose method name matches. Used by delegation tests to grab the
+  # call site for direct `typing.call_of` assertions.
+  def find_send(node, method:)
+    return nil unless node.is_a?(::Parser::AST::Node)
+    if node.type == :send && node.children[1] == method
+      return node
+    end
+    node.children.each do |child|
+      found = find_send(child, method: method)
+      return found if found
+    end
+    nil
+  end
+
   # Builds an in-memory DelegationRegistry from the test's `code` hash
   # (path => Ruby source string), without going through the file
   # system. Used by `run_type_check_test` so that chain-narrowing
@@ -7764,6 +7779,76 @@ class TypeCheckTest < Minitest::Test
           diagnostics: []
       YAML
     )
+  end
+
+  def test_delegation__inline_records_method_call_on_original_node
+    # Regression for the LSP-hover divergence: after inlining,
+    # `typing.call_of(node:)` must return a `MethodCall::Typed`
+    # mirroring the inlined call. Without this, `steep check` sees
+    # the refined return type (via `typing.type_of`) but hover
+    # consults `method_calls` and renders the call as untyped —
+    # the two paths disagreed.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class DelMcFoo
+            attr_reader bar: DelMcBar
+            def proxy_x: () -> Integer?
+          end
+
+          class DelMcBar
+            attr_reader x: Integer?
+            def confirmed?: () -> bool
+          end
+
+          class DelMcBarConfirmed
+            attr_reader x: Integer
+          end
+
+          class DelMcHost
+            @foo: DelMcFoo
+
+            def exercise: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class DelMcFoo
+            # @dynamic bar, proxy_x
+            def proxy_x
+              bar.x
+            end
+          end
+
+          class DelMcHost
+            # @dynamic exercise
+            def exercise
+              if @foo.bar.confirmed?
+                @foo.proxy_x
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "DelMcBar",
+          "method" => "confirmed?",
+          "when_true" => { "self" => "DelMcBar & DelMcBarConfirmed" }
+        }
+      ])
+    ) do |typings|
+      typing = typings.fetch("a.rb")
+      proxy_send = find_send(typing.source.node, method: :proxy_x) or flunk("expected to find @foo.proxy_x send in source")
+
+      call = typing.call_of(node: proxy_send)
+      assert_kind_of Steep::TypeInference::MethodCall::Typed, call,
+                     "expected typing.call_of to return a Typed call for the inlined node (got #{call.class})"
+      assert_equal :proxy_x, call.method_name
+      assert_equal "::Integer", call.return_type.to_s,
+                   "expected the mirrored call to carry the narrowed return type"
+    end
   end
 
   def test_delegation__multi_hop_chain_inlines_recursively
