@@ -19,11 +19,13 @@ class PostconditionsInferrerTest < Minitest::Test
 
     class IUController
       @company: (IUCompany & IUCompany::Validated) | IUCompany
+      @name: String?
 
       def set_company: () -> (IUCompany & IUCompany::Validated)
       def set_raw: () -> IUCompany
       def set_one_of: () -> ((IUCompany & IUCompany::Validated) | IUCompany)
       def no_assign: () -> void
+      def set_default_name: () -> String
     end
   RBS
 
@@ -134,6 +136,49 @@ class PostconditionsInferrerTest < Minitest::Test
     refute_empty entries
     entry = entries.first
     assert_equal "(::IUCompany & ::IUCompany::Validated)", entry.ivars[:"@company"].to_s
+  end
+
+  def test_infers_narrowing_when_rhs_is_string_literal_against_nilable_ivar
+    # `@name: String?` declared. `set_default_name` writes a String
+    # literal. Steep's `:ivasgn` synthesize passes the declared
+    # `String?` as `hint:` to the str-node synthesize, which makes
+    # `typing.type_of(str_node)` return the widened `String?` —
+    # losing the narrowing the writer actually introduces.
+    #
+    # The Inferrer reads the literal's intrinsic type
+    # (`AST::Builtin::String.instance_type`) directly, so the
+    # narrowing survives. felixefelip/steep#34.
+    entries = infer_for(<<~RUBY)
+      class IUController
+        def set_default_name
+          @name = "TBA Venue"
+        end
+      end
+    RUBY
+
+    refute_empty entries
+    entry = entries.find { |e| e.method_name == :set_default_name }
+    refute_nil entry, "expected entry for set_default_name"
+    assert_equal "::String", entry.ivars[:"@name"].to_s
+  end
+
+  def test_infers_narrowing_when_rhs_is_nil_literal_against_nilable_ivar
+    # `nil` literal isn't context-widened (it's already the bottom
+    # of any union containing nil), so this case used to work even
+    # before the intrinsic-type fix. Pinned here so a regression
+    # of `:nil` handling shows up immediately.
+    entries = infer_for(<<~RUBY)
+      class IUController
+        def set_default_name
+          @name = nil
+        end
+      end
+    RUBY
+
+    refute_empty entries
+    entry = entries.find { |e| e.method_name == :set_default_name }
+    refute_nil entry
+    assert_equal "nil", entry.ivars[:"@name"].to_s
   end
 
   def test_ignores_top_level_defs_without_class
