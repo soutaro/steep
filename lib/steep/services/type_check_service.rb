@@ -300,19 +300,27 @@ module Steep
       end
 
       def update_sources(changes:)
+        any_change = false
         changes.each do |path, changes|
           if source_file?(path)
             file = source_files[path] || SourceFile.no_data(path: path, content: "")
             content = changes.inject(file.content) {|text, change| change.apply_to(text) }
             source_files[path] = file.update_content(content)
+            any_change = true
           end
         end
+        # Coarse invalidation: any source change blows away the
+        # delegation registry. felixefelip/steep#32 — re-parsing the
+        # project is cheap compared to type-checking, and granular
+        # invalidation would need a path → class-name reverse map
+        # that the registry doesn't carry today.
+        project.invalidate_delegation_registry! if any_change
       end
 
       def type_check_file(target:, subtyping:, path:, text:)
         Steep.logger.tagged "#type_check_file(#{path}@#{target.name})" do
           source = Source.parse(text, path: path, factory: subtyping.factory)
-          typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: yield, cursor: nil, contracts: project.contracts, postconditions: project.postconditions, callbacks: project.callbacks)
+          typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: yield, cursor: nil, contracts: project.contracts, postconditions: project.postconditions, callbacks: project.callbacks, delegation_registry: project.delegation_registry)
           ignores = Source::IgnoreRanges.new(ignores: source.ignores)
           SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing, ignores: ignores)
         end
@@ -329,7 +337,7 @@ module Steep
         SourceFile.no_data(path: path, content: text)
       end
 
-      def self.type_check(source:, subtyping:, constant_resolver:, cursor:, contracts:, postconditions:, callbacks:)
+      def self.type_check(source:, subtyping:, constant_resolver:, cursor:, contracts:, postconditions:, callbacks:, delegation_registry: nil)
         annotations = source.annotations(block: source.node, factory: subtyping.factory, context: nil)
 
         case annotations.self_type
@@ -392,7 +400,8 @@ module Steep
           typing: typing,
           contracts: contracts,
           postconditions: postconditions,
-          callbacks: callbacks
+          callbacks: callbacks,
+          delegation_registry: delegation_registry
         )
 
         construction.synthesize(source.node) if source.node

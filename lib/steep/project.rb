@@ -38,6 +38,21 @@ module Steep
       @callbacks ||= Callbacks.load(base_dir)
     end
 
+    # Project-wide registry of forward-delegate methods, used by
+    # `TypeConstruction` to inline delegation calls during narrowing
+    # (felixefelip/steep#32). Built eagerly on first access via
+    # `DelegationRegistry.build`. Invalidated wholesale whenever
+    # `update_sources` runs (LSP edit, file change) — coarse but
+    # simple; re-parsing the project is cheap relative to type-check
+    # itself.
+    def delegation_registry
+      @delegation_registry ||= DelegationRegistry.build(self)
+    end
+
+    def invalidate_delegation_registry!
+      @delegation_registry = nil
+    end
+
     def relative_path(path)
       path.relative_path_from(base_dir)
     rescue ArgumentError

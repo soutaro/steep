@@ -27,13 +27,15 @@ class TypeCheckTest < Minitest::Test
   def run_type_check_test(signatures: {}, code: {}, inline_code: {}, expectations: nil, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty, &block)
     typings = {}
 
+    delegation_registry = build_test_delegation_registry(code.merge(inline_code))
+
     with_factory(signatures, inline_code, nostdlib: false) do |factory|
       builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
       subtyping = Subtyping::Check.new(builder: builder)
 
       code.merge(inline_code).each do |path, content|
         source = Source.parse(content, path: Pathname(path), factory: factory)
-        with_standard_construction(subtyping, source, postconditions: postconditions, callbacks: callbacks) do |construction, typing|
+        with_standard_construction(subtyping, source, postconditions: postconditions, callbacks: callbacks, delegation_registry: delegation_registry) do |construction, typing|
           if source.node
             construction.synthesize(source.node)
           end
@@ -4950,6 +4952,31 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  # Builds an in-memory DelegationRegistry from the test's `code` hash
+  # (path => Ruby source string), without going through the file
+  # system. Used by `run_type_check_test` so that chain-narrowing
+  # tests (felixefelip/steep#32) can exercise the registry-driven
+  # inlining without a real project on disk.
+  def build_test_delegation_registry(code)
+    registry = Steep::Project::DelegationRegistry.new
+    code.each do |_path, content|
+      next unless content
+      buffer = ::Parser::Source::Buffer.new("<test>")
+      buffer.source = content
+      parser = ::Parser::Ruby33.new
+      parser.diagnostics.all_errors_are_fatal = false
+      parser.diagnostics.ignore_warnings = true
+      node = parser.parse(buffer) rescue nil
+      next unless node
+      delegations = Steep::TypeInference::DelegationAnalyzer.analyze(node)
+      delegations.each do |class_name, methods|
+        bucket = registry.to_h[class_name] ||= {}
+        methods.each { |name, info| bucket[name] = info }
+      end
+    end
+    registry
+  end
+
   def test_postconditions__predicate_refines_receiver
     run_type_check_test(
       signatures: {
@@ -7662,6 +7689,276 @@ class TypeCheckTest < Minitest::Test
                 character: 16
             severity: ERROR
             message: Type `(::String | nil)` does not have method `length`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  # --------------------------------------------------------------------
+  # felixefelip/steep#32: delegation chain narrowing via inlining.
+  # `def m; receiver.delegate_method; end` is detected by the
+  # DelegationAnalyzer / Registry, and `TypeConstruction#type_send`
+  # inlines the call site at type-check time. Refinements on the
+  # equivalent expanded receiver expression propagate through.
+  # --------------------------------------------------------------------
+
+  def test_delegation__inline_propagates_when_true_self_refinement
+    # `if foo.bar.confirmed?` narrows `foo.bar` to `Bar & BarConfirmed`
+    # via the predicate's `when_true.self` postcondition. The
+    # delegation inlining then resolves `foo.proxy_x` as if it were
+    # `foo.bar.x`, picking up the marker's `x: Integer` override
+    # instead of the parent class's `x: Integer?`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class DelFoo
+            attr_reader bar: DelBar
+            def proxy_x: () -> Integer?
+          end
+
+          class DelBar
+            attr_reader x: Integer?
+            def confirmed?: () -> bool
+          end
+
+          class DelBarConfirmed
+            attr_reader x: Integer
+          end
+
+          class DelHost
+            @foo: DelFoo
+
+            def exercise: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class DelFoo
+            # @dynamic bar, proxy_x
+            def proxy_x
+              bar.x
+            end
+          end
+
+          class DelHost
+            # @dynamic exercise
+            def exercise
+              if @foo.bar.confirmed?
+                @foo.proxy_x + 1
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "DelBar",
+          "method" => "confirmed?",
+          "when_true" => { "self" => "DelBar & DelBarConfirmed" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_delegation__multi_hop_chain_inlines_recursively
+    # `Ticket#venue_name` → `event.venue_name` → `venue.name`. Two
+    # hops. After `event.venue.confirmed?` narrows the chain, both
+    # `ticket.venue_name` (recursively inlined through two delegate
+    # methods) and `ticket.event.venue_name` (inlined through one)
+    # should resolve to the marker's narrowed `name`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Del2Ticket
+            attr_reader event: Del2Event
+            def venue_name: () -> String?
+          end
+
+          class Del2Event
+            attr_reader venue: Del2Venue
+            def venue_name: () -> String?
+          end
+
+          class Del2Venue
+            attr_reader name: String?
+            def confirmed?: () -> bool
+          end
+
+          class Del2VenueConfirmed
+            attr_reader name: String
+          end
+
+          class Del2Host
+            @ticket: Del2Ticket
+
+            def exercise: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Del2Ticket
+            # @dynamic event, venue_name
+            def venue_name
+              event.venue_name
+            end
+          end
+
+          class Del2Event
+            # @dynamic venue, venue_name
+            def venue_name
+              venue.name
+            end
+          end
+
+          class Del2Host
+            # @dynamic exercise
+            def exercise
+              if @ticket.event.venue.confirmed?
+                @ticket.venue_name.upcase
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "Del2Venue",
+          "method" => "confirmed?",
+          "when_true" => { "self" => "Del2Venue & Del2VenueConfirmed" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_delegation__polymorphism_uses_receiver_type
+    # `Wrapper#name` is a delegation; `Concrete#name` is a regular
+    # method that doesn't delegate (just returns a literal). The
+    # registry sees both as Ruby-source methods. Inlining must use
+    # `recv_type` to decide — when the receiver is `Concrete`, no
+    # inlining; when it's `Wrapper`, inline through `inner.name`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class DelPolyWrapper
+            attr_reader inner: DelPolyInner
+            def name: () -> String
+          end
+
+          class DelPolyInner
+            attr_reader name: String
+          end
+
+          class DelPolyConcrete
+            def name: () -> String
+          end
+
+          class DelPolyHost
+            @wrapper: DelPolyWrapper
+            @concrete: DelPolyConcrete
+
+            def exercise: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class DelPolyWrapper
+            # @dynamic inner, name
+            def name
+              inner.name
+            end
+          end
+
+          class DelPolyConcrete
+            # @dynamic name
+            def name
+              "literal"
+            end
+          end
+
+          class DelPolyHost
+            # @dynamic exercise
+            def exercise
+              @wrapper.name.length + @concrete.name.length
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_delegation__without_narrowing_resolves_as_normal
+    # Sanity: when no narrowing is in scope, delegation inlining
+    # should give the same result as the regular type_send path —
+    # the declared `proxy_x: Integer?` return. This pins that
+    # inlining doesn't accidentally widen or narrow types in the
+    # null-refinement case.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class DelNoNarrowFoo
+            attr_reader bar: DelNoNarrowBar
+            def proxy_x: () -> Integer?
+          end
+
+          class DelNoNarrowBar
+            attr_reader x: Integer?
+          end
+
+          class DelNoNarrowHost
+            @foo: DelNoNarrowFoo
+
+            def exercise: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class DelNoNarrowFoo
+            # @dynamic bar, proxy_x
+            def proxy_x
+              bar.x
+            end
+          end
+
+          class DelNoNarrowHost
+            # @dynamic exercise
+            def exercise
+              @foo.proxy_x + 1
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 11
+                character: 17
+              end:
+                line: 11
+                character: 18
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
             code: Ruby::NoMethod
       YAML
     )

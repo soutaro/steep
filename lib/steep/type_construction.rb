@@ -48,6 +48,7 @@ module Steep
     attr_reader :contracts
     attr_reader :postconditions
     attr_reader :callbacks
+    attr_reader :delegation_registry
 
     attr_reader :context
 
@@ -90,7 +91,7 @@ module Steep
       context.variable_context
     end
 
-    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty)
+    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty, delegation_registry: nil)
       @checker = checker
       @source = source
       @annotations = annotations
@@ -99,6 +100,7 @@ module Steep
       @contracts = contracts
       @postconditions = postconditions
       @callbacks = callbacks
+      @delegation_registry = delegation_registry
     end
 
     def with_new_typing(typing)
@@ -110,7 +112,8 @@ module Steep
         context: context,
         contracts: contracts,
         postconditions: postconditions,
-        callbacks: callbacks
+        callbacks: callbacks,
+        delegation_registry: delegation_registry
       )
     end
 
@@ -132,7 +135,8 @@ module Steep
           context: context,
           contracts: contracts,
           postconditions: postconditions,
-          callbacks: callbacks
+          callbacks: callbacks,
+        delegation_registry: delegation_registry
         )
       else
         self
@@ -329,7 +333,8 @@ module Steep
         typing: typing,
         contracts: contracts,
         postconditions: postconditions,
-        callbacks: callbacks
+        callbacks: callbacks,
+        delegation_registry: delegation_registry
       )
     end
 
@@ -511,7 +516,8 @@ module Steep
         ),
         contracts: contracts,
         postconditions: postconditions,
-        callbacks: callbacks
+        callbacks: callbacks,
+        delegation_registry: delegation_registry
       )
     end
 
@@ -605,7 +611,8 @@ module Steep
         context: class_body_context,
         contracts: contracts,
         postconditions: postconditions,
-        callbacks: callbacks
+        callbacks: callbacks,
+        delegation_registry: delegation_registry
       )
     end
 
@@ -721,7 +728,8 @@ module Steep
         context: body_context,
         contracts: contracts,
         postconditions: postconditions,
-        callbacks: callbacks
+        callbacks: callbacks,
+        delegation_registry: delegation_registry
       )
     end
 
@@ -3616,6 +3624,20 @@ module Steep
       receiver_type = checker.factory.deep_expand_alias(recv_type)
       private = receiver.nil? || receiver.type == :self
 
+      # Delegation chain narrowing (felixefelip/steep#32). If the
+      # called method's source body is a forward delegate
+      # (`def m; receiver.x; end`), substitute the call site with the
+      # expanded `host.receiver.x` form for narrowing purposes — so
+      # refinements on the chain (postcondition markers, pure_call
+      # cache from a prior predicate) reach the actual return. The
+      # original node still gets its typing recorded; the synthetic
+      # nodes used internally don't pollute external walks because
+      # they live only inside the recursive synthesize call.
+      if receiver && (inlined_type_constr = try_delegation_inline(node: node, receiver: receiver, recv_type: receiver_type, method_name: method_name, hint: hint))
+        inlined_type, inlined_constr = inlined_type_constr
+        return Pair.new(type: inlined_type, constr: inlined_constr)
+      end
+
       type, constr =
         case receiver_type
         when nil
@@ -5087,7 +5109,8 @@ module Steep
         ),
         contracts: contracts,
         postconditions: postconditions,
-        callbacks: callbacks
+        callbacks: callbacks,
+        delegation_registry: delegation_registry
       )
     end
 
@@ -5909,6 +5932,81 @@ module Steep
         "self." + ([expr.method] + expr.chain).map(&:to_s).join(".")
       else
         expr.inspect
+      end
+    end
+
+    # Delegation chain narrowing (felixefelip/steep#32). When typing
+    # `host.<method>` and `<method>` is a known forward delegate on
+    # `host`'s class, build a synthetic AST for the expanded send
+    # (`host.<receiver>.<delegate_method>`) and synthesize it
+    # recursively. The original call node receives the inlined type;
+    # multi-hop chains compose naturally because each recursive
+    # synthesize re-enters this code path.
+    #
+    # Returns `[type, constr]` on hit, `nil` on miss — callers fall
+    # through to the normal type_send path. Cap of 4 hops prevents
+    # infinite recursion on degenerate `def m; m; end` shapes.
+    def try_delegation_inline(node:, receiver:, recv_type:, method_name:, hint:)
+      return nil unless delegation_registry
+
+      class_name = delegation_class_name_from_type(recv_type)
+      return nil unless class_name
+
+      info = delegation_registry.lookup(class_name, method_name)
+      return nil unless info
+
+      stack = (Thread.current[:steep_delegation_stack] ||= [])
+      key = [class_name, method_name]
+      return nil if stack.include?(key)
+      return nil if stack.size >= 4
+
+      intermediate = build_delegation_intermediate_node(receiver, info) or return nil
+      inlined = ::Parser::AST::Node.new(:send, [intermediate, info.delegate_method])
+
+      stack.push(key)
+      begin
+        pair = synthesize(inlined, hint: hint)
+      rescue StandardError => e
+        Steep.logger.warn { "[delegation] inline failed for #{class_name}##{method_name}: #{e.message}" }
+        return nil
+      ensure
+        stack.pop
+      end
+
+      pair.constr.add_typing(node, type: pair.type)
+      [pair.type, pair.constr]
+    end
+
+    # Best-effort class-name extraction from a Steep AST type. Covers
+    # the common shapes the registry can resolve against: plain
+    # ClassInstance and the first ClassInstance inside an Intersection
+    # (the typical `Klass & Klass::Marker` shape produced by
+    # postcondition narrowing).
+    def delegation_class_name_from_type(type)
+      case type
+      when AST::Types::Name::Instance
+        type.name.to_s.sub(/\A::/, "")
+      when AST::Types::Intersection
+        type.types.each do |t|
+          name = delegation_class_name_from_type(t)
+          return name if name
+        end
+        nil
+      end
+    end
+
+    # Builds the AST node representing the delegation's receiver-of-
+    # receiver, to be wrapped in the outer `:send` for synthesize.
+    # `:ivar` delegation is only inlinable when the caller is on
+    # self/implicit-self — ivars belong to the receiver and aren't
+    # reachable from cross-receiver call sites.
+    def build_delegation_intermediate_node(receiver, info)
+      case info.receiver_kind
+      when :attr_send
+        ::Parser::AST::Node.new(:send, [receiver, info.receiver_name])
+      when :ivar
+        return nil unless receiver.nil? || (receiver.respond_to?(:type) && receiver.type == :self)
+        ::Parser::AST::Node.new(:ivar, [info.receiver_name])
       end
     end
   end
