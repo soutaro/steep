@@ -58,6 +58,13 @@ class PostconditionsInferrerTest < Minitest::Test
     refute entry.singleton
     assert_equal [:"@company"], entry.ivars.keys
     assert_equal "(::IUCompany & ::IUCompany::Validated)", entry.ivars[:"@company"].to_s
+    # `unconditional.self` is emitted alongside `ivars` so that callers
+    # whose receiver is NOT self (e.g. `controller.set_company`) can
+    # still be narrowed — `apply_unconditional_postconditions` only
+    # touches caller ivars when receiver is self, so without a self
+    # marker the cross-receiver case would be a no-op.
+    assert_equal "::IUController & ::IUController::AfterSetCompany",
+                 entry.self_type_string
   end
 
   def test_does_not_infer_when_rhs_equals_declared

@@ -7346,4 +7346,324 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  # ---------------------------------------------------------------------------
+  # felixefelip/steep#31: `unconditional.self` / `unconditional.drops` apply
+  # to non-self receivers.
+  #
+  # Pre-#31, `apply_unconditional_postconditions` had an early return when
+  # the receiver wasn't `self` (or `:self`). That made the `set_company`
+  # pattern work (controller calling its own setter) but blocked the
+  # symmetric case where a wrapper calls a setter on its inner object
+  # (`venue.set_default_name` returning a venue with `@name` confirmed).
+  # This change drops the self-only guard and adds REPLACE semantics for
+  # `unconditional.self` and subtraction for `unconditional.drops`.
+  # ---------------------------------------------------------------------------
+
+  def test_postconditions__unconditional_self_refines_non_self_receiver
+    # `venue.set_default_name` declares `unconditional.self:
+    # "PCUncondVenue & Confirmed"`. The next read of `venue.name` should
+    # resolve via the marker (which narrows `name` to non-nil).
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCUncondVenue
+            attr_reader name: String?
+            def set_default_name: () -> String
+          end
+
+          module PCUncondVenue::Confirmed
+            def name: () -> String
+          end
+
+          class PCUncondMounter
+            def mount: (PCUncondVenue venue) -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCUncondMounter
+            # @dynamic mount
+            def mount(venue)
+              venue.set_default_name
+              venue.name.length
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCUncondVenue",
+          "method" => "set_default_name",
+          "unconditional" => { "self" => "PCUncondVenue & PCUncondVenue::Confirmed" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__unconditional_drops_subtracts_markers_from_non_self_receiver
+    # `venue.clear_name` drops the `Confirmed` marker. Calling
+    # `fancy_only` (only on Confirmed) after that should fail.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCDropVenue
+            attr_reader name: String?
+            def set_default_name: () -> String
+            def clear_name: () -> nil
+
+            def self.first: () -> (PCDropVenue & PCDropVenue::Confirmed)
+          end
+
+          module PCDropVenue::Confirmed
+            def fancy_only: () -> String
+          end
+
+          class PCDropMounter
+            def cancel: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCDropMounter
+            # @dynamic cancel
+            def cancel
+              venue = PCDropVenue.first
+              venue.clear_name
+              venue.fancy_only.length
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCDropVenue",
+          "method" => "clear_name",
+          "unconditional" => { "drops" => ["PCDropVenue::Confirmed"] }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 10
+              end:
+                line: 6
+                character: 20
+            severity: ERROR
+            message: Type `::PCDropVenue` does not have method `fancy_only`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__unconditional_self_refines_ivar_receiver
+    # Receiver is an ivar (`@venue.set_default_name`) — refines the
+    # caller's `@venue` ivar type. Steep#31 routes through
+    # `instance_variable_types` slot.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCIvarUncondVenue
+            attr_reader name: String?
+            def set_default_name: () -> String
+          end
+
+          module PCIvarUncondVenue::Confirmed
+            def name: () -> String
+          end
+
+          class PCIvarUncondHost
+            @venue: PCIvarUncondVenue
+
+            def edit: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCIvarUncondHost
+            # @dynamic edit
+            def edit
+              @venue.set_default_name
+              @venue.name.length
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCIvarUncondVenue",
+          "method" => "set_default_name",
+          "unconditional" => { "self" => "PCIvarUncondVenue & PCIvarUncondVenue::Confirmed" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__unconditional_self_refines_self_receiver_via_refined_self
+    # When receiver is self (implicit), `unconditional.self` routes
+    # through `env.refined_self_type` (steep#25 mechanism). Reading a
+    # method only on the marker subsequently resolves cleanly.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCSelfUncondVenue
+            attr_reader name: String?
+            def set_default_name: () -> String
+            def announce: () -> Integer
+          end
+
+          module PCSelfUncondVenue::Confirmed
+            def fancy_only: () -> String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCSelfUncondVenue
+            # @dynamic name, set_default_name, announce
+            def announce
+              set_default_name
+              fancy_only.length
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCSelfUncondVenue",
+          "method" => "set_default_name",
+          "unconditional" => { "self" => "PCSelfUncondVenue & PCSelfUncondVenue::Confirmed" }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__unconditional_self_skips_when_marker_missing_in_rbs
+    # Sidecar emitters (rbs_infer side) can race ahead of the
+    # marker-class generators (rbs_rails today doesn't emit any). When
+    # the sidecar's `unconditional.self` references a class that
+    # doesn't exist in RBS, applying the refinement would later crash
+    # `build_instance` whenever Steep computes a shape on the
+    # intersection. Guard verifies the marker resolves; if not, the
+    # refinement is silently skipped so the rest of the project
+    # still type-checks.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCMissingMarkerVenue
+            def set_default_name: () -> String
+          end
+
+          class PCMissingMarkerHost
+            @venue: PCMissingMarkerVenue
+
+            def edit: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCMissingMarkerHost
+            # @dynamic edit
+            def edit
+              @venue.set_default_name
+              @venue.set_default_name.length
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCMissingMarkerVenue",
+          "method" => "set_default_name",
+          "unconditional" => {
+            "self" => "PCMissingMarkerVenue & PCMissingMarkerVenue::DoesNotExist"
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_postconditions__unconditional_ivars_still_only_fires_for_self_receiver
+    # Regression guard: `unconditional.ivars` only applies when the
+    # call's receiver is self (or implicit). For non-self receivers,
+    # `ivars` refers to the RECEIVER's ivars, which aren't visible in
+    # the caller's env — silently skip (no crash, no false refinement).
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCIvarsSelfOnlyVenue
+            def set_default_name: () -> String
+          end
+
+          class PCIvarsSelfOnlyHost
+            @venue: PCIvarsSelfOnlyVenue
+            @name: String?
+
+            def edit: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCIvarsSelfOnlyHost
+            # @dynamic edit
+            def edit
+              @venue.set_default_name
+              @name.length
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "PCIvarsSelfOnlyVenue",
+          "method" => "set_default_name",
+          "unconditional" => { "ivars" => { "@name" => "String" } }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 10
+              end:
+                line: 5
+                character: 16
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `length`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end

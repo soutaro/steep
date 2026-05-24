@@ -43,17 +43,34 @@ module Steep
           ivars = collect_ivar_refinements(def_node, class_name, singleton: singleton)
           next if ivars.empty?
 
+          method_name = def_node.children[0]
           results << InferredEntry.new(
             class_name: class_name,
-            method_name: def_node.children[0],
+            method_name: method_name,
             singleton: singleton,
-            ivars: ivars
+            ivars: ivars,
+            self_type_string: marker_self_type_for(class_name, method_name, singleton: singleton)
           )
         end
         results
       end
 
       private
+
+      # Composes the `unconditional.self:` value for an inferred entry,
+      # following the `MarkerNaming` convention shared with rbs_infer.
+      # Instance methods get `"::ClassName & ::ClassName::AfterMethod"`
+      # so consumers (`apply_unconditional_postconditions`) can REPLACE
+      # the receiver's type with the intersection. Singleton methods
+      # don't get a marker — there's no established convention for
+      # narrowing a class/module value, and the inferrer for those is
+      # rare in practice. Method names that strip to empty under
+      # `pascal_case` (e.g. `:"="`) are also skipped.
+      def marker_self_type_for(class_name, method_name, singleton:)
+        return nil if singleton
+        return nil unless MarkerNaming.valid_method_name?(method_name)
+        MarkerNaming.narrowed_self_type_for(class_name, method_name)
+      end
 
       # Walks the AST yielding (def_node, class_name, singleton?) for each
       # method definition found inside a class/module. Skips top-level
@@ -194,13 +211,14 @@ module Steep
     # callers can serialize the inference output without round-tripping
     # through the loader.
     class InferredEntry
-      attr_reader :class_name, :method_name, :singleton, :ivars
+      attr_reader :class_name, :method_name, :singleton, :ivars, :self_type_string
 
-      def initialize(class_name:, method_name:, singleton:, ivars:)
+      def initialize(class_name:, method_name:, singleton:, ivars:, self_type_string: nil)
         @class_name = class_name
         @method_name = method_name
         @singleton = singleton
         @ivars = ivars
+        @self_type_string = self_type_string
       end
 
       def ==(other)
@@ -208,13 +226,14 @@ module Steep
           other.class_name == class_name &&
           other.method_name == method_name &&
           other.singleton == singleton &&
-          other.ivars == ivars
+          other.ivars == ivars &&
+          other.self_type_string == self_type_string
       end
 
       alias eql? ==
 
       def hash
-        class_name.hash ^ method_name.hash ^ singleton.hash ^ ivars.hash
+        class_name.hash ^ method_name.hash ^ singleton.hash ^ ivars.hash ^ self_type_string.hash
       end
     end
   end

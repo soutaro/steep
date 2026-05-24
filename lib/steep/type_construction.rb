@@ -3769,36 +3769,195 @@ module Steep
       end
     end
 
-    # Phase 1 of felixefelip/steep#23: applies the `unconditional:` branch
-    # of a postcondition entry to the env after a call. Distinct from the
-    # `when_true`/`when_false` slots, which fire only when the call is the
-    # guard of a conditional — `unconditional:` fires at every call site.
+    # Applies the `unconditional:` branch of a postcondition entry to the
+    # env after a call. Distinct from `when_true`/`when_false`, which fire
+    # only when the call is the guard of a conditional — `unconditional:`
+    # fires at every call site.
     #
-    # MVP scope: only the `ivars:` sub-slot is honored. `self:` and
-    # `via_receiver:` inside `unconditional:` are parsed and stored but
-    # not applied here yet; that's a follow-up. The `ivars:` path covers
-    # the canonical `set_company` pattern (a side-effecting method that
-    # assigns to a caller ivar with a refined type).
+    # Three sub-slots are honored, with different applicability rules:
+    #
+    # - **`ivars:`** — refines the CALLER's ivars (set_company pattern,
+    #   felixefelip/steep#23). Only fires for self/implicit-self
+    #   receivers; for non-self receivers the ivars belong to a
+    #   different object and refining the caller's env doesn't apply.
+    #
+    # - **`self:`** — refines the RECEIVER's type using REPLACE
+    #   semantics (felixefelip/steep#31). Works for both self and
+    #   non-self receivers: self routes through `refined_self_type`
+    #   (steep#25), others route through local_variable_types /
+    #   instance_variable_types / pure_call_types depending on the
+    #   receiver node shape. Useful for `update!`/`save!`-style methods
+    #   that raise on failure — if the call returned, the receiver is
+    #   in the post-success state.
+    #
+    # - **`drops:`** — subtracts markers from the receiver's type
+    #   (felixefelip/steep#29 + #31). Filters intersection components
+    #   matching the listed type names. Useful for setters that lose a
+    #   marker invariant — e.g., `obj.clear_name` after which `obj` no
+    #   longer has the `Confirmed` marker.
+    #
+    # `via_receiver:` inside `unconditional:` is parsed but not yet
+    # applied — follow-up.
     def apply_unconditional_postconditions(node:, call:, receiver:)
       return self unless call.is_a?(TypeInference::MethodCall::Typed)
       return self if postconditions.empty?
-      return self unless self_receiver_for_attr?(receiver)
 
       entry = lookup_unconditional_postcondition_entry(call)
       return self unless entry&.unconditional
 
       branch = entry.unconditional
-      return self if branch.ivar_type_strings.empty?
+      constr = self
 
-      updates = {} #: Hash[Symbol, AST::Types::t]
-      branch.ivar_rbs_types.each do |name, rbs_type|
-        ast_type = checker.factory.type(rbs_type) rescue nil
-        updates[name] = ast_type if ast_type
+      # 1. ivars: only fires for self/implicit-self receivers (refines
+      #    the CALLER's ivars, set_company pattern).
+      if !branch.ivar_type_strings.empty? && self_receiver_for_attr?(receiver)
+        updates = {} #: Hash[Symbol, AST::Types::t]
+        branch.ivar_rbs_types.each do |name, rbs_type|
+          ast_type = checker.factory.type(rbs_type) rescue nil
+          updates[name] = ast_type if ast_type
+        end
+        unless updates.empty?
+          constr = constr.update_type_env { |env| env.refine_types(instance_variable_types: updates) }
+        end
       end
-      return self if updates.empty?
 
-      update_type_env do |env|
-        env.refine_types(instance_variable_types: updates)
+      # 2. self: refines the receiver's type via REPLACE. Skipped if
+      # any class name referenced inside `branch.rbs_type` (typically
+      # a marker like `Foo::AfterX`) isn't declared in RBS — applying
+      # the refinement anyway would crash `build_instance` later
+      # whenever Steep tries to compute a shape on the intersection.
+      # Sidecar emitters can race ahead of marker-class generation
+      # (rbs_rails today doesn't emit markers, rbs_infer does);
+      # tolerating dangling references keeps an in-progress project
+      # type-checking rather than aborting the whole run.
+      if branch.rbs_type && marker_references_resolvable?(branch.rbs_type)
+        new_receiver_type = checker.factory.type(branch.rbs_type) rescue nil
+        constr = constr.refine_receiver_for_unconditional(receiver, new_receiver_type) if new_receiver_type
+      end
+
+      # 3. drops: subtracts markers from the receiver's type.
+      unless branch.drops_type_strings.empty?
+        current = current_receiver_type_for_unconditional(receiver, constr)
+        if current
+          dropped = apply_drops_to_type_unconditional(current, branch)
+          if dropped && !dropped.equal?(current)
+            constr = constr.refine_receiver_for_unconditional(receiver, dropped)
+          end
+        end
+      end
+
+      constr
+    end
+
+    # Walks `rbs_type` collecting every class/module name referenced
+    # inside, then checks each against the env's known declarations.
+    # Returns `false` on the first unknown name so the caller can
+    # bail out of refinement before building shapes that would crash.
+    # `RBS::Types::Intersection` and `Union` are the common shapes for
+    # marker payloads (`Foo & Foo::AfterX`); leaf types like literals
+    # and `void`/`nil` carry no class name and don't need validation.
+    def marker_references_resolvable?(rbs_type)
+      env = checker.factory.env
+      collect_marker_class_names(rbs_type).all? do |name|
+        absolute = name.absolute? ? name : name.absolute!
+        env.class_decls.key?(absolute) || env.class_alias_decls.key?(absolute) || env.normalized_module_class_entry(absolute)
+      end
+    rescue StandardError
+      false
+    end
+
+    def collect_marker_class_names(rbs_type, acc = [])
+      case rbs_type
+      when RBS::Types::ClassInstance, RBS::Types::ClassSingleton
+        acc << rbs_type.name
+      when RBS::Types::Intersection, RBS::Types::Union
+        rbs_type.types.each { |t| collect_marker_class_names(t, acc) }
+      when RBS::Types::Optional
+        collect_marker_class_names(rbs_type.type, acc)
+      end
+      acc
+    end
+
+    # Routes a receiver-type refinement to the appropriate env slot
+    # based on the receiver node's shape. Mirror of
+    # `LogicTypeInterpreter#refine_node_type` but unconditional — sets
+    # the same `new_type` regardless of branch.
+    def refine_receiver_for_unconditional(receiver, new_type)
+      if receiver.nil? || (receiver.respond_to?(:type) && receiver.type == :self)
+        return update_type_env { |env| env.with_refined_self(new_type) }
+      end
+
+      case receiver.type
+      when :lvar
+        name = receiver.children[0]
+        update_type_env { |env| env.refine_types(local_variable_types: { name => new_type }) }
+      when :ivar
+        name = receiver.children[0]
+        update_type_env { |env| env.refine_types(instance_variable_types: { name => new_type }) }
+      when :send
+        # Pure call cached in env — refine its return type entry.
+        return self unless context.type_env[receiver]
+        update_type_env { |env| env.refine_types(pure_call_types: { receiver => new_type }) }
+      else
+        self
+      end
+    end
+
+    # Resolves the current type of a receiver for the purposes of
+    # applying `drops:`. For self receivers, prefers
+    # `env.refined_self_type` (steep#25) over the bound `self_type`.
+    def current_receiver_type_for_unconditional(receiver, constr)
+      if receiver.nil? || (receiver.respond_to?(:type) && receiver.type == :self)
+        return constr.context.type_env.refined_self_type || constr.self_type
+      end
+
+      constr.typing.type_of(node: receiver) rescue nil
+    end
+
+    # Subtraction logic for `unconditional.drops`. Filters intersection
+    # components matching the named markers, distributes through
+    # unions, leaves non-aggregate types alone (subtracting `T` from
+    # `T` alone would yield empty; preserve type to avoid producing
+    # malformed output).
+    def apply_drops_to_type_unconditional(type, branch)
+      drop_names = branch.drops_rbs_types.filter_map do |rbs_type|
+        case rbs_type
+        when RBS::Types::ClassInstance, RBS::Types::Interface
+          rbs_type.name.absolute!
+        end
+      end
+      return type if drop_names.empty?
+
+      do_apply_drops_unconditional(type, drop_names)
+    end
+
+    def do_apply_drops_unconditional(type, drop_names)
+      case type
+      when AST::Types::Intersection
+        remaining = type.types.reject { |t| drop_matches_unconditional?(t, drop_names) }
+        return type if remaining.size == type.types.size
+        if remaining.empty?
+          AST::Builtin.any_type
+        elsif remaining.size == 1
+          remaining.first
+        else
+          AST::Types::Intersection.build(types: remaining)
+        end
+      when AST::Types::Union
+        new_branches = type.types.map { |t| do_apply_drops_unconditional(t, drop_names) }
+        return type if new_branches == type.types
+        AST::Types::Union.build(types: new_branches)
+      else
+        type
+      end
+    end
+
+    def drop_matches_unconditional?(type, drop_names)
+      case type
+      when AST::Types::Name::Instance, AST::Types::Name::Interface
+        drop_names.include?(type.name)
+      else
+        false
       end
     end
 

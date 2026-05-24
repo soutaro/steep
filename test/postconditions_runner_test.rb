@@ -103,6 +103,8 @@ class PostconditionsRunnerTest < Minitest::Test
       refute_nil entry, "expected entry to round-trip through the loader"
       refute_nil entry.unconditional, "expected unconditional branch"
       assert_equal({ :"@company" => "(::PCRunnerCompany & ::PCRunnerCompany::Validated)" }, entry.unconditional.ivar_type_strings)
+      assert_equal "::PCRunnerController & ::PCRunnerController::AfterSetCompany",
+                   entry.unconditional.self_type_string
     end
   end
 
