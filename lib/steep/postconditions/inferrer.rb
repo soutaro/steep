@@ -41,15 +41,21 @@ module Steep
         results = []
         walk_classes(@source.node, nesting: []) do |def_node, class_name, singleton|
           ivars = collect_ivar_refinements(def_node, class_name, singleton: singleton)
-          next if ivars.empty?
+          when_true_ivars = collect_when_true_nonnil_refinements(def_node, class_name, singleton: singleton)
+          next if ivars.empty? && when_true_ivars.empty?
 
           method_name = def_node.children[0]
+          self_type_string = marker_self_type_for(class_name, method_name, singleton: singleton) unless ivars.empty?
+          when_true_self_type_string = marker_self_type_for(class_name, method_name, singleton: singleton) unless when_true_ivars.empty?
+
           results << InferredEntry.new(
             class_name: class_name,
             method_name: method_name,
             singleton: singleton,
             ivars: ivars,
-            self_type_string: marker_self_type_for(class_name, method_name, singleton: singleton)
+            self_type_string: self_type_string,
+            when_true_ivars: when_true_ivars,
+            when_true_self_type_string: when_true_self_type_string
           )
         end
         results
@@ -160,6 +166,149 @@ module Steep
         end
       end
 
+      # Returns `Hash[Symbol, AST::Types::t]` mapping `@ivar` to its
+      # refined type for methods whose body, when evaluated by the
+      # `LogicTypeInterpreter`, narrows one or more ivars in the
+      # truthy branch.
+      #
+      # Defers all shape recognition to the same logical-type
+      # machinery Steep uses for `if`/`unless`/`&&`/`||` narrowing —
+      # so `!@x.nil?`, `@x.is_a?(Klass)` and any future Logic-type
+      # patterns are picked up uniformly, without re-implementing
+      # the case analysis here.
+      #
+      # The interpreter runs against a fresh env populated only with
+      # the class's declared instance variables; the result's truthy
+      # env is compared to that baseline. Ivar entries that ended up
+      # strictly narrower (declared `T?` → refined `T`) become
+      # postcondition refinements. Equal entries are dropped — a
+      # no-op refinement would only add sidecar noise.
+      def collect_when_true_nonnil_refinements(def_node, class_name, singleton:)
+        body = def_node.children[2]
+        return {} unless body
+        last_expr = last_expression(body) or return {}
+
+        return {} unless predicate_body?(last_expr)
+
+        env = build_env_for_class(class_name, singleton: singleton) or return {}
+        interpreter = build_interpreter_for_class(class_name, singleton: singleton)
+        return {} unless interpreter
+
+        truthy_result = nil
+        begin
+          truthy_result = evaluate_truthy(interpreter: interpreter, env: env, node: last_expr)
+        rescue StandardError => e
+          Steep.logger.warn { "[postconditions] when_true inference failed for #{class_name}##{def_node.children[0]}: #{e.message}" }
+          return {}
+        end
+        return {} unless truthy_result
+        return {} if truthy_result.unreachable
+
+        declared = declared_ivar_types(class_name, singleton: singleton)
+        refined_ivars = truthy_result.env.instance_variable_types
+        refined_ivars.each_with_object({}) do |(name, refined_type), result|
+          declared_type = declared[name]
+          next unless declared_type
+          next if refined_type == declared_type
+          next unless strict_subtype?(refined_type, declared_type)
+          result[name] = refined_type
+        end
+      end
+
+      def last_expression(node)
+        case node&.type
+        when :begin, :kwbegin
+          last = node.children.compact.last
+          last ? last_expression(last) : nil
+        else
+          node
+        end
+      end
+
+      # Returns the LogicTypeInterpreter `Result` for the truthy
+      # branch of `node`, handling `:and`/`:or` by composition.
+      # The interpreter natively dispatches on `:send` /
+      # `Logic::Env`-typed nodes, but method bodies aren't
+      # type-checked in conditional mode, so `:and`/`:or` nodes
+      # carry plain Boolean types and the interpreter's default
+      # path would refine nothing. Walking them here threads the
+      # truthy env from the left side into the right side's
+      # evaluation, matching what `type_construction.rb`'s `:and`
+      # handler does during real conditional type-checking.
+      def evaluate_truthy(interpreter:, env:, node:)
+        case node.type
+        when :and
+          left_truthy = evaluate_truthy(interpreter: interpreter, env: env, node: node.children[0])
+          return nil unless left_truthy
+          return left_truthy if left_truthy.unreachable
+          evaluate_truthy(interpreter: interpreter, env: left_truthy.env, node: node.children[1])
+        else
+          truthy_result, _falsy_result = interpreter.eval(env: env, node: node)
+          truthy_result
+        end
+      end
+
+      # Whether `node` is or recursively contains a logic-typed
+      # sub-expression (`Logic::Base` / `Logic::Env`) the interpreter
+      # can derive a narrowing from. Method bodies aren't
+      # type-checked in conditional mode, so `:and`/`:or` operators
+      # carry plain Boolean — recursing into their operands is the
+      # only way to spot a nil-check buried inside `a && b`.
+      def predicate_body?(node)
+        case node&.type
+        when :and, :or
+          predicate_body?(node.children[0]) || predicate_body?(node.children[1])
+        else
+          type = type_of(node)
+          return false unless type
+          type.is_a?(AST::Types::Logic::Base) || type.is_a?(AST::Types::Logic::Env)
+        end
+      end
+
+      # Minimal env with just the class's declared instance variables
+      # populated, scoped to a fresh `ConstantEnv`. The interpreter
+      # mutates the env on refinement; we compare the result against
+      # the same baseline to surface only the differences.
+      def build_env_for_class(class_name, singleton:)
+        ivars = declared_ivar_types(class_name, singleton: singleton)
+        return nil if ivars.empty?
+
+        const_env = TypeInference::ConstantEnv.new(
+          factory: @factory,
+          context: nil,
+          resolver: RBS::Resolver::ConstantResolver.new(builder: @factory.definition_builder)
+        )
+        env = TypeInference::TypeEnv.new(const_env)
+        env.refine_types(instance_variable_types: ivars)
+      end
+
+      def build_interpreter_for_class(class_name, singleton:)
+        type_name = RBS::TypeName.parse("::#{class_name}").absolute! rescue nil
+        return nil unless type_name
+
+        instance_type =
+          if singleton
+            AST::Types::Name::Singleton.new(name: type_name)
+          else
+            AST::Types::Name::Instance.new(name: type_name, args: [])
+          end
+        class_type = AST::Types::Name::Singleton.new(name: type_name)
+
+        config = Interface::Builder::Config.new(
+          self_type: instance_type,
+          class_type: class_type,
+          instance_type: instance_type,
+          variable_bounds: {}
+        )
+
+        TypeInference::LogicTypeInterpreter.new(
+          subtyping: @subtyping,
+          typing: @typing,
+          config: config,
+          self_type: instance_type
+        )
+      end
+
       # Recursively walks `node` yielding every `:ivasgn` descendant.
       def walk_ivasgns(node, &block)
         return unless node.is_a?(Parser::AST::Node)
@@ -255,14 +404,18 @@ module Steep
     # callers can serialize the inference output without round-tripping
     # through the loader.
     class InferredEntry
-      attr_reader :class_name, :method_name, :singleton, :ivars, :self_type_string
+      attr_reader :class_name, :method_name, :singleton
+      attr_reader :ivars, :self_type_string
+      attr_reader :when_true_ivars, :when_true_self_type_string
 
-      def initialize(class_name:, method_name:, singleton:, ivars:, self_type_string: nil)
+      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil)
         @class_name = class_name
         @method_name = method_name
         @singleton = singleton
         @ivars = ivars
         @self_type_string = self_type_string
+        @when_true_ivars = when_true_ivars
+        @when_true_self_type_string = when_true_self_type_string
       end
 
       def ==(other)
@@ -271,13 +424,16 @@ module Steep
           other.method_name == method_name &&
           other.singleton == singleton &&
           other.ivars == ivars &&
-          other.self_type_string == self_type_string
+          other.self_type_string == self_type_string &&
+          other.when_true_ivars == when_true_ivars &&
+          other.when_true_self_type_string == when_true_self_type_string
       end
 
       alias eql? ==
 
       def hash
-        class_name.hash ^ method_name.hash ^ singleton.hash ^ ivars.hash ^ self_type_string.hash
+        class_name.hash ^ method_name.hash ^ singleton.hash ^ ivars.hash ^ self_type_string.hash ^
+          when_true_ivars.hash ^ when_true_self_type_string.hash
       end
     end
   end
