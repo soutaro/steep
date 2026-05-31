@@ -5897,6 +5897,11 @@ module Steep
 
       contract = contract_for_current_method
       return nil unless contract
+      # Only narrow when the contract is enforced at all call sites. When it is
+      # not (some caller skips the check, or there are zero static call sites —
+      # e.g. Rails actions called by the framework), the precondition is a
+      # fiction: skipping narrowing lets the body errors it was hiding surface.
+      return nil unless contract.enforced
 
       contract.requires.each do |req|
         next unless req.is_a?(Contracts::Predicate::NotNil)
@@ -5936,10 +5941,12 @@ module Steep
       return unless contract
 
       env = context.type_env
+      all_satisfied = true
       contract.requires.each do |req|
         next unless req.is_a?(Contracts::Predicate::NotNil)
         next if precondition_holds?(req.expr, env)
 
+        all_satisfied = false
         typing.add_error(
           Diagnostic::Ruby::PreconditionUnsatisfied.new(
             node: node,
@@ -5949,6 +5956,12 @@ module Steep
           )
         )
       end
+
+      # Record that this contracted method has a (statically visible) call site
+      # and whether it satisfied the precondition. Contracts::Enforcement
+      # aggregates these across the project to decide if the contract is
+      # enforced (all call sites satisfy, and at least one exists).
+      typing.observe_contract_call_site(key: contract.key, satisfied: all_satisfied)
     end
 
     def precondition_target_type_name(receiver_type)

@@ -35,6 +35,43 @@ class ContractsIntegrationTest < Minitest::Test
     )
   end
 
+  def unenforced_name_contract
+    Contracts::Store.from_hash(
+      {
+        "version" => 1,
+        "methods" => {
+          "Foo#use_name" => {
+            "enforced" => false,
+            "requires" => [
+              { "kind" => "not_nil",
+                "expr" => { "kind" => "send", "receiver" => { "kind" => "self" }, "method" => "name" } }
+            ]
+          }
+        }
+      },
+      source: "<test>"
+    )
+  end
+
+  def test_unenforced_contract_does_not_narrow_body
+    with_checker(CONTRACT_RBS) do |checker|
+      source = parse_ruby(<<~RUBY)
+        # @type self: ::Foo
+        def use_name
+          name.size
+        end
+      RUBY
+
+      with_standard_construction(checker, source, contracts: unenforced_name_contract) do |construction, typing|
+        construction.synthesize(source.node)
+
+        no_method_errors = typing.errors.grep(Diagnostic::Ruby::NoMethod)
+        refute_empty no_method_errors,
+                     "an unenforced contract must NOT narrow the body, so `name.size` on String? still errors"
+      end
+    end
+  end
+
   def test_contract_narrows_pure_receiver_inside_body
     with_checker(CONTRACT_RBS) do |checker|
       source = parse_ruby(<<~RUBY)

@@ -154,6 +154,10 @@ module Steep
 
     attr_reader :source
     attr_reader :errors
+    # Observations of precondition contract call sites recorded during type
+    # checking: each entry is { key: "Class#method", satisfied: bool }. Used by
+    # Contracts::Enforcement to decide whether a contract is enforced.
+    attr_reader :contract_call_sites
     attr_reader :typing
     attr_reader :parent
     attr_reader :parent_last_update
@@ -174,6 +178,7 @@ module Steep
       @should_update = false
 
       @errors = []
+      @contract_call_sites = []
       (@typing = {}).compare_by_identity
       @root_context = root_context
       (@method_calls = {}).compare_by_identity
@@ -188,6 +193,10 @@ module Steep
 
     def add_error(error)
       errors << error
+    end
+
+    def observe_contract_call_site(key:, satisfied:)
+      contract_call_sites << { key: key, satisfied: satisfied }
     end
 
     def add_typing(node, type, _context)
@@ -309,6 +318,10 @@ module Steep
 
       errors.each do |error|
         parent.add_error error
+      end
+
+      contract_call_sites.each do |observation|
+        parent.observe_contract_call_site(**observation)
       end
 
       parent.cursor_context.set(cursor_context)

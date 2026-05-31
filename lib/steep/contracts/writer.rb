@@ -48,7 +48,11 @@ module Steep
       end
 
       def serialize_contract(contract)
-        { "requires" => contract.requires.map { |req| serialize_predicate(req) } }
+        payload = { "requires" => contract.requires.map { |req| serialize_predicate(req) } }
+        # Only emit `enforced` when false; absence means enforced (the common
+        # case) and keeps sidecars stable/back-compatible.
+        payload["enforced"] = false unless contract.enforced
+        payload
       end
 
       def serialize_predicate(predicate)

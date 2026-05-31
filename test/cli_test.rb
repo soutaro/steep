@@ -121,6 +121,7 @@ end
 class Foo
   attr_reader name: String?
   def helper: () -> Integer
+  def run: () -> void
 end
       EOF
 
@@ -130,6 +131,12 @@ end
 class Foo
   def helper
     name.size
+  end
+
+  def run
+    return unless name
+
+    helper
   end
 end
       EOF

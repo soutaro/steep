@@ -7,6 +7,24 @@ class ContractsWriterTest < Minitest::Test
     Contracts::Store.from_hash(raw, source: "<test>")
   end
 
+  def test_dump_omits_enforced_when_true_and_emits_when_false
+    enforced = Contracts::MethodContract.new(
+      type_name: "Foo", method_name: :a, singleton: false, enforced: true,
+      requires: [Contracts::Predicate::NotNil.new(Contracts::Expr::Send.new(receiver: Contracts::Expr::SelfRef.instance, method: :x, chain: []))]
+    )
+    unenforced = enforced.with_enforced(false)
+
+    payload = YAML.safe_load(Contracts::Writer.dump([enforced]))
+    refute payload.dig("methods", "Foo#a").key?("enforced"),
+           "enforced=true is the default and must be omitted from the sidecar"
+
+    payload = YAML.safe_load(Contracts::Writer.dump([unenforced]))
+    assert_equal false, payload.dig("methods", "Foo#a", "enforced")
+
+    reparsed = Contracts::Store.from_hash(payload, source: "<test>")
+    refute reparsed.lookup_instance("Foo", :a).enforced, "enforced=false must round-trip"
+  end
+
   def test_dump_round_trip_with_chain
     raw = {
       "version" => 1,

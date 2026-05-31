@@ -43,6 +43,35 @@ class ContractsTest < Minitest::Test
     assert_equal [:name], expr.chain
   end
 
+  def test_enforced_defaults_to_true_when_absent
+    raw = {
+      "methods" => {
+        "Foo#bar" => {
+          "requires" => [
+            { "kind" => "not_nil", "expr" => { "kind" => "send", "receiver" => { "kind" => "self" }, "method" => "name" } }
+          ]
+        }
+      }
+    }
+    contract = Contracts::Store.from_hash(raw, source: "<test>").lookup_instance("Foo", :bar)
+    assert contract.enforced, "missing `enforced` must default to true (back-compat)"
+  end
+
+  def test_parses_enforced_false
+    raw = {
+      "methods" => {
+        "Foo#bar" => {
+          "enforced" => false,
+          "requires" => [
+            { "kind" => "not_nil", "expr" => { "kind" => "send", "receiver" => { "kind" => "self" }, "method" => "name" } }
+          ]
+        }
+      }
+    }
+    contract = Contracts::Store.from_hash(raw, source: "<test>").lookup_instance("Foo", :bar)
+    refute contract.enforced
+  end
+
   def test_parses_singleton_method
     raw = {
       "methods" => {

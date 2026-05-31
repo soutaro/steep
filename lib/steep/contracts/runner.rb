@@ -14,7 +14,8 @@ module Steep
         @project.targets.each do |target|
           contracts.concat(infer_for_target(target))
         end
-        merge(contracts)
+        merged = merge(contracts)
+        apply_enforcement(merged)
       end
 
       def output_path
@@ -79,6 +80,22 @@ module Steep
         end
 
         out
+      end
+
+      # Second whole-program pass: with the inferred contracts loaded, observe
+      # every call site to decide if each contract is enforced. Methods whose
+      # precondition is not enforced (some caller skips it, or zero static call
+      # sites) are flagged so the main check stops narrowing them and lets the
+      # hidden body errors surface. See felixefelip/steep#20.
+      def apply_enforcement(contracts)
+        return contracts if contracts.empty?
+
+        store = Store.new(
+          methods: contracts.each_with_object({}) { |c, h| h[c.key] = c },
+          source: nil
+        )
+        enforced = Enforcement.analyze(@project, store)
+        contracts.map { |c| c.with_enforced(enforced.fetch(c.key, false)) }
       end
 
       def merge(contracts)

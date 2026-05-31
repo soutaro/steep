@@ -60,7 +60,7 @@ module Steep
     class MethodContract
       KEY_PATTERN = /\A(?<type>[A-Z][\w:]*)(?<kind>[#.])(?<method>[\w!?=\[\]<>+\-*\/%&|^~]+)\z/.freeze
 
-      attr_reader :type_name, :method_name, :singleton, :requires
+      attr_reader :type_name, :method_name, :singleton, :requires, :enforced
 
       def self.parse(key, payload, source:)
         match = KEY_PATTERN.match(key)
@@ -73,19 +73,39 @@ module Steep
         requires = requires_raw.filter_map { |r| Predicate.parse(r, source: source) }
         return nil if requires.empty?
 
+        # `enforced` defaults to true so sidecars written before this flag
+        # existed keep narrowing on (no behavior change on upgrade).
+        enforced = payload.key?("enforced") ? payload["enforced"] != false : true
+
         new(
           type_name: match[:type],
           method_name: match[:method].to_sym,
           singleton: match[:kind] == ".",
-          requires: requires
+          requires: requires,
+          enforced: enforced
         )
       end
 
-      def initialize(type_name:, method_name:, singleton:, requires:)
+      def initialize(type_name:, method_name:, singleton:, requires:, enforced: true)
         @type_name = type_name
         @method_name = method_name
         @singleton = singleton
         @requires = requires
+        @enforced = enforced
+      end
+
+      def key
+        "#{type_name}#{singleton ? '.' : '#'}#{method_name}"
+      end
+
+      def with_enforced(value)
+        MethodContract.new(
+          type_name: type_name,
+          method_name: method_name,
+          singleton: singleton,
+          requires: requires,
+          enforced: value
+        )
       end
     end
 
