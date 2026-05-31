@@ -167,4 +167,40 @@ class ContractsTest < Minitest::Test
       assert_equal :name, contract.requires[0].expr.method
     end
   end
+
+  # A writer that shares an object reference for a repeated node (e.g. the
+  # `{ kind: self }` receiver) makes Psych emit a YAML anchor/alias. The
+  # sidecar is trusted, tool-generated YAML, so the loader must accept aliases
+  # instead of raising Psych::AliasesNotEnabled and crashing the typecheck
+  # worker. See felixefelip/steep (Psych::AliasesNotEnabled regression).
+  def test_load_accepts_yaml_aliases
+    Dir.mktmpdir do |dir|
+      base = Pathname(dir)
+      target = base + Contracts::DEFAULT_SIDECAR_PATH
+      target.parent.mkpath
+      target.write(<<~YAML)
+        version: 1
+        methods:
+          "Foo#a":
+            requires:
+              - kind: not_nil
+                expr:
+                  kind: send
+                  receiver: &self_ref { kind: self }
+                  method: name
+          "Bar#b":
+            requires:
+              - kind: not_nil
+                expr:
+                  kind: send
+                  receiver: *self_ref
+                  method: title
+      YAML
+
+      store = Contracts.load(base)
+      refute_predicate store, :empty?
+      assert_equal :name, store.lookup_instance("Foo", :a).requires[0].expr.method
+      assert_equal :title, store.lookup_instance("Bar", :b).requires[0].expr.method
+    end
+  end
 end

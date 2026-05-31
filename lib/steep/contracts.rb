@@ -8,9 +8,9 @@ module Steep
         absolute = base_dir + path
         return Store.empty unless absolute.file?
 
-        raw = YAML.safe_load(absolute.read, aliases: false)
+        raw = YAML.safe_load(absolute.read, aliases: true)
         Store.from_hash(raw, source: absolute.to_s)
-      rescue Psych::SyntaxError, LoadError => e
+      rescue Psych::Exception, LoadError => e
         Steep.logger.warn { "[contracts] failed to parse #{absolute}: #{e.message}" }
         Store.empty
       end

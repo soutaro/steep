@@ -41,7 +41,7 @@ module Steep
 
         paths.each do |path|
           absolute = Pathname.new(path)
-          raw = YAML.safe_load(absolute.read, aliases: false)
+          raw = YAML.safe_load(absolute.read, aliases: true)
           next unless raw
 
           sub = Store.from_hash(raw, source: absolute.to_s)
@@ -50,7 +50,7 @@ module Steep
             merged[class_name].concat(entries)
           end
           sources << absolute.to_s
-        rescue Psych::SyntaxError, LoadError => e
+        rescue Psych::Exception, LoadError => e
           Steep.logger.warn { "[callbacks] failed to parse #{absolute}: #{e.message}" }
         end
 
