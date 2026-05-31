@@ -103,7 +103,7 @@ module Steep
 
         def add_declaration(decl)
           case decl
-          when RBS::AST::Declarations::Constant
+          when RBS::AST::Declarations::Constant, RBS::AST::Ruby::Declarations::ConstantDecl
             declarations << decl
           else
             raise

@@ -1,5 +1,88 @@
 # CHANGELOG
 
+## 2.0.0 (2026-04-14)
+
+### Summary
+
+Steep 2.0 introduces three major new features.
+
+* **Inline RBS Declaration (Experimental)**: Files configured with `check(inline: true)` can now have RBS type declarations written directly in Ruby code. Supports method types, `attr_*`, instance variables, constants, mixins, inheritance, and more, with editor integration for completion, hover, and go-to-definition.
+* **`steep server` command**: A daemon server that persists the RBS environment. By connecting to the daemon during `steep check`, it skips RBS environment setup and speeds up type checking.
+* **`steep query` command**: Query type information from the daemon server. `steep query hover` retrieves hover information and `steep query definition` retrieves definition locations, making type information accessible outside of editors.
+
+In addition, this release includes many improvements such as type narrowing for `block_given?`, type checking arbitrary expressions with the `steep check` with `-e` option, and Prism parser introduction for Ruby 3.4+.
+
+### Type checker core
+
+* Handle RBS library syntax error
+ ([#2211](https://github.com/soutaro/steep/pull/2211))
+* Fix literal type hints to unwrap nil ([#2205](https://github.com/soutaro/steep/pull/2205))
+* Fix array literal type inference with union tuple hint ([#2096](https://github.com/soutaro/steep/pull/2096))
+* Fix union narrowing in the else branch ([#2101](https://github.com/soutaro/steep/pull/2101))
+* feat: type narrowing for block_given? ([#2186](https://github.com/soutaro/steep/pull/2186))
+* Support @type var annotations in ensure blocks to suppress type errors ([#2194](https://github.com/soutaro/steep/pull/2194))
+* Fix ancestor error diagnostics reporting in library RBS files ([#2198](https://github.com/soutaro/steep/pull/2198))
+* Allow yield in methods with untyped parameters ([#2193](https://github.com/soutaro/steep/pull/2193))
+* Prepare for Ruby 3.4+ syntax support by introducing Prism parser ([#1845](https://github.com/soutaro/steep/pull/1845))
+* Trigger full type checking when type signature of inline RBS declaration is changed ([#1829](https://github.com/soutaro/steep/pull/1829))
+* Support inline class/module alias declaration ([#1819](https://github.com/soutaro/steep/pull/1819))
+* Fix `Locator::Inline` ([#1815](https://github.com/soutaro/steep/pull/1815))
+* Support inline constant declaration ([#1814](https://github.com/soutaro/steep/pull/1814))
+* Support instance variable declaration ([#1812](https://github.com/soutaro/steep/pull/1812))
+* Support inheritance ([#1809](https://github.com/soutaro/steep/pull/1809))
+* `attr_***` Inline RBS type declaration ([#1800](https://github.com/soutaro/steep/pull/1800))
+* Implement inline mixin ([#1788](https://github.com/soutaro/steep/pull/1788))
+* Provide workspace symbols feature for inline declarations ([#1741](https://github.com/soutaro/steep/pull/1741))
+* Fix splat/kwsplat param typing without name ([#1731](https://github.com/soutaro/steep/pull/1731))
+* Fix empty comment error ([#1730](https://github.com/soutaro/steep/pull/1730))
+* Type check service supports inline type declarations ([#1728](https://github.com/soutaro/steep/pull/1728))
+* Fix redundant ignore comment ([#1722](https://github.com/soutaro/steep/pull/1722))
+* Add `RedundantIgnoreComment` diagnostic ([#1670](https://github.com/soutaro/steep/pull/1670))
+* Update project and `Steepfile` DSL to support inline RBS declaration ([#1602](https://github.com/soutaro/steep/pull/1602))
+* Setup inline rbs integration ([#1585](https://github.com/soutaro/steep/pull/1585))
+
+### Commandline tool
+
+* Add `steep query definition NAME` command ([#2208](https://github.com/soutaro/steep/pull/2208))
+* Add `steep query hover` command for querying type info from daemon ([#2206](https://github.com/soutaro/steep/pull/2206))
+
+* Handle special characters in path when globbing ([#2203](https://github.com/soutaro/steep/pull/2203))
+* Add daemon server for persistent RBS environment ([#2080](https://github.com/soutaro/steep/pull/2080))
+* Fix `steep check` with inline source paths ([#2182](https://github.com/soutaro/steep/pull/2182))
+* Don't use `logger.fatal` for non-fatal info ([#2158](https://github.com/soutaro/steep/pull/2158))
+* Add -e flag to steep check for type checking arbitrary expressions ([#2102](https://github.com/soutaro/steep/pull/2102))
+
+### Language server
+
+* Fix goto-definition in inline source files ([#2192](https://github.com/soutaro/steep/pull/2192))
+* Support completion and signature help for inline type annotations ([#2191](https://github.com/soutaro/steep/pull/2191))
+* Implement completion for type names in inline RBS comments ([#1777](https://github.com/soutaro/steep/pull/1777))
+* Small bug fixes for goto inline definition ([#1775](https://github.com/soutaro/steep/pull/1775))
+* Goto definition into inline declaration ([#1774](https://github.com/soutaro/steep/pull/1774))
+* Implement goto definition from inline RBS types ([#1773](https://github.com/soutaro/steep/pull/1773))
+* Implement hover for Inline RBS types ([#1771](https://github.com/soutaro/steep/pull/1771))
+* Refactor hover content classes ([#1742](https://github.com/soutaro/steep/pull/1742))
+* Call `Process.warmup` before refork ([#1665](https://github.com/soutaro/steep/pull/1665))
+
+### Miscellaneous
+
+* Add RBS for test method ([#2204](https://github.com/soutaro/steep/pull/2204))
+* Add missing RBS definition for test_ensure_annotation ([#2202](https://github.com/soutaro/steep/pull/2202))
+* Add RBS signature generation and validation workflow ([#2200](https://github.com/soutaro/steep/pull/2200))
+* Fix rbs collection setup ([#2199](https://github.com/soutaro/steep/pull/2199))
+* Skip fork tests (2) ([#2196](https://github.com/soutaro/steep/pull/2196))
+* Fix test failure on Windows ([#2195](https://github.com/soutaro/steep/pull/2195))
+* Fix type checking ([#2181](https://github.com/soutaro/steep/pull/2181))
+* Remove activesupport dependency ([#2172](https://github.com/soutaro/steep/pull/2172))
+* bundle rbs-4.0.0 ([#2114](https://github.com/soutaro/steep/pull/2114))
+* Fix type errors ([#2170](https://github.com/soutaro/steep/pull/2170))
+* Remove unused `mutex_m` dependency ([#2106](https://github.com/soutaro/steep/pull/2106))
+* Use `rbs` gem from git repository ([#2068](https://github.com/soutaro/steep/pull/2068))
+* Fix typos ([#1572](https://github.com/soutaro/steep/pull/1572))
+* Let claude-code fix type errors ([#1709](https://github.com/soutaro/steep/pull/1709))
+* Drop Ruby 3.1 ([#1721](https://github.com/soutaro/steep/pull/1721))
+
+
 ## 1.10.0 (2025-03-18)
 
 Nothing changed since `1.10.0.pre.3`.

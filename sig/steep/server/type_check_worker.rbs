@@ -88,6 +88,14 @@ module Steep
         def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
+      class QueryDefinitionJob
+        attr_reader id: String
+
+        attr_reader name: String
+
+        def initialize: (id: String, name: String) -> void
+      end
+
       class GotoJob
         type kind = :implementation | :definition | :type_definition
 
@@ -147,6 +155,7 @@ module Steep
                | TypeCheckInlineCodeJob
                | GotoJob
                | StatsJob
+               | QueryDefinitionJob
 
       def handle_job: (job) -> void
 
@@ -157,6 +166,8 @@ module Steep
       def stats_result: () -> Array[StatsCalculator::stats]
 
       def goto: (GotoJob job) -> Array[untyped]
+
+      def query_definition_result: (String name_string) -> CustomMethods::Query__Definition::result
     end
   end
 end

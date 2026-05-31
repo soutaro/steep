@@ -98,7 +98,7 @@ class Steep::Server::TargetGroupFilesTest < Minitest::Test
 
   # Returns a default enumerator with `.rb` files
   #
-  def default_enumerator(project) #: Server::TargetGroupFiles::PathEnumerator
+  def default_enumerator(project) #: Steep::Server::TargetGroupFiles::PathEnumerator
     enumerator = Server::TargetGroupFiles::PathEnumerator.new
 
     project.targets.find { _1.name == :lib }.tap do |target|

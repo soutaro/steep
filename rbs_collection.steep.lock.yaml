@@ -1,30 +1,6 @@
 ---
 path: ".gem_rbs_collection"
 gems:
-- name: activesupport
-  version: '7.0'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: c42c09528dd99252db98f0744181a6de54ec2f55
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
-- name: base64
-  version: '0'
-  source:
-    type: stdlib
-- name: bigdecimal
-  version: '0'
-  source:
-    type: stdlib
-- name: concurrent-ruby
-  version: '1.1'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: c42c09528dd99252db98f0744181a6de54ec2f55
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
 - name: csv
   version: '0'
   source:
@@ -57,14 +33,6 @@ gems:
   version: '0'
   source:
     type: stdlib
-- name: i18n
-  version: '1.10'
-  source:
-    type: git
-    name: ruby/gem_rbs_collection
-    revision: c42c09528dd99252db98f0744181a6de54ec2f55
-    remote: https://github.com/ruby/gem_rbs_collection.git
-    repo_dir: gems
 - name: json
   version: '0'
   source:
@@ -102,7 +70,7 @@ gems:
   source:
     type: stdlib
 - name: prism
-  version: 1.2.0
+  version: 1.9.0
   source:
     type: rubygems
 - name: pstore
@@ -121,6 +89,10 @@ gems:
     revision: c42c09528dd99252db98f0744181a6de54ec2f55
     remote: https://github.com/ruby/gem_rbs_collection.git
     repo_dir: gems
+- name: random-formatter
+  version: '0'
+  source:
+    type: stdlib
 - name: rdoc
   version: '0'
   source:
@@ -149,7 +121,7 @@ gems:
   version: '0'
   source:
     type: stdlib
-- name: time
+- name: tmpdir
   version: '0'
   source:
     type: stdlib

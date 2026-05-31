@@ -33,6 +33,126 @@ module Steep
         type_check.project
       end
 
+      # Parses a string representing a class/type/constant/method name into a query value.
+      #
+      # Supported formats:
+      #
+      # * `RBS::Location`                   -- type name (class, module, interface, type alias, class/module alias, or constant)
+      # * `::RBS::Location`                 -- type name, fully qualified
+      # * `RBS::Parser#parse_type`          -- instance method
+      # * `RBS::Parser.parse_signature`     -- singleton method
+      #
+      # Returns `nil` when the given string cannot be parsed as any of the above.
+      #
+      def self.parse_name(name_string)
+        return nil if name_string.nil? || name_string.empty?
+
+        if index = name_string.index("#")
+          type_part = name_string[0...index] or return nil
+          method_part = name_string[(index + 1)..] or return nil
+          return nil if type_part.empty? || method_part.empty?
+
+          type_name = parse_type_name(type_part) or return nil
+          InstanceMethodName.new(type_name: type_name, method_name: method_part.to_sym)
+        elsif index = find_singleton_method_dot(name_string)
+          type_part = name_string[0...index] or return nil
+          method_part = name_string[(index + 1)..] or return nil
+          return nil if type_part.empty? || method_part.empty?
+
+          type_name = parse_type_name(type_part) or return nil
+          SingletonMethodName.new(type_name: type_name, method_name: method_part.to_sym)
+        else
+          parse_type_name(name_string)
+        end
+      rescue RBS::ParsingError, StandardError
+        nil
+      end
+
+      # Finds the index of a `.` that separates a type from a singleton method name.
+      #
+      # Returns the index of the last `.` that is *not* followed by another `.` (to avoid
+      # matching the empty string) and that is not part of `::`. Returns `nil` if none is found.
+      #
+      def self.find_singleton_method_dot(string)
+        index = string.length - 1
+        while index > 0
+          char = string[index]
+          if char == "."
+            prev = string[index - 1]
+            if prev != "." && prev != ":"
+              return index
+            end
+          end
+          index -= 1
+        end
+        nil
+      end
+
+      def self.parse_type_name(string)
+        string = "::#{string}" unless string.start_with?("::")
+        RBS::TypeName.parse(string)
+      rescue RBS::ParsingError, StandardError
+        nil
+      end
+
+      # Returns array of locations that is a response to a *Query definition* request.
+      #
+      # Unlike `#definition`, this method takes a parsed name value instead of a source position.
+      # The caller is expected to parse the name via `.parse_name` before calling this method.
+      #
+      # Each returned entry is either an `RBS::Location` (for RBS declarations) or a
+      # `Parser::Source::Range` (for Ruby source locations).
+      #
+      def query_definition(name)
+        locations = [] #: Array[target_loc]
+
+        case name
+        when RBS::TypeName
+          # `constant_definition_in_rbs` covers classes, modules, class/module aliases,
+          # and plain constants (via `env.constant_entry`).
+          constant_definition_in_rbs(name, locations: locations)
+          constant_definition_in_ruby(name, locations: locations)
+          # Additional lookups for declarations that are not reachable via `env.constant_entry`.
+          interface_and_type_alias_locations(name, locations: locations)
+        when InstanceMethodName, SingletonMethodName
+          method_locations(name, in_ruby: true, in_rbs: true, locations: locations)
+        end
+
+        locations.filter_map do |target, loc|
+          case loc
+          when RBS::Location
+            if assignment =~ [target, loc.name]
+              loc
+            end
+          else
+            loc
+          end
+        end.uniq
+      end
+
+      def interface_and_type_alias_locations(name, locations:)
+        project.targets.each do |target|
+          signature = type_check.signature_services.fetch(target.name)
+          env = signature.latest_env
+
+          if entry = env.interface_decls[name]
+            decl = entry.decl
+            if loc = decl.location
+              locations << [target, loc[:name]]
+            end
+          end
+
+          if entry = env.type_alias_decls[name]
+            decl = entry.decl
+            if loc = decl.location
+              locations << [target, loc[:name]]
+            end
+          end
+        end
+
+        locations
+      end
+
       def implementation(path:, line:, column:)
         locations = [] #: Array[target_loc]
 

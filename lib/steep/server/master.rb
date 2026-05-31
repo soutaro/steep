@@ -207,14 +207,14 @@ module Steep
 
       def start
         Steep.logger.tagged "master" do
-          tags = Steep.logger.formatter.current_tags.dup
+          tags = Steep.logger.current_tags.dup
 
           # @type var worker_threads: Array[Thread]
           worker_threads = []
 
           if interaction_worker
             worker_threads << Thread.new do
-              Steep.logger.formatter.push_tags(*tags, "from-worker@interaction")
+              Steep.logger.push_tags(*tags, "from-worker@interaction")
               interaction_worker.reader.read do |message|
                 job_queue << ReceiveMessageJob.new(source: interaction_worker, message: message)
               end
@@ -223,7 +223,7 @@ module Steep
 
           typecheck_workers.each do |worker|
             worker_threads << Thread.new do
-              Steep.logger.formatter.push_tags(*tags, "from-worker@#{worker.name}")
+              Steep.logger.push_tags(*tags, "from-worker@#{worker.name}")
               worker.reader.read do |message|
                 job_queue << ReceiveMessageJob.new(source: worker, message: message)
               end
@@ -238,7 +238,7 @@ module Steep
           end
 
           write_thread = Thread.new do
-            Steep.logger.formatter.push_tags(*tags)
+            Steep.logger.push_tags(*tags)
             Steep.logger.tagged "write" do
               while job = write_queue.deq
                 # @type var job: SendMessageJob
@@ -257,7 +257,7 @@ module Steep
           end
 
           loop_thread = Thread.new do
-            Steep.logger.formatter.push_tags(*tags)
+            Steep.logger.push_tags(*tags)
             Steep.logger.tagged "main" do
               while job = job_queue.deq
                 case job
@@ -408,7 +408,8 @@ module Steep
                     if content.valid_encoding?
                       content
                     else
-                      { text: Base64.encode64(content), binary: true }
+                      base64_encoded = [content].pack("m")
+                      { text: base64_encoded, binary: true }
                     end
                   end
                   broadcast_notification(CustomMethods::FileLoad.notification({ content: input }))
@@ -493,17 +494,17 @@ module Steep
           if path = pathname(message[:params][:textDocument][:uri])
             broadcast_notification(message)
 
-            Steep.logger.fatal { path.to_s }
+            Steep.logger.debug { path.to_s }
 
             case
             when controller.code_path?(path)
-              Steep.logger.fatal { "code_path?" }
+              Steep.logger.debug { "code_path?" }
               controller.add_dirty_code_path(path)
             when controller.signature_path?(path)
-              Steep.logger.fatal { "signature_path?" }
+              Steep.logger.debug { "signature_path?" }
               controller.add_dirty_signature_path(path)
             when controller.inline_path?(path)
-              Steep.logger.fatal { "inline_path?" }
+              Steep.logger.debug { "inline_path?" }
               changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
               controller.add_dirty_inline_path(path, changes)
             end
@@ -631,6 +632,38 @@ module Steep
             )
           end
 
+        when CustomMethods::Query__Definition::METHOD
+          params = message[:params] #: CustomMethods::Query__Definition::params
+          result_controller << group_request do |group|
+            typecheck_workers.each do |worker|
+              group << send_request(method: CustomMethods::Query__Definition::METHOD, params: params, worker: worker)
+            end
+
+            group.on_completion do |handlers|
+              kind = "unknown" #: CustomMethods::Query__Definition::kind
+              locations = [] #: Array[CustomMethods::Query__Definition::location]
+
+              handlers.each do |handler|
+                result = handler.result #: CustomMethods::Query__Definition::result
+                next unless result
+
+                if kind == "unknown"
+                  kind = result[:kind]
+                end
+                locations.concat(result[:locations])
+              end
+
+              locations.uniq!
+
+              enqueue_write_job SendMessageJob.to_client(
+                message: CustomMethods::Query__Definition.response(
+                  message[:id],
+                  { name: params[:name], kind: kind, locations: locations }
+                )
+              )
+            end
+          end
+
         when CustomMethods::TypeCheck::METHOD
           id = message[:id]
           params = message[:params] #: CustomMethods::TypeCheck::params
@@ -646,6 +679,9 @@ module Steep
           end
           params[:library_paths].each do |target_name, path|
             request.library_paths << [target_name.to_sym, Pathname(path)]
+          end
+          params[:inline_paths].each do |target_name, path|
+            request.inline_paths << [target_name.to_sym, Pathname(path)]
           end
 
           start_type_check(request: request, last_request: nil)
@@ -790,7 +826,7 @@ module Steep
             request.merge!(last_request)
           end
 
-          Steep.logger.fatal {
+          Steep.logger.debug {
             {
               code_paths: request.code_paths.map { _1[1].to_s },
               signature_paths: request.signature_paths.map { _1[1].to_s },
@@ -900,8 +936,8 @@ module Steep
                   end
 
                   Thread.new do
-                    tags = Steep.logger.formatter.current_tags.dup
-                    Steep.logger.formatter.push_tags(*tags, "from-worker@#{new_worker.name}")
+                    tags = Steep.logger.current_tags.dup
+                    Steep.logger.push_tags(*tags, "from-worker@#{new_worker.name}")
                     new_worker.reader.read do |message|
                       job_queue << ReceiveMessageJob.new(source: new_worker, message: message)
                     end
@@ -982,7 +1018,7 @@ module Steep
 
       def enqueue_write_job(job)
         Steep.logger.info { "Write_queue has #{write_queue.size} items"}
-        write_queue.push(job) # steep:ignore InsufficientKeywordArguments
+        write_queue.push(job)
       end
 
       def work_done_progress(guid)

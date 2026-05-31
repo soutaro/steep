@@ -1675,6 +1675,41 @@ module Steep
         def initialize: (error: Signature::Base, node: Parser::AST::Node, location: location) -> void
       end
 
+      # Type checking failed because of errors in library RBS files.
+      #
+      # This diagnostic is reported on source files when RBS signatures from library or standard library
+      # have validation errors, such as superclass mismatches. Each error is reported as a separate diagnostic.
+      #
+      # ### RBS
+      #
+      # ```rbs
+      # class Integer < String
+      # end
+      # ```
+      #
+      # ### Ruby code
+      #
+      # ```ruby
+      # 1 + 2
+      # ```
+      #
+      # ### Diagnostic
+      #
+      # ```
+      # a.rb:1:0: [error] Type checking failed due to error in library RBS file
+      # │ Different superclasses are specified for `::Integer`
+      # │ Diagnostic ID: Ruby::LibraryRBSError
+      # │
+      # └ 1 + 2
+      #   ~~~~~
+      # ```
+      #
+      class LibraryRBSError < Base
+        attr_reader error: Signature::Base
+
+        def initialize: (error: Signature::Base, location: location) -> void
+      end
+
       # `steep:ignore` comment is invalid.
       #
       # ### Ruby code

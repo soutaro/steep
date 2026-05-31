@@ -667,6 +667,45 @@ test.rb:1:0: [error] Invalid ignore comment
 | - | - | - | - | - |
 | error | warning | warning | warning | - |
 
+<a name='Ruby::LibraryRBSError'></a>
+## Ruby::LibraryRBSError
+
+Type checking failed because of errors in library RBS files.
+
+This diagnostic is reported on source files when RBS signatures from library or standard library
+have validation errors, such as superclass mismatches. Each error is reported as a separate diagnostic.
+
+### RBS
+
+```rbs
+class Integer < String
+end
+```
+
+### Ruby code
+
+```ruby
+1 + 2
+```
+
+### Diagnostic
+
+```
+a.rb:1:0: [error] Type checking failed due to error in library RBS file
+│ Different superclasses are specified for `::Integer`
+│ Diagnostic ID: Ruby::LibraryRBSError
+│
+└ 1 + 2
+  ~~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | error | error | error | - |
+
 <a name='Ruby::MethodArityMismatch'></a>
 ## Ruby::MethodArityMismatch
 

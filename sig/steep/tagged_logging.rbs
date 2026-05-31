@@ -1,0 +1,13 @@
+module Steep
+  class TaggedLogging < ::Logger
+    @thread_key: String
+
+    def tagged: [T] (String tag) { () -> T } -> T
+
+    def current_tags: () -> Array[String]
+
+    def push_tags: (*String tags) -> Array[String]
+
+    def formatted_tags: () -> String
+  end
+end

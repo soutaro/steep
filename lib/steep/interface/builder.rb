@@ -82,7 +82,7 @@ module Steep
       end
 
       def fetch_cache(cache, key)
-        if cache.key?(key)
+        if cache.key?(key) # steep:ignore ArgumentTypeMismatch
           return cache.fetch(key)
         end
 
@@ -239,7 +239,7 @@ module Steep
         vars =
           case type
           when AST::Types::Name::Instance
-            entry = factory.env.normalized_module_class_entry(type.name) or raise
+            entry = factory.env.module_class_entry(type.name, normalized: true) or raise
             entry.primary_decl.type_params.map { _1.name }
           when AST::Types::Name::Interface
             entry = factory.env.interface_decls.fetch(type.name)
@@ -793,7 +793,8 @@ module Steep
                   return_type: AST::Types::Logic::ArgIsReceiver.instance()
                 )
               )
-            when RBS::BuiltinNames::Object.name,
+            when RBS::BuiltinNames::BasicObject.name,
+              RBS::BuiltinNames::Object.name,
               RBS::BuiltinNames::Kernel.name,
               RBS::BuiltinNames::String.name,
               RBS::BuiltinNames::Integer.name,
@@ -805,6 +806,24 @@ module Steep
               return method_type.with(
                 type: method_type.type.with(
                   return_type: AST::Types::Logic::ArgEqualsReceiver.instance()
+                )
+              )
+            end
+          when :==
+            case defined_in
+            when RBS::BuiltinNames::BasicObject.name,
+              RBS::BuiltinNames::Object.name,
+              RBS::BuiltinNames::Kernel.name,
+              RBS::BuiltinNames::String.name,
+              RBS::BuiltinNames::Integer.name,
+              RBS::BuiltinNames::Symbol.name,
+              RBS::BuiltinNames::TrueClass.name,
+              RBS::BuiltinNames::FalseClass.name,
+              RBS::TypeName.parse("::NilClass")
+              # For ==, we use ReceiverIsArg to narrow the receiver based on the argument
+              return method_type.with(
+                type: method_type.type.with(
+                  return_type: AST::Types::Logic::ReceiverIsArg.instance()
                 )
               )
             end

@@ -38,11 +38,11 @@ module Steep
       end
 
       def run
-        tags = Steep.logger.formatter.current_tags.dup
+        tags = Steep.logger.current_tags.dup
         thread = Thread.new do
           Thread.current.abort_on_exception = true
 
-          Steep.logger.formatter.push_tags(*tags)
+          Steep.logger.push_tags(*tags)
           Steep.logger.tagged "background" do
             while job = queue.pop
               case job

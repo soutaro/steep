@@ -16,7 +16,7 @@ module Steep
     end
 
     def self.available_commands
-      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :checkfile, :contracts]
+      [:init, :check, :validate, :annotations, :version, :project, :watch, :langserver, :stats, :binstub, :checkfile, :contracts, :server, :query]
     end
 
     def process_global_options
@@ -58,7 +58,8 @@ module Steep
       process_global_options or return 1
       setup_command or return 1
 
-      __send__(:"process_#{command}")
+      method_name = command.to_s.gsub('-', '_')
+      __send__(:"process_#{method_name}")
     end
 
     def handle_steepfile_option(opts, command)
@@ -67,11 +68,13 @@ module Steep
 
     def handle_logging_options(opts)
       opts.on("--log-level=LEVEL", "Specify log level: debug, info, warn, error, fatal") do |level|
+        # @type var level: String
         Steep.logger.level = level
         Steep.ui_logger.level = level
       end
 
       opts.on("--log-output=PATH", "Print logs to given path") do |file|
+        # @type var file: String
         Steep.log_output = file
       end
 
@@ -214,6 +217,10 @@ BANNER
 
           opts.on("--format=FORMATTER", ["code", "github"], "Output formatters (default: code, options: code,github)") do |formatter|
             command.formatter = formatter
+          end
+
+          opts.on("--[no-]daemon", "Use daemon server if available (default: true)") do |v|
+            command.use_daemon = v ? true : false
           end
 
           handle_jobs_option command.jobs_option, opts
@@ -504,6 +511,235 @@ BANNER
 
         command.commandline_args.push(*argv)
       end.run
+    end
+
+    def process_server
+      subcommand = argv.shift
+
+      if subcommand.nil? || subcommand == "--help" || subcommand == "-h"
+        stderr.puts <<~HELP
+          Usage: steep server <subcommand> [options]
+
+          Description:
+              Manage the Steep daemon server for faster type checking.
+              The daemon keeps RBS environment loaded in memory.
+
+          Available subcommands:
+              start     Start the daemon server
+              stop      Stop the daemon server
+              restart   Restart the daemon server
+              status    Show daemon server status
+
+          Options:
+              --help    Show this help message
+
+          Examples:
+              steep server start
+              steep server stop
+              steep server restart
+              steep server status
+        HELP
+        return 0
+      end
+
+      case subcommand
+      when "start"
+        unless Steep.can_fork?
+          stderr.puts "Error: `steep server start` is not supported on this platform (fork() is not available)"
+          return 1
+        end
+        Drivers::StartServer.new(stdout: stdout, stderr: stderr).tap do |command|
+          OptionParser.new do |opts|
+            opts.banner = <<BANNER
+Usage: steep server start [options]
+
+Description:
+    Starts a persistent daemon server for faster type checking.
+    The daemon keeps RBS environment loaded in memory.
+
+Options:
+BANNER
+            handle_logging_options opts
+          end.parse!(argv)
+        end.run
+      when "stop"
+        Drivers::StopServer.new(stdout: stdout, stderr: stderr).tap do |command|
+          OptionParser.new do |opts|
+            opts.banner = <<BANNER
+Usage: steep server stop [options]
+
+Description:
+    Stops the running daemon server.
+
+Options:
+BANNER
+            handle_logging_options opts
+          end.parse!(argv)
+        end.run
+      when "restart"
+        unless Steep.can_fork?
+          stderr.puts "Error: `steep server restart` is not supported on this platform (fork() is not available)"
+          return 1
+        end
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep server restart [options]
+
+Description:
+    Restarts the daemon server (stops and then starts it).
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        stop_command = Drivers::StopServer.new(stdout: stdout, stderr: stderr)
+        stop_command.run
+
+        # Brief pause to ensure clean shutdown
+        sleep 0.5
+
+        start_command = Drivers::StartServer.new(stdout: stdout, stderr: stderr)
+        start_command.run
+      when "status"
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep server status [options]
+
+Description:
+    Shows the status of the daemon server.
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        Daemon.status(stderr: stderr)
+        0
+      else
+        stderr.puts "Unknown server subcommand: #{subcommand}"
+        stderr.puts "  available subcommands: start, stop, restart, status"
+        1
+      end
+    end
+
+    def process_query
+      subcommand = argv.shift
+
+      if subcommand.nil? || subcommand == "--help" || subcommand == "-h"
+        stderr.puts <<~HELP
+          Usage: steep query <subcommand> [options]
+
+          Description:
+              Query type information from the Steep daemon server.
+              The daemon must be running (start it with `steep server start`).
+
+          Note:
+              `steep query` is an experimental command.
+              The user interface and output format may change without deprecation.
+
+          Available subcommands:
+              hover      Get hover information (type, documentation) for a position
+              definition Get the definition(s) of a class, type alias, constant, or method name
+
+          Options:
+              --help    Show this help message
+
+          Examples:
+              steep query hover lib/foo.rb:10:5
+              steep query definition RBS::Location
+              steep query definition RBS::Parser.parse_signature
+        HELP
+        return 0
+      end
+
+      case subcommand
+      when "hover"
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep query hover [options] FILE:LINE:COL [FILE:LINE:COL ...]
+
+Description:
+    Get hover information for the specified position(s).
+    Connects to the running Steep daemon and returns type information as JSONL
+    (one JSON object per line for each queried position).
+
+    FILE:LINE:COL - File path with 1-based line and column numbers.
+
+Note:
+    This is an experimental command.
+    The user interface and output format may change without deprecation.
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        if argv.empty?
+          stderr.puts "Error: Missing FILE:LINE:COL argument"
+          stderr.puts "  Usage: steep query hover FILE:LINE:COL [FILE:LINE:COL ...]"
+          return 1
+        end
+
+        locations = [] #: Array[[String, Integer, Integer]]
+
+        argv.each do |location|
+          match = location.match(/\A(.+):(\d+):(\d+)\z/)
+          unless match
+            stderr.puts "Error: Invalid format: #{location}"
+            stderr.puts "  Expected format: FILE:LINE:COL (e.g., lib/foo.rb:10:5)"
+            return 1
+          end
+
+          path = match[1] or raise
+          line = match[2].to_i
+          column = match[3].to_i
+
+          if line < 1 || column < 1
+            stderr.puts "Error: LINE and COL must be positive integers (1-based)"
+            return 1
+          end
+
+          locations << [path, line, column]
+        end
+
+        Drivers::Query.new(stdout: stdout, stderr: stderr).run_hover(locations: locations)
+      when "definition"
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep query definition [options] NAME [NAME ...]
+
+Description:
+    Get the definition(s) of the specified name(s).
+    Connects to the running Steep daemon and returns both RBS declarations and
+    Ruby definitions as JSONL (one JSON object per line for each queried name).
+
+    NAME can be one of:
+      * A class, module, interface, type alias, or constant (e.g., RBS::Location)
+      * An instance method (e.g., RBS::Parser#parse_type)
+      * A singleton method (e.g., RBS::Parser.parse_signature)
+
+Note:
+    This is an experimental command.
+    The user interface and output format may change without deprecation.
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        if argv.empty?
+          stderr.puts "Error: Missing NAME argument"
+          stderr.puts "  Usage: steep query definition NAME [NAME ...]"
+          return 1
+        end
+
+        Drivers::Query.new(stdout: stdout, stderr: stderr).run_definition(names: argv.dup)
+      else
+        stderr.puts "Unknown query subcommand: #{subcommand}"
+        stderr.puts "  available subcommands: hover, definition"
+        1
+      end
     end
   end
 end

@@ -25,13 +25,22 @@ module Steep
         # The type of forwarding params when `...` is given
         attr_reader forward_arg_type: [Params, Block?] | true | nil
 
+        # The name of the local variable that holds the block parameter type
+        #
+        # For named block params (`&blk`), this is the param name (e.g., `:blk`).
+        # For anonymous block params (`&`), this is `TypeConstruction::ANONYMOUS_BLOCK_PASSABLE_LVAR`.
+        # `nil` when there is no block parameter.
+        #
+        attr_reader block_param_name: Symbol?
+
         def initialize: (
           name: Symbol,
           method: RBS::Definition::Method?,
           method_type: Interface::MethodType?,
           return_type: AST::Types::t,
           super_method: RBS::Definition::Method?,
-          forward_arg_type: [Params, Block?] | true | nil
+          forward_arg_type: [Params, Block?] | true | nil,
+          ?block_param_name: Symbol?
         ) -> void
 
         # Type of the block of the current method type

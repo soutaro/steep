@@ -535,6 +535,34 @@ end
     end
   end
 
+  def test_check_repo_path_rbs_syntax_error
+    in_tmpdir do
+      (current_dir + "my_repo/broken_lib/0").mkpath
+
+      (current_dir + "my_repo/broken_lib/0/broken.rbs").write(<<~RBS)
+        class BrokenLib
+          def bar: () ->
+        end
+      RBS
+
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "a.rb"
+  repo_path "my_repo"
+  library "broken_lib"
+end
+      EOF
+
+      (current_dir + "a.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      refute_predicate status, :success?, stdout
+    end
+  end
+
   def test_check_unknown
     in_tmpdir do
       (current_dir + "Steepfile").write(<<-EOF)
@@ -912,6 +940,66 @@ GEMFILE
     end
   end
 
+  def test_check_inline_success
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write(<<-EOF)
+1 + 2
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      assert_predicate status, :success?, stdout
+      assert_match(/No type error detected\./, stdout)
+    end
+  end
+
+  def test_check_inline_failure
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, status = sh(*steep, "check")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/Detected 1 problem from 1 file/, stdout)
+    end
+  end
+
+  def test_check_inline_with_command_line_pattern
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, status = sh(*steep, "check", "lib/foo.rb")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/Detected 1 problem from 1 file/, stdout)
+    end
+  end
+
   def test_check_expression_success
     stdout, status = sh(*steep, "check", "-e", "1 + 2")
 
@@ -956,5 +1044,238 @@ end
 
     refute_predicate status, :success?, stdout
     assert_match(/Syntax error/, stdout)
+  end
+
+  def test_query_hover_no_subcommand
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query")
+      assert_predicate status, :success?
+      assert_match(/Available subcommands:/, stderr)
+      assert_match(/hover/, stderr)
+    end
+  end
+
+  def test_query_hover_help
+    in_tmpdir do
+      stdout, status = sh(*steep, "query", "hover", "--help")
+      assert_predicate status, :success?
+      assert_match(/FILE:LINE:COL/, stdout)
+    end
+  end
+
+  def test_query_hover_missing_argument
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query", "hover")
+      refute_predicate status, :success?
+      assert_match(/Missing FILE:LINE:COL argument/, stderr)
+    end
+  end
+
+  def test_query_hover_invalid_format
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query", "hover", "lib/foo.rb:10")
+      refute_predicate status, :success?
+      assert_match(/Invalid format/, stderr)
+    end
+  end
+
+  def test_query_hover_unknown_subcommand
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query", "unknown")
+      refute_predicate status, :success?
+      assert_match(/Unknown query subcommand/, stderr)
+    end
+  end
+
+  def test_query_hover_returns_result
+    skip "fork() is not available on this platform" unless Steep.can_fork?
+
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<~RUBY)
+        # @type var x: Integer
+        x = 1 + 2
+      RUBY
+
+      sh!(*steep, "server", "start", err: [:child, :out])
+
+      begin
+        finally_holds(timeout: 30) do
+          stdout, status = sh(*steep, "query", "hover", "foo.rb:2:1")
+          assert_predicate status, :success?
+
+          result = JSON.parse(stdout.lines.first, symbolize_names: true)
+          assert_equal "foo.rb", result[:file]
+          assert_equal 2, result[:line]
+          assert_equal 1, result[:column]
+          assert result[:result], "Expected hover result"
+        end
+      ensure
+        sh(*steep, "server", "stop", err: [:child, :out])
+      end
+    end
+  end
+
+  def test_query_hover_multiple_locations
+    skip "fork() is not available on this platform" unless Steep.can_fork?
+
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+end
+      EOF
+
+      (current_dir + "foo.rb").write(<<~RUBY)
+        # @type var x: Integer
+        x = 1 + 2
+      RUBY
+
+      sh!(*steep, "server", "start", err: [:child, :out])
+
+      begin
+        finally_holds(timeout: 30) do
+          stdout, status = sh(*steep, "query", "hover", "foo.rb:2:1", "foo.rb:2:5")
+          assert_predicate status, :success?
+
+          lines = stdout.lines
+          assert_equal 2, lines.size
+
+          lines.each do |line|
+            result = JSON.parse(line, symbolize_names: true)
+            assert_equal "foo.rb", result[:file]
+            assert result.key?(:result), "Expected result key in #{line}"
+          end
+        end
+      ensure
+        sh(*steep, "server", "stop", err: [:child, :out])
+      end
+    end
+  end
+
+  def test_query_definition_missing_argument
+    in_tmpdir do
+      _, stderr, status = sh3(*steep, "query", "definition")
+      refute_predicate status, :success?
+      assert_match(/Missing NAME argument/, stderr)
+    end
+  end
+
+  def test_query_definition_help
+    in_tmpdir do
+      stdout, status = sh(*steep, "query", "definition", "--help")
+      assert_predicate status, :success?
+      assert_match(/NAME/, stdout)
+    end
+  end
+
+  def test_query_definition_returns_result
+    skip "fork() is not available on this platform" unless Steep.can_fork?
+
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+  signature "foo.rbs"
+end
+      EOF
+
+      (current_dir + "foo.rbs").write(<<~RBS)
+        class Foo
+          def greet: () -> String
+        end
+      RBS
+
+      (current_dir + "foo.rb").write(<<~RUBY)
+        class Foo
+          def greet
+            "hi"
+          end
+        end
+      RUBY
+
+      sh!(*steep, "server", "start", err: [:child, :out])
+
+      begin
+        # Run check first to populate source index for Ruby definitions
+        _, status = sh(*steep, "check")
+        assert_predicate status, :success?
+
+        stdout, status = sh(*steep, "query", "definition", "Foo")
+        assert_predicate status, :success?
+
+        result = JSON.parse(stdout.lines.first, symbolize_names: true)
+        assert_equal "Foo", result[:name]
+        assert_equal "type_name", result[:result][:kind]
+
+        locations = result[:result][:locations]
+        rbs_loc = locations.find { |l| l[:uri].end_with?("foo.rbs") }
+        assert rbs_loc, "Expected RBS location for Foo in foo.rbs"
+        assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 9 } }, rbs_loc[:range])
+        assert_equal "rbs", rbs_loc[:source]
+
+        rb_loc = locations.find { |l| l[:uri].end_with?("foo.rb") }
+        assert rb_loc, "Expected Ruby location for Foo in foo.rb"
+        assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 9 } }, rb_loc[:range])
+        assert_equal "ruby", rb_loc[:source]
+
+        stdout, status = sh(*steep, "query", "definition", "Foo#greet")
+        assert_predicate status, :success?
+
+        result = JSON.parse(stdout.lines.first, symbolize_names: true)
+        assert_equal "Foo#greet", result[:name]
+        assert_equal "instance_method", result[:result][:kind]
+
+        locations = result[:result][:locations]
+        rbs_loc = locations.find { |l| l[:uri].end_with?("foo.rbs") }
+        assert rbs_loc, "Expected RBS location for Foo#greet in foo.rbs"
+        assert_equal({ start: { line: 1, character: 6 }, end: { line: 1, character: 11 } }, rbs_loc[:range])
+        assert_equal "rbs", rbs_loc[:source]
+
+        rb_loc = locations.find { |l| l[:uri].end_with?("foo.rb") }
+        assert rb_loc, "Expected Ruby location for Foo#greet in foo.rb"
+        assert_equal({ start: { line: 1, character: 6 }, end: { line: 1, character: 11 } }, rb_loc[:range])
+        assert_equal "ruby", rb_loc[:source]
+      ensure
+        sh(*steep, "server", "stop", err: [:child, :out])
+      end
+    end
+  end
+
+  def test_check_library_rbs_error
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "a.rb"
+  signature "a.rbs"
+  configure_code_diagnostics(Steep::Diagnostic::Ruby.all_error)
+end
+      EOF
+
+      (current_dir + "a.rbs").write(<<~RBS)
+        class Integer < String
+        end
+
+        class Float < Rational
+        end
+      RBS
+
+      (current_dir + "a.rb").write(<<~RUBY)
+        1 + 2
+      RUBY
+
+      stdout, status = sh(*steep, "check")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/Ruby::LibraryRBSError/, stdout)
+      assert_match(/Different superclasses are specified for `::Integer`.*core\/integer\.rbs/m, stdout)
+      assert_match(/Different superclasses are specified for `::Float`.*core\/float\.rbs/m, stdout)
+      assert_match(/Detected 2 problems from 1 file/, stdout)
+    end
   end
 end

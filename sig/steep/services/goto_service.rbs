@@ -60,6 +60,10 @@ module Steep
 
       type query = ConstantQuery | MethodQuery | TypeNameQuery
 
+      # Parsed result of a name string given to `steep query definition NAME`.
+      #
+      type name = TypeName | InstanceMethodName | SingletonMethodName
+
       type loc = Location[bot, bot] | Parser::Source::Range
 
       type target_loc = [Project::Target, loc]
@@ -79,6 +83,24 @@ module Steep
       # Returns array of locations that is a response to a *Go to definition* request
       #
       def definition: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
+
+      # Parses a name string (like `RBS::Location` or `RBS::Parser.parse_signature`) into a query value.
+      #
+      # Returns `nil` if the string cannot be parsed.
+      #
+      def self.parse_name: (String?) -> name?
+
+      # Finds the index of the last `.` that separates a type name from a singleton method name.
+      def self.find_singleton_method_dot: (String) -> Integer?
+
+      # Parses a type name string into a `RBS::TypeName`. Returns `nil` on parse failure.
+      def self.parse_type_name: (String) -> TypeName?
+
+      # Returns array of locations for the given name.
+      #
+      # Used by `steep query definition NAME`.
+      #
+      def query_definition: (name) -> Array[loc]
 
       # Returns array of locations that is a response to a *Go to type-definition* request
       #
@@ -105,6 +127,8 @@ module Steep
       def method_locations: (method_name, in_ruby: bool, in_rbs: bool, locations: Array[target_loc]) -> Array[target_loc]
 
       def type_name_locations: (TypeName name, ?locations: Array[target_loc]) -> Array[target_loc]
+
+      def interface_and_type_alias_locations: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
     end
   end
 end

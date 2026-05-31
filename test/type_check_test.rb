@@ -1072,14 +1072,24 @@ class TypeCheckTest < Minitest::Test
       code: {
         "a.rb" => <<~RUBY
           x = [1].find { true }
-          return and true unless x
+          false and return unless x
           x + 1
         RUBY
       },
       expectations: <<~YAML
         ---
         - file: a.rb
-          diagnostics: []
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 2
+              end:
+                line: 3
+                character: 3
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `+`
+            code: Ruby::NoMethod
       YAML
     )
   end
@@ -4692,7 +4702,7 @@ class TypeCheckTest < Minitest::Test
           class MyClass
             include MyModule
 
-            def test
+            def my_test
               bar
             end
           end
@@ -8048,4 +8058,145 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_ensure_annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          begin
+            x = "hello"
+            x + ""
+          ensure
+            # @type var x: String?
+            if x
+              x + ""
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_or_asgn_send_chain
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class OrAssignBox[T]
+            attr_accessor value: T?
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          array = OrAssignBox.new #: OrAssignBox[Array[String]]
+          (array.value ||= []) << "foo"
+
+          string = OrAssignBox.new #: OrAssignBox[String]
+          (string.value ||= "").encoding
+
+          integer = OrAssignBox.new #: OrAssignBox[Integer]
+          (integer.value ||= 0) + 1
+
+          symbol = OrAssignBox.new #: OrAssignBox[Symbol]
+          (symbol.value ||= :default).to_s
+
+          hash = OrAssignBox.new #: OrAssignBox[Hash[Symbol, String]]
+          (hash.value ||= {}).keys
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_tuple_type_with_if_branch
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          module M
+            def test_if: (bool flag) -> (["yes", "ok"] | ["no", "error"])
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          module M
+            def test_if(flag)
+              if flag
+                ['yes', 'ok']
+              else
+                ['no', 'error']
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_type_narrowing__literal_equality_with_supertype
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class A
+            def foo_symbol: (Symbol symbol) -> void
+            def foo_integer: (Integer integer) -> void
+            def foo_string: (String string) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class A
+            def foo_symbol(symbol)
+              if symbol == :qux
+                puts "qux"
+              else
+                puts "other"
+              end
+            end
+
+            def foo_integer(integer)
+              if integer == 1
+                puts "one"
+              else
+                puts "other"
+              end
+            end
+
+            def foo_string(string)
+              if string == "x"
+                puts "x"
+              else
+                puts "other"
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
 end

@@ -1,5 +1,3 @@
-require "active_support/core_ext/hash/keys"
-
 module Steep
   module Drivers
     class PrintProject
@@ -19,11 +17,11 @@ module Steep
 
       def as_json(project)
         {
-          steepfile: project.steepfile_path.to_s,
-          targets: project.targets.map do |target|
+          "steepfile" => project.steepfile_path.to_s,
+          "targets" => project.targets.map do |target|
             target_as_json(target)
           end
-        }.stringify_keys
+        }
       end
 
       def target_as_json(target)
@@ -53,10 +51,10 @@ module Steep
         } #: target_json
 
         if files
-          files.signature_paths.each_group_path(target) do |path, *|
+          files.signature_paths.each_group_path(target) do |path,|
             (json["signature_paths"] ||= []) << path.to_s
           end
-          files.source_paths.each_group_path(target) do |path, *|
+          files.source_paths.each_group_path(target) do |path,|
             (json["source_paths"] ||= []) << path.to_s
           end
         end
@@ -72,11 +70,11 @@ module Steep
         } #: group_json
 
         if files
-          files.signature_paths.each_group_path(group) do |path, *|
+          files.signature_paths.each_group_path(group) do |path,|
             (json["signature_paths"] ||= []) << path.to_s
           end
 
-          files.source_paths.each_group_path(group) do |path, *|
+          files.source_paths.each_group_path(group) do |path,|
             (json["source_paths"] ||= []) << path.to_s
           end
         end

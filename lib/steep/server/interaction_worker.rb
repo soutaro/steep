@@ -154,7 +154,7 @@ module Steep
             Steep.logger.info "path: #{job.path}, line: #{job.line}, column: #{job.column}, trigger: #{job.trigger}"
 
             case
-            when target = project.target_for_source_path(job.path)
+            when target = project.target_for_inline_source_path(job.path) || project.target_for_source_path(job.path)
               file = service.source_files[job.path] or return
               subtyping = service.signature_services.fetch(target.name).current_subtyping or return
 
@@ -428,7 +428,7 @@ module Steep
 
       def process_signature_help(job)
         Steep.logger.tagged("##{__method__}") do
-          if target = project.target_for_source_path(job.path)
+          if target = project.target_for_inline_source_path(job.path) || project.target_for_source_path(job.path)
             file = service.source_files[job.path] or return
             subtyping = service.signature_services.fetch(target.name).current_subtyping or return
             source =

@@ -1,0 +1,12 @@
+class BlockGivenTest
+  def each_anonymous: () { (Integer) -> void } -> void
+                    | () -> Enumerator[Integer, void]
+
+  def each_named: () { (Integer) -> void } -> void
+                | () -> Enumerator[Integer, void]
+
+  def required_block: () { (Integer) -> void } -> void
+
+  def each_if: () { (Integer) -> void } -> void
+             | () -> Enumerator[Integer, void]
+end

@@ -13,7 +13,7 @@ class AnnotationCollectionTest < Minitest::Test
 
   def new_collection: (current_module: untyped, factory: untyped) -> untyped
 
-  RBIS: ::Hash[untyped, untyped]
+  RBIS: ::Hash[::String, ::String]
 
   def test_types: () -> untyped
 

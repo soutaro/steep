@@ -47,6 +47,8 @@ class CLITest < Minitest::Test
 
   def test_check_broken: () -> untyped
 
+  def test_check_repo_path_rbs_syntax_error: () -> untyped
+
   def test_check_unknown: () -> untyped
 
   def test_check_no_steepfile: () -> untyped
@@ -72,4 +74,42 @@ class CLITest < Minitest::Test
   def test_binstub_force: () -> untyped
 
   def test_ci_jobs_setup_message: () -> untyped
+
+  def test_check_inline_success: () -> untyped
+
+  def test_check_inline_failure: () -> untyped
+
+  def test_check_inline_with_command_line_pattern: () -> untyped
+
+  def test_check_expression_success: () -> untyped
+
+  def test_check_expression_failure: () -> untyped
+
+  def test_check_multiple_expressions: () -> untyped
+
+  def test_check_expression_with_paths_error: () -> untyped
+
+  def test_check_expression_syntax_error: () -> untyped
+
+  def test_query_hover_no_subcommand: () -> untyped
+
+  def test_query_hover_help: () -> untyped
+
+  def test_query_hover_missing_argument: () -> untyped
+
+  def test_query_hover_invalid_format: () -> untyped
+
+  def test_query_hover_unknown_subcommand: () -> untyped
+
+  def test_query_hover_returns_result: () -> untyped
+
+  def test_query_hover_multiple_locations: () -> untyped
+
+  def test_query_definition_missing_argument: () -> untyped
+
+  def test_query_definition_help: () -> untyped
+
+  def test_query_definition_returns_result: () -> untyped
+
+  def test_check_library_rbs_error: () -> untyped
 end

@@ -859,6 +859,8 @@ class TypeConstructionTest < Minitest::Test
 
   def test_empty_yield: () -> untyped
 
+  def test_yield_with_untyped_method_type: () -> untyped
+
   def test_self_type_binding_proc_with_type_declaration: () -> untyped
 
   def test_self_type_binding_proc_with_annotation: () -> untyped

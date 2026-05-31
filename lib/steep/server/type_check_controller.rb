@@ -246,7 +246,7 @@ module Steep
       end
 
       def inline_path?(path)
-        Steep.logger.fatal { {
+        Steep.logger.debug { {
           path: path,
           inline: files.inline_paths.paths.map(&:to_s),
           target: project.target_for_inline_source_path(path)&.name
