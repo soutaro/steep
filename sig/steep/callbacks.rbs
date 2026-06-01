@@ -21,7 +21,8 @@ module Steep
 
     class Entry
       attr_reader class_name: String
-      attr_reader handler_method: Symbol
+      attr_reader handler_method: Symbol?
+      attr_reader applies_self: String?
       attr_reader runs_before: Array[Symbol]
       attr_reader singleton: bool
       attr_reader source: String?
@@ -30,7 +31,8 @@ module Steep
 
       def initialize: (
           class_name: String,
-          handler_method: Symbol,
+          ?handler_method: Symbol?,
+          ?applies_self: String?,
           runs_before: Array[Symbol],
           ?singleton: bool,
           ?source: String?

@@ -17,17 +17,27 @@ module Steep
   #     ---
   #     version: 1
   #     callbacks:
+  #       # handler style (controller before_action): apply the handler's
+  #       # unconditional postcondition ivar refinements at method entry.
   #       - class: PostsController
   #         apply_postcondition_of: set_post
   #         runs_before: [show, edit, update, destroy, publish]
+  #       # self style (ActiveRecord after-validation callback): refine `self`
+  #       # directly at method entry, because the record is known to satisfy
+  #       # its validations once the callback runs.
+  #       - class: Dose
+  #         applies_self: "Dose & Dose::Validated"
+  #         runs_before: [atualizar_calendario]
   #
-  # Semantics: for each entry, at the entry of every method in
-  # `runs_before` on the matching class, Steep looks up the
-  # `apply_postcondition_of` handler's `unconditional` postcondition (from
-  # the existing `.steep_postconditions.yml` machinery, issue
-  # felixefelip/steep#23) and refines the initial env's
-  # `instance_variable_types` accordingly. If the handler has no
-  # `unconditional` postcondition, the entry is silently ignored.
+  # Semantics: for each entry, at the entry of every method in `runs_before`
+  # on the matching class, Steep applies the entry's narrowing to the initial
+  # env:
+  #   - `apply_postcondition_of` looks up the handler's `unconditional`
+  #     postcondition (from the `.steep_postconditions.yml` machinery, issue
+  #     felixefelip/steep#23) and refines `instance_variable_types`. If the
+  #     handler has no `unconditional` postcondition, that part is ignored.
+  #   - `applies_self` refines the method's `self` type to the given RBS type.
+  # An entry may carry either or both.
   module Callbacks
     DEFAULT_SIDECAR_GLOB = "sig/**/.steep_callbacks.yml".freeze
 
@@ -101,18 +111,32 @@ module Steep
     end
 
     class Entry
-      attr_reader :class_name, :handler_method, :runs_before, :singleton, :source
+      attr_reader :class_name, :handler_method, :applies_self, :runs_before, :singleton, :source
 
       def self.parse(row, source:)
         return nil unless row.is_a?(Hash)
 
         klass = row["class"]
         handler = row["apply_postcondition_of"]
+        applies_self = row["applies_self"]
         runs_before = row["runs_before"]
         singleton = row["singleton"] == true
 
         return nil unless klass.is_a?(String) && !klass.empty?
-        return nil unless handler.is_a?(String) && !handler.empty?
+
+        # An entry narrows in one of two ways:
+        #   - apply_postcondition_of: <handler> — apply the handler's
+        #     `unconditional` postcondition ivar refinements (controller
+        #     before_action style).
+        #   - applies_self: <RBS type> — refine `self` directly at method
+        #     entry (ActiveRecord after-validation callback style, where the
+        #     record is known to satisfy its validations, e.g.
+        #     `Dose & Dose::Validated`).
+        # At least one must be present.
+        has_handler = handler.is_a?(String) && !handler.empty?
+        has_self = applies_self.is_a?(String) && !applies_self.empty?
+        return nil unless has_handler || has_self
+
         return nil unless runs_before.is_a?(Array) && runs_before.any?
 
         method_syms = runs_before.filter_map do |name|
@@ -128,16 +152,18 @@ module Steep
 
         new(
           class_name: klass,
-          handler_method: handler.to_sym,
+          handler_method: has_handler ? handler.to_sym : nil,
+          applies_self: has_self ? applies_self : nil,
           runs_before: method_syms,
           singleton: singleton,
           source: source
         )
       end
 
-      def initialize(class_name:, handler_method:, runs_before:, singleton: false, source: nil)
+      def initialize(class_name:, handler_method: nil, applies_self: nil, runs_before:, singleton: false, source: nil)
         @class_name = class_name
         @handler_method = handler_method
+        @applies_self = applies_self
         @runs_before = runs_before
         @singleton = singleton
         @source = source

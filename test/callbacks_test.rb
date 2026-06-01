@@ -112,6 +112,62 @@ class CallbacksTest < Minitest::Test
     assert entry.singleton
   end
 
+  def test_parses_applies_self_entry
+    raw = {
+      "callbacks" => [
+        { "class" => "Dose", "applies_self" => "Dose & Dose::Validated", "runs_before" => ["atualizar_calendario"] }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_callbacks_for_method("Dose", :atualizar_calendario).first
+
+    refute_nil entry
+    assert_equal "Dose & Dose::Validated", entry.applies_self
+    assert_nil entry.handler_method
+    assert_equal [:atualizar_calendario], entry.runs_before
+  end
+
+  def test_handler_entry_has_nil_applies_self
+    raw = {
+      "callbacks" => [
+        { "class" => "PostsController", "apply_postcondition_of" => "set_post", "runs_before" => ["show"] }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_callbacks_for_method("PostsController", :show).first
+
+    assert_equal :set_post, entry.handler_method
+    assert_nil entry.applies_self
+  end
+
+  def test_entry_may_carry_both_handler_and_applies_self
+    raw = {
+      "callbacks" => [
+        {
+          "class" => "X",
+          "apply_postcondition_of" => "set_y",
+          "applies_self" => "X & X::Validated",
+          "runs_before" => ["a"]
+        }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_callbacks_for_method("X", :a).first
+
+    assert_equal :set_y, entry.handler_method
+    assert_equal "X & X::Validated", entry.applies_self
+  end
+
+  def test_skips_entry_with_neither_handler_nor_applies_self
+    raw = {
+      "callbacks" => [
+        { "class" => "X", "runs_before" => ["a"] } # no apply_postcondition_of, no applies_self
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+    assert_predicate store, :empty?
+  end
+
   def test_load_reads_all_sidecars_under_sig
     Dir.mktmpdir do |dir|
       base = Pathname.new(dir)

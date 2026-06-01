@@ -4054,7 +4054,6 @@ module Steep
     # ivar writes. Mirrors Rails' `before_action` ordering semantics.
     def apply_callbacks_for_method(method_name, type_env)
       return type_env if callbacks.empty?
-      return type_env if postconditions.empty?
 
       class_name = module_context&.class_name
       return type_env unless class_name
@@ -4063,23 +4062,44 @@ module Steep
       return type_env if matching.empty?
 
       matching.each do |entry|
-        postcondition_entry = postconditions.lookup_instance(entry.class_name, entry.handler_method)
-        next unless postcondition_entry&.unconditional
-
-        branch = postcondition_entry.unconditional
-        next if branch.ivar_type_strings.empty?
-
-        updates = {} #: Hash[Symbol, AST::Types::t]
-        branch.ivar_rbs_types.each do |name, rbs_type|
-          ast_type = checker.factory.type(rbs_type) rescue nil
-          updates[name] = ast_type if ast_type
+        # Self-narrowing (e.g. ActiveRecord after-validation callback): the
+        # record is known to satisfy its validations at the callback's entry,
+        # so refine `self` to the given type (e.g. `Dose & Dose::Validated`).
+        # Flows through `refined_self_type`, which `#self_type` prefers.
+        if entry.applies_self
+          if self_type = parse_callback_self_type(entry.applies_self)
+            type_env = type_env.with_refined_self(self_type)
+          end
         end
-        next if updates.empty?
 
-        type_env = type_env.refine_types(instance_variable_types: updates)
+        # Handler-style ivar narrowing (controller before_action): apply the
+        # handler's `unconditional` postcondition ivar refinements.
+        if entry.handler_method && !postconditions.empty?
+          postcondition_entry = postconditions.lookup_instance(entry.class_name, entry.handler_method)
+          branch = postcondition_entry&.unconditional
+          if branch && !branch.ivar_type_strings.empty?
+            updates = {} #: Hash[Symbol, AST::Types::t]
+            branch.ivar_rbs_types.each do |name, rbs_type|
+              ast_type = checker.factory.type(rbs_type) rescue nil
+              updates[name] = ast_type if ast_type
+            end
+            type_env = type_env.refine_types(instance_variable_types: updates) unless updates.empty?
+          end
+        end
       end
 
       type_env
+    end
+
+    # Parses an `applies_self` RBS type string (e.g. "Dose & Dose::Validated")
+    # into an AST type, or nil if it fails to parse.
+    def parse_callback_self_type(string)
+      rbs_type = RBS::Parser.parse_type(string)
+      return nil unless rbs_type
+      checker.factory.type(rbs_type)
+    rescue StandardError => e
+      Steep.logger.warn { "[callbacks] failed to parse applies_self #{string.inspect}: #{e.message}" }
+      nil
     end
 
     # Mirror of `LogicTypeInterpreter#lookup_postcondition_entry` for the

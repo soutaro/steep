@@ -6860,6 +6860,110 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_callbacks__applies_self_refines_self_at_method_entry
+    # ActiveRecord after-validation callback: `atualizar_calendario` runs in
+    # `after_save`, so the record satisfies its presence validations and
+    # `self` is `Dose & Dose::Validated`, where `caderneta` is non-nil. The
+    # callback's `applies_self` refines `self` at method entry, so
+    # `caderneta.atualizar` typechecks. Without it, `caderneta` stays
+    # `Caderneta?` and the call flags NoMethod on nil.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Caderneta
+            def atualizar: () -> void
+          end
+
+          class Dose
+            def caderneta: () -> Caderneta?
+            def atualizar_calendario: () -> void
+          end
+
+          module Dose::Validated
+            def caderneta: () -> Caderneta
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Dose
+            # @dynamic caderneta, atualizar_calendario
+            def atualizar_calendario
+              caderneta.atualizar
+            end
+          end
+        RUBY
+      },
+      callbacks: callbacks_store([
+        {
+          "class" => "Dose",
+          "applies_self" => "Dose & Dose::Validated",
+          "runs_before" => ["atualizar_calendario"]
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_callbacks__applies_self_not_in_runs_before_keeps_nilable
+    # Negative: `outra` is NOT in runs_before, so `self` is not refined and
+    # `caderneta` stays nilable — the call must flag NoMethod.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Caderneta
+            def atualizar: () -> void
+          end
+
+          class Dose
+            def caderneta: () -> Caderneta?
+            def outra: () -> void
+          end
+
+          module Dose::Validated
+            def caderneta: () -> Caderneta
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Dose
+            # @dynamic caderneta, outra
+            def outra
+              caderneta.atualizar
+            end
+          end
+        RUBY
+      },
+      callbacks: callbacks_store([
+        {
+          "class" => "Dose",
+          "applies_self" => "Dose & Dose::Validated",
+          "runs_before" => ["atualizar_calendario"]
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 14
+              end:
+                line: 4
+                character: 23
+            severity: ERROR
+            message: Type `(::Caderneta | nil)` does not have method `atualizar`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_callbacks__methods_not_in_runs_before_stay_at_declared_type
     # `set_company runs_before [show]` — but `index` is NOT covered. In
     # `index`, `@company` must remain at the declared nilable union, so
