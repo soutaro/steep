@@ -108,18 +108,94 @@ module Steep
           end
         end
 
-        # Appends both @type self: and @type instance: at end of file (concern).
-        # Mirrors ERB convention: source_code + "\n# @type self: ..."
+        # Both @type self: and @type instance: for a concern.
         def append_concern_annotations(source_code, module_name, including_class)
           self_annotation     = "# @type self: singleton(#{including_class}) & singleton(#{module_name})"
           instance_annotation = "# @type instance: #{including_class} & #{module_name}"
-          source_code.rstrip + "\n\n#{self_annotation}\n#{instance_annotation}\n"
+          inject(source_code, module_name, [self_annotation, instance_annotation])
         end
 
-        # Appends @type instance: at end of file (plain module).
+        # @type instance: for a plain module.
         def append_module_annotation(source_code, module_name, including_class)
           annotation = "# @type instance: #{including_class} & #{module_name}"
-          source_code.rstrip + "\n\n#{annotation}\n"
+          inject(source_code, module_name, [annotation])
+        end
+
+        # Places the annotation so Steep associates it with the target module's
+        # body.
+        #
+        # For a top-level / compact module (`module Post::Notifiable`) a trailing
+        # comment at end-of-file attaches to the module, so we append there —
+        # this preserves every original line number (mirrors the ERB convention).
+        #
+        # For a module nested inside a class/module wrapper (e.g.
+        # `class User; module Idade; ...; end; end`) the end-of-file comment
+        # attaches to the OUTER scope and Steep ignores it for the inner module —
+        # `self` then falls back to `Object & User::Idade` and calls to the
+        # including class (`data_nascimento`) don't resolve. So we insert the
+        # annotation as the last line *inside* the innermost module body instead;
+        # only the closing `end`s shift, method line numbers stay put.
+        #
+        # Falls back to appending at end-of-file on any parse/locate failure.
+        def inject(source_code, module_name, annotation_lines)
+          last_segment = module_name.split("::").last
+          node, nested = find_target_scope(source_code, last_segment)
+
+          if node && nested
+            insert_in_body(source_code, node, annotation_lines)
+          else
+            append_at_end(source_code, annotation_lines)
+          end
+        rescue StandardError
+          append_at_end(source_code, annotation_lines)
+        end
+
+        def append_at_end(source_code, annotation_lines)
+          source_code.rstrip + "\n\n" + annotation_lines.join("\n") + "\n"
+        end
+
+        # Returns [innermost matching ModuleNode/ClassNode, nested?] where
+        # nested? is true when the node is enclosed in another class/module.
+        def find_target_scope(source_code, last_segment)
+          return [nil, false] unless defined?(Prism)
+
+          result = Prism.parse(source_code)
+          return [nil, false] unless result.success?
+
+          found = nil
+          found_nested = false
+          best_depth = -1
+          walk = lambda do |node, depth, enclosed|
+            return unless node.is_a?(Prism::Node)
+
+            is_scope = node.is_a?(Prism::ModuleNode) || node.is_a?(Prism::ClassNode)
+            if is_scope
+              cpath = node.constant_path
+              name = cpath.respond_to?(:name) ? cpath.name.to_s : nil
+              if name == last_segment && depth > best_depth
+                found = node
+                found_nested = enclosed
+                best_depth = depth
+              end
+            end
+
+            child_enclosed = enclosed || is_scope
+            node.compact_child_nodes.each { |c| walk.call(c, depth + 1, child_enclosed) }
+          end
+          walk.call(result.value, 0, false)
+          [found, found_nested]
+        end
+
+        # Inserts the annotation lines, indented one level past the declaration,
+        # immediately before the node's closing `end` keyword.
+        def insert_in_body(source_code, node, annotation_lines)
+          return append_at_end(source_code, annotation_lines) unless node.respond_to?(:end_keyword_loc) && node.end_keyword_loc
+
+          indent = " " * (node.location.start_column + 2)
+          block = annotation_lines.map { |line| "#{indent}#{line}\n" }.join
+          end_offset = node.end_keyword_loc.start_offset
+          line_start = (source_code.rindex("\n", end_offset) || -1) + 1
+          source_code[0...line_start] + block + source_code[line_start..]
         end
 
         def camelize(str)
