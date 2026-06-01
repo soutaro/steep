@@ -248,7 +248,7 @@ module Steep
                 when :block
                   node.children[0].loc.selector
                 end
-          super(node: node, location: loc || node.loc.expression)
+          super(node: node, location: loc || node.loc&.expression)
           @type = type
           @method = method
         end

@@ -6051,11 +6051,27 @@ module Steep
       return nil if stack.size >= 4
 
       intermediate = build_delegation_intermediate_node(receiver, info) or return nil
-      inlined = ::Parser::AST::Node.new(:send, [intermediate, info.delegate_method])
+      # Carry the original call's location onto the synthetic node so any
+      # diagnostic built while synthesizing it (e.g. NoMethod) has a real
+      # location instead of `nil` (which used to crash the diagnostic and
+      # flood the logs with FATAL backtraces during the contracts passes).
+      inlined = ::Parser::AST::Node.new(:send, [intermediate, info.delegate_method], location: node.location)
 
       stack.push(key)
+      hit = nil #: Pair?
       begin
-        pair = synthesize(inlined, hint: hint)
+        # Synthesize the inlined form in a throwaway child typing. Keep it
+        # (save! into the parent) only when the delegate target resolves
+        # cleanly; on a miss the child is discarded so no spurious
+        # diagnostics leak, and we return nil so the caller falls back to the
+        # normal type_send path (the receiver's own RBS signature).
+        typing.new_child do |child_typing|
+          pair = with_new_typing(child_typing).synthesize(inlined, hint: hint)
+          if pair.constr.typing.errors.empty?
+            hit = pair
+            pair.constr.typing.save!
+          end
+        end
       rescue StandardError => e
         Steep.logger.warn { "[delegation] inline failed for #{class_name}##{method_name}: #{e.message}" }
         return nil
@@ -6063,7 +6079,13 @@ module Steep
         stack.pop
       end
 
-      pair.constr.add_typing(node, type: pair.type)
+      return nil unless hit
+
+      # `hit.constr` carries the env refinements from synthesizing the inlined
+      # chain; rebase it onto the (now saved-into) parent typing so the
+      # refinements reach the caller while typings persist in the parent.
+      constr = hit.constr.with_new_typing(typing)
+      constr.add_typing(node, type: hit.type)
       # Mirror the inlined call's `MethodCall` onto the original
       # node. Without this, `typing.call_of(node: original)` returns
       # nil and consumers that go through method_calls — LSP hover,
@@ -6071,8 +6093,8 @@ module Steep
       # though `steep check` (which consults `typing.type_of` for
       # errors) reports the refined type correctly. The two paths
       # should agree.
-      mirror_inlined_method_call(original: node, inlined: inlined, constr: pair.constr, method_name: method_name, receiver_type: recv_type)
-      [pair.type, pair.constr]
+      mirror_inlined_method_call(original: node, inlined: inlined, constr: constr, method_name: method_name, receiver_type: recv_type)
+      [hit.type, constr]
     end
 
     def mirror_inlined_method_call(original:, inlined:, constr:, method_name:, receiver_type:)

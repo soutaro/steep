@@ -8163,6 +8163,67 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_delegation__inline_miss_falls_back_without_crash_or_spurious_error
+    # When a forward-delegate's target method does not resolve, the inline
+    # attempt must fail gracefully: the synthetic node carries the call's
+    # location and the exploratory synthesize runs in a throwaway typing, so
+    # there is no crash (NoMethod#initialize used to hit a nil loc) and no
+    # spurious diagnostic leaks at the call site. The caller falls back to the
+    # receiver's declared signature (`proxy: () -> Integer`); the only error is
+    # the genuine one inside the delegate method's own body (`inner.gone`).
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class DelMissFoo
+            attr_reader inner: DelMissInner
+            def proxy: () -> Integer
+          end
+
+          class DelMissInner
+          end
+
+          class DelMissHost
+            @foo: DelMissFoo
+
+            def exercise: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class DelMissFoo
+            # @dynamic inner, proxy
+            def proxy
+              inner.gone
+            end
+          end
+
+          class DelMissHost
+            # @dynamic exercise
+            def exercise
+              @foo.proxy
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 10
+              end:
+                line: 4
+                character: 14
+            severity: ERROR
+            message: Type `::DelMissInner` does not have method `gone`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_ensure_annotation
     run_type_check_test(
       signatures: {
