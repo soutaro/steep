@@ -158,6 +158,55 @@ class CallbacksTest < Minitest::Test
     assert_equal "X & X::Validated", entry.applies_self
   end
 
+  def test_parses_applies_constants_entry
+    raw = {
+      "callbacks" => [
+        {
+          "class" => "PostsController",
+          "applies_constants" => { "Current" => "singleton(Current) & Current::UserPopulated" },
+          "runs_before" => ["index"]
+        }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_callbacks_for_method("PostsController", :index).first
+
+    assert_equal({ "Current" => "singleton(Current) & Current::UserPopulated" }, entry.applies_constants)
+    assert_nil entry.handler_method
+    assert_nil entry.applies_self
+  end
+
+  def test_applies_constants_drops_malformed_pairs
+    raw = {
+      "callbacks" => [
+        {
+          "class" => "X",
+          "applies_constants" => { "Current" => "singleton(Current)", "" => "Y", "Z" => 42 },
+          "runs_before" => ["a"]
+        }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_callbacks_for_method("X", :a).first
+
+    assert_equal({ "Current" => "singleton(Current)" }, entry.applies_constants)
+  end
+
+  def test_applies_constants_alone_is_a_valid_entry
+    raw = {
+      "callbacks" => [
+        {
+          "class" => "X",
+          "applies_constants" => { "Current" => "singleton(Current)" },
+          "runs_before" => ["a"]
+        }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+
+    refute_predicate store, :empty?
+  end
+
   def test_skips_entry_with_neither_handler_nor_applies_self
     raw = {
       "callbacks" => [
