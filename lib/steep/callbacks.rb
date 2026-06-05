@@ -28,6 +28,13 @@ module Steep
   #       - class: Dose
   #         applies_self: "Dose & Dose::Validated"
   #         runs_before: [atualizar_calendario]
+  #       # constant style (global state populated by an earlier callback,
+  #       # e.g. CurrentAttributes): refine how constant reads are typed
+  #       # inside the listed methods.
+  #       - class: PostsController
+  #         applies_constants:
+  #           Current: "singleton(Current) & Current::UserPopulated"
+  #         runs_before: [index, show]
   #
   # Semantics: for each entry, at the entry of every method in `runs_before`
   # on the matching class, Steep applies the entry's narrowing to the initial
@@ -37,7 +44,10 @@ module Steep
   #     felixefelip/steep#23) and refines `instance_variable_types`. If the
   #     handler has no `unconditional` postcondition, that part is ignored.
   #   - `applies_self` refines the method's `self` type to the given RBS type.
-  # An entry may carry either or both.
+  #   - `applies_constants` refines the env's constant types (the same slot
+  #     `@type const` annotations use), so reads of e.g. `Current` inside the
+  #     method see a marker-decorated singleton.
+  # An entry may carry any combination of the three.
   module Callbacks
     DEFAULT_SIDECAR_GLOB = "sig/**/.steep_callbacks.yml".freeze
 
@@ -111,7 +121,7 @@ module Steep
     end
 
     class Entry
-      attr_reader :class_name, :handler_method, :applies_self, :runs_before, :singleton, :source
+      attr_reader :class_name, :handler_method, :applies_self, :applies_constants, :runs_before, :singleton, :source
 
       def self.parse(row, source:)
         return nil unless row.is_a?(Hash)
@@ -119,6 +129,7 @@ module Steep
         klass = row["class"]
         handler = row["apply_postcondition_of"]
         applies_self = row["applies_self"]
+        applies_constants = parse_constants(row["applies_constants"], source: source)
         runs_before = row["runs_before"]
         singleton = row["singleton"] == true
 
@@ -132,10 +143,14 @@ module Steep
         #     entry (ActiveRecord after-validation callback style, where the
         #     record is known to satisfy its validations, e.g.
         #     `Dose & Dose::Validated`).
+        #   - applies_constants: { ConstName => <RBS type> } — refine how
+        #     constant reads are typed inside the method (global state known
+        #     to be populated by an earlier callback, e.g. CurrentAttributes).
         # At least one must be present.
         has_handler = handler.is_a?(String) && !handler.empty?
         has_self = applies_self.is_a?(String) && !applies_self.empty?
-        return nil unless has_handler || has_self
+        has_constants = !applies_constants.empty?
+        return nil unless has_handler || has_self || has_constants
 
         return nil unless runs_before.is_a?(Array) && runs_before.any?
 
@@ -154,16 +169,32 @@ module Steep
           class_name: klass,
           handler_method: has_handler ? handler.to_sym : nil,
           applies_self: has_self ? applies_self : nil,
+          applies_constants: applies_constants,
           runs_before: method_syms,
           singleton: singleton,
           source: source
         )
       end
 
-      def initialize(class_name:, handler_method: nil, applies_self: nil, runs_before:, singleton: false, source: nil)
+      # `applies_constants` must be a map of constant name → RBS type
+      # string; anything else is dropped with a warning.
+      def self.parse_constants(raw, source:)
+        return {} unless raw.is_a?(Hash)
+
+        raw.each_with_object({}) do |(name, type), acc|
+          unless name.is_a?(String) && !name.empty? && type.is_a?(String) && !type.empty?
+            Steep.logger.warn { "[callbacks] applies_constants entry must map String => String, got #{name.inspect} => #{type.inspect} in #{source}" }
+            next
+          end
+          acc[name] = type
+        end
+      end
+
+      def initialize(class_name:, handler_method: nil, applies_self: nil, applies_constants: {}, runs_before:, singleton: false, source: nil)
         @class_name = class_name
         @handler_method = handler_method
         @applies_self = applies_self
+        @applies_constants = applies_constants
         @runs_before = runs_before
         @singleton = singleton
         @source = source

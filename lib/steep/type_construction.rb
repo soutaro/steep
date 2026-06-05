@@ -4072,6 +4072,24 @@ module Steep
           end
         end
 
+        # Constant narrowing (steep#27 follow-up): global state proven
+        # populated by an earlier callback (e.g. CurrentAttributes set by a
+        # guarded before_action). Lands in the env's `constant_types` — the
+        # same slot `@type const` annotations use, which `synthesize_constant`
+        # consults first — so `Current.user` inside the method dispatches on
+        # the marker-decorated singleton. Registered under both the relative
+        # and absolute names to cover `Current` and `::Current` reads.
+        unless entry.applies_constants.empty?
+          updates = {} #: Hash[RBS::TypeName, AST::Types::t]
+          entry.applies_constants.each do |const_name, type_string|
+            ast_type = parse_callback_constant_type(type_string)
+            next unless ast_type
+
+            constant_type_name_keys(const_name).each { |key| updates[key] = ast_type }
+          end
+          type_env = type_env.merge(constant_types: updates) unless updates.empty?
+        end
+
         # Handler-style ivar narrowing (controller before_action): apply the
         # handler's `unconditional` postcondition ivar refinements.
         if entry.handler_method && !postconditions.empty?
@@ -4089,6 +4107,30 @@ module Steep
       end
 
       type_env
+    end
+
+    # Parses an `applies_constants` RBS type string into an AST type.
+    # Skips types referencing undeclared markers — sidecar emitters can race
+    # ahead of marker generation, and applying a dangling reference would
+    # crash shape computation later (same tolerance as
+    # `apply_unconditional_postconditions`).
+    def parse_callback_constant_type(string)
+      rbs_type = RBS::Parser.parse_type(string)
+      return nil unless rbs_type
+      return nil unless marker_references_resolvable?(rbs_type)
+
+      checker.factory.type(rbs_type)
+    rescue StandardError => e
+      Steep.logger.warn { "[callbacks] failed to parse applies_constants type #{string.inspect}: #{e.message}" }
+      nil
+    end
+
+    # `module_name_from_node` keys bare `Current` reads with a relative
+    # TypeName and `::Current` reads with an absolute one — register the
+    # narrowing under both.
+    def constant_type_name_keys(const_name)
+      relative = RBS::TypeName.parse(const_name.sub(/\A::/, ""))
+      [relative, relative.absolute? ? relative : relative.absolute!].uniq
     end
 
     # Parses an `applies_self` RBS type string (e.g. "Dose & Dose::Validated")

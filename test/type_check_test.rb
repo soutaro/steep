@@ -6964,6 +6964,121 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_callbacks__applies_constants_refines_constant_reads
+    # Constant style (steep#27 follow-up): a guarded before_action populated
+    # CurrentAttributes-style global state, so inside the listed methods
+    # reads of the constant are narrowed with a marker whose `user` is
+    # non-nil. Covers both `PCCnCurrent` and `::PCCnCurrent` read forms
+    # (relative and absolute TypeName keys).
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCCnUser
+            def name: () -> String
+          end
+
+          class PCCnCurrent
+            def self.user: () -> PCCnUser?
+
+            module UserPopulated
+              def user: () -> PCCnUser
+            end
+          end
+
+          class PCCnController
+            def show: () -> String
+            def show_absolute: () -> String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCCnController
+            # @dynamic show, show_absolute
+            def show
+              PCCnCurrent.user.name
+            end
+
+            def show_absolute
+              ::PCCnCurrent.user.name
+            end
+          end
+        RUBY
+      },
+      callbacks: callbacks_store([
+        {
+          "class" => "PCCnController",
+          "applies_constants" => { "PCCnCurrent" => "singleton(PCCnCurrent) & PCCnCurrent::UserPopulated" },
+          "runs_before" => ["show", "show_absolute"]
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_callbacks__applies_constants_not_in_runs_before_keeps_declared
+    # Negative: `index` is NOT in runs_before, so the constant keeps its
+    # declared typing and `user` stays nilable — the call must flag
+    # NoMethod on nil.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCCnNegUser
+            def name: () -> String
+          end
+
+          class PCCnNegCurrent
+            def self.user: () -> PCCnNegUser?
+
+            module UserPopulated
+              def user: () -> PCCnNegUser
+            end
+          end
+
+          class PCCnNegController
+            def index: () -> String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class PCCnNegController
+            # @dynamic index
+            def index
+              PCCnNegCurrent.user.name
+            end
+          end
+        RUBY
+      },
+      callbacks: callbacks_store([
+        {
+          "class" => "PCCnNegController",
+          "applies_constants" => { "PCCnNegCurrent" => "singleton(PCCnNegCurrent) & PCCnNegCurrent::UserPopulated" },
+          "runs_before" => ["show"]
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 24
+              end:
+                line: 4
+                character: 28
+            severity: ERROR
+            message: Type `(::PCCnNegUser | nil)` does not have method `name`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_callbacks__methods_not_in_runs_before_stay_at_declared_type
     # `set_company runs_before [show]` — but `index` is NOT covered. In
     # `index`, `@company` must remain at the declared nilable union, so
