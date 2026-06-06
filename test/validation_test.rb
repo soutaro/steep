@@ -1463,4 +1463,84 @@ Test: SetValueExtractor[ArraySet]
       end
     end
   end
+
+  # `#referenced_type_names` collects every type name the validator touches.
+  # Both paths are exercised: member types (#validate_type) and ancestors /
+  # self-type constraints (#ancestor_to_type).
+  def test_referenced_type_names
+    with_checker <<-EOF do |checker|
+interface _Printable
+  def print: () -> void
+end
+
+module Mix : _Printable
+end
+
+class Widget
+end
+
+class Foo
+  include Mix
+
+  def m: (Widget) -> void
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      validator.validate_one_class(RBS::TypeName.parse("::Foo"))
+
+      # Member type appearing only as a method parameter (validate_type path).
+      assert_includes validator.referenced_type_names, RBS::TypeName.parse("::Widget")
+      # Self-type constraint of the included module, reached through the ancestor
+      # chain (ancestor_to_type path) and not present at Foo's own surface.
+      assert_includes validator.referenced_type_names, RBS::TypeName.parse("::_Printable")
+    end
+  end
+
+  def test_referenced_type_names__generic_bound
+    with_checker <<-EOF do |checker|
+class Target
+end
+
+class Foo[T < Target]
+end
+    EOF
+      validator = Validator.new(checker: checker)
+      validator.validate_one_class(RBS::TypeName.parse("::Foo"))
+
+      # `Target` appears only as a type parameter's upper bound.
+      assert_includes validator.referenced_type_names, RBS::TypeName.parse("::Target")
+    end
+  end
+
+  def test_referenced_type_names__type_alias
+    with_checker <<-EOF do |checker|
+class Target
+end
+
+type foo_alias = Target
+    EOF
+      validator = Validator.new(checker: checker)
+      validator.validate_alias
+
+      # `Target` appears only on the alias's right-hand side.
+      assert_includes validator.referenced_type_names, RBS::TypeName.parse("::Target")
+    end
+  end
+
+  def test_referenced_type_names__constant
+    with_checker <<-EOF do |checker|
+class Target
+end
+
+FOO: Target
+    EOF
+      validator = Validator.new(checker: checker)
+      validator.validate_const
+
+      # `Target` appears only as the constant's type.
+      assert_includes validator.referenced_type_names, RBS::TypeName.parse("::Target")
+    end
+  end
+
 end
