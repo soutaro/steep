@@ -31,7 +31,7 @@ module Steep
     end
 
     def self.new_parser
-      Prism::Translation::Parser33.new(Builder.new).tap do |parser|
+      Prism::Translation::Parser34.new(Builder.new).tap do |parser|
         parser.diagnostics.all_errors_are_fatal = true
         parser.diagnostics.ignore_warnings = true
       end
@@ -257,7 +257,7 @@ module Steep
         annot.line or next
 
         case node.type
-        when :def, :module, :class, :block, :numblock, :ensure, :defs, :resbody
+        when :def, :module, :class, :block, :numblock, :itblock, :ensure, :defs, :resbody
           location = node.loc
           location.line <= annot.line && annot.line < location.last_line
         else
@@ -565,13 +565,13 @@ module Steep
                   end
                 ]
               )
-            when :numblock
-              send, size, body = node.children
+            when :numblock, :itblock
+              send, arg, body = node.children
               node = node.updated(
                 nil,
                 [
                   map_child_node(send) {|child| insert_type_node(child, child_assertions) },
-                  size,
+                  arg,
                   insert_type_node(body, child_assertions)
                 ]
               )
@@ -648,7 +648,7 @@ module Steep
         case node.type
         when :send, :csend
           node
-        when :block, :numblock
+        when :block, :numblock, :itblock
           send = node.children[0]
           case send.type
           when :send, :csend

@@ -727,6 +727,10 @@ class TypeConstructionTest < Minitest::Test
 
   def test_ruby3_numbered_parameter4: () -> untyped
 
+  def test_ruby3_it_parameter1: () -> untyped
+
+  def test_ruby3_it_parameter2: () -> untyped
+
   def test_type_check_def_without_decl: () -> untyped
 
   def test_break_without_value_to_block: () -> untyped
