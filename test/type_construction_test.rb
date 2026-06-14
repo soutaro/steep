@@ -6556,6 +6556,13 @@ y = x
         construction.synthesize(source.node)
 
         assert_no_error typing
+
+        # Regression: the `||=` node itself must be recorded in the typing
+        # table, not just the inner lvasgn. Consumers that read a node's type
+        # directly (e.g. a method body that is a bare `x ||= ...`) would
+        # otherwise hit UnknownNodeError.
+        or_asgn = source.node.children[1]
+        assert_equal parse_type("::String"), typing.type_of(node: or_asgn)
       end
     end
   end
@@ -6580,6 +6587,13 @@ end
         construction.synthesize(source.node)
 
         assert_no_error typing
+
+        # Regression: when a method body is a bare `@ivar ||= ...`, the body
+        # node is the `or_asgn`. Reading its type directly (as rbs_rails/
+        # rbs_infer-style consumers do) must not raise UnknownNodeError.
+        def_node = source.node.children[2]
+        or_asgn = def_node.children[2]
+        assert_equal parse_type("::String"), typing.type_of(node: or_asgn)
       end
     end
   end
@@ -6597,6 +6611,13 @@ a[1] &&= 4
         construction.synthesize(source.node)
 
         assert_no_error typing
+
+        # Regression: send-LHS op-assign nodes must also be recorded in the
+        # typing table for the original node, not only the rewritten or/and node.
+        or_asgn = source.node.children[1]
+        and_asgn = source.node.children[2]
+        assert_equal parse_type("::Integer"), typing.type_of(node: or_asgn)
+        assert_equal parse_type("::Integer"), typing.type_of(node: and_asgn)
       end
     end
   end
@@ -11205,6 +11226,12 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
 
         assert_no_error(typing)
         assert_equal parse_type("::String"), type
+
+        # Regression: gvar op-assign nodes must be recorded in the typing table.
+        or_asgn = source.node.children[0]
+        and_asgn = source.node.children[1]
+        assert_equal parse_type("::String"), typing.type_of(node: or_asgn)
+        assert_equal parse_type("::String"), typing.type_of(node: and_asgn)
       end
     end
   end

@@ -2464,13 +2464,16 @@ module Steep
             case asgn.type
             when :lvasgn
               type, constr = synthesize(rhs, hint: hint)
-              constr.lvasgn(asgn, type)
+              type, constr = constr.lvasgn(asgn, type)
+              constr.add_typing(node, type: type)
             when :ivasgn
               type, constr = synthesize(rhs, hint: hint)
-              constr.ivasgn(asgn, type)
+              type, constr = constr.ivasgn(asgn, type)
+              constr.add_typing(node, type: type)
             when :gvasgn
               type, constr = synthesize(rhs, hint: hint)
-              constr.gvasgn(asgn, type)
+              type, constr = constr.gvasgn(asgn, type)
+              constr.add_typing(node, type: type)
             when :send
               children = asgn.children.dup
               children[1] = :"#{children[1]}="
@@ -2484,7 +2487,8 @@ module Steep
                           end
               node_ = node.updated(node_type, [asgn, rhs_])
 
-              synthesize(node_, hint: hint)
+              type, constr = synthesize(node_, hint: hint)
+              constr.add_typing(node, type: type)
             else
               Steep.logger.error { "#{node.type} with #{asgn.type} lhs is not supported"}
               fallback_to_any(node)
