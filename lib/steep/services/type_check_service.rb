@@ -394,6 +394,19 @@ module Steep
           TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annotations)
         ).build(type_env)
 
+        # Top-level constant narrowing (felixefelip/rbs_infer#25): a file
+        # checked with `# @type self: <class>` (an ERB view) has no method
+        # to hang `applies_constants` on, so apply the class's `toplevel`
+        # callback entries to the top-level env here — the analogue of
+        # `apply_callbacks_for_method`. E.g. `Current` reads in a guarded
+        # view then dispatch on the marker-decorated singleton.
+        unless callbacks.empty?
+          toplevel_updates = callbacks.toplevel_entries(module_name.to_s).each_with_object({}) do |entry, acc|
+            acc.merge!(Callbacks::ConstantNarrowing.constant_type_updates(entry.applies_constants, factory: subtyping.factory))
+          end
+          type_env = type_env.merge(constant_types: toplevel_updates) unless toplevel_updates.empty?
+        end
+
         context = TypeInference::Context.new(
           block_context: nil,
           module_context: TypeInference::Context::ModuleContext.new(

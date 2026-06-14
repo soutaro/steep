@@ -7079,6 +7079,106 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_callbacks__applies_constants_at_erb_toplevel
+    # ERB views are checked as top-level code with `# @type self: <class>`
+    # — there's no method to hang `applies_constants` on. A `toplevel: true`
+    # entry applies the constant narrowing to that top-level body, so a
+    # guarded view's `Current.caderneta` dispatches on the marker.
+    # felixefelip/rbs_infer#25.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCErbCaderneta
+            def vacinas: () -> String
+          end
+
+          class PCErbCurrent
+            def self.caderneta: () -> PCErbCaderneta?
+
+            module CadernetaPopulated
+              def caderneta: () -> PCErbCaderneta
+            end
+          end
+
+          class ERBPcErbShow
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          PCErbCurrent.caderneta.vacinas
+          # @type self: ERBPcErbShow
+        RUBY
+      },
+      callbacks: callbacks_store([
+        {
+          "class" => "ERBPcErbShow",
+          "applies_constants" => { "PCErbCurrent" => "singleton(PCErbCurrent) & PCErbCurrent::CadernetaPopulated" },
+          "toplevel" => true
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_callbacks__toplevel_flag_required_for_erb_narrowing
+    # Negative: a method-style entry (runs_before, no `toplevel`) does NOT
+    # apply to the top-level body — the constant keeps its declared nilable
+    # type and the read flags NoMethod.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class PCErbNegCaderneta
+            def vacinas: () -> String
+          end
+
+          class PCErbNegCurrent
+            def self.caderneta: () -> PCErbNegCaderneta?
+
+            module CadernetaPopulated
+              def caderneta: () -> PCErbNegCaderneta
+            end
+          end
+
+          class ERBPcErbNegShow
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          PCErbNegCurrent.caderneta.vacinas
+          # @type self: ERBPcErbNegShow
+        RUBY
+      },
+      callbacks: callbacks_store([
+        {
+          "class" => "ERBPcErbNegShow",
+          "applies_constants" => { "PCErbNegCurrent" => "singleton(PCErbNegCurrent) & PCErbNegCurrent::CadernetaPopulated" },
+          "runs_before" => ["render"]
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 26
+              end:
+                line: 1
+                character: 33
+            severity: ERROR
+            message: Type `(::PCErbNegCaderneta | nil)` does not have method `vacinas`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_callbacks__methods_not_in_runs_before_stay_at_declared_type
     # `set_company runs_before [show]` — but `index` is NOT covered. In
     # `index`, `@company` must remain at the declared nilable union, so

@@ -691,6 +691,15 @@ module TypeConstructionHelper
       Steep::TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annotations)
     ).build(TypeEnv.new(const_env))
 
+    # Mirror TypeCheckService.type_check: apply top-level constant
+    # narrowing for `@type self:` files (felixefelip/rbs_infer#25).
+    unless callbacks.empty?
+      toplevel_updates = callbacks.toplevel_entries(module_name.to_s).each_with_object({}) do |entry, acc|
+        acc.merge!(Steep::Callbacks::ConstantNarrowing.constant_type_updates(entry.applies_constants, factory: checker.factory))
+      end
+      type_env = type_env.merge(constant_types: toplevel_updates) unless toplevel_updates.empty?
+    end
+
     context = Context.new(
       block_context: nil,
       method_context: nil,

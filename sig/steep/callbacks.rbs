@@ -17,6 +17,10 @@ module Steep
       # Returns callback entries declared on `type_name` whose `runs_before`
       # includes `method_name`. Entries appear in declaration order.
       def lookup_callbacks_for_method: (RBS::TypeName | String type_name, Symbol | String method_name) -> Array[Entry]
+
+      # Entries marked `toplevel: true` on `type_name` — applied to the
+      # class's top-level body (felixefelip/rbs_infer#25).
+      def toplevel_entries: (RBS::TypeName | String type_name) -> Array[Entry]
     end
 
     class Entry
@@ -26,6 +30,7 @@ module Steep
       attr_reader applies_constants: Hash[String, String]
       attr_reader runs_before: Array[Symbol]
       attr_reader singleton: bool
+      attr_reader toplevel: bool
       attr_reader source: String?
 
       def self.parse: (Hash[String, untyped] row, source: String?) -> Entry?
@@ -39,8 +44,19 @@ module Steep
           ?applies_constants: Hash[String, String],
           runs_before: Array[Symbol],
           ?singleton: bool,
+          ?toplevel: bool,
           ?source: String?
         ) -> void
+    end
+
+    # Turns an `applies_constants` map into `constant_types` env updates.
+    # Shared by the method-entry and top-level narrowing paths.
+    module ConstantNarrowing
+      def self.constant_type_updates: (Hash[String, String] applies_constants, factory: untyped) -> Hash[RBS::TypeName, untyped]
+      def self.parse_type: (String string, factory: untyped) -> untyped?
+      def self.type_name_keys: (String const_name) -> Array[RBS::TypeName]
+      def self.markers_resolvable?: (untyped rbs_type, factory: untyped) -> bool
+      def self.marker_names: (untyped rbs_type, ?Array[RBS::TypeName] acc) -> Array[RBS::TypeName]
     end
   end
 end

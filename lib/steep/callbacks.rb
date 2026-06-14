@@ -35,10 +35,17 @@ module Steep
   #         applies_constants:
   #           Current: "singleton(Current) & Current::UserPopulated"
   #         runs_before: [index, show]
+  #       # top-level style: apply the narrowing to a class's top-level body
+  #       # (a file checked with `# @type self: <class>`, e.g. an ERB view),
+  #       # which has no method to list in `runs_before`.
+  #       - class: ERBPostsShow
+  #         applies_constants:
+  #           Current: "singleton(Current) & Current::UserPopulated"
+  #         toplevel: true
   #
   # Semantics: for each entry, at the entry of every method in `runs_before`
-  # on the matching class, Steep applies the entry's narrowing to the initial
-  # env:
+  # on the matching class — or, for `toplevel: true`, at the top-level body
+  # of the class — Steep applies the entry's narrowing to the initial env:
   #   - `apply_postcondition_of` looks up the handler's `unconditional`
   #     postcondition (from the `.steep_postconditions.yml` machinery, issue
   #     felixefelip/steep#23) and refines `instance_variable_types`. If the
@@ -118,10 +125,18 @@ module Steep
 
         entries.select { |entry| entry.runs_before.include?(method_sym) }
       end
+
+      # Entries that apply to the TOP-LEVEL body of `type_name` (no method
+      # — e.g. an ERB view checked with `# @type self: ERBClass`). Marked
+      # `toplevel: true` in the sidecar. felixefelip/rbs_infer#25.
+      def toplevel_entries(type_name)
+        key = type_name.to_s.sub(/\A::/, "")
+        (@entries_by_class[key] || []).select(&:toplevel)
+      end
     end
 
     class Entry
-      attr_reader :class_name, :handler_method, :applies_self, :applies_constants, :runs_before, :singleton, :source
+      attr_reader :class_name, :handler_method, :applies_self, :applies_constants, :runs_before, :singleton, :toplevel, :source
 
       def self.parse(row, source:)
         return nil unless row.is_a?(Hash)
@@ -132,6 +147,10 @@ module Steep
         applies_constants = parse_constants(row["applies_constants"], source: source)
         runs_before = row["runs_before"]
         singleton = row["singleton"] == true
+        # `toplevel: true` applies the narrowing to the class's top-level
+        # body instead of named methods — for files checked with
+        # `# @type self: <class>` (ERB views). felixefelip/rbs_infer#25.
+        toplevel = row["toplevel"] == true
 
         return nil unless klass.is_a?(String) && !klass.empty?
 
@@ -152,9 +171,7 @@ module Steep
         has_constants = !applies_constants.empty?
         return nil unless has_handler || has_self || has_constants
 
-        return nil unless runs_before.is_a?(Array) && runs_before.any?
-
-        method_syms = runs_before.filter_map do |name|
+        method_syms = (runs_before.is_a?(Array) ? runs_before : []).filter_map do |name|
           case name
           when String then name.to_sym unless name.empty?
           when Symbol then name
@@ -163,7 +180,9 @@ module Steep
             nil
           end
         end
-        return nil if method_syms.empty?
+        # A method entry needs `runs_before`; a top-level entry doesn't
+        # (it applies to the class's top-level body, no method).
+        return nil if method_syms.empty? && !toplevel
 
         new(
           class_name: klass,
@@ -172,6 +191,7 @@ module Steep
           applies_constants: applies_constants,
           runs_before: method_syms,
           singleton: singleton,
+          toplevel: toplevel,
           source: source
         )
       end
@@ -190,14 +210,79 @@ module Steep
         end
       end
 
-      def initialize(class_name:, handler_method: nil, applies_self: nil, applies_constants: {}, runs_before:, singleton: false, source: nil)
+      def initialize(class_name:, handler_method: nil, applies_self: nil, applies_constants: {}, runs_before:, singleton: false, toplevel: false, source: nil)
         @class_name = class_name
         @handler_method = handler_method
         @applies_self = applies_self
         @applies_constants = applies_constants
         @runs_before = runs_before
         @singleton = singleton
+        @toplevel = toplevel
         @source = source
+      end
+    end
+
+    # Turns an `applies_constants` map (`{ "Current" => "singleton(Current)
+    # & Current::CadernetaPopulated" }`) into `constant_types` env updates.
+    # Shared by the method-entry path (TypeConstruction) and the top-level
+    # path (TypeCheckService, for `# @type self:` files). Dangling marker
+    # references are skipped — a sidecar emitter can race ahead of marker
+    # generation, and applying an unresolvable type would crash shape
+    # computation later (same tolerance as the postcondition path).
+    module ConstantNarrowing
+      module_function
+
+      # => { RBS::TypeName => AST::Types::t } suitable for
+      #    `type_env.merge(constant_types: ...)`.
+      def constant_type_updates(applies_constants, factory:)
+        updates = {} #: Hash[RBS::TypeName, AST::Types::t]
+        applies_constants.each do |const_name, type_string|
+          ast_type = parse_type(type_string, factory: factory)
+          next unless ast_type
+
+          type_name_keys(const_name).each { |key| updates[key] = ast_type }
+        end
+        updates
+      end
+
+      def parse_type(string, factory:)
+        rbs_type = RBS::Parser.parse_type(string)
+        return nil unless rbs_type
+        return nil unless markers_resolvable?(rbs_type, factory: factory)
+
+        factory.type(rbs_type)
+      rescue StandardError => e
+        Steep.logger.warn { "[callbacks] failed to parse applies_constants type #{string.inspect}: #{e.message}" }
+        nil
+      end
+
+      # A constant read keyed by `Current` uses a relative TypeName; one by
+      # `::Current` an absolute one — register the narrowing under both.
+      def type_name_keys(const_name)
+        relative = RBS::TypeName.parse(const_name.sub(/\A::/, ""))
+        [relative, relative.absolute? ? relative : relative.absolute!].uniq
+      end
+
+      def markers_resolvable?(rbs_type, factory:)
+        env = factory.env
+        marker_names(rbs_type).all? do |name|
+          absolute = name.absolute? ? name : name.absolute!
+          env.class_decls.key?(absolute) || env.class_alias_decls.key?(absolute) || env.normalized_module_class_entry(absolute)
+        end
+      rescue StandardError
+        false
+      end
+
+      def marker_names(rbs_type, acc = [])
+        case rbs_type
+        when RBS::Types::ClassInstance, RBS::Types::ClassSingleton
+          acc << rbs_type.name
+        when RBS::Types::Intersection, RBS::Types::Union
+          rbs_type.types.each { |t| marker_names(t, acc) }
+        when RBS::Types::Optional
+          marker_names(rbs_type.type, acc)
+        end
+        acc
       end
     end
   end

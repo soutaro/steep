@@ -112,6 +112,46 @@ class CallbacksTest < Minitest::Test
     assert entry.singleton
   end
 
+  def test_toplevel_entry_needs_no_runs_before
+    raw = {
+      "callbacks" => [
+        {
+          "class" => "ERBPostsShow",
+          "applies_constants" => { "Current" => "singleton(Current) & Current::UserPopulated" },
+          "toplevel" => true
+        }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+
+    entries = store.toplevel_entries("ERBPostsShow")
+    assert_equal 1, entries.size
+    assert entries.first.toplevel
+    assert_equal({ "Current" => "singleton(Current) & Current::UserPopulated" }, entries.first.applies_constants)
+    # Not a method entry — runs_before lookups don't see it.
+    assert_empty store.lookup_callbacks_for_method("ERBPostsShow", :anything)
+  end
+
+  def test_toplevel_lookup_strips_leading_colons
+    raw = {
+      "callbacks" => [
+        { "class" => "ERBPostsShow", "applies_constants" => { "Current" => "singleton(Current)" }, "toplevel" => true }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+    assert_equal 1, store.toplevel_entries("::ERBPostsShow").size
+  end
+
+  def test_non_toplevel_entry_excluded_from_toplevel_lookup
+    raw = {
+      "callbacks" => [
+        { "class" => "PostsController", "applies_constants" => { "Current" => "singleton(Current)" }, "runs_before" => ["show"] }
+      ]
+    }
+    store = Callbacks::Store.from_hash(raw, source: "<test>")
+    assert_empty store.toplevel_entries("PostsController")
+  end
+
   def test_parses_applies_self_entry
     raw = {
       "callbacks" => [

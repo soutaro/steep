@@ -3936,25 +3936,7 @@ module Steep
     # marker payloads (`Foo & Foo::AfterX`); leaf types like literals
     # and `void`/`nil` carry no class name and don't need validation.
     def marker_references_resolvable?(rbs_type)
-      env = checker.factory.env
-      collect_marker_class_names(rbs_type).all? do |name|
-        absolute = name.absolute? ? name : name.absolute!
-        env.class_decls.key?(absolute) || env.class_alias_decls.key?(absolute) || env.normalized_module_class_entry(absolute)
-      end
-    rescue StandardError
-      false
-    end
-
-    def collect_marker_class_names(rbs_type, acc = [])
-      case rbs_type
-      when RBS::Types::ClassInstance, RBS::Types::ClassSingleton
-        acc << rbs_type.name
-      when RBS::Types::Intersection, RBS::Types::Union
-        rbs_type.types.each { |t| collect_marker_class_names(t, acc) }
-      when RBS::Types::Optional
-        collect_marker_class_names(rbs_type.type, acc)
-      end
-      acc
+      Callbacks::ConstantNarrowing.markers_resolvable?(rbs_type, factory: checker.factory)
     end
 
     # Routes a receiver-type refinement to the appropriate env slot
@@ -4080,13 +4062,7 @@ module Steep
         # the marker-decorated singleton. Registered under both the relative
         # and absolute names to cover `Current` and `::Current` reads.
         unless entry.applies_constants.empty?
-          updates = {} #: Hash[RBS::TypeName, AST::Types::t]
-          entry.applies_constants.each do |const_name, type_string|
-            ast_type = parse_callback_constant_type(type_string)
-            next unless ast_type
-
-            constant_type_name_keys(const_name).each { |key| updates[key] = ast_type }
-          end
+          updates = Callbacks::ConstantNarrowing.constant_type_updates(entry.applies_constants, factory: checker.factory)
           type_env = type_env.merge(constant_types: updates) unless updates.empty?
         end
 
@@ -4107,30 +4083,6 @@ module Steep
       end
 
       type_env
-    end
-
-    # Parses an `applies_constants` RBS type string into an AST type.
-    # Skips types referencing undeclared markers — sidecar emitters can race
-    # ahead of marker generation, and applying a dangling reference would
-    # crash shape computation later (same tolerance as
-    # `apply_unconditional_postconditions`).
-    def parse_callback_constant_type(string)
-      rbs_type = RBS::Parser.parse_type(string)
-      return nil unless rbs_type
-      return nil unless marker_references_resolvable?(rbs_type)
-
-      checker.factory.type(rbs_type)
-    rescue StandardError => e
-      Steep.logger.warn { "[callbacks] failed to parse applies_constants type #{string.inspect}: #{e.message}" }
-      nil
-    end
-
-    # `module_name_from_node` keys bare `Current` reads with a relative
-    # TypeName and `::Current` reads with an absolute one — register the
-    # narrowing under both.
-    def constant_type_name_keys(const_name)
-      relative = RBS::TypeName.parse(const_name.sub(/\A::/, ""))
-      [relative, relative.absolute? ? relative : relative.absolute!].uniq
     end
 
     # Parses an `applies_self` RBS type string (e.g. "Dose & Dose::Validated")
