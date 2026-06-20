@@ -104,9 +104,8 @@
         character: 28
     severity: ERROR
     message: |-
-      Cannot pass a value of type `::Proc` as a block-pass-argument of type `^(::Integer) -> U(3)`
-        ::Proc <: ^(::Integer) -> U(3)
-    code: Ruby::BlockTypeMismatch
+      Unsupported block-pass-argument given `::Proc`
+    code: Ruby::UnsupportedSyntax
   - range:
       start:
         line: 11
@@ -116,9 +115,8 @@
         character: 20
     severity: ERROR
     message: |-
-      Cannot pass a value of type `::Proc` as a block-pass-argument of type `^(::Integer) -> U(4)`
-        ::Proc <: ^(::Integer) -> U(4)
-    code: Ruby::BlockTypeMismatch
+      Unsupported block-pass-argument given `::Proc`
+    code: Ruby::UnsupportedSyntax
 - file: e.rb
   diagnostics:
   - range:
