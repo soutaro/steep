@@ -1990,3 +1990,54 @@ The syntax is not currently supported by Steep.
 | - | - | - | - | - |
 | error | information | hint | hint | - |
 
+<a name='Ruby::WarningReference'></a>
+## Ruby::WarningReference
+
+Method call, constant reference, or global variable reference resolves to a
+declaration (or method overload) that carries a `%a{warning: ...}` annotation.
+
+This works like `%a{deprecated}` but is intended for arbitrary, author-defined
+caveats rather than deprecation specifically. Unlike deprecation, it can also be
+attached to a single method overload to warn only when that overload is selected.
+
+### RBS
+
+```rbs
+%a{warning: experimental} class Foo
+end
+
+class Bar
+  def baz: () -> void
+         | %a{warning: don't pass an Integer} (Integer) -> void
+end
+```
+
+### Ruby code
+
+```ruby
+Foo
+
+Bar.new.baz(1)
+```
+
+### Diagnostic
+
+```
+lib/warning.rb:1:0: [warning] The constant has a warning: experimental
+│ Diagnostic ID: Ruby::WarningReference
+│
+└ Foo
+  ~~~
+
+lib/warning.rb:3:8: [warning] The method has a warning: don't pass an Integer
+│ Diagnostic ID: Ruby::WarningReference
+│
+└ Bar.new.baz(1)
+          ~~~
+```
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | warning | warning | warning | - |

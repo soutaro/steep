@@ -1080,6 +1080,36 @@ module Steep
         end
       end
 
+      class WarningReference < Base
+        attr_reader :message
+
+        def initialize(node:, location:, message:)
+          super(node: node, location: location)
+          @message = message
+        end
+
+        def header_line
+          header =
+            case node&.type
+            when :send, :csend, :block, :numblock
+              "The method has a warning"
+            when :const, :casgn
+              "The constant has a warning"
+            when :gvar, :gvasgn
+              "The global variable has a warning"
+            else
+              raise "Unexpected node: #{node}"
+            end
+
+          if message
+            header = +header
+            header.concat(": ", message)
+          end
+
+          header
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -1101,6 +1131,7 @@ module Steep
             BlockTypeMismatch => :warning,
             BreakTypeMismatch => :hint,
             DeprecatedReference => :warning,
+            WarningReference => :warning,
             DifferentMethodParameterKind => :hint,
             FallbackAny => :hint,
             FalseAssertion => :hint,
@@ -1166,6 +1197,7 @@ module Steep
             BlockTypeMismatch => :error,
             BreakTypeMismatch => :error,
             DeprecatedReference => :warning,
+            WarningReference => :warning,
             DifferentMethodParameterKind => :error,
             FallbackAny => :warning,
             FalseAssertion => :error,
@@ -1230,6 +1262,7 @@ module Steep
             BlockTypeMismatch => :information,
             BreakTypeMismatch => :hint,
             DeprecatedReference => :warning,
+            WarningReference => :warning,
             DifferentMethodParameterKind => nil,
             FallbackAny => nil,
             FalseAssertion => nil,
