@@ -881,4 +881,236 @@ RUBY
     end
   end
 
+  # --- Incremental re-check: skip/reuse of unaffected files -----------------
+  # Cached results are reused when a type change cannot affect the file
+  # (#type_check_needed? / #signature_validation_needed?).
+
+  def test_type_check_needed__predicates
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+    core_target = project.targets.find { _1.name == :core }
+
+    service.update(
+      changes: {
+        Pathname("sig/core.rbs") => [ContentChange.string("class Foo\nend\n")],
+        Pathname("lib/core.rb") => [ContentChange.string("Foo.new\n")]
+      }
+    )
+
+    # No source file recorded for this path yet -> needed.
+    assert service.type_check_needed?(path: Pathname("lib/unknown.rb"), target: core_target)
+
+    # Recorded but never type-checked (no typing) -> needed.
+    assert service.type_check_needed?(path: Pathname("lib/core.rb"), target: core_target)
+
+    service.typecheck_source(path: Pathname("lib/core.rb"), target: core_target)
+
+    # Freshly checked, environment healthy -> not needed.
+    refute service.type_check_needed?(path: Pathname("lib/core.rb"), target: core_target)
+
+    # A content change marks the cached result outdated -> needed.
+    service.update(changes: { Pathname("lib/core.rb") => [ContentChange.string("Foo.new\nFoo.new\n")] })
+    assert service.type_check_needed?(path: Pathname("lib/core.rb"), target: core_target)
+  end
+
+  def test_signature_validation_needed__predicates
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+    core_target = project.targets.find { _1.name == :core }
+
+    service.update(changes: { Pathname("sig/core.rbs") => [ContentChange.string("class Foo\nend\n")] })
+
+    # Not validated yet -> needed.
+    assert service.signature_validation_needed?(path: Pathname("sig/core.rbs"), target: core_target)
+
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core_target)
+
+    # Validated and nothing changed -> not needed.
+    refute service.signature_validation_needed?(path: Pathname("sig/core.rbs"), target: core_target)
+
+    # Changing the file's own type invalidates it -> needed.
+    service.update(changes: { Pathname("sig/core.rbs") => [ContentChange.string("class Foo\n  def f: () -> Integer\nend\n")] })
+    assert service.signature_validation_needed?(path: Pathname("sig/core.rbs"), target: core_target)
+  end
+
+  # Only the source files referencing a changed type are re-type-checked, and a
+  # pending re-check survives an unrelated intervening update (the need is
+  # recorded on the file, not recomputed per cycle). The change is to a
+  # signature, not the `.rb` content, so a source file's cached object survives
+  # unless it is actually re-type-checked -- object identity observes which files
+  # were re-checked.
+  def test_typecheck_source__rechecks_only_affected_files
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+    core_target = project.targets.find { _1.name == :core }
+    main_target = project.targets.find { _1.name == :main }
+
+    # Foo and Bar live in separate signature files; core.rb uses Foo, main.rb Bar.
+    service.update(
+      changes: {
+        Pathname("sig/core.rbs") => [ContentChange.string("class Foo\n  def foo: () -> void\nend\n")],
+        Pathname("sig/main.rbs") => [ContentChange.string("class Bar\n  def bar: () -> void\nend\n")],
+        Pathname("lib/core.rb") => [ContentChange.string("Foo.new.foo\n")],
+        Pathname("lib/main.rb") => [ContentChange.string("Bar.new.bar\n")]
+      }
+    )
+
+    service.typecheck_source(path: Pathname("lib/core.rb"), target: core_target)
+    service.typecheck_source(path: Pathname("lib/main.rb"), target: main_target)
+    core_before = service.source_files[Pathname("lib/core.rb")]
+    main_before = service.source_files[Pathname("lib/main.rb")]
+
+    # Change only Foo, deferring core.rb's re-check...
+    service.update(
+      changes: {
+        Pathname("sig/core.rbs") => [ContentChange.string("class Foo\n  def foo: () -> Integer\nend\n")]
+      }
+    )
+    # ...then run an unrelated intervening cycle (the unreferenced test target)
+    # whose changed-type set mentions neither Foo nor Bar.
+    service.update(changes: { Pathname("sig/core_test.rbs") => [ContentChange.string("class CoreTestHelper\nend\n")] })
+
+    service.typecheck_source(path: Pathname("lib/core.rb"), target: core_target)
+    service.typecheck_source(path: Pathname("lib/main.rb"), target: main_target)
+
+    refute_same core_before, service.source_files[Pathname("lib/core.rb")],
+      "core.rb references the changed Foo and must be re-type-checked, even across the intervening cycle"
+    assert_same main_before, service.source_files[Pathname("lib/main.rb")],
+      "main.rb references only the unchanged Bar and must not be re-type-checked"
+  end
+
+  # Only the signature files whose referenced types changed are re-validated, and
+  # a pending re-validation survives an unrelated intervening update. An
+  # unaffected file's cached SignatureFile object survives.
+  def test_validate_signature__revalidates_only_affected_files
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+    core_target = project.targets.find { _1.name == :core }
+    main_target = project.targets.find { _1.name == :main }
+
+    service.update(
+      changes: {
+        Pathname("sig/core.rbs") => [ContentChange.string("class Foo\n  def f: () -> Integer\nend\n")],
+        Pathname("sig/main.rbs") => [ContentChange.string("class Bar\n  def b: () -> Integer\nend\n")]
+      }
+    )
+
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core_target)
+    service.validate_signature(path: Pathname("sig/main.rbs"), target: main_target)
+    core_before = service.signature_files[:core][Pathname("sig/core.rbs")]
+    main_before = service.signature_files[:main][Pathname("sig/main.rbs")]
+
+    # Change only sig/core.rbs, then run an unrelated intervening cycle (the
+    # unreferenced test target) mentioning neither Foo nor Bar.
+    service.update(changes: { Pathname("sig/core.rbs") => [ContentChange.string("class Foo\n  def f: () -> String\nend\n")] })
+    service.update(changes: { Pathname("sig/core_test.rbs") => [ContentChange.string("class CoreTestHelper\nend\n")] })
+
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core_target)
+    service.validate_signature(path: Pathname("sig/main.rbs"), target: main_target)
+
+    refute_same core_before, service.signature_files[:core][Pathname("sig/core.rbs")],
+      "sig/core.rbs changed and must be re-validated, even across the intervening cycle"
+    assert_same main_before, service.signature_files[:main][Pathname("sig/main.rbs")],
+      "sig/main.rbs is unaffected and must not be re-validated"
+  end
+
+  def test_inline_change_marks_dependent_source_outdated
+    # A change to an inline (`inline: true`) Ruby file's declared types must
+    # mark the source files that reference those types as outdated.
+    project = Project.new(steepfile_path: Pathname.pwd + "Steepfile")
+    Project::DSL.eval(project) do
+      target :lib do
+        check "lib", inline: true
+        signature "sig"
+      end
+    end
+    service = Services::TypeCheckService.new(project: project)
+    target = project.targets[0]
+
+    hello_v1 = <<~RUBY
+      class Hello
+        # @rbs () -> Integer
+        def world
+          1
+        end
+      end
+    RUBY
+    hello_v2 = <<~RUBY
+      class Hello
+        # @rbs () -> String
+        def world
+          "x"
+        end
+      end
+    RUBY
+
+    service.update(
+      changes: {
+        Pathname("lib/hello.rb") => [ContentChange.string(hello_v1)],
+        Pathname("lib/user.rb") => [ContentChange.string("Hello.new.world\n")]
+      }
+    )
+
+    # Check user.rb so it has a cached result and recorded references.
+    service.typecheck_source(path: Pathname("lib/user.rb"), target: target)
+    user = service.source_files[Pathname("lib/user.rb")]
+    assert_includes user.referenced_type_names, RBS::TypeName.parse("::Hello")
+    refute user.outdated
+
+    # Changing the inline file must invalidate the dependent file.
+    service.update(changes: { Pathname("lib/hello.rb") => [ContentChange.string(hello_v2)] })
+
+    assert service.source_files[Pathname("lib/user.rb")].outdated,
+      "a file referencing an inline-defined type must be marked outdated when that type changes"
+  end
+
+  def source_recheck_project
+    Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
+      Project::DSL.eval(project) do
+        target :main do
+          check "lib/a.rb"
+          signature "sig/foo.rbs"
+        end
+      end
+    end
+  end
+
+  def normalize_recheck_diagnostics(diagnostics)
+    diagnostics.map { |d| [d.class.name, d.location&.source].join(":") }.sort
+  end
+
+  # Regression (rbs-inline workflow): the `.rb` is created before its generated
+  # `.rbs`, so the referenced type is unresolved and absent from the cached
+  # refs. The file must still be re-checked once the signature appears.
+  def test_incremental_recheck__file_rechecked_after_referenced_type_is_added_later
+    project = source_recheck_project
+    service = Services::TypeCheckService.new(project: project)
+    target = project.target_for_source_path(Pathname("lib/a.rb")) or raise
+
+    # Cycle 1: only the source file exists; sig/foo.rbs has not been generated.
+    service.update(changes: { Pathname("lib/a.rb") => [ContentChange.string("Foo.new\n")] })
+    diag_before = normalize_recheck_diagnostics(service.typecheck_source(path: Pathname("lib/a.rb"), target: target) || [])
+
+    # Foo is undefined, so the reference does not resolve and is not recorded.
+    assert diag_before.any? { |d| d.start_with?("Steep::Diagnostic::Ruby::UnknownConstant:") },
+      "cycle 1 should report Foo as an unknown constant, got: #{diag_before}"
+    refute_includes service.source_files[Pathname("lib/a.rb")].referenced_type_names, RBS::TypeName.parse("::Foo")
+    assert service.source_files[Pathname("lib/a.rb")].has_unresolved_references,
+      "a file with an unresolved reference must record that its refs are incomplete"
+
+    # Cycle 2: the hook generates sig/foo.rbs, defining Foo.
+    service.update(changes: { Pathname("sig/foo.rbs") => [ContentChange.string("class Foo\nend\n")] })
+
+    assert service.type_check_needed?(path: Pathname("lib/a.rb"), target: target),
+      "a file with unresolved references must be re-checked when type information changes"
+
+    diag_after = normalize_recheck_diagnostics(service.typecheck_source(path: Pathname("lib/a.rb"), target: target) || [])
+    assert_empty diag_after, "the UnknownConstant error must disappear once Foo is defined"
+
+    # Refs are now complete and the unresolved flag has cleared, so ordinary
+    # skipping resumes.
+    refute service.source_files[Pathname("lib/a.rb")].has_unresolved_references
+    assert_includes service.source_files[Pathname("lib/a.rb")].referenced_type_names, RBS::TypeName.parse("::Foo")
+  end
+
 end
