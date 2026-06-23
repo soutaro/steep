@@ -6,6 +6,7 @@ module Steep
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
       SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
+      ReferencesQueryJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
 
       LSP = LanguageServer::Protocol
 
@@ -49,6 +50,13 @@ module Steep
               {
                 id: job.id,
                 result: process_latest_job(job) { process_signature_help(job) }
+              }
+            )
+          when ReferencesQueryJob
+            writer.write(
+              {
+                id: job.id,
+                result: process_references_query(job)
               }
             )
           end
@@ -119,6 +127,15 @@ module Steep
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
 
           queue_job SignatureHelpJob.new(id: id, path: path, line: line, column: column)
+
+        when CustomMethods::ResolveSymbol::METHOD
+          id = request[:id]
+          params = request[:params]
+          path = PathHelper.to_pathname!(params[:textDocument][:uri])
+          line = params[:position][:line] + 1
+          column = params[:position][:character]
+
+          queue_job ReferencesQueryJob.new(id: id, path: path, line: line, column: column)
         end
       end
 
@@ -489,6 +506,21 @@ module Steep
             filter_text: name,
             sort_text: "zz__#{name}"
           )
+        end
+      end
+
+      def process_references_query(job)
+        Steep.logger.tagged "#process_references_query" do
+          Steep.measure "Resolving references queries" do
+            Steep.logger.info { "path=#{job.path}, line=#{job.line}, column=#{job.column}" }
+
+            goto_service = Services::GotoService.new(type_check: service, assignment: Services::PathAssignment.all)
+            queries = goto_service.resolve_references_queries(path: job.path, line: job.line, column: job.column)
+            queries.map(&:as_json)
+          rescue => exn
+            Steep.log_error exn, message: "Failed to resolve references queries: #{exn.inspect}"
+            []
+          end
         end
       end
     end

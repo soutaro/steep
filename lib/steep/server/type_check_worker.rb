@@ -13,6 +13,8 @@ module Steep
       ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       TypeCheckInlineCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
+      ReferencesJob = _ = Struct.new(:id, :queries, :include_declaration, keyword_init: true)
+
       class GotoJob < Struct.new(:id, :kind, :params, keyword_init: true)
         def self.implementation(id:, params:)
           new(
@@ -118,6 +120,11 @@ module Steep
           queue << GotoJob.implementation(id: request[:id], params: request[:params])
         when "textDocument/typeDefinition"
           queue << GotoJob.type_definition(id: request[:id], params: request[:params])
+        when CustomMethods::References__Search::METHOD
+          params = request[:params]
+          queries = (params[:queries] || []).map { |q| Services::GotoService.query_from_json(q) }
+          include_declaration = params[:include_declaration] || false
+          queue << ReferencesJob.new(id: request[:id], queries: queries, include_declaration: include_declaration)
         when CustomMethods::Refork::METHOD
           io_socket or raise
 
@@ -307,6 +314,11 @@ module Steep
           writer.write(
             CustomMethods::Query__Definition.response(job.id, query_definition_result(job.name))
           )
+        when ReferencesJob
+          writer.write(
+            id: job.id,
+            result: references(job)
+          )
         end
       end
 
@@ -428,6 +440,17 @@ module Steep
             raise
           end
 
+        locations_to_links(locations)
+      end
+
+      def references(job)
+        goto_service = Services::GotoService.new(type_check: service, assignment: assignment)
+        locations = goto_service.find_references(queries: job.queries, include_declaration: job.include_declaration)
+
+        locations_to_links(locations)
+      end
+
+      def locations_to_links(locations)
         locations.map do |loc|
           path =
             case loc

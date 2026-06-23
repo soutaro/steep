@@ -1187,4 +1187,113 @@ x = nil #: MyString?
       assert locs.any? {|loc| !loc.is_a?(RBS::Location) && loc.source_buffer.name.to_s.end_with?("customer.rb") }
     end
   end
+
+  def test_references_constant_from_ruby
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  VERSION: String
+end
+RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+  VERSION = "0.1.0"
+end
+
+Customer::VERSION
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    # Find references to `Customer` from Ruby code (line 1 is `class Customer`, cursor on `Customer`)
+    service.references(path: dir + "lib/customer.rb", line: 1, column: 10, include_declaration: false).tap do |locs|
+      # Should find the reference on line 5 (`Customer::VERSION`)
+      assert_any!(locs) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal 5, loc.line
+      end
+    end
+  end
+
+  def test_references_constant_with_declaration
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+end
+RBS
+      changes[Pathname("lib/customer.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+end
+
+Customer
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    service.references(path: dir + "lib/customer.rb", line: 1, column: 10, include_declaration: true).tap do |locs|
+      # Should find the reference on line 4 AND the declaration
+      assert locs.size >= 2
+    end
+  end
+
+  def test_references_method_from_ruby
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/foo.rbs")] = [ContentChange.string(<<RBS)]
+class Foo
+  def hello: () -> String
+end
+RBS
+      changes[Pathname("lib/foo.rb")] = [ContentChange.string(<<RUBY)]
+class Foo
+  def hello
+    "world"
+  end
+end
+
+Foo.new.hello
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    # Find references to `hello` from Ruby method definition (line 2, cursor on `hello`)
+    service.references(path: dir + "lib/foo.rb", line: 2, column: 8, include_declaration: false).tap do |locs|
+      # Should find the call on line 7 (`Foo.new.hello`)
+      assert_any!(locs) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal "hello", loc.source
+        assert_equal 7, loc.line
+      end
+    end
+  end
+
+  def test_references_type_name_from_rbs
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/foo.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+  VERSION: String
+end
+RBS
+      changes[Pathname("lib/foo.rb")] = [ContentChange.string(<<RUBY)]
+class Customer
+  VERSION = "0.1.0"
+end
+
+Customer::VERSION
+RUBY
+    end
+
+    service = Services::GotoService.new(type_check: type_check, assignment: assignment)
+
+    # Find references to `Customer` from the RBS class declaration (line 1, cursor on `Customer`)
+    service.references(path: dir + "sig/foo.rbs", line: 1, column: 8, include_declaration: false).tap do |locs|
+      # Should find constant reference in Ruby (line 5: Customer::VERSION)
+      assert_any!(locs) do |loc|
+        assert_instance_of Parser::Source::Range, loc
+        assert_equal 5, loc.line
+      end
+    end
+  end
 end
