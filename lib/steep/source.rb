@@ -48,8 +48,12 @@ module Steep
         end
       end
 
-      if ENV["STEEP_MODULE_CONVENTION"] && path.to_s.end_with?(".rb")
-        source_code = ModuleSelfTypeResolver.annotate(path, source_code)
+      if ENV["STEEP_MODULE_CONVENTION"] && path.to_s.end_with?(".rb") && (entry = ModuleSelfTypes.entry_for(path))
+        source_code = ModuleSelfTypes.inject(
+          source_code,
+          annotations: Array(entry["annotations"]),
+          anchor: entry["anchor"].to_s
+        )
       end
 
       buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)

@@ -32,9 +32,11 @@ GEM
     erb (6.0.4)
     ffi (1.17.3)
     ffi (1.17.3-arm64-darwin)
+    ffi (1.17.3-x86_64-linux-gnu)
     fileutils (1.8.0)
     herb (0.9.0)
     herb (0.9.0-arm64-darwin)
+    herb (0.9.0-x86_64-linux-gnu)
     io-console (0.8.2)
     irb (1.18.0)
       pp (>= 0.6.0)
@@ -96,6 +98,7 @@ GEM
 
 PLATFORMS
   arm64-darwin-25
+  x86_64-linux
 
 DEPENDENCIES
   debug
