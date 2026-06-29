@@ -130,6 +130,66 @@ class Steep::Source::ModuleSelfTypesTest < Minitest::Test
 
   BLOCKS = [{ "call" => "class_methods", "implements" => "::Post::Taggable::ClassMethods" }].freeze
 
+  BLOCKS_WITH_SELF = [{
+    "call" => "class_methods",
+    "implements" => "::Post::Taggable::ClassMethods",
+    "self" => "singleton(::Post) & singleton(::Post::Taggable)"
+  }].freeze
+
+  def test_inject_blocks_appends_self_on_each_def_line_without_shifting
+    source = <<~RUBY
+      module Post
+        module Taggable
+          class_methods do
+            def default_tag_names
+              ["news"]
+            end
+
+            def known_tag?(name)
+              default_tag_names.include?(name)
+            end
+          end
+        end
+      end
+    RUBY
+
+    result = M.inject_blocks(source, blocks: BLOCKS_WITH_SELF)
+    lines = result.lines
+
+    # No line added.
+    assert_equal source.lines.size, lines.size
+
+    # @implements on the opener, @type self on each def line, every other line intact.
+    self_ann = "# @type self: singleton(::Post) & singleton(::Post::Taggable)"
+    source.lines.each_with_index do |orig, i|
+      case
+      when orig.include?("class_methods do")
+        assert_includes lines[i], "@implements ::Post::Taggable::ClassMethods"
+        assert lines[i].start_with?(orig.chomp)
+      when orig.include?("def default_tag_names"), orig.include?("def known_tag?")
+        assert_includes lines[i], self_ann, "def line #{i + 1} must carry @type self"
+        assert lines[i].start_with?(orig.chomp)
+      else
+        assert_equal orig, lines[i], "line #{i + 1} must not move or change"
+      end
+    end
+
+    assert_equal 2, lines.count { |l| l.include?(self_ann) }
+  end
+
+  def test_inject_blocks_with_self_is_idempotent
+    once  = M.inject_blocks(TAGGABLE, blocks: BLOCKS_WITH_SELF)
+    twice = M.inject_blocks(once, blocks: BLOCKS_WITH_SELF)
+    assert_equal once, twice
+    assert_equal 1, twice.lines.count { |l| l.include?("@type self:") }
+    assert_equal 1, twice.lines.count { |l| l.include?("@implements") }
+  end
+
+  def test_inject_blocks_without_self_adds_no_type_self
+    result = M.inject_blocks(TAGGABLE, blocks: BLOCKS)
+    refute_includes result, "@type self:"
+  end
+
   def test_inject_blocks_appends_implements_on_the_opener_line
     result = M.inject_blocks(TAGGABLE, blocks: BLOCKS)
     lines = result.lines

@@ -10,12 +10,15 @@ module Steep
     #
     #   * `# @type self:` / `# @type instance:` placed inside a module body
     #     (the `anchor` / `annotations` entry keys); and
-    #   * `# @implements <Module>` appended to a DSL block's opener line (the
+    #   * `# @implements <Module>` on a DSL block's opener line plus, per spec,
+    #     `# @type self: <Type>` on each method-def line in that block (the
     #     `blocks` entry key) — e.g. an `ActiveSupport::Concern`'s
-    #     `class_methods do … end`, so Steep checks that block as an
-    #     implementation of the given module (its `def`s attach there and
-    #     `self` resolves there). It rides on the `do`/`{` line so no line is
-    #     added and reported line numbers stay aligned with the real source.
+    #     `class_methods do … end`, so Steep checks the block as an
+    #     implementation of <Module> (its `def`s attach there) whose method
+    #     bodies run with <Type> as self (the including class's singleton, so
+    #     the includer's scopes/class methods resolve). Both ride on existing
+    #     lines, so no line is added and reported line numbers stay aligned
+    #     with the real source.
     #
     # Steep is framework-agnostic here: it knows nothing about Rails, concerns,
     # or path conventions. It only looks up an entry by path and places the
@@ -35,6 +38,7 @@ module Steep
     #     blocks:
     #       - call: "class_methods"
     #         implements: "::Post::Taggable::ClassMethods"
+    #         self: "singleton(::Post) & singleton(::Post::Taggable)"
     #
     # `anchor` is the leaf constant name; it locates the target scope so a
     # comment for a nested module lands *inside* that module's body (a trailing
@@ -80,16 +84,18 @@ module Steep
           append_at_end(source_code, missing)
         end
 
-        # Appends `# @implements <implements>` to the opener line of each
-        # receiverless block call named `call`, for every `blocks` spec
-        # (`{ "call" => ..., "implements" => ... }`). Lets Steep check a DSL
+        # Annotates each receiverless block call named `call`, for every
+        # `blocks` spec (`{ "call" => ..., "implements" => ..., "self" => ...
+        # }`): `# @implements <implements>` on the opener line, and — when
+        # `self` is given — `# @type self: <self>` on each method-def line in
+        # the block (see `block_annotation_insertions`). Lets Steep check a DSL
         # block — e.g. `class_methods do … end` — as an implementation of the
-        # target module. The comment rides on the `do`/`{` line itself so it
-        # adds NO line: Steep reports against the injected source, and every
-        # line number stays aligned with the real file (the same
-        # line-preservation guarantee `inject` keeps). Idempotent (skips a
-        # block that already carries the annotation) and purely mechanical;
-        # falls back to the original source on any parse error.
+        # target module whose methods run with the includer's class self.
+        # Every comment rides on an existing line, so it adds NO line: Steep
+        # reports against the injected source, and every line number stays
+        # aligned with the real file (the same line-preservation guarantee
+        # `inject` keeps). Idempotent and purely mechanical; falls back to the
+        # original source on any parse error.
         def inject_blocks(source_code, blocks:)
           return source_code if blocks.empty?
 
@@ -101,15 +107,15 @@ module Steep
             module_name = spec["implements"].to_s
             next [] if call_name.empty? || module_name.empty?
 
-            annotation = "# @implements #{module_name}"
-            find_block_calls(result.value, call_name).filter_map do |call|
+            implements = "# @implements #{module_name}"
+            self_type = spec["self"].to_s
+            self_annotation = self_type.empty? ? nil : "# @type self: #{self_type}"
+
+            find_block_calls(result.value, call_name).flat_map do |call|
               block = call.block
-              next unless block.is_a?(Prism::BlockNode) && block.opening_loc
+              next [] unless block.is_a?(Prism::BlockNode) && block.opening_loc
 
-              block_src = source_code.byteslice(block.location.start_offset, block.location.length) || ""
-              next if block_src.include?(annotation)
-
-              block_insertion(source_code, block, annotation)
+              block_annotation_insertions(source_code, block, implements, self_annotation)
             end
           end
           return source_code if insertions.empty?
@@ -187,19 +193,63 @@ module Steep
           [found, found_nested]
         end
 
-        # The `{ offset:, text: }` insertion that appends `annotation` to the
-        # end of `block`'s opener line — after the block parameters (`do |x|`)
-        # when present, else right after `do`/`{`. Returns nil (skips) when the
-        # body shares that line (an inline `{ … }`), where a trailing `#`
-        # comment would swallow the body; that shape never appears for the
-        # concern DSL, so skipping is safer than corrupting the source.
-        def block_insertion(source_code, block, annotation)
+        # All `{ offset:, text: }` insertions for one annotated DSL block:
+        #   * `# @implements <module>` on the block opener line; and
+        #   * `# @type self: <type>` on each direct method-def line inside the
+        #     block (only when a self type is given).
+        # The opener `@implements` makes the block's `def`s attach to <module>;
+        # the per-def `@type self:` widens each method body's self to the
+        # including class's singleton so the includer's scopes/class methods
+        # resolve there (a block-level self annotation does NOT reach into a
+        # method body — its self comes from the method's owner). Every
+        # annotation rides on an existing line, so nothing shifts; an
+        # annotation that cannot ride its line (inline body, or already
+        # present) is skipped — making this idempotent.
+        def block_annotation_insertions(source_code, block, implements, self_annotation)
+          insertions = []
+
           open_end = block.parameters&.location&.end_offset || block.opening_loc.end_offset
-          newline = source_code.byteindex("\n", open_end) || source_code.bytesize
-          tail = source_code.byteslice(open_end, newline - open_end) || ""
+          insertions << append_to_line(source_code, open_end, implements)
+
+          if self_annotation
+            each_block_def(block) do |defn|
+              insertions << append_to_line(source_code, def_signature_end(defn), self_annotation)
+            end
+          end
+
+          insertions.compact
+        end
+
+        # A `{ offset:, text: }` that appends `annotation` to the source line
+        # holding `offset`, when nothing but whitespace follows `offset` on that
+        # line — so the comment adds no line and shifts nothing. Returns nil
+        # when the rest of the line is non-blank (an inline body, or an
+        # annotation already there), where a trailing `#` would swallow it.
+        def append_to_line(source_code, offset, annotation)
+          newline = source_code.byteindex("\n", offset) || source_code.bytesize
+          tail = source_code.byteslice(offset, newline - offset) || ""
           return nil unless tail.strip.empty?
 
-          { offset: open_end, text: " #{annotation}" }
+          { offset: offset, text: " #{annotation}" }
+        end
+
+        # The byte offset just past a def's signature — after the parameters
+        # (`def foo(x)` / `def foo x`), else after the method name (`def foo`) —
+        # where a trailing annotation can ride.
+        def def_signature_end(node)
+          node.rparen_loc&.end_offset || node.parameters&.location&.end_offset || node.name_loc.end_offset
+        end
+
+        # Yields each method definition that is a direct statement of `block`'s
+        # body (the methods the `class_methods do` DSL contributes); nested
+        # defs/classes have their own context and are left alone.
+        def each_block_def(block)
+          body = block.body
+          return unless body.is_a?(Prism::StatementsNode)
+
+          body.body.each do |stmt|
+            yield stmt if stmt.is_a?(Prism::DefNode)
+          end
         end
 
         # Every receiverless call named `call_name` that carries a `do … end` /
