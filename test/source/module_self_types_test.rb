@@ -114,6 +114,79 @@ class Steep::Source::ModuleSelfTypesTest < Minitest::Test
     assert_includes result, "# @type instance: Foo & Broken"
   end
 
+  # --- inject_blocks: @implements into a DSL block body ---
+
+  TAGGABLE = <<~RUBY
+    module Post
+      module Taggable
+        class_methods do
+          def default_tag_names
+            ["news"]
+          end
+        end
+      end
+    end
+  RUBY
+
+  BLOCKS = [{ "call" => "class_methods", "implements" => "::Post::Taggable::ClassMethods" }].freeze
+
+  def test_inject_blocks_inserts_implements_as_first_body_line
+    result = M.inject_blocks(TAGGABLE, blocks: BLOCKS)
+    lines = result.lines
+
+    do_idx         = lines.index { |l| l.include?("class_methods do") }
+    implements_idx = lines.index { |l| l.include?("@implements ::Post::Taggable::ClassMethods") }
+    def_idx        = lines.index { |l| l.include?("def default_tag_names") }
+
+    assert implements_idx, "expected an @implements line"
+    assert_equal do_idx + 1, implements_idx, "annotation must be the first line of the block body"
+    assert implements_idx < def_idx, "annotation must precede the block's defs"
+  end
+
+  def test_inject_blocks_preserves_lines_before_the_block
+    result = M.inject_blocks(TAGGABLE, blocks: BLOCKS)
+
+    # Everything up to and including `class_methods do` is byte-for-byte intact
+    # (we insert *after* the `do`).
+    prefix = TAGGABLE[0..TAGGABLE.index("class_methods do") + "class_methods do".length - 1]
+    assert result.start_with?(prefix)
+  end
+
+  def test_inject_blocks_is_idempotent
+    once  = M.inject_blocks(TAGGABLE, blocks: BLOCKS)
+    twice = M.inject_blocks(once, blocks: BLOCKS)
+    assert_equal once, twice
+    assert_equal 1, twice.lines.count { |l| l.include?("@implements ::Post::Taggable::ClassMethods") }
+  end
+
+  def test_inject_blocks_ignores_unmatched_call_name
+    result = M.inject_blocks(TAGGABLE, blocks: [{ "call" => "included", "implements" => "X" }])
+    assert_equal TAGGABLE, result
+  end
+
+  def test_inject_blocks_skips_call_with_receiver
+    source = <<~RUBY
+      module Post
+        module Taggable
+          helper.class_methods do
+            def x; end
+          end
+        end
+      end
+    RUBY
+
+    assert_equal source, M.inject_blocks(source, blocks: BLOCKS)
+  end
+
+  def test_inject_blocks_noop_for_empty_blocks
+    assert_equal TAGGABLE, M.inject_blocks(TAGGABLE, blocks: [])
+  end
+
+  def test_inject_blocks_falls_back_on_unparseable_source
+    source = "module Broken\n  class_methods do\n"
+    assert_equal source, M.inject_blocks(source, blocks: BLOCKS)
+  end
+
   # --- entry_for: sidecar loading ---
 
   def test_entry_for_reads_sidecar_keyed_by_path

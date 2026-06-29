@@ -49,11 +49,19 @@ module Steep
       end
 
       if ENV["STEEP_MODULE_CONVENTION"] && path.to_s.end_with?(".rb") && (entry = ModuleSelfTypes.entry_for(path))
-        source_code = ModuleSelfTypes.inject(
-          source_code,
-          annotations: Array(entry["annotations"]),
-          anchor: entry["anchor"].to_s
-        )
+        if entry["anchor"]
+          source_code = ModuleSelfTypes.inject(
+            source_code,
+            annotations: Array(entry["annotations"]),
+            anchor: entry["anchor"].to_s
+          )
+        end
+        if entry["blocks"]
+          source_code = ModuleSelfTypes.inject_blocks(
+            source_code,
+            blocks: Array(entry["blocks"])
+          )
+        end
       end
 
       buffer = ::Parser::Source::Buffer.new(path.to_s, 1, source: source_code)
