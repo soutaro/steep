@@ -10,10 +10,12 @@ module Steep
     #
     #   * `# @type self:` / `# @type instance:` placed inside a module body
     #     (the `anchor` / `annotations` entry keys); and
-    #   * `# @implements <Module>` placed inside a DSL block body (the `blocks`
-    #     entry key) — e.g. an `ActiveSupport::Concern`'s `class_methods do …
-    #     end`, so Steep checks that block as an implementation of the given
-    #     module (its `def`s attach there and `self` resolves there).
+    #   * `# @implements <Module>` appended to a DSL block's opener line (the
+    #     `blocks` entry key) — e.g. an `ActiveSupport::Concern`'s
+    #     `class_methods do … end`, so Steep checks that block as an
+    #     implementation of the given module (its `def`s attach there and
+    #     `self` resolves there). It rides on the `do`/`{` line so no line is
+    #     added and reported line numbers stay aligned with the real source.
     #
     # Steep is framework-agnostic here: it knows nothing about Rails, concerns,
     # or path conventions. It only looks up an entry by path and places the
@@ -78,13 +80,16 @@ module Steep
           append_at_end(source_code, missing)
         end
 
-        # Inserts `# @implements <implements>` as the first line of the body of
-        # each receiverless block call named `call`, for every `blocks` spec
+        # Appends `# @implements <implements>` to the opener line of each
+        # receiverless block call named `call`, for every `blocks` spec
         # (`{ "call" => ..., "implements" => ... }`). Lets Steep check a DSL
         # block — e.g. `class_methods do … end` — as an implementation of the
-        # target module. Idempotent (skips a block that already carries the
-        # annotation) and purely mechanical; falls back to the original source
-        # on any parse error.
+        # target module. The comment rides on the `do`/`{` line itself so it
+        # adds NO line: Steep reports against the injected source, and every
+        # line number stays aligned with the real file (the same
+        # line-preservation guarantee `inject` keeps). Idempotent (skips a
+        # block that already carries the annotation) and purely mechanical;
+        # falls back to the original source on any parse error.
         def inject_blocks(source_code, blocks:)
           return source_code if blocks.empty?
 
@@ -104,8 +109,7 @@ module Steep
               block_src = source_code.byteslice(block.location.start_offset, block.location.length) || ""
               next if block_src.include?(annotation)
 
-              indent = " " * (call.location.start_column + 2)
-              { offset: block.opening_loc.end_offset, text: "\n#{indent}#{annotation}" }
+              block_insertion(source_code, block, annotation)
             end
           end
           return source_code if insertions.empty?
@@ -181,6 +185,21 @@ module Steep
           end
           walk.call(result.value, 0, false)
           [found, found_nested]
+        end
+
+        # The `{ offset:, text: }` insertion that appends `annotation` to the
+        # end of `block`'s opener line — after the block parameters (`do |x|`)
+        # when present, else right after `do`/`{`. Returns nil (skips) when the
+        # body shares that line (an inline `{ … }`), where a trailing `#`
+        # comment would swallow the body; that shape never appears for the
+        # concern DSL, so skipping is safer than corrupting the source.
+        def block_insertion(source_code, block, annotation)
+          open_end = block.parameters&.location&.end_offset || block.opening_loc.end_offset
+          newline = source_code.byteindex("\n", open_end) || source_code.bytesize
+          tail = source_code.byteslice(open_end, newline - open_end) || ""
+          return nil unless tail.strip.empty?
+
+          { offset: open_end, text: " #{annotation}" }
         end
 
         # Every receiverless call named `call_name` that carries a `do … end` /

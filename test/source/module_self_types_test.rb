@@ -130,17 +130,40 @@ class Steep::Source::ModuleSelfTypesTest < Minitest::Test
 
   BLOCKS = [{ "call" => "class_methods", "implements" => "::Post::Taggable::ClassMethods" }].freeze
 
-  def test_inject_blocks_inserts_implements_as_first_body_line
+  def test_inject_blocks_appends_implements_on_the_opener_line
     result = M.inject_blocks(TAGGABLE, blocks: BLOCKS)
     lines = result.lines
 
-    do_idx         = lines.index { |l| l.include?("class_methods do") }
-    implements_idx = lines.index { |l| l.include?("@implements ::Post::Taggable::ClassMethods") }
-    def_idx        = lines.index { |l| l.include?("def default_tag_names") }
+    do_line = lines.find { |l| l.include?("class_methods do") }
+    assert_includes do_line, "@implements ::Post::Taggable::ClassMethods",
+                    "annotation must ride on the `do` line itself"
+    assert_match(/class_methods do # @implements ::Post::Taggable::ClassMethods/, do_line)
+  end
 
-    assert implements_idx, "expected an @implements line"
-    assert_equal do_idx + 1, implements_idx, "annotation must be the first line of the block body"
-    assert implements_idx < def_idx, "annotation must precede the block's defs"
+  def test_inject_blocks_adds_no_line_and_keeps_every_other_line
+    result = M.inject_blocks(TAGGABLE, blocks: BLOCKS)
+    lines = result.lines
+    original = TAGGABLE.lines
+
+    # No line added → line numbers Steep reports stay aligned with the source.
+    assert_equal original.size, lines.size
+
+    original.each_with_index do |orig, i|
+      if orig.include?("class_methods do")
+        # The opener line only gains a trailing comment.
+        assert lines[i].start_with?(orig.chomp), "opener line #{i + 1} must keep its prefix"
+        assert_includes lines[i], "@implements"
+      else
+        assert_equal orig, lines[i], "line #{i + 1} must not move or change"
+      end
+    end
+  end
+
+  def test_inject_blocks_skips_inline_block_rather_than_corrupting_it
+    # An inline `{ … }` body shares the opener line; appending a `#` comment
+    # there would swallow the body, so the block is left untouched.
+    source = "module M\n  class_methods { def x; end }\nend\n"
+    assert_equal source, M.inject_blocks(source, blocks: BLOCKS)
   end
 
   def test_inject_blocks_preserves_lines_before_the_block
