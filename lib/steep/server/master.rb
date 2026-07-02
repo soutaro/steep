@@ -199,6 +199,8 @@ module Steep
         @write_queue = SizedQueue.new(100)
         @refork_mutex = Mutex.new
         @need_to_refork = refork
+        @command_socket_requests = {}
+        @command_socket_mutex = Mutex.new
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -245,7 +247,7 @@ module Steep
                 case job.dest
                 when :client
                   Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                  writer.write job.message
+                  write_message_to_client(job.message)
                 when WorkerProcess
                   refork_mutex.synchronize do
                     Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
@@ -1019,6 +1021,105 @@ module Steep
       def enqueue_write_job(job)
         Steep.logger.info { "Write_queue has #{write_queue.size} items"}
         write_queue.push(job)
+      end
+
+      # Methods that command socket clients cannot send because they control the server lifecycle
+      COMMAND_SOCKET_DENIED_METHODS = ["initialize", "shutdown", "exit"].freeze
+
+      # Notifications that are copied to command socket sessions with a pending `$/steep/typecheck` request
+      COMMAND_SOCKET_FORWARDED_NOTIFICATIONS = ["textDocument/publishDiagnostics", "window/showMessage"].freeze
+
+      # Processes a message received from a command socket client
+      #
+      # Requests are assigned a fresh id and enqueued as if they came from the LSP client,
+      # and the responses are routed back to the session through `#write_message_to_client`.
+      #
+      # May be called from any thread.
+      #
+      def process_command_socket_message(message, session)
+        method = message[:method]
+        id = message[:id]
+
+        if method && COMMAND_SOCKET_DENIED_METHODS.include?(method.to_s)
+          Steep.logger.warn { "Command socket: rejected `#{method}` request" }
+          if id
+            session.write({
+              id: id,
+              error: {
+                code: LSP::Constant::ErrorCodes::INVALID_REQUEST,
+                message: "`#{method}` is not allowed through the command socket"
+              }
+            })
+          end
+          return
+        end
+
+        unless initialize_params
+          if id
+            session.write({
+              id: id,
+              error: {
+                code: LSP::Constant::ErrorCodes::SERVER_NOT_INITIALIZED,
+                message: "The language server is not initialized yet"
+              }
+            })
+          end
+          return
+        end
+
+        case
+        when method && id
+          guid = SecureRandom.uuid
+          @command_socket_mutex.synchronize do
+            @command_socket_requests[guid] = [session, id, method.to_s == CustomMethods::TypeCheck::METHOD]
+          end
+          message = message.merge({ id: guid })
+        when id
+          # A response from the client, but nothing is waiting for it
+          return
+        end
+
+        job_queue << ReceiveMessageJob.new(source: :client, message: message)
+      rescue ClosedQueueError
+        Steep.logger.warn { "Command socket: server is shutting down" }
+      end
+
+      # Deregisters the pending requests of a disconnected command socket session
+      def finish_command_socket_session(session)
+        @command_socket_mutex.synchronize do
+          @command_socket_requests.delete_if {|_, entry| entry[0] == session }
+        end
+      end
+
+      def write_message_to_client(message)
+        unless message.key?(:method)
+          entry = @command_socket_mutex.synchronize { @command_socket_requests.delete(message[:id]) }
+          if entry
+            session, original_id, _ = entry
+            session.write(message.merge({ id: original_id }))
+            return
+          end
+        end
+
+        writer.write(message)
+
+        if message.key?(:method) && !message.key?(:id)
+          forward_notification_to_command_sessions(message)
+        end
+      end
+
+      def forward_notification_to_command_sessions(message)
+        return unless COMMAND_SOCKET_FORWARDED_NOTIFICATIONS.include?(message[:method].to_s)
+
+        sessions = @command_socket_mutex.synchronize do
+          @command_socket_requests.each_value.with_object([]) do |entry, array|
+            session, _, typecheck = entry
+            array << session if typecheck
+          end
+        end
+
+        sessions.uniq!
+        sessions.each {|session| session.write(message) }
       end
 
       def work_done_progress(guid)

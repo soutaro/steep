@@ -15,7 +15,7 @@ module Steep
       # @rbs return: Integer
       def run_hover(locations:)
         unless Daemon.running?
-          stderr.puts "Error: Steep daemon is not running. Start it with `steep server start`."
+          stderr.puts "Error: Steep server is not running. Start it with `steep server start` or `steep langserver`."
           return 1
         end
 
@@ -51,7 +51,7 @@ module Steep
       # @rbs return: Integer
       def run_definition(names:)
         unless Daemon.running?
-          stderr.puts "Error: Steep daemon is not running. Start it with `steep server start`."
+          stderr.puts "Error: Steep server is not running. Start it with `steep server start` or `steep langserver`."
           return 1
         end
 

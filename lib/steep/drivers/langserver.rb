@@ -9,6 +9,7 @@ module Steep
       attr_reader :type_check_thread
       attr_reader :jobs_option
       attr_accessor :refork
+      attr_accessor :command_socket
 
       include Utils::DriverHelper
 
@@ -20,6 +21,7 @@ module Steep
         @type_check_queue = Queue.new
         @jobs_option = Utils::JobsOption.new(jobs_count_modifier: -1)
         @refork = false
+        @command_socket = true
       end
 
       def writer
@@ -50,9 +52,39 @@ module Steep
         )
         master.typecheck_automatically = true
 
-        master.start()
+        socket = start_command_socket(master)
+
+        begin
+          master.start()
+        ensure
+          socket&.stop
+        end
 
         0
+      end
+
+      # Starts accepting `steep query`/`steep check` connections on the UNIX socket
+      #
+      # Returns `nil` when the command socket is disabled, is not supported on the platform,
+      # or is already served by another process.
+      #
+      def start_command_socket(master)
+        return nil unless command_socket
+
+        configuration = Daemon::Configuration.new(base_dir: project.steepfile_path.parent.to_s)
+        socket = Server::CommandSocket.new(master: master, configuration: configuration)
+
+        if socket.start
+          stderr.puts "Steep command socket is ready: #{configuration.socket_path}"
+          socket
+        else
+          stderr.puts "Steep command socket is not available: #{configuration.socket_path}"
+          nil
+        end
+      rescue NotImplementedError, StandardError => error
+        Steep.logger.error { "Failed to start command socket: #{error.inspect}" }
+        stderr.puts "Failed to start Steep command socket: #{error.message}"
+        nil
       end
     end
   end

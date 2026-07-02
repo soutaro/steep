@@ -1,0 +1,58 @@
+module Steep
+  module Server
+    # Accepts connections on a UNIX socket and forwards the received requests to the master
+    #
+    # Started by `steep langserver` so that CLI commands like `steep query` and `steep check` can
+    # talk to the language server the IDE is running, instead of a standalone daemon process.
+    #
+    class CommandSocket
+      module LSP = LanguageServer::Protocol
+
+      # A connection from a CLI client
+      class Session
+        attr_reader socket: UNIXSocket
+
+        @writer: LanguageServer::Protocol::Transport::Io::Writer
+
+        @mutex: Thread::Mutex
+
+        @closed: bool
+
+        def initialize: (UNIXSocket socket) -> void
+
+        # Writes a message to the client, never raises even if the client is disconnected
+        def write: (untyped message) -> void
+
+        def close: () -> void
+      end
+
+      attr_reader master: Master
+
+      attr_reader configuration: Daemon::Configuration
+
+      @server: UNIXServer?
+
+      @accept_thread: Thread?
+
+      def initialize: (master: Master, configuration: Daemon::Configuration) -> void
+
+      def socket_path: () -> String
+
+      # Binds the UNIX socket and starts accepting connections in a background thread
+      #
+      # Returns `false` without binding when another process is already serving on the socket.
+      #
+      def start: () -> bool
+
+      def stop: () -> void
+
+      private
+
+      def socket_alive?: () -> bool
+
+      def accept_loop: () -> void
+
+      def serve: (Session session) -> void
+    end
+  end
+end
