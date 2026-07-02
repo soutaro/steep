@@ -72,6 +72,46 @@ module Steep
         1
       end
 
+      # @rbs paths: Array[String] -- files to query, or empty for all files the server knows about
+      # @rbs return: Integer
+      def run_diagnostics(paths:)
+        unless Daemon.running?
+          stderr.puts "Error: Steep server is not running. Start it with `steep server start` or `steep langserver`."
+          return 1
+        end
+
+        absolute_paths = [] #: Array[Pathname]
+        paths.each do |path|
+          pathname = Pathname(path)
+          pathname = Pathname.pwd + pathname unless pathname.absolute?
+          absolute_paths << pathname
+        end
+
+        request = {
+          id: SecureRandom.uuid,
+          method: Server::CustomMethods::Query__Diagnostics::METHOD,
+          params: { paths: absolute_paths.empty? ? nil : absolute_paths.map(&:to_s) }
+        }
+
+        result = send_request(request) #: Array[{ uri: String, diagnostics: Array[untyped]? }]?
+
+        (result || []).each do |entry|
+          path = PathHelper.to_pathname(entry[:uri]) || Pathname(entry[:uri])
+          begin
+            path = path.relative_path_from(Pathname.pwd)
+          rescue ArgumentError
+            # Keep the absolute path of files outside of the current directory
+          end
+
+          stdout.puts JSON.generate({ path: path.to_s, diagnostics: entry[:diagnostics] })
+        end
+
+        0
+      rescue Errno::ECONNREFUSED, Errno::ENOENT => e
+        stderr.puts "Error: Failed to connect to Steep server: #{e.message}"
+        1
+      end
+
       private
 
       def to_absolute_path(path)

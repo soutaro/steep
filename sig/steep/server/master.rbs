@@ -160,6 +160,19 @@ module Steep
 
       @need_to_refork: boolish
 
+      # Type check requests waiting for the current type check to finish
+      attr_reader pending_typecheck_requests: Array[TypeCheckController::Request]
+
+      # Callbacks to be called when no type check is running or pending anymore
+      attr_reader typecheck_quiescent_callbacks: Array[^() -> void]
+
+      # The mtimes of the project files when they were loaded or reloaded
+      #
+      # `nil` until the initial project load finishes.
+      # Touched only from the main loop thread.
+      #
+      @project_file_mtimes: Hash[Pathname, Time?]?
+
       # Pending requests received through the command socket
       #
       # A map from the id assigned by the master to the session, the original request id, and
@@ -256,6 +269,42 @@ module Steep
       def write_message_to_client: (untyped message) -> void
 
       def forward_notification_to_command_sessions: (untyped message) -> void
+
+      def typecheck_request_from_command_socket?: (TypeCheckController::Request request) -> bool
+
+      # Starts the next queued type check request if any, or the automatic type check for dirty paths
+      #
+      # Calls the quiescent callbacks when nothing is left to type check.
+      #
+      def start_pending_typecheck: () -> void
+
+      # Calls the block once no type check is running or pending
+      #
+      # Starts a type check for dirty paths first, so that the block observes up-to-date results.
+      #
+      def run_when_typecheck_quiescent: () { () -> void } -> void
+
+      # Collects the stored diagnostics from all typecheck workers and sends the response
+      #
+      # `paths` is an array of absolute path strings to filter the result, or `nil` to return everything.
+      #
+      def collect_query_diagnostics: (String id, Array[String]? paths) -> void
+
+      # Records the mtimes of all project files, as the baseline of `#sync_project_files_from_disk`
+      def reset_project_file_mtimes: () -> void
+
+      def record_project_file_mtime: (Pathname path) -> void
+
+      def file_mtime: (Pathname path) -> Time?
+
+      def each_project_file_path: () { (Pathname) -> void } -> void
+
+      # Detects files changed on disk since the last load/sync, and reloads them
+      #
+      # Skips files open in the editor because the client owns their contents.
+      # Does nothing until the initial project load finishes.
+      #
+      def sync_project_files_from_disk: () -> void
 
       def work_done_progress: (String) -> WorkDoneProgress
 

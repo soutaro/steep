@@ -170,6 +170,26 @@ module Steep
 
         def self.response: (String id, result) -> untyped
       end
+
+      module Query__Diagnostics
+        METHOD: String
+
+        type params = {
+          paths: Array[String]?
+        }
+
+        # Diagnostics of a file
+        #
+        # `diagnostics` is `nil` when the server has not type checked the file yet.
+        #
+        type entry = { uri: String, diagnostics: Array[untyped]? }
+
+        type result = Array[entry]
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result) -> untyped
+      end
     end
   end
 end

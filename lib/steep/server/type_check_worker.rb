@@ -8,6 +8,7 @@ module Steep
       WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
       StatsJob = _ = Struct.new(:id, keyword_init: true)
       QueryDefinitionJob = _ = Struct.new(:id, :name, keyword_init: true)
+      QueryDiagnosticsJob = _ = Struct.new(:id, keyword_init: true)
       StartTypeCheckJob = _ = Struct.new(:guid, :changes, keyword_init: true)
       TypeCheckCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
@@ -112,6 +113,8 @@ module Steep
         when CustomMethods::Query__Definition::METHOD
           params = request[:params] #: CustomMethods::Query__Definition::params
           queue << QueryDefinitionJob.new(id: request[:id], name: params[:name])
+        when CustomMethods::Query__Diagnostics::METHOD
+          queue << QueryDiagnosticsJob.new(id: request[:id])
         when "textDocument/definition"
           queue << GotoJob.definition(id: request[:id], params: request[:params])
         when "textDocument/implementation"
@@ -307,6 +310,10 @@ module Steep
           writer.write(
             CustomMethods::Query__Definition.response(job.id, query_definition_result(job.name))
           )
+        when QueryDiagnosticsJob
+          writer.write(
+            CustomMethods::Query__Diagnostics.response(job.id, query_diagnostics_result())
+          )
         end
       end
 
@@ -356,6 +363,45 @@ module Steep
             stats << calculator.calc_stats(target, file: file)
           end
         end
+      end
+
+      # Returns the diagnostics of the files this worker has type checked so far
+      #
+      # A hash from the file URI to the LSP-formatted diagnostics.
+      # Files that are loaded but not type checked yet are not included.
+      #
+      def query_diagnostics_result
+        result = {} #: Hash[String, Array[untyped]]
+
+        service.source_files.each_value do |file|
+          next if file.typing.nil? && file.errors.nil?
+
+          absolute_path = project.absolute_path(file.path)
+
+          group_target =
+            project.group_for_source_path(absolute_path) ||
+            project.group_for_inline_source_path(absolute_path) ||
+            project.target_for_source_path(absolute_path) ||
+            project.target_for_inline_source_path(absolute_path)
+          next unless group_target
+
+          formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
+          uri = PathHelper.to_uri(absolute_path).to_s
+          array = result[uri] ||= []
+          array.concat(file.diagnostics.filter_map { formatter.format(_1) })
+        end
+
+        formatter = Diagnostic::LSPFormatter.new({}, **{})
+        service.signature_validation_diagnostics.each_value do |path_diagnostics|
+          path_diagnostics.each do |path, diagnostics|
+            absolute_path = path.absolute? ? path : project.absolute_path(path)
+            uri = PathHelper.to_uri(absolute_path).to_s
+            array = result[uri] ||= []
+            array.concat(diagnostics.filter_map { formatter.format(_1) })
+          end
+        end
+
+        result
       end
 
       def query_definition_result(name_string)

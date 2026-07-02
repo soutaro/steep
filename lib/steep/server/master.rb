@@ -186,6 +186,12 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
+      # Type check requests waiting for the current type check to finish
+      attr_reader :pending_typecheck_requests
+
+      # Callbacks to be called when no type check is running or pending anymore
+      attr_reader :typecheck_quiescent_callbacks
+
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new, refork: false)
         @project = project
         @reader = reader
@@ -201,6 +207,9 @@ module Steep
         @need_to_refork = refork
         @command_socket_requests = {}
         @command_socket_mutex = Mutex.new
+        @pending_typecheck_requests = []
+        @typecheck_quiescent_callbacks = []
+        @project_file_mtimes = nil
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -422,6 +431,8 @@ module Steep
                 progress.end()
               end
 
+              reset_project_file_mtimes()
+
               if file_system_watcher_supported?
                 setup_file_system_watcher()
               end
@@ -447,6 +458,7 @@ module Steep
 
             unless controller.open_paths.include?(path)
               updated_watched_files << path
+              record_project_file_mtime(path)
 
               case type
               when LSP::Constant::FileChangeType::CREATED, LSP::Constant::FileChangeType::CHANGED
@@ -686,7 +698,12 @@ module Steep
             request.inline_paths << [target_name.to_sym, Pathname(path)]
           end
 
-          start_type_check(request: request, last_request: nil)
+          if current_type_check_request
+            Steep.logger.info { "Queueing type check request #{id} until the current type check finishes" }
+            pending_typecheck_requests << request
+          else
+            start_type_check(request: request, last_request: nil)
+          end
 
         when CustomMethods::TypeCheckGroups::METHOD
           params = message[:params] #: CustomMethods::TypeCheckGroups::params
@@ -704,6 +721,14 @@ module Steep
 
           request.needs_response = false
           start_type_check(request: request, last_request: current_type_check_request, report_progress_threshold: 0)
+
+        when CustomMethods::Query__Diagnostics::METHOD
+          id = message[:id]
+          paths = message[:params]&.fetch(:paths, nil)
+
+          run_when_typecheck_quiescent do
+            collect_query_diagnostics(id, paths)
+          end
 
         when "$/ping"
           enqueue_write_job SendMessageJob.to_client(
@@ -807,6 +832,17 @@ module Steep
 
       def start_type_check(request: nil, last_request:, progress: nil, include_unchanged: false, report_progress_threshold: 10, needs_response: nil)
         Steep.logger.tagged "#start_type_check(#{progress&.guid || request&.guid}, #{last_request&.guid}" do
+          if (current = current_type_check_request) && typecheck_request_from_command_socket?(current)
+            # Never supersede a type check that a command socket client is waiting for
+            if request
+              Steep.logger.info { "Queueing type check request #{request.guid} until the command socket request finishes" }
+              pending_typecheck_requests << request
+            else
+              Steep.logger.info { "Deferring automatic type checking until the command socket request finishes" }
+            end
+            return
+          end
+
           if last_request
             finish_type_check(last_request)
           end
@@ -886,6 +922,7 @@ module Steep
               finish_type_check(current)
               @current_type_check_request = nil
               refork_workers
+              start_pending_typecheck()
             end
           end
         end
@@ -1079,7 +1116,12 @@ module Steep
           return
         end
 
-        job_queue << ReceiveMessageJob.new(source: :client, message: message)
+        # Reload files changed on disk before processing, because command socket clients
+        # modify files without sending `didChange` notifications
+        job_queue << -> do
+          sync_project_files_from_disk()
+          process_message_from_client(message)
+        end
       rescue ClosedQueueError
         Steep.logger.warn { "Command socket: server is shutting down" }
       end
@@ -1120,6 +1162,209 @@ module Steep
 
         sessions.uniq!
         sessions.each {|session| session.write(message) }
+      end
+
+      def typecheck_request_from_command_socket?(request)
+        @command_socket_mutex.synchronize do
+          @command_socket_requests.key?(request.guid)
+        end
+      end
+
+      # Starts the next queued type check request if any, or the automatic type check for dirty paths
+      #
+      # Calls the quiescent callbacks when nothing is left to type check.
+      #
+      def start_pending_typecheck
+        while request = pending_typecheck_requests.shift
+          start_type_check(request: request, last_request: nil)
+          return if current_type_check_request
+        end
+
+        if typecheck_automatically && initialize_params
+          guid = SecureRandom.uuid
+          if request = controller.make_request(guid: guid, progress: work_done_progress(guid))
+            request.needs_response = false
+            start_type_check(request: request, last_request: nil)
+            return if current_type_check_request
+          end
+        end
+
+        callbacks = typecheck_quiescent_callbacks.dup
+        typecheck_quiescent_callbacks.clear
+        callbacks.each(&:call)
+      end
+
+      # Calls the block once no type check is running or pending
+      #
+      # Starts a type check for dirty paths first, so that the block observes up-to-date results.
+      #
+      def run_when_typecheck_quiescent(&block)
+        unless current_type_check_request
+          guid = SecureRandom.uuid
+          if request = controller.make_request(guid: guid, progress: work_done_progress(guid))
+            request.needs_response = false
+            start_type_check(request: request, last_request: nil)
+          end
+        end
+
+        if current_type_check_request || !pending_typecheck_requests.empty?
+          typecheck_quiescent_callbacks << block
+        else
+          yield
+        end
+      end
+
+      # Collects the stored diagnostics from all typecheck workers and sends the response
+      #
+      # `paths` is an array of absolute path strings to filter the result, or `nil` to return everything.
+      #
+      def collect_query_diagnostics(id, paths)
+        uris = paths&.map {|path| PathHelper.to_uri(Pathname(path)).to_s }
+
+        result_controller << group_request do |group|
+          typecheck_workers.each do |worker|
+            group << send_request(method: CustomMethods::Query__Diagnostics::METHOD, params: nil, worker: worker)
+          end
+
+          group.on_completion do |handlers|
+            diagnostics = {} #: Hash[String, Array[untyped]]
+
+            handlers.each do |handler|
+              result = handler.result or next
+              result.each do |uri, file_diagnostics|
+                array = diagnostics[uri.to_s] ||= []
+                array.concat(file_diagnostics)
+                array.uniq!
+              end
+            end
+
+            result =
+              if uris
+                # Files the server has not type checked yet are reported with `diagnostics: nil`
+                uris.sort.map do |uri|
+                  { uri: uri, diagnostics: diagnostics[uri] }
+                end
+              else
+                diagnostics.keys.sort.map do |uri|
+                  { uri: uri, diagnostics: diagnostics.fetch(uri) }
+                end
+              end
+
+            enqueue_write_job SendMessageJob.to_client(
+              message: CustomMethods::Query__Diagnostics.response(id, result)
+            )
+          end
+        end
+      end
+
+      # Records the mtimes of all project files, as the baseline of `#sync_project_files_from_disk`
+      def reset_project_file_mtimes
+        mtimes = {} #: Hash[Pathname, Time?]
+        each_project_file_path do |path|
+          mtimes[path] = file_mtime(path)
+        end
+        @project_file_mtimes = mtimes
+      end
+
+      def record_project_file_mtime(path)
+        if mtimes = @project_file_mtimes
+          mtimes[path] = file_mtime(path)
+        end
+      end
+
+      def file_mtime(path)
+        File.mtime(path)
+      rescue SystemCallError
+        nil
+      end
+
+      def each_project_file_path(&block)
+        loader = Services::FileLoader.new(base_dir: project.base_dir)
+        project.targets.each do |target|
+          loader.each_path_in_target(target) do |relative_path|
+            yield project.absolute_path(relative_path)
+          end
+        end
+      end
+
+      # Detects files changed on disk since the last load/sync, and reloads them
+      #
+      # Skips files open in the editor because the client owns their contents.
+      # Does nothing until the initial project load finishes.
+      #
+      def sync_project_files_from_disk
+        mtimes = @project_file_mtimes or return
+
+        changes = {} #: Hash[Pathname, Symbol]
+        seen = Set[] #: Set[Pathname]
+
+        each_project_file_path do |path|
+          next if seen.include?(path)
+          seen << path
+
+          mtime = file_mtime(path)
+          recorded = mtimes[path]
+
+          case
+          when recorded.nil? && mtime
+            changes[path] = mtimes.key?(path) ? :changed : :created
+          when recorded && mtime.nil?
+            changes[path] = :deleted
+          when recorded != mtime
+            changes[path] = :changed
+          end
+
+          mtimes[path] = mtime
+        end
+
+        deleted_paths = mtimes.keys.select {|path| !seen.include?(path) && mtimes[path] && file_mtime(path).nil? }
+        deleted_paths.each do |path|
+          changes[path] = :deleted
+          mtimes[path] = nil
+        end
+
+        changes.delete_if {|path, _| controller.open_paths.include?(path) }
+        return if changes.empty?
+
+        Steep.logger.info { "Command socket: reloading #{changes.size} file(s) changed on disk" }
+
+        changes.each do |path, type|
+          content =
+            if type == :deleted
+              ""
+            else
+              begin
+                path.read
+              rescue SystemCallError
+                next
+              end
+            end
+
+          case
+          when controller.code_path?(path)
+            controller.add_dirty_code_path(path)
+          when controller.signature_path?(path)
+            controller.add_dirty_signature_path(path)
+          when controller.inline_path?(path)
+            controller.add_dirty_inline_path(path, content)
+          end
+
+          broadcast_notification(CustomMethods::FileReset.notification({ uri: PathHelper.to_uri(path).to_s, content: content }))
+        end
+
+        if typecheck_automatically
+          start_type_checking_queue.execute do
+            job_queue.push(
+              -> do
+                start_type_check(
+                  last_request: current_type_check_request,
+                  progress: work_done_progress(SecureRandom.uuid),
+                  needs_response: false
+                )
+              end
+            )
+          end
+        end
       end
 
       def work_done_progress(guid)

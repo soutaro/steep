@@ -89,9 +89,25 @@ class CommandSocketTest < Minitest::Test
 
       Timeout.timeout(TestHelper.timeout) do
         socket_reader.read do |response|
-          return response
+          return response if response[:id] == message[:id]
         end
       end
+    end
+  end
+
+  # Writes the file and bumps its mtime so that the server detects the change reliably
+  def write_file(path, content)
+    file = current_dir + path
+    file.write(content)
+
+    @mtime_bump = (@mtime_bump || 0) + 10
+    time = Time.now + @mtime_bump
+    File.utime(time, time, file.to_s)
+  end
+
+  def wait_for_socket
+    Timeout.timeout(TestHelper.timeout) do
+      sleep 0.1 until File.socket?(socket_path)
     end
   end
 
@@ -129,6 +145,105 @@ class CommandSocketTest < Minitest::Test
       end
 
       refute File.exist?(socket_path), "The socket file should be cleaned up on exit"
+    end
+  end
+
+  def test_query_diagnostics_syncs_files_changed_on_disk
+    skip "UNIX socket is not supported on this platform" if Gem.win_platform?
+
+    in_tmpdir do
+      prepare_project
+
+      start_langserver(langserver_command(current_dir + "Steepfile")) do |writer, responses|
+        wait_for_socket
+
+        hello_rb = (current_dir + "lib/hello.rb").to_s
+
+        # The server has not type checked anything yet
+        response = request_via_socket(
+          id: "d1",
+          method: "$/steep/query/diagnostics",
+          params: { paths: [hello_rb] }
+        )
+        assert_equal 1, response[:result].size
+        assert_nil response[:result][0][:diagnostics]
+
+        # Edit the file on disk, without any notification, like a coding agent does
+        write_file("lib/hello.rb", <<~RUBY)
+          class Hello
+            def name
+              42
+            end
+          end
+        RUBY
+
+        response = request_via_socket(
+          id: "d2",
+          method: "$/steep/query/diagnostics",
+          params: { paths: [hello_rb] }
+        )
+        diagnostics = response[:result][0][:diagnostics]
+        refute_nil diagnostics
+        assert diagnostics.any? {|d| d[:code] == "Ruby::MethodBodyTypeMismatch" }, diagnostics.inspect
+
+        # Edit the RBS file — the diagnostics of the dependent Ruby file must be updated
+        write_file("sig/hello.rbs", <<~RBS)
+          class Hello
+            def name: () -> Integer
+          end
+        RBS
+
+        response = request_via_socket(
+          id: "d3",
+          method: "$/steep/query/diagnostics",
+          params: { paths: [hello_rb] }
+        )
+        assert_equal [], response[:result][0][:diagnostics]
+      end
+    end
+  end
+
+  def test_typecheck_requests_are_serialized
+    skip "UNIX socket is not supported on this platform" if Gem.win_platform?
+
+    in_tmpdir do
+      prepare_project
+
+      start_langserver(langserver_command(current_dir + "Steepfile")) do |writer, responses|
+        wait_for_socket
+
+        params = {
+          library_paths: [],
+          signature_paths: [["app", (current_dir + "sig/hello.rbs").to_s]],
+          code_paths: [["app", (current_dir + "lib/hello.rb").to_s]],
+          inline_paths: []
+        }
+
+        # Both concurrent typecheck requests must be responded, one after another
+        sockets = ["tc-1", "tc-2"].map do |id|
+          socket = UNIXSocket.new(socket_path)
+          LanguageServer::Protocol::Transport::Io::Writer.new(socket).write(
+            id: id, method: "$/steep/typecheck", params: params
+          )
+          [id, socket]
+        end
+
+        sockets.each do |id, socket|
+          reader = LanguageServer::Protocol::Transport::Io::Reader.new(socket)
+          response = nil
+          Timeout.timeout(TestHelper.timeout) do
+            reader.read do |message|
+              if message[:id] == id
+                response = message
+                break
+              end
+            end
+          end
+          assert_equal true, response.dig(:result, :completed), "request #{id} should complete: #{response.inspect}"
+        ensure
+          socket.close
+        end
+      end
     end
   end
 

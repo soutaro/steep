@@ -96,6 +96,12 @@ module Steep
         def initialize: (id: String, name: String) -> void
       end
 
+      class QueryDiagnosticsJob
+        attr_reader id: String
+
+        def initialize: (id: String) -> void
+      end
+
       class GotoJob
         type kind = :implementation | :definition | :type_definition
 
@@ -156,6 +162,7 @@ module Steep
                | GotoJob
                | StatsJob
                | QueryDefinitionJob
+               | QueryDiagnosticsJob
 
       def handle_job: (job) -> void
 
@@ -168,6 +175,13 @@ module Steep
       def goto: (GotoJob job) -> Array[untyped]
 
       def query_definition_result: (String name_string) -> CustomMethods::Query__Definition::result
+
+      # Returns the diagnostics of the files this worker has type checked so far
+      #
+      # A hash from the file URI to the LSP-formatted diagnostics.
+      # Files that are loaded but not type checked yet are not included.
+      #
+      def query_diagnostics_result: () -> Hash[String, Array[untyped]]
     end
   end
 end
