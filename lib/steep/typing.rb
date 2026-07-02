@@ -158,6 +158,13 @@ module Steep
     # checking: each entry is { key: "Class#method", satisfied: bool }. Used by
     # Contracts::Enforcement to decide whether a contract is enforced.
     attr_reader :contract_call_sites
+    # Transitive precondition obligations: when a method's body calls a
+    # contracted method via `self` and does NOT establish the required
+    # `self.x`, the enclosing method inherits that requirement. Each entry is
+    # { key: "Class#method" (the enclosing method), expr: Contracts::Expr }.
+    # Consumed by Contracts::Runner to close preconditions over the self-call
+    # graph.
+    attr_reader :precondition_obligations
     attr_reader :typing
     attr_reader :parent
     attr_reader :parent_last_update
@@ -179,6 +186,7 @@ module Steep
 
       @errors = []
       @contract_call_sites = []
+      @precondition_obligations = []
       (@typing = {}).compare_by_identity
       @root_context = root_context
       (@method_calls = {}).compare_by_identity
@@ -197,6 +205,10 @@ module Steep
 
     def observe_contract_call_site(key:, satisfied:)
       contract_call_sites << { key: key, satisfied: satisfied }
+    end
+
+    def observe_precondition_obligation(key:, expr:)
+      precondition_obligations << { key: key, expr: expr }
     end
 
     def add_typing(node, type, _context)
@@ -322,6 +334,10 @@ module Steep
 
       contract_call_sites.each do |observation|
         parent.observe_contract_call_site(**observation)
+      end
+
+      precondition_obligations.each do |obligation|
+        parent.observe_precondition_obligation(**obligation)
       end
 
       parent.cursor_context.set(cursor_context)

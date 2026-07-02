@@ -5919,6 +5919,43 @@ module Steep
       contracts.lookup_instance(class_name.to_s.sub(/\A::/, ""), mc.name)
     end
 
+    # True when the method currently being type-checked has an *enforced*
+    # contract that requires `expr` (`self.x`) non-nil — so it holds on entry
+    # and throughout the body, discharging a `self` call that needs the same.
+    def enclosing_contract_guarantees?(expr)
+      contract = contract_for_current_method
+      return false unless contract&.enforced
+
+      contract.requires.any? do |req|
+        req.is_a?(Contracts::Predicate::NotNil) && contract_expr_equal?(req.expr, expr)
+      end
+    end
+
+    def contract_expr_equal?(a, b)
+      return false unless a.class == b.class
+
+      case a
+      when Contracts::Expr::SelfRef
+        true
+      when Contracts::Expr::Send
+        a.method == b.method && a.chain == b.chain && contract_expr_equal?(a.receiver, b.receiver)
+      else
+        false
+      end
+    end
+
+    # "Class#method" of the instance method currently being type-checked, or
+    # nil at class-body scope / when the context is unknown. Used to attribute
+    # an inherited (transitive) precondition obligation to the enclosing method.
+    def enclosing_instance_method_key
+      mc = method_context
+      return nil unless mc&.name
+      class_name = module_context&.class_name
+      return nil unless class_name
+
+      "#{class_name.to_s.sub(/\A::/, "")}##{mc.name}"
+    end
+
     def contract_narrowed_type(node, original_type)
       return nil unless node.type == :send
 
@@ -6051,12 +6088,28 @@ module Steep
 
       base_receiver = explicit_receiver ? receiver : nil
       env = context.type_env
+      # A `self` call to a contracted method that the enclosing method does
+      # not satisfy propagates the requirement upward: the enclosing method
+      # inherits `requires self.x`. (An explicit receiver carries no self
+      # obligation — the requirement is about that receiver.) The Runner
+      # closes these over the self-call graph to a fixpoint.
+      enclosing_key = explicit_receiver ? nil : enclosing_instance_method_key
       all_satisfied = true
       contract.requires.each do |req|
         next unless req.is_a?(Contracts::Predicate::NotNil)
         next if precondition_holds?(req.expr, env, base_receiver: base_receiver)
+        # A `self` call is also satisfied when the enclosing method's own
+        # enforced contract already requires the same `self.x`: its callers
+        # guarantee it on entry, so it holds throughout the body even without a
+        # local read to narrow. This is what lets a chain (`save` →
+        # `set_default_user_name`) converge — once `save` inherits and enforces
+        # the requirement, its inner call is discharged.
+        next if base_receiver.nil? && enclosing_contract_guarantees?(req.expr)
 
         all_satisfied = false
+        if enclosing_key
+          typing.observe_precondition_obligation(key: enclosing_key, expr: req.expr)
+        end
         typing.add_error(
           Diagnostic::Ruby::PreconditionUnsatisfied.new(
             node: node,

@@ -20,24 +20,34 @@ module Steep
         @store = store
       end
 
-      # Returns a Hash mapping contract key ("Class#method") to a boolean
-      # `enforced`. Every key present in the store is included.
+      # Whole-program analysis result: the `enforced` flag per contract key,
+      # plus the transitive precondition `obligations` (`{ key:, expr: }`)
+      # harvested from self-calls that the enclosing method does not satisfy.
+      Result = Struct.new(:enforced, :obligations, keyword_init: true)
+
+      # Type-checks the whole program with `@store` loaded and returns a
+      # `Result`. `enforced[key]` is true when the contract has at least one
+      # static call site and every one satisfies it; `obligations` feeds the
+      # Runner's transitive-closure fixpoint.
       def analyze
         observations = Hash.new { |h, k| h[k] = { seen: 0, unsatisfied: 0 } }
+        obligations = []
 
         @project.targets.each do |target|
-          collect_for_target(target, observations)
+          collect_for_target(target, observations, obligations)
         end
 
-        @store.methods.each_key.each_with_object({}) do |key, result|
+        enforced = @store.methods.each_key.each_with_object({}) do |key, result|
           obs = observations[key]
           result[key] = obs[:seen] > 0 && obs[:unsatisfied] == 0
         end
+
+        Result.new(enforced: enforced, obligations: obligations)
       end
 
       private
 
-      def collect_for_target(target, observations)
+      def collect_for_target(target, observations, obligations)
         loader = Project::Target.construct_env_loader(options: target.options, project: @project)
         file_loader = Services::FileLoader.new(base_dir: @project.base_dir)
 
@@ -82,6 +92,8 @@ module Steep
             bucket[:seen] += 1
             bucket[:unsatisfied] += 1 unless obs[:satisfied]
           end
+
+          obligations.concat(typing.precondition_obligations)
         end
       end
     end
