@@ -3514,6 +3514,15 @@ module Steep
               end
             end
 
+            # After `receiver.attr = value`, record `receiver.attr` (read) as
+            # the assigned value's type, so a later read — or a contract
+            # precondition on it — sees the narrowed (non-nil) type. Runs after
+            # the pure-node invalidation above so it isn't cleared by it.
+            constr = constr.narrow_attribute_write(
+              node: node, receiver: receiver, receiver_type: receiver_type,
+              method_name: method_name, arguments: arguments
+            )
+
             if (_, message = deprecated_send?(call))
               send_node, _ = deconstruct_sendish_and_block_nodes(node)
               send_node or raise
@@ -5936,10 +5945,85 @@ module Steep
       build_contract_send_variants(expr).any? { |built| built == node }
     end
 
-    def build_contract_send_variants(expr)
+    # Narrow `receiver.attr` to the assigned value's type after
+    # `receiver.attr = value`, when the getter is a pure attr reader on a
+    # stable receiver. Steep already narrows local vars, ivars, and
+    # self-attrs on assignment; this extends the same flow-narrowing to an
+    # attr read on a narrowable receiver, so `x.attr = v` lets a later
+    # `x.attr` — or a contract precondition referencing it — observe the
+    # non-nil type. Bounded by the same pure-node invalidation as every
+    # other pure call: a write to `receiver` (or `receiver.attr`) drops it.
+    def narrow_attribute_write(node:, receiver:, receiver_type:, method_name:, arguments:)
+      return self unless receiver
+
+      name = method_name.to_s
+      return self unless name.end_with?("=")
+      return self if name == "==" || name == "[]="
+      attr = name.delete_suffix("=")
+      return self if attr.empty?
+      # `self.attr = v` is already narrowed via the backing ivar (Phase 2 of
+      # steep#16); an intersection receiver is owned by the attribute-write
+      # dropout (steep#1). Only handle the remaining gap — a plain non-self,
+      # non-intersection receiver, where nothing narrows `receiver.attr` today.
+      return self if receiver.type == :self
+      return self if receiver_type.is_a?(AST::Types::Intersection)
+      return self unless narrowable_pure_receiver?(receiver)
+
+      last_arg = arguments.last
+      return self unless last_arg && typing.has_type?(last_arg)
+      rhs_type = typing.type_of(node: last_arg)
+
+      read_node = ::Parser::AST::Node.new(:send, [receiver, attr.to_sym], location: node.location)
+
+      getter_call = nil #: TypeInference::MethodCall::Typed?
+      begin
+        # Type the read in a throwaway child typing purely to obtain a real
+        # getter `MethodCall` (and confirm it is a pure attr reader). The
+        # child is discarded — never `save!`d — so no diagnostics/typings for
+        # the synthetic read leak into the real flow.
+        typing.new_child do |child|
+          pair = with_new_typing(child).synthesize(read_node, hint: nil)
+          call = pair.constr.typing.call_of(node: read_node)
+          if call.is_a?(TypeInference::MethodCall::Typed) &&
+              pair.constr.typing.errors.empty? &&
+              pure_send?(call, receiver, [])
+            getter_call = call
+          end
+        end
+      rescue StandardError => exn
+        Steep.logger.warn { "[contracts] attr-write narrowing failed for #{name}: #{exn.message}" }
+        return self
+      end
+      return self unless getter_call
+
+      update_type_env do |env|
+        env.add_pure_call(read_node, getter_call, rhs_type)
+      end
+    end
+
+    # A receiver whose pure attr reads Steep can cache and narrow: a local
+    # variable, an ivar, `self`, or an already-cached pure send.
+    def narrowable_pure_receiver?(receiver)
+      case receiver.type
+      when :lvar, :ivar, :self
+        true
+      when :send
+        context.type_env.pure_method_calls.key?(receiver)
+      else
+        false
+      end
+    end
+
+    def build_contract_send_variants(expr, base_receiver: nil)
       return [] unless expr.receiver.is_a?(Contracts::Expr::SelfRef)
 
-      [nil, Parser::AST::Node.new(:self, [])].map do |recv|
+      # `self.<method>...` inside the method uses the two self forms
+      # (implicit / explicit `self`). At an explicit-receiver call site the
+      # precondition is about `<receiver>.<method>...`, so the caller passes
+      # the concrete receiver node to substitute for `self`.
+      bases = base_receiver ? [base_receiver] : [nil, Parser::AST::Node.new(:self, [])]
+
+      bases.map do |recv|
         chained = Parser::AST::Node.new(:send, [recv, expr.method])
         expr.chain.each do |seg|
           chained = Parser::AST::Node.new(:send, [chained, seg])
@@ -5950,7 +6034,14 @@ module Steep
 
     def check_precondition_at_call_site(node, receiver, receiver_type, method_name)
       return if contracts.empty?
-      return unless receiver.nil? || receiver.type == :self
+
+      # Implicit-self / `self` calls check the precondition on `self`; an
+      # explicit receiver (`column.set_default_user_name`) checks it on that
+      # receiver — but only when the receiver is a narrowable pure node, so
+      # `column.board` can actually be proven non-nil by flow (e.g. after
+      # `column.board = board`, via `narrow_attribute_write`).
+      explicit_receiver = !receiver.nil? && receiver.type != :self
+      return unless receiver.nil? || receiver.type == :self || narrowable_pure_receiver?(receiver)
 
       target_name = precondition_target_type_name(receiver_type)
       return unless target_name
@@ -5958,11 +6049,12 @@ module Steep
       contract = contracts.lookup_instance(target_name.to_s.sub(/\A::/, ""), method_name)
       return unless contract
 
+      base_receiver = explicit_receiver ? receiver : nil
       env = context.type_env
       all_satisfied = true
       contract.requires.each do |req|
         next unless req.is_a?(Contracts::Predicate::NotNil)
-        next if precondition_holds?(req.expr, env)
+        next if precondition_holds?(req.expr, env, base_receiver: base_receiver)
 
         all_satisfied = false
         typing.add_error(
@@ -5994,8 +6086,8 @@ module Steep
       end
     end
 
-    def precondition_holds?(expr, env)
-      build_contract_send_variants(expr).any? do |built|
+    def precondition_holds?(expr, env, base_receiver: nil)
+      build_contract_send_variants(expr, base_receiver: base_receiver).any? do |built|
         entry = env.pure_method_calls.fetch(built, nil)
         next false unless entry
         _call, type = entry

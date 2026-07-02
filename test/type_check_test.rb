@@ -5947,6 +5947,38 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_attribute_write_narrows_pure_reader
+    # `receiver.attr = value` narrows `receiver.attr` to the assigned value's
+    # type for a plain (non-self, non-intersection) receiver, so the later
+    # read sees the non-nil type. (felixefelip/steep, external-setter
+    # preconditions.)
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class AWBoard
+            def user_name: () -> String
+          end
+          class AWColumn
+            attr_accessor board: AWBoard?
+            def initialize: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          column = AWColumn.new
+          column.board = AWBoard.new
+          column.board.user_name
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_postconditions__negative_control_no_entry_no_refinement
     run_type_check_test(
       signatures: {
