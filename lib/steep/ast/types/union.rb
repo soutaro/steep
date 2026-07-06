@@ -44,8 +44,11 @@ module Steep
         end
 
         def ==(other)
+          return true if equal?(other)
+
           other.is_a?(Union) &&
-            Set.new(other.types) == Set.new(types)
+            other.types.size == types.size &&
+            (other.types == types || Set.new(other.types) == Set.new(types))
         end
 
         def hash

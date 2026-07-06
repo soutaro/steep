@@ -10,7 +10,7 @@ module Steep
       end
 
       def hash
-        self.class.hash ^ sub_type.hash ^ super_type.hash
+        @hash ||= self.class.hash ^ sub_type.hash ^ super_type.hash
       end
 
       def ==(other)

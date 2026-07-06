@@ -56,7 +56,9 @@ module Steep
 
       def check_type: (Relation[AST::Types::t] relation) -> Result::t
 
-      def cache_bounds: (Relation[AST::Types::t] relation) -> Hash[Symbol, AST::Types::t?]
+      EMPTY_BOUNDS: Hash[Symbol, AST::Types::t]
+
+      def cache_bounds: (Set[AST::Types::variable] vars) -> Hash[Symbol, AST::Types::t]
 
       def alias?: (AST::Types::t `type`) -> bool
 

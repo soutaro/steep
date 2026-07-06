@@ -23,7 +23,10 @@ module Steep
         end
 
         def subst(s)
-          overload = MethodOverload.new(method_type.subst(s), [])
+          method_type_ = method_type.subst(s)
+          return self if method_type_.equal?(method_type)
+
+          overload = MethodOverload.new(method_type_, [])
           overload.method_defs.replace(method_defs)
           overload
         end
@@ -134,13 +137,24 @@ module Steep
 
           resolved_methods[name] ||= begin
             entry = methods.fetch(name)
-            Entry.new(
-              method_name: name,
-              overloads: entry.overloads.map do |overload|
+
+            if subst.empty?
+              entry
+            else
+              overloads = entry.overloads.map do |overload|
                 overload.subst(subst)
-              end,
-              private_method: entry.private_method?
-            )
+              end
+
+              if overloads.each_with_index.all? {|overload, index| overload.equal?(entry.overloads[index]) }
+                entry
+              else
+                Entry.new(
+                  method_name: name,
+                  overloads: overloads,
+                  private_method: entry.private_method?
+                )
+              end
+            end
           end
         end
 

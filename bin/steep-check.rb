@@ -31,6 +31,9 @@ OptionParser.new do |opts|
   opts.on("--profile=MODE", "vernier, memory, stackprof, none, majo, memory2, dumpall") do |mode|
     profile_mode = mode.to_sym
   end
+  opts.on("--gc=MODE", "default, batch (disable GC and run full GC every 3M allocations)") do |mode|
+    $gc_mode = mode.to_sym
+  end
 end.parse!(ARGV)
 
 command_line_args = ARGV.dup
@@ -61,13 +64,13 @@ class Command
 
     signature_files = {}
     file_loader.each_path_in_patterns(target.signature_pattern) do |path|
-      signature_files[path] = path.read
+      signature_files[path] = path.read(encoding: "UTF-8")
     end
 
     target.options.load_collection_lock
 
     signature_service = Steep::Project::Target.construct_env_loader(options: target.options, project: project).yield_self do |loader|
-      Steep::Services::SignatureService.load_from(loader)
+      Steep::Services::SignatureService.load_from(loader, implicitly_returns_nil: target.implicitly_returns_nil)
     end
 
     env = signature_service.latest_env
@@ -76,9 +79,9 @@ class Command
 
     signature_files.each do |path, content|
       buffer = RBS::Buffer.new(name: path.to_s, content: content)
-      buffer, dirs, decls = RBS::Parser.parse_signature(buffer)
-      env.add_signature(buffer: buffer, directives: dirs, decls: decls)
-      new_decls.merge(decls)
+      source = RBS::Source::RBS.new(*RBS::Parser.parse_signature(buffer))
+      env.add_source(source)
+      new_decls.merge(source.declarations)
     end
 
     env.resolve_type_names(only: new_decls)
@@ -89,23 +92,35 @@ class Command
 
     source_files = {}
     file_loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|
-      source_files[path] = path.read
+      source_files[path] = path.read(encoding: "UTF-8")
     end
 
     definition_builder = RBS::DefinitionBuilder.new(env: env)
     factory = AST::Types::Factory.new(builder: definition_builder)
-    builder = Interface::Builder.new(factory)
+    builder = Interface::Builder.new(factory, implicitly_returns_nil: target.implicitly_returns_nil)
     subtyping = Subtyping::Check.new(builder: builder)
 
     typings = {}
 
+    resolver = RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
+
+    if $gc_mode == :batch
+      GC.disable
+      gc_alloc_base = GC.stat(:total_allocated_objects)
+    end
+
     source_files.each do |path, content|
+      if $gc_mode == :batch && GC.stat(:total_allocated_objects) - gc_alloc_base > 3_000_000
+        GC.enable
+        GC.start(full_mark: true, immediate_sweep: true)
+        GC.disable
+        gc_alloc_base = GC.stat(:total_allocated_objects)
+      end
       source = Source.parse(content, path: path, factory: factory)
 
       self_type = AST::Builtin::Object.instance_type
 
       annotations = source.annotations(block: source.node, factory: factory, context: nil)
-      resolver = RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
       const_env = TypeInference::ConstantEnv.new(factory: factory, context: nil, resolver: resolver)
 
       type_env = TypeInference::TypeEnvBuilder.new(
@@ -139,6 +154,10 @@ class Command
 
       construction.synthesize(source.node)
       typings[path] = typing
+    end
+
+    if $gc_mode == :batch
+      GC.enable
     end
 
     typings

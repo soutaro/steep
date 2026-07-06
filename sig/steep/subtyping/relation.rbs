@@ -17,6 +17,8 @@ module Steep
 
       def initialize: (sub_type: Subject, super_type: Subject) -> void
 
+      @hash: Integer?
+
       def hash: () -> Integer
 
       def ==: (untyped other) -> bool

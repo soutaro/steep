@@ -190,8 +190,15 @@ module Steep
         relation.type!
 
         Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
-          bounds = cache_bounds(relation)
-          fvs = relation.sub_type.free_variables + relation.super_type.free_variables
+          fvs =
+            if relation.sub_type.free_variables.empty?
+              relation.super_type.free_variables
+            elsif relation.super_type.free_variables.empty?
+              relation.sub_type.free_variables
+            else
+              relation.sub_type.free_variables + relation.super_type.free_variables
+            end
+          bounds = cache_bounds(fvs)
           cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
           if cached && fvs.none? {|var| var.is_a?(Symbol) && constraints.unknown?(var) }
             cached
@@ -210,14 +217,20 @@ module Steep
         end
       end
 
-      def cache_bounds(relation)
-        vars = relation.sub_type.free_variables + relation.super_type.free_variables
-        vars.each.with_object({}) do |var, hash| #$ Hash[Symbol, AST::Types::t]
+      EMPTY_BOUNDS = {}.freeze #: Hash[Symbol, AST::Types::t]
+
+      def cache_bounds(vars)
+        return EMPTY_BOUNDS if vars.empty?
+
+        hash = nil #: Hash[Symbol, AST::Types::t]?
+        vars.each do |var|
           next unless var.is_a?(Symbol)
           if upper_bound = variable_upper_bound(var)
+            hash ||= {}
             hash[var] = upper_bound
           end
         end
+        hash || EMPTY_BOUNDS
       end
 
       def alias?(type)
