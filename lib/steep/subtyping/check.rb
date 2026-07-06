@@ -217,20 +217,27 @@ module Steep
         end
       end
 
-      EMPTY_BOUNDS = {}.freeze #: Hash[Symbol, AST::Types::t]
+      EMPTY_BOUNDS = begin
+        hash = {} #: Hash[Symbol, AST::Types::t]
+        hash.freeze
+      end
 
       def cache_bounds(vars)
         return EMPTY_BOUNDS if vars.empty?
 
-        hash = nil #: Hash[Symbol, AST::Types::t]?
+        hash = {} #: Hash[Symbol, AST::Types::t]
         vars.each do |var|
           next unless var.is_a?(Symbol)
           if upper_bound = variable_upper_bound(var)
-            hash ||= {}
             hash[var] = upper_bound
           end
         end
-        hash || EMPTY_BOUNDS
+
+        if hash.empty?
+          EMPTY_BOUNDS
+        else
+          hash
+        end
       end
 
       def alias?(type)

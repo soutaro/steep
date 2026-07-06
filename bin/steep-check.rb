@@ -258,13 +258,29 @@ when :none
   pp attr_writer: ObjectSpace.each_object(RBS::AST::Members::AttrWriter).count
   pp attr_accessor: ObjectSpace.each_object(RBS::AST::Members::AttrAccessor).count
 
+  gc_time = GC.total_time
+  stat = GC.stat
+  started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
   Steep.measure("type check", level: :fatal) do
-    GC.disable
     typings = command.type_check_files(command_line_args, env)
 
     pp steep_method_types: ObjectSpace.each_object(Steep::Interface::MethodType).count, rbs_method_types: ObjectSpace.each_object(RBS::MethodType).count
     pp any: ObjectSpace.each_object(Steep::AST::Types::Any).count, void: ObjectSpace.each_object(Steep::AST::Types::Void).count, self: ObjectSpace.each_object(Steep::AST::Types::Self).count
   end
+
+  finished_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  wall = finished_at - started_at
+  gc = (GC.total_time - gc_time) / 1_000_000_000.0
+  rss_kb = File.read("/proc/self/status")[/VmHWM:\s+(\d+)/, 1].to_i rescue 0
+  puts format(
+    ">> wall: %.2fs, gc: %.2fs (%.1f%%), minor GC: %d, major GC: %d, allocated objects: %d, peak RSS: %dMB",
+    wall, gc, gc / wall * 100,
+    GC.stat(:minor_gc_count) - stat[:minor_gc_count],
+    GC.stat(:major_gc_count) - stat[:major_gc_count],
+    GC.stat(:total_allocated_objects) - stat[:total_allocated_objects],
+    rss_kb / 1024
+  )
 end
 
 typings.size
