@@ -135,18 +135,18 @@ module Steep
             end
 
             if ancestor.name.class?
-              AST::Types::Name::Instance.new(
+              AST::Types::Name::Instance.intern(
                 name: name,
                 args: args
               )
             else
-              AST::Types::Name::Interface.new(
+              AST::Types::Name::Interface.intern(
                 name: name,
                 args: args
               )
             end
           when RBS::Definition::Ancestor::Singleton
-            AST::Types::Name::Singleton.new(
+            AST::Types::Name::Singleton.intern(
               name: name
             )
           end
@@ -166,18 +166,18 @@ module Steep
             end
 
             if ancestor.name.class?
-              AST::Types::Name::Instance.new(
+              AST::Types::Name::Instance.intern(
                 name: name,
                 args: args
               )
             else
-              AST::Types::Name::Interface.new(
+              AST::Types::Name::Interface.intern(
                 name: name,
                 args: args
               )
             end
           when RBS::Definition::Ancestor::Singleton
-            AST::Types::Name::Singleton.new(
+            AST::Types::Name::Singleton.intern(
               name: name
             )
           end
@@ -597,7 +597,7 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Record)
           Any(relation) do |result|
             # Check by converting the record to hash
-            key_type = AST::Types::Union.build(types: relation.sub_type.elements.each_key.map {|key| AST::Types::Literal.new(value: key) })
+            key_type = AST::Types::Union.build(types: relation.sub_type.elements.each_key.map {|key| AST::Types::Literal.intern(value: key) })
             value_type = AST::Types::Union.build(types: relation.sub_type.elements.each_value.map {|key| key })
             hash_type = AST::Builtin::Hash.instance_type(key_type, value_type)
             result.add(Relation.new(sub_type: hash_type, super_type: relation.super_type)) { check_type(_1) }

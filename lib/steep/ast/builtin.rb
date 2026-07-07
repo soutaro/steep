@@ -18,11 +18,11 @@ module Steep
           end
           arity == args.size or raise "Malformed instance type: name=#{module_name}, args=#{args}"
 
-          Types::Name::Instance.new(name: module_name, args: args)
+          Types::Name::Instance.intern(name: module_name, args: args)
         end
 
         def module_type
-          Types::Name::Singleton.new(name: module_name)
+          Types::Name::Singleton.intern(name: module_name)
         end
 
         def instance_type?(type, args: nil)
@@ -93,11 +93,11 @@ module Steep
       end
 
       def self.true_type
-        AST::Types::Literal.new(value: true)
+        AST::Types::Literal.intern(value: true)
       end
 
       def self.false_type
-        AST::Types::Literal.new(value: false)
+        AST::Types::Literal.intern(value: false)
       end
     end
   end

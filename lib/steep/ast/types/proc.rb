@@ -90,8 +90,8 @@ module Steep
         end
 
         def back_type
-          Name::Instance.new(name: Builtin::Proc.module_name,
-                             args: [])
+          Name::Instance.intern(name: Builtin::Proc.module_name,
+                                args: [])
         end
 
         def block_required?

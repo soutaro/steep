@@ -8,6 +8,16 @@ module Steep
 
         def initialize: (value: value) -> void
 
+        self.@table: Hash[value, Literal]?
+
+        # Returns a shared instance for the given value
+        #
+        # String values are frozen to make the sharing safe.
+        # Note that the sharing is best-effort -- types constructed with `.new` are still
+        # equal to the shared instances by the structural comparison.
+        #
+        def self.intern: (value: value) -> Literal
+
         def ==: (untyped other) -> bool
 
         def hash: () -> Integer

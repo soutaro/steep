@@ -14,6 +14,8 @@ module Steep
       end
 
       def ==(other)
+        return true if equal?(other)
+
         other.is_a?(self.class) && other.sub_type == sub_type && other.super_type == super_type
       end
 

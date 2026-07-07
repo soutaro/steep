@@ -341,8 +341,8 @@ module Steep
         instance_def = checker.factory.definition_builder.build_instance(module_name)
         module_def = checker.factory.definition_builder.build_singleton(module_name)
 
-        instance_type = AST::Types::Name::Instance.new(name: module_name, args: module_args)
-        module_type = AST::Types::Name::Singleton.new(name: module_name)
+        instance_type = AST::Types::Name::Instance.intern(name: module_name, args: module_args)
+        module_type = AST::Types::Name::Singleton.intern(name: module_name)
 
         TypeInference::Context::ModuleContext.new(
           instance_type: instance_type,
@@ -1410,7 +1410,7 @@ module Steep
           add_typing(node, type: AST::Builtin::Float.instance_type)
 
         when :rational
-          add_typing(node, type: AST::Types::Name::Instance.new(name: RBS::TypeName.parse("::Rational"), args: []))
+          add_typing(node, type: AST::Types::Name::Instance.intern(name: RBS::TypeName.parse("::Rational"), args: []))
 
         when :complex
           add_typing(node, type: AST::Types::Name::Instance.new(name: RBS::TypeName.parse("::Complex"), args: []))
@@ -1452,7 +1452,7 @@ module Steep
           end
 
         when :true, :false
-          ty = node.type == :true ? AST::Types::Literal.new(value: true) : AST::Types::Literal.new(value: false)
+          ty = node.type == :true ? AST::Types::Literal.intern(value: true) : AST::Types::Literal.intern(value: false)
 
           case
           when hint && check_relation(sub_type: ty, super_type: hint).success? && !hint.is_a?(AST::Types::Any) && !hint.is_a?(AST::Types::Top)
@@ -4973,7 +4973,7 @@ module Steep
         when AST::Types::Any
           nil
         else
-          literal_type = AST::Types::Literal.new(value: literal)
+          literal_type = AST::Types::Literal.intern(value: literal)
           if check_relation(sub_type: literal_type, super_type: hint).success?
             unwrap(hint)
           end
@@ -5190,7 +5190,7 @@ module Steep
                 false
               end #: AST::Types::Record::key
 
-            _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.new(value: key))
+            _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.intern(value: key))
 
             value_type, constr = constr.synthesize(value_node, hint: hints[key])
 

@@ -23,6 +23,19 @@ module Steep
 
           def initialize: (name: RBS::TypeName, args: Array[t]) -> void
 
+          self.@no_args_table: Hash[RBS::TypeName, instance]?
+
+          self.@with_args_table: Hash[[RBS::TypeName, Array[t]], instance]?
+
+          # Returns a shared instance for the given name and args
+          #
+          # Types without free variables are cached and shared, which makes the identity test
+          # the fast path of `#==`/`#eql?` work more frequently.
+          # Note that the sharing is best-effort -- types constructed with `.new` are still
+          # equal to the shared instances by the structural comparison.
+          #
+          def self.intern: (name: RBS::TypeName, args: Array[t]) -> instance
+
           def ==: (untyped other) -> bool
 
           alias eql? ==
@@ -49,6 +62,15 @@ module Steep
 
         # Singleton of a class/module
         class Singleton < Base
+          self.@table: Hash[RBS::TypeName, Singleton]?
+
+          # Returns a shared instance for the given name
+          #
+          # Note that the sharing is best-effort -- types constructed with `.new` are still
+          # equal to the shared instances by the structural comparison.
+          #
+          def self.intern: (name: RBS::TypeName) -> Singleton
+
           def ==: (untyped other) -> bool
 
           alias eql? ==
