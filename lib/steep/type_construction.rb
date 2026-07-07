@@ -730,7 +730,7 @@ module Steep
     end
 
     def synthesize(node, hint: nil, condition: false)
-      Steep.logger.tagged "synthesize:(#{node.location&.yield_self {|loc| loc.expression.to_s.split(/:/, 2).last } || "-"})" do
+      Steep.logger.tagged(-> { "synthesize:(#{node.location&.yield_self {|loc| loc.expression.to_s.split(/:/, 2).last } || "-"})" }) do
         Steep.logger.debug node.type
         case node.type
         when :begin, :kwbegin
@@ -3692,7 +3692,7 @@ module Steep
       fails = []
 
       method.overloads.each do |overload|
-        Steep.logger.tagged overload.method_type.to_s do
+        Steep.logger.tagged overload.method_type do
           typing.new_child() do |child_typing|
             constr = self.with_new_typing(child_typing)
 

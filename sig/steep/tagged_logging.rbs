@@ -2,11 +2,15 @@ module Steep
   class TaggedLogging < ::Logger
     @thread_key: String
 
-    def tagged: [T] (String tag) { () -> T } -> T
+    # A tag is rendered with `#to_s` (or `#call` for a Proc) only when a message is logged.
+    # It can be a String, a Proc that returns a String, or any object that responds to `#to_s`.
+    type tag = untyped
 
-    def current_tags: () -> Array[String]
+    def tagged: [T] (tag tag) { () -> T } -> T
 
-    def push_tags: (*String tags) -> Array[String]
+    def current_tags: () -> Array[tag]
+
+    def push_tags: (*tag tags) -> Array[tag]
 
     def formatted_tags: () -> String
   end

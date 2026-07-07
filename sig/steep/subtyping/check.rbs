@@ -9,6 +9,8 @@ module Steep
 
       @assumptions: Set[Relation[untyped]]?
 
+      @cache_bucket: Cache::ContextBucket?
+
       @bounds: Array[Hash[Symbol, AST::Types::t?]]
 
       @self_type: AST::Types::t?
@@ -42,6 +44,8 @@ module Steep
       def push_assumption: [A] (Relation[untyped] relation) { () -> A } -> A
 
       def assumptions: () -> Set[Relation[untyped]]
+
+      def cache_bucket: () -> Cache::ContextBucket
 
       def each_ancestor: (RBS::DefinitionBuilder::AncestorBuilder::OneAncestors ancestors) { (RBS::Definition::Ancestor::t) -> void } -> void
                        | (RBS::DefinitionBuilder::AncestorBuilder::OneAncestors ancestors) -> Enumerator[RBS::Definition::Ancestor::t, void]

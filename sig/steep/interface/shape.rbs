@@ -4,6 +4,8 @@ module Steep
   module Interface
     class Shape
       class MethodOverload
+        SORT_KEY_NO_LOCATION: [String, Integer]
+
         attr_reader method_type: MethodType
 
         attr_reader method_defs: Array[RBS::Definition::Method::TypeDef]

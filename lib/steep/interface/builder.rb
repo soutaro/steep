@@ -65,7 +65,7 @@ module Steep
       end
 
       def shape(type, config)
-        Steep.logger.tagged "shape(#{type})" do
+        Steep.logger.tagged(-> { "shape(#{type})" }) do
           if shape = raw_shape(type, config)
             # Optimization that skips unnecessary substitution
             if type.free_variables.include?(AST::Types::Self.instance)
@@ -277,7 +277,7 @@ module Steep
           definition = factory.definition_builder.build_singleton(type_name)
 
           definition.methods.each do |name, method|
-            Steep.logger.tagged "method = #{type_name}.#{name}" do
+            Steep.logger.tagged(-> { "method = #{type_name}.#{name}" }) do
               overloads = method.defs.map do |type_def|
                 method_name = method_name_for(type_def, name)
                 method_type = factory.method_type(type_def.type)
@@ -309,7 +309,7 @@ module Steep
           definition or raise
 
           definition.methods.each do |name, method|
-            Steep.logger.tagged "method = #{type_name}##{name}" do
+            Steep.logger.tagged(-> { "method = #{type_name}##{name}" }) do
               overloads = method.defs.map do |type_def|
                 method_name = method_name_for(type_def, name)
                 method_type = factory.method_type(type_def.type)

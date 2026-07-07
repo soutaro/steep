@@ -22,6 +22,7 @@ module Steep
         @class_type = class_type
         @constraints = constraints
         @assumptions = Set[]
+        @cache_bucket = cache.bucket(self_type, instance_type, class_type)
 
         yield
       ensure
@@ -30,6 +31,7 @@ module Steep
         @class_type = nil
         @constraints = nil
         @assumptions = nil
+        @cache_bucket = nil
       end
 
       def push_assumption(relation)
@@ -74,6 +76,10 @@ module Steep
 
       def assumptions
         @assumptions || raise
+      end
+
+      def cache_bucket
+        @cache_bucket || raise
       end
 
       def self_type
@@ -189,7 +195,7 @@ module Steep
 
         relation.type!
 
-        Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
+        Steep.logger.tagged relation do
           fvs =
             if relation.sub_type.free_variables.empty?
               relation.super_type.free_variables
@@ -199,7 +205,7 @@ module Steep
               relation.sub_type.free_variables + relation.super_type.free_variables
             end
           bounds = cache_bounds(fvs)
-          cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
+          cached = cache_bucket[relation, bounds]
           if cached && fvs.none? {|var| var.is_a?(Symbol) && constraints.unknown?(var) }
             cached
           else
@@ -208,8 +214,8 @@ module Steep
             else
               push_assumption(relation) do
                 check_type0(relation).tap do |result|
-                  Steep.logger.debug "result=#{result.class}"
-                  cache[relation, @self_type, @instance_type, @class_type, bounds] = result
+                  Steep.logger.debug { "result=#{result.class}" }
+                  cache_bucket[relation, bounds] = result
                 end
               end
             end
@@ -874,7 +880,7 @@ module Steep
       end
 
       def check_method_type(name, relation)
-        Steep.logger.tagged "#{name} : #{relation.sub_type} <: #{relation.super_type}" do
+        Steep.logger.tagged(-> { "#{name} : #{relation.sub_type} <: #{relation.super_type}" }) do
           relation.method!
 
           sub_type, super_type = relation
@@ -903,7 +909,7 @@ module Steep
             when Result::Failure
               result.add(ret.relation) { ret }
             end.tap do |ret|
-              Steep.logger.debug "result=#{ret.class}"
+              Steep.logger.debug { "result=#{ret.class}" }
             end
           end
         end
