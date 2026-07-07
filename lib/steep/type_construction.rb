@@ -3615,7 +3615,7 @@ module Steep
 
     def try_special_method(node, receiver_type:, method_name:, method_overload:, arguments:, block_params:, block_body:, hint:)
       method_type = method_overload.method_type
-      decls = method_overload.method_decls(method_name).to_set
+      decls = method_overload.method_decls_set(method_name)
 
       case
       when decl = decls.find {|decl| SPECIAL_METHOD_NAMES.fetch(:array_compact).include?(decl.method_name) }
@@ -3688,6 +3688,40 @@ module Steep
     end
 
     def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:)
+      if method.overloads.size == 1
+        # The result of the only overload is committed either way, so the speculative typing
+        # with a child typing is skipped.
+        overload = method.overloads.fetch(0)
+
+        Steep.logger.tagged overload.method_type do
+          call, constr = try_special_method(
+            node,
+            receiver_type: receiver_type,
+            method_name: method_name,
+            method_overload: overload,
+            arguments: arguments,
+            block_params: block_params,
+            block_body: block_body,
+            hint: hint
+          ) || try_method_type(
+            node,
+            receiver_type: receiver_type,
+            method_name: method_name,
+            method_overload: overload,
+            arguments: arguments,
+            block_params: block_params,
+            block_body: block_body,
+            tapp: tapp,
+            hint: hint
+          )
+
+          return [
+            call,
+            update_type_env { constr.context.type_env }
+          ]
+        end
+      end
+
       # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
       fails = []
 
@@ -3965,7 +3999,7 @@ module Steep
       constr = self
 
       method_type = method_overload.method_type
-      decls = method_overload.method_decls(method_name).to_set
+      decls = method_overload.method_decls_set(method_name)
 
       if tapp && type_args = tapp.types?(module_context.nesting, checker, [])
         type_arity = method_type.type_params.size

@@ -9,6 +9,8 @@ module Steep
 
       @assumptions: Set[Relation[untyped]]?
 
+      @assumptions_pool: Set[Relation[untyped]]?
+
       @cache_bucket: Cache::ContextBucket?
 
       @bounds: Array[Hash[Symbol, AST::Types::t?]]

@@ -7,7 +7,7 @@ module Steep
         end
 
         module NoFreeVariables
-          @fvs: Set[variable]
+          EMPTY_SET: Set[variable]
 
           def free_variables: () -> Set[variable]
         end

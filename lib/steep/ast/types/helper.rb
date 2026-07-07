@@ -18,8 +18,10 @@ module Steep
         end
 
         module NoFreeVariables
+          EMPTY_SET = Set.new.freeze #: Set[variable]
+
           def free_variables()
-            @fvs ||= Set.new
+            EMPTY_SET
           end
         end
 

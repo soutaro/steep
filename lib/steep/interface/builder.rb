@@ -54,28 +54,42 @@ module Steep
         end
       end
 
-      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :implicitly_returns_nil
+      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :ground_shape_cache, :implicitly_returns_nil
 
       def initialize(factory, implicitly_returns_nil:)
         @factory = factory
         @object_shape_cache = {}
         @union_shape_cache = {}
         @singleton_shape_cache = {}
+        @ground_shape_cache = {}
         @implicitly_returns_nil = implicitly_returns_nil
       end
 
       def shape(type, config)
         Steep.logger.tagged(-> { "shape(#{type})" }) do
-          if shape = raw_shape(type, config)
-            # Optimization that skips unnecessary substitution
-            if type.free_variables.include?(AST::Types::Self.instance)
-              shape
+          if type.free_variables.empty?
+            # The shape of a type without free variables (`self`, `instance`, `class`, or type variables)
+            # is determined by the type itself, regardless of the config.
+            # Sharing the shape also shares the lazily resolved methods between the callers.
+            fetch_cache(ground_shape_cache, type) do
+              compute_shape(type, config)
+            end
+          else
+            compute_shape(type, config)
+          end
+        end
+      end
+
+      def compute_shape(type, config)
+        if shape = raw_shape(type, config)
+          # Optimization that skips unnecessary substitution
+          if type.free_variables.include?(AST::Types::Self.instance)
+            shape
+          else
+            if s = config.subst
+              shape.subst(s)
             else
-              if s = config.subst
-                shape.subst(s)
-              else
-                shape
-              end
+              shape
             end
           end
         end

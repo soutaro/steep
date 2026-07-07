@@ -53,7 +53,7 @@ module Steep
           end
 
           def subst(s)
-            if free_variables.intersect?(s.domain)
+            if free_variables.any? {|var| s.domain?(var) }
               _ = self.class.new(
                 name: name,
                 args: args.map {|a| a.subst(s) }

@@ -33,6 +33,18 @@ module Steep
           overload
         end
 
+        # Memoized version of `method_decls(name).to_set`
+        #
+        # The result is frozen because the overload object may be shared through the shape cache.
+        #
+        def method_decls_set(name)
+          unless decls_set = @method_decls_set
+            decls_set = {} #: Hash[Symbol, Set[TypeInference::MethodCall::MethodDecl]]
+            @method_decls_set = decls_set
+          end
+          decls_set[name] ||= method_decls(name).to_set.freeze
+        end
+
         def method_decls(name)
           method_defs.map do |defn|
             type_name = defn.implemented_in || defn.defined_in

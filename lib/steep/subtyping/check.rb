@@ -21,7 +21,8 @@ module Steep
         @instance_type = instance_type
         @class_type = class_type
         @constraints = constraints
-        @assumptions = Set[]
+        # The Set object is reused between the contexts to avoid allocations
+        @assumptions = (@assumptions_pool ||= Set[])
         @cache_bucket = cache.bucket(self_type, instance_type, class_type)
 
         yield
@@ -30,6 +31,7 @@ module Steep
         @instance_type = nil
         @class_type = nil
         @constraints = nil
+        @assumptions&.clear
         @assumptions = nil
         @cache_bucket = nil
       end
