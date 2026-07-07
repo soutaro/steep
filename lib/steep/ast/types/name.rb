@@ -116,7 +116,7 @@ module Steep
           def map_type(&block)
             args = self.args.map(&block)
 
-            _ = self.class.new(name: self.name, args: self.args)
+            _ = self.class.intern(name: self.name, args: args)
           end
         end
 
