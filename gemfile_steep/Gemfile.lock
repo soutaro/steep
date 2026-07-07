@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 605de2783737673d6e643bf9d5bd3942e70aa2fd
+  revision: be8d12d6f9e1bbfb10df053b659954bf62029016
   branch: master
   specs:
     steep (2.1.0.dev)
@@ -40,7 +40,7 @@ GEM
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
     json (2.20.0)
-    language_server-protocol (3.17.0.5)
+    language_server-protocol (3.17.0.6)
     listen (3.10.0)
       logger
       rb-fsevent (~> 0.10, >= 0.10.3)
