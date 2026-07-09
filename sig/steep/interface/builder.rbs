@@ -54,6 +54,9 @@ module Steep
       # Cache of shapes for types without free variables, keyed by the type
       attr_reader ground_shape_cache: Hash[AST::Types::t, Shape?]
 
+      # Cache of method entries, keyed by the identity of `RBS::Definition::Method` objects
+      attr_reader method_entry_cache: Hash[RBS::Definition::Method, Shape::Entry]
+
       attr_reader implicitly_returns_nil: bool
 
       def initialize: (AST::Types::Factory, implicitly_returns_nil: bool) -> void
@@ -93,6 +96,14 @@ module Steep
       # The `self` types included in the shape is the `self` types in the definition.
       #
       def singleton_shape: (RBS::TypeName) -> Shape
+
+      # Returns a `Shape::Entry` of the method, shared across the shapes of different types
+      #
+      # See the implementation for the details of the sharing.
+      #
+      def method_entry: (Symbol name, RBS::Definition::Method method, kernel_class_type: AST::Types::t?) -> Shape::Entry
+
+      def build_method_entry: (Symbol name, RBS::Definition::Method method, kernel_class_type: AST::Types::t?) -> Shape::Entry
 
       def union_shape: (AST::Types::t, Array[Shape]) -> Shape?
 
