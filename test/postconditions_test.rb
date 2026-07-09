@@ -115,6 +115,66 @@ class PostconditionsTest < Minitest::Test
     assert_equal [], branch.drops_type_strings
   end
 
+  def test_parses_returns_establishes_entry
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "Proxy",
+          "method" => "build",
+          "unconditional" => { "returns" => { "establishes" => ["post", "user"] } }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("Proxy", :build)
+
+    refute_nil entry.unconditional
+    assert_equal [:post, :user], entry.unconditional.returns_establishes
+  end
+
+  def test_branch_with_only_returns_establishes_is_valid
+    # `returns.establishes` alone is enough to make a branch — the
+    # `build` pattern refines the return value without touching self
+    # or any ivar.
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "Proxy",
+          "method" => "build",
+          "unconditional" => { "returns" => { "establishes" => ["post"] } }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("Proxy", :build)
+
+    refute_nil entry.unconditional
+    assert_nil entry.unconditional.self_type_string
+    assert_empty entry.unconditional.ivar_type_strings
+    assert_equal [:post], entry.unconditional.returns_establishes
+  end
+
+  def test_returns_establishes_default_is_empty_array_when_slot_absent
+    branch = Postconditions::Branch.new(self_type_string: "Foo")
+    assert_equal [], branch.returns_establishes
+  end
+
+  def test_returns_establishes_skips_non_string_entries
+    raw = {
+      "postconditions" => [
+        {
+          "class" => "Proxy",
+          "method" => "build",
+          "unconditional" => { "returns" => { "establishes" => ["post", "", 42, nil] } }
+        }
+      ]
+    }
+    store = Postconditions::Store.from_hash(raw, source: "<test>")
+    entry = store.lookup_instance("Proxy", :build)
+
+    assert_equal [:post], entry.unconditional.returns_establishes
+  end
+
   def test_branch_with_only_drops_is_valid
     # `drops:` alone (without `self:`, `via_receiver:`, or `ivars:`)
     # is enough to make a branch — the slot has applicative meaning

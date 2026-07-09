@@ -110,4 +110,26 @@ class PostconditionsWriterTest < Minitest::Test
     zeta_pos = yaml.index("@zeta") or flunk("@zeta not found")
     assert alpha_pos < zeta_pos, "expected @alpha to be emitted before @zeta"
   end
+
+  def test_dump_serializes_returns_establishes_without_ivars
+    # A `build`-style entry establishes a return attribute but sets no
+    # ivar. The `unconditional` branch must still be emitted, carrying
+    # only `returns.establishes`, and round-trip through the loader.
+    entry = InferredEntry.new(
+      class_name: "RVFactory",
+      method_name: :build,
+      singleton: false,
+      returns_establishes: [:post, :user]
+    )
+
+    yaml = Writer.dump([entry])
+    raw = YAML.safe_load(yaml)
+    store = Store.from_hash(raw, source: "<test>")
+    parsed = store.lookup_instance("RVFactory", :build)
+
+    refute_nil parsed, "expected build entry to round-trip"
+    refute_nil parsed.unconditional, "expected unconditional branch with only returns"
+    assert_empty parsed.unconditional.ivar_type_strings
+    assert_equal [:post, :user], parsed.unconditional.returns_establishes.sort
+  end
 end

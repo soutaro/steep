@@ -107,8 +107,14 @@ module Steep
           return run_expressions(project)
         end
 
-        infer_contracts(project)
+        # Postconditions first: contract enforcement (inside `infer_contracts`)
+        # observes call sites, and a call site's satisfaction can depend on a
+        # postcondition establishment — `x = build` importing `x.attr` non-nil
+        # so a later `x.save` satisfies `requires self.attr` (felixefelip/steep#56).
+        # Reload the memoized store after writing so enforcement sees it.
         infer_postconditions(project)
+        project.reload_postconditions!
+        infer_contracts(project)
 
         params = build_typecheck_params(project)
 

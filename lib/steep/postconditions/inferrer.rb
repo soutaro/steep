@@ -23,6 +23,8 @@ module Steep
     #   - Methods whose def is inside a singleton (`def self.x`) emit a
     #     singleton entry; everything else is an instance entry.
     class Inferrer
+      include TypedNodeUtils
+
       def self.infer(source, typing, subtyping)
         new(source, typing, subtyping).infer
       end
@@ -33,6 +35,7 @@ module Steep
         @subtyping = subtyping
         @factory = subtyping.factory
         @definition_builder = subtyping.factory.definition_builder
+        @return_establishment_inferrer = ReturnEstablishmentInferrer.new(typing, subtyping)
       end
 
       def infer
@@ -42,7 +45,8 @@ module Steep
         walk_classes(@source.node, nesting: []) do |def_node, class_name, singleton|
           ivars = collect_ivar_refinements(def_node, class_name, singleton: singleton)
           when_true_ivars = collect_when_true_nonnil_refinements(def_node, class_name, singleton: singleton)
-          next if ivars.empty? && when_true_ivars.empty?
+          returns_establishes = @return_establishment_inferrer.establishments(def_node)
+          next if ivars.empty? && when_true_ivars.empty? && returns_establishes.empty?
 
           method_name = def_node.children[0]
           self_type_string = marker_self_type_for(class_name, method_name, singleton: singleton) unless ivars.empty?
@@ -55,7 +59,8 @@ module Steep
             ivars: ivars,
             self_type_string: self_type_string,
             when_true_ivars: when_true_ivars,
-            when_true_self_type_string: when_true_self_type_string
+            when_true_self_type_string: when_true_self_type_string,
+            returns_establishes: returns_establishes
           )
         end
         results
@@ -215,16 +220,6 @@ module Steep
         end
       end
 
-      def last_expression(node)
-        case node&.type
-        when :begin, :kwbegin
-          last = node.children.compact.last
-          last ? last_expression(last) : nil
-        else
-          node
-        end
-      end
-
       # Returns the LogicTypeInterpreter `Result` for the truthy
       # branch of `node`, handling `:and`/`:or` by composition.
       # The interpreter natively dispatches on `:send` /
@@ -318,56 +313,6 @@ module Steep
         end
       end
 
-      def type_of(node)
-        @typing.type_of(node: node)
-      rescue Typing::UnknownNodeError
-        nil
-      end
-
-      # Returns the intrinsic (hint-free) type of a node. For literal
-      # AST nodes — `:str`, `:int`, `:sym`, etc. — Steep's `:ivasgn`
-      # handler passes the LHS's declared type to `synthesize` as a
-      # `hint:`, which widens the literal's emitted type to match the
-      # declared one (e.g. `@name = "x"` with `@name: String?` ends up
-      # with the str node typed as `(String | nil)`, not `String`).
-      # The widening is useful for collections (`Array[Integer] !<:
-      # Array[Numeric]` would otherwise fail to assign), but it makes
-      # narrowing detection silently no-op for the common
-      # setter-with-literal pattern.
-      #
-      # For literal nodes we compute the type directly from the node
-      # shape, matching what `synthesize` would return if hint were
-      # nil. For non-literal nodes (sends, lvars, dstrs, arrays, …)
-      # we fall back to the typed-out `type_of` — those rarely suffer
-      # the widening issue since the hint mostly affects literal
-      # value-class lookups.
-      #
-      # Tracked in felixefelip/steep#34; the upstream-friendly
-      # follow-up would expose `synthesize(node, hint: nil)` as a
-      # general-purpose helper.
-      def intrinsic_type_of(node)
-        case node.type
-        when :nil
-          AST::Builtin.nil_type
-        when :str, :dstr
-          AST::Builtin::String.instance_type
-        when :int
-          AST::Builtin::Integer.instance_type
-        when :float
-          AST::Builtin::Float.instance_type
-        when :sym, :dsym
-          AST::Builtin::Symbol.instance_type
-        when :true
-          AST::Types::Literal.new(value: true)
-        when :false
-          AST::Types::Literal.new(value: false)
-        when :regexp
-          AST::Builtin::Regexp.instance_type
-        else
-          type_of(node)
-        end
-      end
-
       def declared_ivar_types(class_name, singleton:)
         return {} if class_name.empty?
         type_name = RBS::TypeName.parse("::#{class_name}").absolute!
@@ -383,20 +328,6 @@ module Steep
         end
       end
 
-      # Strict subtype check: `sub_type <: super_type` and the two are
-      # not structurally equal. Equality short-circuits the subtype call
-      # for the common case of `@x = same_type_method` (no refinement
-      # opportunity).
-      def strict_subtype?(sub_type, super_type)
-        return false if sub_type == super_type
-        @subtyping.check(
-          Subtyping::Relation.new(sub_type: sub_type, super_type: super_type),
-          self_type: AST::Builtin::Object.instance_type,
-          instance_type: AST::Builtin::Object.instance_type,
-          class_type: AST::Builtin::Object.module_type,
-          constraints: Subtyping::Constraints.empty
-        ).success?
-      end
     end
 
     # Minimal value object for an inferred entry. Distinct from
@@ -407,8 +338,11 @@ module Steep
       attr_reader :class_name, :method_name, :singleton
       attr_reader :ivars, :self_type_string
       attr_reader :when_true_ivars, :when_true_self_type_string
+      # Array[Symbol] of attribute names the method establishes non-nil
+      # on its returned value (felixefelip/steep#56).
+      attr_reader :returns_establishes
 
-      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil)
+      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil, returns_establishes: [])
         @class_name = class_name
         @method_name = method_name
         @singleton = singleton
@@ -416,6 +350,7 @@ module Steep
         @self_type_string = self_type_string
         @when_true_ivars = when_true_ivars
         @when_true_self_type_string = when_true_self_type_string
+        @returns_establishes = returns_establishes
       end
 
       def ==(other)
@@ -426,14 +361,15 @@ module Steep
           other.ivars == ivars &&
           other.self_type_string == self_type_string &&
           other.when_true_ivars == when_true_ivars &&
-          other.when_true_self_type_string == when_true_self_type_string
+          other.when_true_self_type_string == when_true_self_type_string &&
+          other.returns_establishes == returns_establishes
       end
 
       alias eql? ==
 
       def hash
         class_name.hash ^ method_name.hash ^ singleton.hash ^ ivars.hash ^ self_type_string.hash ^
-          when_true_ivars.hash ^ when_true_self_type_string.hash
+          when_true_ivars.hash ^ when_true_self_type_string.hash ^ returns_establishes.hash
       end
     end
   end

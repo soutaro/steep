@@ -311,4 +311,106 @@ class PostconditionsInferrerTest < Minitest::Test
     refute_nil entry, "expected refinement to survive a leading non-predicate statement"
     assert_equal "::String", entry.when_true_ivars[:"@name"].to_s
   end
+
+  # --- return-value establishment (felixefelip/steep#56) --------------
+
+  RETURNS_RBS_FIXTURE = <<~RBS
+    class RVThing
+      def self.new: () -> RVThing
+    end
+
+    class RVRecord
+      attr_accessor thing: RVThing?
+      def self.new: () -> RVRecord
+    end
+
+    class RVFactory
+      def build: () -> RVRecord
+      def self.build_s: () -> RVRecord
+      def build_other: () -> RVRecord
+      def no_write: () -> RVRecord
+    end
+  RBS
+
+  def infer_returns_for(ruby)
+    entries = nil
+    with_checker(RETURNS_RBS_FIXTURE) do |checker|
+      source = parse_ruby(ruby)
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        entries = Postconditions::Inferrer.infer(source, typing, checker)
+      end
+    end
+    entries
+  end
+
+  def test_infers_return_establishment_for_factory_shape
+    # `record = RVRecord.new; record.thing = RVThing.new; record` — the
+    # returned local has `thing` (declared `RVThing?`) written non-nil,
+    # so `build` establishes `thing` on its return value.
+    entries = infer_returns_for(<<~RUBY)
+      class RVFactory
+        def build
+          record = RVRecord.new
+          record.thing = RVThing.new
+          record
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :build }
+    refute_nil entry, "expected an entry for build"
+    assert_equal [:thing], entry.returns_establishes
+    assert_empty entry.ivars, "build sets no ivar — only a local's attribute"
+  end
+
+  def test_infers_return_establishment_for_singleton_factory
+    entries = infer_returns_for(<<~RUBY)
+      class RVFactory
+        def self.build_s
+          record = RVRecord.new
+          record.thing = RVThing.new
+          record
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :build_s }
+    refute_nil entry, "expected an entry for the singleton build_s"
+    assert entry.singleton
+    assert_equal [:thing], entry.returns_establishes
+  end
+
+  def test_no_return_establishment_when_returned_local_differs_from_written
+    # The attribute is written on `other`, but a DIFFERENT local
+    # (`record`) is returned — the write doesn't reach the return value.
+    entries = infer_returns_for(<<~RUBY)
+      class RVFactory
+        def build_other
+          record = RVRecord.new
+          other = RVRecord.new
+          other.thing = RVThing.new
+          record
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :build_other }
+    assert(entry.nil? || entry.returns_establishes.empty?,
+           "a write to a non-returned local must not establish anything on the return value")
+  end
+
+  def test_no_return_establishment_without_attr_write
+    entries = infer_returns_for(<<~RUBY)
+      class RVFactory
+        def no_write
+          record = RVRecord.new
+          record
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :no_write }
+    assert(entry.nil? || entry.returns_establishes.empty?)
+  end
 end

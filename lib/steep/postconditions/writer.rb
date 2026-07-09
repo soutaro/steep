@@ -50,12 +50,24 @@ module Steep
           "class" => entry.class_name,
           "method" => entry.method_name.to_s
         }
+        # `unconditional` carries the ivar refinement (set_x pattern) AND
+        # the return-value establishment (build pattern). Either can be
+        # present without the other — `build` establishes a return
+        # attribute while setting no ivar — so the branch is assembled
+        # from whatever slots the entry has, and emitted only if non-empty.
+        unconditional = {}
         unless entry.ivars.empty?
-          row["unconditional"] = serialize_branch(
+          unconditional.merge!(serialize_branch(
             ivars: entry.ivars,
             self_type_string: entry.self_type_string
-          )
+          ))
         end
+        unless entry.returns_establishes.empty?
+          unconditional["returns"] = {
+            "establishes" => entry.returns_establishes.map(&:to_s).sort
+          }
+        end
+        row["unconditional"] = unconditional unless unconditional.empty?
         unless entry.when_true_ivars.empty?
           row["when_true"] = serialize_branch(
             ivars: entry.when_true_ivars,

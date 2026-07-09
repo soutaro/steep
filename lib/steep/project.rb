@@ -29,6 +29,17 @@ module Steep
       @postconditions ||= Postconditions.load(base_dir)
     end
 
+    # Drops the memoized postcondition store so the next access reloads
+    # from disk. `steep check` infers postconditions and writes the
+    # sidecar *before* running contract enforcement — which must see the
+    # freshly-written establishments (`returns.establishes`, etc.) to
+    # decide whether a `build → save` caller satisfies its precondition
+    # (felixefelip/steep#56). Without a reload, enforcement would read
+    # the stale (pre-inference) store.
+    def reload_postconditions!
+      @postconditions = nil
+    end
+
     # Generic callback sidecar (felixefelip/steep#27). Loaded lazily from
     # `sig/**/.steep_callbacks.yml`. External generators emit these to
     # declare that a handler method runs before a target — Steep applies

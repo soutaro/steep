@@ -114,11 +114,16 @@ module Steep
               end
               merged_ivars[name] = type
             end
+            merged_establishes = (existing.returns_establishes | entry.returns_establishes)
             by_key[key] = InferredEntry.new(
               class_name: existing.class_name,
               method_name: existing.method_name,
               singleton: existing.singleton,
-              ivars: merged_ivars
+              ivars: merged_ivars,
+              self_type_string: existing.self_type_string || entry.self_type_string,
+              when_true_ivars: existing.when_true_ivars,
+              when_true_self_type_string: existing.when_true_self_type_string,
+              returns_establishes: merged_establishes
             )
           else
             by_key[key] = entry

@@ -141,7 +141,7 @@ module Steep
     end
 
     class Branch
-      attr_reader :self_type_string, :via_receivers, :ivar_type_strings, :drops_type_strings
+      attr_reader :self_type_string, :via_receivers, :ivar_type_strings, :drops_type_strings, :returns_establishes
 
       def self.parse(raw, source:)
         return nil unless raw.is_a?(Hash)
@@ -149,13 +149,48 @@ module Steep
         via_receivers = parse_via_receivers(raw["via_receiver"], source: source)
         ivars = parse_ivars(raw["ivars"], source: source)
         drops = parse_drops(raw["drops"], source: source)
+        returns_establishes = parse_returns_establishes(raw["returns"], source: source)
         has_content = (self_str.is_a?(String) && !self_str.empty?) ||
                       via_receivers.any? ||
                       ivars.any? ||
-                      drops.any?
+                      drops.any? ||
+                      returns_establishes.any?
         return nil unless has_content
 
-        new(self_type_string: self_str, via_receivers: via_receivers, ivar_type_strings: ivars, drops_type_strings: drops)
+        new(self_type_string: self_str, via_receivers: via_receivers, ivar_type_strings: ivars, drops_type_strings: drops, returns_establishes: returns_establishes)
+      end
+
+      # Parses the `returns:` payload — the return-value refinement
+      # (felixefelip/steep#56). Shape:
+      #
+      #     returns:
+      #       establishes: [post, user]
+      #
+      # `establishes` is a list of attribute names (getters) that the
+      # method guarantees non-nil on its returned value. At the call
+      # site `x = build`, each becomes a pure-node fact `x.<attr>` is
+      # non-nil — the same establishment `x.<attr> = <non-nil>` would
+      # produce (felixefelip/steep#51), letting a later `x.save`
+      # satisfy a `requires self.<attr>` precondition even though the
+      # attribute was written in a different method (`build`).
+      #
+      # Returns `Array[Symbol]`. Non-string / empty entries are dropped
+      # with a warning; a non-Hash `returns:` (or a missing/empty
+      # `establishes:`) yields `[]`.
+      def self.parse_returns_establishes(raw, source:)
+        return [] unless raw.is_a?(Hash)
+        list = raw["establishes"]
+        return [] unless list.is_a?(Array)
+        list.filter_map do |entry|
+          if entry.is_a?(String) && !entry.empty?
+            entry.to_sym
+          elsif entry.is_a?(Symbol)
+            entry
+          else
+            Steep.logger.warn { "[postconditions] returns.establishes entry must be a non-empty attribute-name string, got #{entry.inspect} (#{source})" }
+            nil
+          end
+        end
       end
 
       def self.parse_via_receivers(raw, source:)
@@ -204,11 +239,12 @@ module Steep
         result
       end
 
-      def initialize(self_type_string:, via_receivers: [], ivar_type_strings: {}, drops_type_strings: [])
+      def initialize(self_type_string:, via_receivers: [], ivar_type_strings: {}, drops_type_strings: [], returns_establishes: [])
         @self_type_string = self_type_string
         @via_receivers = via_receivers
         @ivar_type_strings = ivar_type_strings
         @drops_type_strings = drops_type_strings
+        @returns_establishes = returns_establishes
       end
 
       # Parses the YAML `self:` payload into an `RBS::Types::t`. Cached so

@@ -873,6 +873,11 @@ module Steep
                   type_env.assign_local_variable(name, var_type, enforced_type)
                 end
 
+                # felixefelip/steep#56: `x = build` where `build` declares a
+                # `returns.establishes` postcondition imports the return-value
+                # attribute facts onto `x` (so a later `x.save` is satisfied).
+                constr = Postconditions::ReturnEstablishmentApplier.new(constr).apply(name: name, rhs: rhs)
+
                 constr.add_typing(node, type: rhs_type)
               else
                 add_typing(node, type: enforced_type || AST::Builtin.any_type)
