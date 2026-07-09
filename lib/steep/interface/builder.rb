@@ -54,7 +54,7 @@ module Steep
         end
       end
 
-      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :ground_shape_cache, :implicitly_returns_nil
+      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :ground_shape_cache, :method_entry_cache, :implicitly_returns_nil
 
       def initialize(factory, implicitly_returns_nil:)
         @factory = factory
@@ -62,6 +62,7 @@ module Steep
         @union_shape_cache = {}
         @singleton_shape_cache = {}
         @ground_shape_cache = {}
+        (@method_entry_cache = {}).compare_by_identity
         @implicitly_returns_nil = implicitly_returns_nil
       end
 
@@ -292,21 +293,46 @@ module Steep
 
           definition.methods.each do |name, method|
             Steep.logger.tagged(-> { "method = #{type_name}.#{name}" }) do
-              overloads = method.defs.map do |type_def|
-                method_name = method_name_for(type_def, name)
-                method_type = factory.method_type(type_def.type)
-                method_type = replace_primitive_method(method_name, type_def, method_type)
-                method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Builtin::Class.instance_type }
-                method_type = add_implicitly_returns_nil(type_def.each_annotation, method_type)
-                Shape::MethodOverload.new(method_type, [type_def])
-              end
-
-              shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
+              shape.methods[name] = method_entry(name, method, kernel_class_type: AST::Builtin::Class.instance_type)
             end
           end
 
           shape
         end
+      end
+
+      # Returns a `Shape::Entry` of the method, shared across the shapes of different types
+      #
+      # `RBS::DefinitionBuilder` returns the identical `RBS::Definition::Method` object for
+      # methods that are inherited without any change -- no overloading, no type application --,
+      # and the entries built from such methods are equal.
+      # Sharing the entries skips most of the shape construction work, because the vast
+      # majority of the methods of a type are the ones inherited from `Object`/`Kernel`.
+      #
+      # The `class` method is the exception that cannot be cached, because its return type is
+      # replaced with the type-specific singleton type. (See `#replace_kernel_class`.)
+      #
+      def method_entry(name, method, kernel_class_type:)
+        if kernel_class_type && name == :class
+          build_method_entry(name, method, kernel_class_type: kernel_class_type)
+        else
+          method_entry_cache[method] ||= build_method_entry(name, method, kernel_class_type: nil)
+        end
+      end
+
+      def build_method_entry(name, method, kernel_class_type:)
+        overloads = method.defs.map do |type_def|
+          method_name = method_name_for(type_def, name)
+          method_type = factory.method_type(type_def.type)
+          method_type = replace_primitive_method(method_name, type_def, method_type)
+          if kernel_class_type
+            method_type = replace_kernel_class(method_name, type_def, method_type) { kernel_class_type }
+          end
+          method_type = add_implicitly_returns_nil(type_def.each_annotation, method_type)
+          Shape::MethodOverload.new(method_type, [type_def])
+        end
+
+        Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
       end
 
       def object_shape(type_name)
@@ -324,18 +350,12 @@ module Steep
 
           definition.methods.each do |name, method|
             Steep.logger.tagged(-> { "method = #{type_name}##{name}" }) do
-              overloads = method.defs.map do |type_def|
-                method_name = method_name_for(type_def, name)
-                method_type = factory.method_type(type_def.type)
-                method_type = replace_primitive_method(method_name, type_def, method_type)
+              kernel_class_type =
                 if type_name.class?
-                  method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Types::Name::Singleton.intern(name: type_name) }
+                  AST::Types::Name::Singleton.intern(name: type_name)
                 end
-                method_type = add_implicitly_returns_nil(type_def.each_annotation, method_type)
-                Shape::MethodOverload.new(method_type, [type_def])
-              end
 
-              shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
+              shape.methods[name] = method_entry(name, method, kernel_class_type: kernel_class_type)
             end
           end
 
