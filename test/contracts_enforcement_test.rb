@@ -354,4 +354,141 @@ class ContractsEnforcementTest < Minitest::Test
                    "the caller that cannot prove the precondition gets a PreconditionUnsatisfied"
     end
   end
+
+  # felixefelip/steep#60: close a precondition across a constructor ivar-binding
+  # and a `.new` argument site. `Proxy#probe` dereferences `self.owner.user`;
+  # `owner` is `@owner`, bound in `initialize` to the constructor argument. When
+  # the sole construction site hands `self` to `Proxy.new` from a getter
+  # (`Post#assignments`) whose own caller has a marker-refined receiver, the
+  # chain closes with no generics:
+  #
+  #   Proxy#probe  requires not_nil self.owner.user   (inferred)
+  #     → self-call closure →  Proxy#initialize inherits it
+  #     → `.new(self)` translation →  Post#assignments requires not_nil self.user
+  #     → enforced at `post.assignments` (post: Post & Post::Validated) via #59
+  #
+  # The registry that maps `owner` → constructor arg index is built from source
+  # by `Project#constructor_binding_registry` and consumed only in the
+  # Enforcement pass, so `Contracts::Runner.run` exercises the whole chain.
+  PROXY_RBS = <<~RBS
+    class User
+      def name: () -> String
+    end
+
+    class Post
+      def user: () -> User?
+      def assignments: () -> Proxy
+    end
+
+    class Post::Validated
+      def user: () -> User
+    end
+
+    class Proxy
+      def initialize: (Post owner) -> void
+      def owner: () -> Post
+      def probe: () -> String
+    end
+  RBS
+
+  PROXY_APP = <<~RUBY
+    class Proxy
+      def initialize(owner)
+        @owner = owner
+        probe
+      end
+
+      def owner
+        @owner
+      end
+
+      def probe
+        owner.user.name
+        "ok"
+      end
+    end
+
+    class Post
+      def assignments
+        Proxy.new(self)
+      end
+    end
+  RUBY
+
+  def test_closes_precondition_through_constructor_and_new_site
+    in_tmpdir do
+      write("sig/proxy.rbs", PROXY_RBS + <<~RBS)
+        class Client
+          def run: (Post & Post::Validated) -> void
+        end
+      RBS
+      write("app/proxy.rb", PROXY_APP + <<~RUBY)
+        class Client
+          def run(post)
+            post.assignments
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+
+      assignments = contracts.find { |c| c.key == "Post#assignments" }
+      refute_nil assignments,
+                 "the `.new(self)` site should synthesize a contract on the enclosing getter"
+      assert_equal [[:not_nil, [:send, [:self], :user, []]]],
+                   assignments.requires.map { |r| [:not_nil, expr_sig(r.expr)] },
+                   "the translated obligation is `not_nil self.user` on Post#assignments"
+      assert assignments.enforced,
+             "the getter's caller passes a (Post & Post::Validated) receiver → enforced via #59"
+
+      probe = contracts.find { |c| c.key == "Proxy#probe" }
+      assert probe&.enforced,
+             "with the chain closed, the proxy body's precondition is enforced"
+
+      typing = type_check_file(project, "app/proxy.rb", store_of(contracts))
+      assert_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "enforced contract narrows the body, so `owner.user.name` is clean"
+    end
+  end
+
+  def test_does_not_close_when_construction_site_lacks_the_marker
+    in_tmpdir do
+      write("sig/proxy.rbs", PROXY_RBS + <<~RBS)
+        class Client
+          def run: (Post) -> void
+        end
+      RBS
+      write("app/proxy.rb", PROXY_APP + <<~RUBY)
+        class Client
+          def run(post)
+            post.assignments
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+
+      assignments = contracts.find { |c| c.key == "Post#assignments" }
+      refute_nil assignments, "the obligation still creates the contract"
+      refute assignments.enforced,
+             "the getter's caller passes a bare Post → self.user unproven → not enforced"
+
+      probe = contracts.find { |c| c.key == "Proxy#probe" }
+      refute probe&.enforced, "chain does not close → proxy body precondition unenforced"
+
+      typing = type_check_file(project, "app/proxy.rb", store_of(contracts))
+      refute_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "unenforced contract surfaces the hidden `owner.user.name` error"
+    end
+  end
+
+  # Local mirror of Runner#expr_signature, for asserting a contract's requires.
+  def expr_sig(expr)
+    case expr
+    when Contracts::Expr::SelfRef then [:self]
+    when Contracts::Expr::Send then [:send, expr_sig(expr.receiver), expr.method, expr.chain]
+    end
+  end
 end

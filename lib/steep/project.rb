@@ -64,6 +64,19 @@ module Steep
       @delegation_registry = nil
     end
 
+    # Project-wide registry of constructor reader→parameter bindings, used by
+    # `TypeConstruction` to translate an `initialize` precondition on
+    # `self.<reader>...` into an obligation on the matching `.new` argument
+    # (felixefelip/steep#60). Built and invalidated exactly like
+    # `delegation_registry`.
+    def constructor_binding_registry
+      @constructor_binding_registry ||= ConstructorBindingRegistry.build(self)
+    end
+
+    def invalidate_constructor_binding_registry!
+      @constructor_binding_registry = nil
+    end
+
     def relative_path(path)
       path.relative_path_from(base_dir)
     rescue ArgumentError

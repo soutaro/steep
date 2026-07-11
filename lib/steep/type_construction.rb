@@ -53,6 +53,7 @@ module Steep
     attr_reader :postconditions
     attr_reader :callbacks
     attr_reader :delegation_registry
+    attr_reader :constructor_bindings
 
     attr_reader :context
 
@@ -95,7 +96,7 @@ module Steep
       context.variable_context
     end
 
-    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty, delegation_registry:)
+    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty, delegation_registry:, constructor_bindings:)
       @checker = checker
       @source = source
       @annotations = annotations
@@ -105,6 +106,7 @@ module Steep
       @postconditions = postconditions
       @callbacks = callbacks
       @delegation_registry = delegation_registry
+      @constructor_bindings = constructor_bindings
     end
 
     def with_new_typing(typing)
@@ -117,7 +119,8 @@ module Steep
         contracts: contracts,
         postconditions: postconditions,
         callbacks: callbacks,
-        delegation_registry: delegation_registry
+        delegation_registry: delegation_registry,
+        constructor_bindings: constructor_bindings
       )
     end
 
@@ -140,7 +143,8 @@ module Steep
           contracts: contracts,
           postconditions: postconditions,
           callbacks: callbacks,
-        delegation_registry: delegation_registry
+        delegation_registry: delegation_registry,
+        constructor_bindings: constructor_bindings
         )
       else
         self
@@ -348,7 +352,8 @@ module Steep
         contracts: contracts,
         postconditions: postconditions,
         callbacks: callbacks,
-        delegation_registry: delegation_registry
+        delegation_registry: delegation_registry,
+        constructor_bindings: constructor_bindings
       )
     end
 
@@ -531,7 +536,8 @@ module Steep
         contracts: contracts,
         postconditions: postconditions,
         callbacks: callbacks,
-        delegation_registry: delegation_registry
+        delegation_registry: delegation_registry,
+        constructor_bindings: constructor_bindings
       )
     end
 
@@ -626,7 +632,8 @@ module Steep
         contracts: contracts,
         postconditions: postconditions,
         callbacks: callbacks,
-        delegation_registry: delegation_registry
+        delegation_registry: delegation_registry,
+        constructor_bindings: constructor_bindings
       )
     end
 
@@ -743,7 +750,8 @@ module Steep
         contracts: contracts,
         postconditions: postconditions,
         callbacks: callbacks,
-        delegation_registry: delegation_registry
+        delegation_registry: delegation_registry,
+        constructor_bindings: constructor_bindings
       )
     end
 
@@ -5199,7 +5207,8 @@ module Steep
         contracts: contracts,
         postconditions: postconditions,
         callbacks: callbacks,
-        delegation_registry: delegation_registry
+        delegation_registry: delegation_registry,
+        constructor_bindings: constructor_bindings
       )
     end
 
@@ -6081,6 +6090,16 @@ module Steep
     def check_precondition_at_call_site(node, receiver, receiver_type, method_name)
       return if contracts.empty?
 
+      # A `Klass.new(...)` call site: the constructed instance's `initialize`
+      # precondition (`not_nil self.<reader>...`) is discharged by whatever the
+      # matching constructor argument makes true, not by anything on the
+      # explicit `singleton(Klass)` receiver. Handle it separately, then stop —
+      # the normal receiver path has nothing to add for `singleton(...)`.
+      if method_name == :new && receiver_type.is_a?(AST::Types::Name::Singleton)
+        check_constructor_precondition_at_new_site(node, receiver_type.name)
+        return
+      end
+
       # Implicit-self / `self` calls check the precondition on `self`; an
       # explicit receiver (`column.set_default_user_name`) checks it on that
       # receiver — but only when the receiver is a narrowable pure node, so
@@ -6136,6 +6155,85 @@ module Steep
       # aggregates these across the project to decide if the contract is
       # enforced (all call sites satisfy, and at least one exists).
       typing.observe_contract_call_site(key: contract.key, satisfied: all_satisfied)
+    end
+
+    # felixefelip/steep#60. At `Klass.new(args)`, translate each `initialize`
+    # precondition `not_nil self.<reader>.<tail>` into a requirement on the
+    # constructor argument the reader's ivar is bound to. When that argument is
+    # `self`, the requirement becomes `not_nil self.<tail>` on the *enclosing*
+    # method — so a getter that hands its own `self` to a proxy
+    # (`Proxy.new(self)`) inherits the proxy body's deref obligation, which the
+    # marker-enforced contract on the getter's call site then discharges.
+    #
+    # Observes the `initialize` contract call site (so the constructor can be
+    # enforced once every `.new` site is satisfied) and, for an unsatisfied
+    # self-rooted requirement, emits the translated obligation on the enclosing
+    # method for the Runner's fixpoint. Emits no diagnostic: the requirement is
+    # derived, not a direct user call, and this path only runs under the
+    # Enforcement pass (whose diagnostics are discarded).
+    def check_constructor_precondition_at_new_site(node, class_type_name)
+      class_key = class_type_name.to_s.sub(/\A::/, "")
+      contract = contracts.lookup_instance(class_key, :initialize)
+      return unless contract
+
+      bindings = constructor_bindings.bindings_for(class_key)
+      return unless bindings
+
+      arguments = node.children[2..] || []
+      env = context.type_env
+      enclosing_key = enclosing_instance_method_key
+
+      all_satisfied = true
+      contract.requires.each do |req|
+        next unless req.is_a?(Contracts::Predicate::NotNil)
+
+        translated = translate_constructor_requirement(req.expr, bindings, arguments)
+        case translated
+        when :trivial
+          next
+        when nil
+          # Can't map this requirement to an argument (unknown reader, non-self
+          # argument). Can't prove it here → conservatively leave the
+          # constructor unenforced rather than narrow on an unproven basis.
+          all_satisfied = false
+        else
+          next if precondition_holds?(translated, env, base_receiver: nil, location: node.location)
+          next if enclosing_contract_guarantees?(translated)
+
+          all_satisfied = false
+          if enclosing_key
+            typing.observe_precondition_obligation(key: enclosing_key, expr: translated)
+          end
+        end
+      end
+
+      typing.observe_contract_call_site(key: contract.key, satisfied: all_satisfied)
+    end
+
+    # Map an `initialize` requirement `self.<reader>.<tail>` to the constructor
+    # argument bound to `<reader>`. Returns a self-rooted `Contracts::Expr` for
+    # the `<tail>` chain when the argument is `self`, `:trivial` when there is no
+    # tail (the requirement reduces to `not_nil self`, always true), or nil when
+    # it can't be translated (reader not a constructor-bound param, or the
+    # argument isn't `self`).
+    def translate_constructor_requirement(expr, bindings, arguments)
+      return nil unless expr.is_a?(Contracts::Expr::Send)
+      return nil unless expr.receiver.is_a?(Contracts::Expr::SelfRef)
+
+      param_index = bindings[expr.method]
+      return nil unless param_index
+
+      arg = arguments[param_index]
+      return nil unless arg.is_a?(::Parser::AST::Node) && arg.type == :self
+
+      tail = expr.chain
+      return :trivial if tail.empty?
+
+      Contracts::Expr::Send.new(
+        receiver: Contracts::Expr::SelfRef.instance,
+        method: tail.first,
+        chain: tail.drop(1)
+      )
     end
 
     def precondition_target_type_names(receiver_type)
