@@ -247,4 +247,111 @@ class ContractsEnforcementTest < Minitest::Test
                    "both `self.company.name.size` reads should error, got lines: #{no_method_lines}"
     end
   end
+
+  # felixefelip/steep#59: a precondition is enforced when its sole call site
+  # proves the requirement through the receiver's *static type* — a
+  # marker-refined intersection like `(Post & Post::Validated)` on which the
+  # marker refines the required attribute to non-nil — even with no local read
+  # to populate the pure-call flow cache. This exercises both halves of the
+  # fix: the `Intersection` receiver being observed at all
+  # (`precondition_target_type_names`), and being satisfied without a flow fact
+  # (`precondition_holds?`'s static-type fallback).
+  #
+  # `greet`'s body has a trailing statement on purpose: a single-send body
+  # (`def greet; user.name; end`) is a forward-delegate shape, which the
+  # delegation inliner (#32) rewrites at the call site, bypassing the
+  # precondition check entirely — so the contract would never be observed.
+  # `Post::Validated` is a standalone marker (NOT `< Post`), mirroring what
+  # rbs_rails emits: a subclass would make `(Post & Post::Validated)` simplify
+  # to just `Post::Validated`, dropping the base member the contract lives on.
+  # As a separate class the intersection is preserved, and `.user` resolves
+  # against both members (`User?` from Post, `User` from the marker) to non-nil.
+  MARKER_RBS = <<~RBS
+    class User
+      def name: () -> String
+    end
+
+    class Post
+      def user: () -> User?
+      def greet: () -> String
+    end
+
+    class Post::Validated
+      def user: () -> User
+    end
+  RBS
+
+  def test_enforced_when_sole_caller_has_marker_refined_receiver
+    in_tmpdir do
+      write("sig/marker.rbs", MARKER_RBS + <<~RBS)
+        class Client
+          def run: (Post & Post::Validated) -> void
+        end
+      RBS
+      write("app/marker.rb", <<~RUBY)
+        class Post
+          def greet
+            user.name
+            "ok"
+          end
+        end
+
+        class Client
+          def run(post)
+            post.greet
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+      greet = contracts.find { |c| c.key == "Post#greet" }
+      refute_nil greet, "expected a contract inferred for Post#greet"
+      assert greet.enforced,
+             "sole caller passes a (Post & Post::Validated) receiver whose marker makes self.user non-nil → enforced"
+
+      typing = type_check_file(project, "app/marker.rb", store_of(contracts))
+      assert_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "enforced contract narrows the body, so `user.name` is clean"
+      assert_empty typing.errors.grep(Diagnostic::Ruby::PreconditionUnsatisfied),
+                   "the marker-refined receiver satisfies the precondition — no PreconditionUnsatisfied"
+    end
+  end
+
+  def test_not_enforced_when_caller_receiver_lacks_the_marker
+    in_tmpdir do
+      write("sig/marker.rbs", MARKER_RBS + <<~RBS)
+        class Client
+          def run: (Post) -> void
+        end
+      RBS
+      write("app/marker.rb", <<~RUBY)
+        class Post
+          def greet
+            user.name
+            "ok"
+          end
+        end
+
+        class Client
+          def run(post)
+            post.greet
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+      greet = contracts.find { |c| c.key == "Post#greet" }
+      refute_nil greet
+      refute greet.enforced,
+             "the caller's receiver is a bare Post (no marker) → self.user stays nilable → not enforced"
+
+      typing = type_check_file(project, "app/marker.rb", store_of(contracts))
+      refute_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "unenforced contract surfaces the hidden `user.name` error"
+      refute_empty typing.errors.grep(Diagnostic::Ruby::PreconditionUnsatisfied),
+                   "the caller that cannot prove the precondition gets a PreconditionUnsatisfied"
+    end
+  end
 end

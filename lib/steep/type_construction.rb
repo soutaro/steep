@@ -6056,7 +6056,7 @@ module Steep
       end
     end
 
-    def build_contract_send_variants(expr, base_receiver: nil)
+    def build_contract_send_variants(expr, base_receiver: nil, location: nil)
       return [] unless expr.receiver.is_a?(Contracts::Expr::SelfRef)
 
       # `self.<method>...` inside the method uses the two self forms
@@ -6065,10 +6065,14 @@ module Steep
       # the concrete receiver node to substitute for `self`.
       bases = base_receiver ? [base_receiver] : [nil, Parser::AST::Node.new(:self, [])]
 
+      # A `location` (the call-site's) is carried onto the synthetic nodes so a
+      # diagnostic built while synthesizing them has a real location instead of
+      # nil. Node `==`/`hash` ignore location, so cached-read lookups and the
+      # `built == node` match in `contract_expression_matches?` are unaffected.
       bases.map do |recv|
-        chained = Parser::AST::Node.new(:send, [recv, expr.method])
+        chained = Parser::AST::Node.new(:send, [recv, expr.method], location: location)
         expr.chain.each do |seg|
-          chained = Parser::AST::Node.new(:send, [chained, seg])
+          chained = Parser::AST::Node.new(:send, [chained, seg], location: location)
         end
         chained
       end
@@ -6085,10 +6089,12 @@ module Steep
       explicit_receiver = !receiver.nil? && receiver.type != :self
       return unless receiver.nil? || receiver.type == :self || narrowable_pure_receiver?(receiver)
 
-      target_name = precondition_target_type_name(receiver_type)
-      return unless target_name
+      target_names = precondition_target_type_names(receiver_type)
+      return if target_names.empty?
 
-      contract = contracts.lookup_instance(target_name.to_s.sub(/\A::/, ""), method_name)
+      contract = target_names.filter_map do |name|
+        contracts.lookup_instance(name.to_s.sub(/\A::/, ""), method_name)
+      end.first
       return unless contract
 
       base_receiver = explicit_receiver ? receiver : nil
@@ -6102,7 +6108,7 @@ module Steep
       all_satisfied = true
       contract.requires.each do |req|
         next unless req.is_a?(Contracts::Predicate::NotNil)
-        next if precondition_holds?(req.expr, env, base_receiver: base_receiver)
+        next if precondition_holds?(req.expr, env, base_receiver: base_receiver, location: node.location)
         # A `self` call is also satisfied when the enclosing method's own
         # enforced contract already requires the same `self.x`: its callers
         # guarantee it on entry, so it holds throughout the body even without a
@@ -6132,25 +6138,61 @@ module Steep
       typing.observe_contract_call_site(key: contract.key, satisfied: all_satisfied)
     end
 
-    def precondition_target_type_name(receiver_type)
+    def precondition_target_type_names(receiver_type)
       case receiver_type
       when AST::Types::Name::Instance
-        receiver_type.name
+        [receiver_type.name]
       when AST::Types::Self
-        case st = self_type
-        when AST::Types::Name::Instance
-          st.name
-        end
+        st = self_type
+        st.is_a?(AST::Types::Name::Instance) ? [st.name] : []
+      when AST::Types::Intersection
+        # A marker-refined receiver such as `(Post & Post::Validated)`: the
+        # contract lives on the base class, while the nested marker only refines
+        # return types. Offer every instance member as a candidate; the caller
+        # keeps the first that actually carries a contract for `method_name`.
+        receiver_type.types.flat_map { |t| precondition_target_type_names(t) }
+      else
+        []
       end
     end
 
-    def precondition_holds?(expr, env, base_receiver: nil)
-      build_contract_send_variants(expr, base_receiver: base_receiver).any? do |built|
+    def precondition_holds?(expr, env, base_receiver: nil, location: nil)
+      build_contract_send_variants(expr, base_receiver: base_receiver, location: location).any? do |built|
         entry = env.pure_method_calls.fetch(built, nil)
-        next false unless entry
-        _call, type = entry
-        type && !contract_nullable_type?(type)
+        if entry
+          _call, type = entry
+          next true if type && !contract_nullable_type?(type)
+        end
+        # No flow fact cached the read. Fall back to the receiver's static type:
+        # a marker-refined receiver (e.g. `(Post & Post::Validated)`) can already
+        # guarantee `receiver.attr` is non-nil through the marker's refined return
+        # type, even though the bare class types it nilable. Only meaningful at an
+        # explicit-receiver call site (`base_receiver` set) — for a `self` call
+        # inside the body the enclosing-contract path handles propagation.
+        next false unless base_receiver
+        contract_send_type_non_nil?(built)
       end
+    end
+
+    # Synthesize a contract's `receiver.attr...` send against the current
+    # environment and report whether its type is provably non-nil. Lets a
+    # marker-refined receiver type (an `X & X::Validated` intersection) discharge
+    # a `not_nil` precondition at the call site without a local read to populate
+    # the pure-call flow cache. Mirrors the throwaway-child synthesize pattern in
+    # `narrow_attribute_write`: the child typing is discarded, so no
+    # diagnostics/typings for the synthetic read leak into the real flow.
+    def contract_send_type_non_nil?(send_node)
+      non_nil = false
+      typing.new_child do |child|
+        pair = with_new_typing(child).synthesize(send_node, hint: nil)
+        if pair.constr.typing.errors.empty? && (type = pair.type)
+          non_nil = !contract_nullable_type?(type)
+        end
+      end
+      non_nil
+    rescue StandardError => exn
+      Steep.logger.warn { "[contracts] static precondition check failed: #{exn.message}" }
+      false
     end
 
     def contract_nullable_type?(type)
