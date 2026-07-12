@@ -12,10 +12,12 @@ class ContractsInferrerTest < Minitest::Test
     class Foo
       attr_reader name: String?
       attr_reader inner: Bar
+      attr_reader maybe: Bar?
       def helper: () -> Integer
       def chain_helper: () -> Integer
       def safe_helper: () -> Integer
       def explicit_self_helper: () -> Integer
+      def masked_chain_helper: () -> Integer
     end
 
     class Bar
@@ -33,6 +35,26 @@ class ContractsInferrerTest < Minitest::Test
       end
     end
     contracts
+  end
+
+  # felixefelip/steep#64: `maybe.value.size` has two nilable hops (`maybe: Bar?`
+  # and `maybe.value: String?`). A single pass errors only on `.value` (maybe is
+  # nilable), masking `.size`; walking the chain emits both `not_nil self.maybe`
+  # and `not_nil self.maybe.value`.
+  def test_infers_every_nilable_hop_of_a_masked_chain
+    contracts = infer_for(<<~RUBY)
+      class Foo
+        def masked_chain_helper
+          maybe.value.size
+        end
+      end
+    RUBY
+
+    c = contracts.find { |ct| ct.method_name == :masked_chain_helper }
+    refute_nil c
+    sigs = c.requires.map { |r| [r.expr.method, r.expr.chain] }
+    assert_includes sigs, [:maybe, []], "the receiver of the failing `.value`"
+    assert_includes sigs, [:maybe, [:value]], "the deeper masked hop of `.size`"
   end
 
   def test_infers_not_nil_for_self_method_in_class_body

@@ -6239,8 +6239,21 @@ module Steep
         # the requirement, its inner call is discharged.
         next if base_receiver.nil? && enclosing_contract_guarantees?(req.expr)
 
+        # felixefelip/steep#64: an explicit receiver that aliases a self path
+        # (`record.post` == `self.owner`, from `record = build`) makes the
+        # requirement about `record.<expr>` really `self.<translated>` on the
+        # *enclosing* method — satisfied once that method's enforced contract
+        # guarantees it, and otherwise propagated to it so forwarding at its own
+        # call site can discharge it (`@post.assignments.create!`).
+        translated = base_receiver && alias_translated_requirement(req.expr, base_receiver)
+        next if translated && enclosing_contract_guarantees?(translated)
+
         all_satisfied = false
-        if enclosing_key
+        if translated
+          if (translated_key = enclosing_instance_method_key)
+            typing.observe_precondition_obligation(key: translated_key, expr: translated)
+          end
+        elsif enclosing_key
           typing.observe_precondition_obligation(key: enclosing_key, expr: req.expr)
         end
         typing.add_error(
@@ -6258,6 +6271,30 @@ module Steep
       # aggregates these across the project to decide if the contract is
       # enforced (all call sites satisfy, and at least one exists).
       typing.observe_contract_call_site(key: contract.key, satisfied: all_satisfied)
+    end
+
+    # felixefelip/steep#64. Translate a precondition `self.<expr>` checked on an
+    # explicit receiver `base_receiver` (`record`) into a self-rooted requirement
+    # on the enclosing method, when `base_receiver`'s deref aliases a self path
+    # in this method (`record.post` == `self.owner`, from `record = build`):
+    # `record.post.user` → `self.owner.user`. Returns the translated
+    # `Contracts::Expr`, or nil when no alias reroots it.
+    def alias_translated_requirement(expr, base_receiver)
+      return nil unless expr.is_a?(Contracts::Expr::Send)
+      aliases = current_method_aliases
+      return nil if aliases.empty?
+
+      node = ::Parser::AST::Node.new(:send, [base_receiver, expr.method])
+      expr.chain.each { |seg| node = ::Parser::AST::Node.new(:send, [node, seg]) }
+
+      path = Contracts::AliasResolver.resolve_self_path(node, aliases)
+      return nil unless path && !path.empty?
+
+      Contracts::Expr::Send.new(
+        receiver: Contracts::Expr::SelfRef.instance,
+        method: path.first,
+        chain: path.drop(1)
+      )
     end
 
     # felixefelip/steep#60. At `Klass.new(args)`, translate each `initialize`

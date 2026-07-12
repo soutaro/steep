@@ -88,20 +88,54 @@ module Steep
         # through a local aliased to a self path (`record.post` <- `self.owner`,
         # directly or via `record = build`) is rooted at `self`.
         aliases = Contracts::AliasResolver.local_attr_aliases(body, class_name: class_name, return_aliases: @return_aliases)
+        parents = chain_parents(body)
         obligations = []
 
         no_method_errors_within(body_range).each do |error|
           call_node = error.node
           next unless call_node && call_node.is_a?(Parser::AST::Node)
 
-          receiver = call_node.children[0]
-          expr = self_path_to_expr(receiver, aliases)
-          next unless expr
+          # The failing call's receiver must be non-nil (`post` for `post.user`).
+          if (expr = self_path_to_expr(call_node.children[0], aliases))
+            obligations << Predicate::NotNil.new(expr)
+          end
 
-          obligations << Predicate::NotNil.new(expr)
+          # felixefelip/steep#64: a `self.a.b.c` chain has a nilable hop per
+          # intermediate, but a single inference pass only errors on the first;
+          # the deeper hops stay masked. Walk up the enclosing chain: each node
+          # that is itself the receiver of a further call must also be non-nil,
+          # so `post.user.name` (error on `.user`) additionally requires
+          # `not_nil self.post.user`. When the error is already on the outermost
+          # call (`record.post.user.name` → error on `.name`) there is no parent,
+          # so nothing extra is emitted and single-hop cases are unchanged.
+          node = call_node
+          while (parent = parents[node])
+            if (expr = self_path_to_expr(node, aliases))
+              obligations << Predicate::NotNil.new(expr)
+            end
+            node = parent
+          end
         end
 
         obligations
+      end
+
+      # Map each send node to the send that calls a method on it, so the
+      # enclosing deref chain can be walked upward from any inner node.
+      def chain_parents(body)
+        parents = {}.compare_by_identity
+        walk_nodes(body) do |node|
+          next unless node.type == :send
+          receiver = node.children[0]
+          parents[receiver] = node if receiver.is_a?(Parser::AST::Node) && receiver.type == :send
+        end
+        parents
+      end
+
+      def walk_nodes(node, &block)
+        return unless node.is_a?(Parser::AST::Node)
+        yield node
+        node.children.each { |c| walk_nodes(c, &block) }
       end
 
       def no_method_errors_within(range)

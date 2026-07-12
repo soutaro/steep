@@ -30,6 +30,28 @@ module Steep
         methods
       end
 
+      # Like `self_path`, but rooting through a local-attr alias: resolve a
+      # send-chain node to the self path it denotes given `aliases`
+      # (`record.post.user` with `[record, post] => [:owner]` → [:owner, :user]).
+      # Returns [path_syms] or nil when the chain is not self-rooted (directly or
+      # via an alias). felixefelip/steep#64.
+      def resolve_self_path(node, aliases)
+        return nil unless node.is_a?(::Parser::AST::Node) && node.type == :send
+        methods = [] #: Array[Symbol]
+        current = node #: Parser::AST::Node?
+        while current.is_a?(::Parser::AST::Node) && current.type == :send
+          recv, mname, *args = current.children
+          return nil unless args.empty?
+          if recv.is_a?(::Parser::AST::Node) && recv.type == :lvar && (path = aliases[[recv.children[0], mname]])
+            return path + methods
+          end
+          methods.unshift(mname)
+          current = recv
+        end
+        return nil unless current.nil? || (current.is_a?(::Parser::AST::Node) && current.type == :self)
+        methods
+      end
+
       # `foo` / `self.foo` (no args) → :foo; nil otherwise.
       def self_call_method(node)
         return nil unless node.is_a?(::Parser::AST::Node) && node.type == :send

@@ -615,4 +615,140 @@ class ContractsEnforcementTest < Minitest::Test
                    "unenforced → the hidden `record.post.user.name` error surfaces"
     end
   end
+
+  # felixefelip/steep#64 end-to-end: a real `before_validation` deref
+  # `post.user.name` (two nilable hops, `self.post: Post?` and
+  # `self.post.user: User?`) reached via `record.save` in a proxy. Gap 1 infers
+  # both hops on `save`/`run_cb`; gap 2 translates `record.post.user` at
+  # `record.save` through the alias (`record.post` == `self.owner`) to
+  # `self.owner.user` on the proxy's `create`, discharged by forwarding at
+  # `@post.assignments.create`.
+  MULTIHOP_RBS = <<~RBS
+    class MHUser
+      def name: () -> String
+    end
+
+    class MHPost
+      def user: () -> MHUser?
+      def assignments: () -> MHProxy
+    end
+
+    class MHPost::Validated
+      def user: () -> MHUser
+    end
+
+    class MHAssignment
+      def post=: (MHPost) -> MHPost
+      def post: () -> MHPost?
+      def save: () -> bool
+      def run_cb: () -> void
+    end
+
+    class MHProxy
+      def initialize: (MHPost owner) -> void
+      def owner: () -> MHPost
+      def build: () -> MHAssignment
+      def create: () -> MHAssignment
+    end
+  RBS
+
+  MULTIHOP_APP = <<~RUBY
+    class MHAssignment
+      def save
+        run_cb
+        true
+      end
+
+      def run_cb
+        post.user.name
+      end
+    end
+
+    class MHProxy
+      def initialize(owner)
+        @owner = owner
+      end
+
+      def owner
+        @owner
+      end
+
+      def build
+        record = MHAssignment.new
+        record.post = owner
+        record
+      end
+
+      def create
+        record = build
+        record.save
+        record
+      end
+    end
+
+    class MHPost
+      def assignments
+        MHProxy.new(self)
+      end
+    end
+  RUBY
+
+  def test_closes_multihop_callback_deref_through_aliased_record_save
+    in_tmpdir do
+      write("sig/mh.rbs", MULTIHOP_RBS + <<~RBS)
+        class MHClient
+          def run: (MHPost & MHPost::Validated) -> void
+        end
+      RBS
+      write("app/mh.rb", MULTIHOP_APP + <<~RUBY)
+        class MHClient
+          def run(post)
+            post.assignments.create
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+
+      save = contracts.find { |c| c.key == "MHAssignment#save" }
+      refute_nil save
+      sigs = save.requires.map { |r| expr_sig(r.expr) }
+      assert_includes sigs, [:send, [:self], :post, []], "gap 1: the first nilable hop"
+      assert_includes sigs, [:send, [:self], :post, [:user]], "gap 1: the deeper masked hop"
+      assert save.enforced,
+             "gap 2: `record.save` discharges it via the alias + forwarding at `@post.assignments.create`"
+
+      typing = type_check_file(project, "app/mh.rb", store_of(contracts))
+      assert_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "`run_cb`'s `post.user.name` narrows once `save` is enforced"
+    end
+  end
+
+  def test_does_not_close_multihop_without_marker
+    in_tmpdir do
+      write("sig/mh.rbs", MULTIHOP_RBS + <<~RBS)
+        class MHClient
+          def run: (MHPost) -> void
+        end
+      RBS
+      write("app/mh.rb", MULTIHOP_APP + <<~RUBY)
+        class MHClient
+          def run(post)
+            post.assignments.create
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+      save = contracts.find { |c| c.key == "MHAssignment#save" }
+      refute_nil save
+      refute save.enforced, "a bare Post construction site can't prove `@post.user`"
+
+      typing = type_check_file(project, "app/mh.rb", store_of(contracts))
+      refute_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "unenforced → `post.user.name` still errors"
+    end
+  end
 end
