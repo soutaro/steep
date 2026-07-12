@@ -15,8 +15,9 @@ module Steep
         attr_reader :postconditions
         attr_reader :callbacks
         attr_reader :delegation_registry
+        attr_reader :return_alias
 
-        def initialize(source_text:, path:, subtyping:, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty, delegation_registry:)
+        def initialize(source_text:, path:, subtyping:, contracts: Steep::Contracts::Store.empty, postconditions: Steep::Postconditions::Store.empty, callbacks: Steep::Callbacks::Store.empty, delegation_registry:, return_alias: Steep::Project::ReturnAliasRegistry.new)
           @source_text = source_text
           @path = path
           @subtyping = subtyping
@@ -24,6 +25,7 @@ module Steep
           @postconditions = postconditions
           @callbacks = callbacks
           @delegation_registry = delegation_registry
+          @return_alias = return_alias
         end
 
         def type_check!(text, line:, column:)
@@ -38,7 +40,19 @@ module Steep
           Steep.measure "typechecking" do
             location = source.buffer.loc_to_pos([line, column])
             resolver = ::RBS::Resolver::ConstantResolver.new(builder: subtyping.factory.definition_builder)
-            @typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: resolver, cursor: location, contracts: contracts, postconditions: postconditions, callbacks: callbacks, delegation_registry: delegation_registry)
+            @typing = TypeCheckService.type_check(
+              source: source,
+              subtyping: subtyping,
+              constant_resolver: resolver,
+              cursor: location,
+              contracts: contracts,
+              postconditions: postconditions,
+              callbacks: callbacks,
+              delegation_registry: delegation_registry,
+              constructor_bindings: Project::ConstructorBindingRegistry.new,
+              return_forwarding: Project::ReturnForwardingRegistry.new,
+              return_alias: return_alias
+            )
           end
         end
 

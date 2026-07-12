@@ -29,7 +29,7 @@ class ContractsInferrerTest < Minitest::Test
       source = parse_ruby(ruby)
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        contracts = Contracts::Inferrer.infer(source, typing)
+        contracts = Contracts::Inferrer.infer(source, typing, return_aliases: {})
       end
     end
     contracts
@@ -136,7 +136,7 @@ class ContractsInferrerTest < Minitest::Test
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        contracts = Contracts::Inferrer.infer(source, typing)
+        contracts = Contracts::Inferrer.infer(source, typing, return_aliases: {})
       end
     end
 
@@ -173,7 +173,7 @@ class ContractsInferrerTest < Minitest::Test
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        contracts = Contracts::Inferrer.infer(source, typing)
+        contracts = Contracts::Inferrer.infer(source, typing, return_aliases: {})
       end
     end
 
@@ -205,7 +205,7 @@ class ContractsInferrerTest < Minitest::Test
 
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
-        contracts = Contracts::Inferrer.infer(source, typing)
+        contracts = Contracts::Inferrer.infer(source, typing, return_aliases: {})
       end
     end
 

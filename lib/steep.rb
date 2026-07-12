@@ -102,6 +102,11 @@ require "steep/type_inference/delegation_analyzer"
 require "steep/project/delegation_registry"
 require "steep/type_inference/constructor_binding_analyzer"
 require "steep/project/constructor_binding_registry"
+require "steep/type_inference/return_forwarding_analyzer"
+require "steep/project/return_forwarding_registry"
+require "steep/contracts/alias_resolver"
+require "steep/type_inference/return_alias_analyzer"
+require "steep/project/return_alias_registry"
 
 require "steep/locator.rb"
 

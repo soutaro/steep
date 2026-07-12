@@ -182,7 +182,10 @@ module Steep
             contracts: project.contracts,
             postconditions: project.postconditions,
             callbacks: project.callbacks,
-            delegation_registry: project.delegation_registry
+            delegation_registry: project.delegation_registry,
+            constructor_bindings: project.constructor_binding_registry,
+            return_forwarding: project.return_forwarding_registry,
+            return_alias: project.return_alias_registry
           )
 
           diagnostics = typing.errors.filter_map { |error| lsp_formatter.format(error) }

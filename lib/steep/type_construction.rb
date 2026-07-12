@@ -54,6 +54,8 @@ module Steep
     attr_reader :callbacks
     attr_reader :delegation_registry
     attr_reader :constructor_bindings
+    attr_reader :return_forwarding
+    attr_reader :return_alias
 
     attr_reader :context
 
@@ -96,7 +98,7 @@ module Steep
       context.variable_context
     end
 
-    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty, delegation_registry:, constructor_bindings:)
+    def initialize(checker:, source:, annotations:, typing:, context:, contracts: Contracts::Store.empty, postconditions: Postconditions::Store.empty, callbacks: Callbacks::Store.empty, delegation_registry:, constructor_bindings:, return_forwarding:, return_alias:)
       @checker = checker
       @source = source
       @annotations = annotations
@@ -107,6 +109,8 @@ module Steep
       @callbacks = callbacks
       @delegation_registry = delegation_registry
       @constructor_bindings = constructor_bindings
+      @return_forwarding = return_forwarding
+      @return_alias = return_alias
     end
 
     def with_new_typing(typing)
@@ -120,7 +124,9 @@ module Steep
         postconditions: postconditions,
         callbacks: callbacks,
         delegation_registry: delegation_registry,
-        constructor_bindings: constructor_bindings
+        constructor_bindings: constructor_bindings,
+        return_forwarding: return_forwarding,
+        return_alias: return_alias
       )
     end
 
@@ -144,7 +150,9 @@ module Steep
           postconditions: postconditions,
           callbacks: callbacks,
         delegation_registry: delegation_registry,
-        constructor_bindings: constructor_bindings
+        constructor_bindings: constructor_bindings,
+        return_forwarding: return_forwarding,
+        return_alias: return_alias
         )
       else
         self
@@ -353,7 +361,9 @@ module Steep
         postconditions: postconditions,
         callbacks: callbacks,
         delegation_registry: delegation_registry,
-        constructor_bindings: constructor_bindings
+        constructor_bindings: constructor_bindings,
+        return_forwarding: return_forwarding,
+        return_alias: return_alias
       )
     end
 
@@ -537,7 +547,9 @@ module Steep
         postconditions: postconditions,
         callbacks: callbacks,
         delegation_registry: delegation_registry,
-        constructor_bindings: constructor_bindings
+        constructor_bindings: constructor_bindings,
+        return_forwarding: return_forwarding,
+        return_alias: return_alias
       )
     end
 
@@ -633,7 +645,9 @@ module Steep
         postconditions: postconditions,
         callbacks: callbacks,
         delegation_registry: delegation_registry,
-        constructor_bindings: constructor_bindings
+        constructor_bindings: constructor_bindings,
+        return_forwarding: return_forwarding,
+        return_alias: return_alias
       )
     end
 
@@ -751,7 +765,9 @@ module Steep
         postconditions: postconditions,
         callbacks: callbacks,
         delegation_registry: delegation_registry,
-        constructor_bindings: constructor_bindings
+        constructor_bindings: constructor_bindings,
+        return_forwarding: return_forwarding,
+        return_alias: return_alias
       )
     end
 
@@ -5208,7 +5224,9 @@ module Steep
         postconditions: postconditions,
         callbacks: callbacks,
         delegation_registry: delegation_registry,
-        constructor_bindings: constructor_bindings
+        constructor_bindings: constructor_bindings,
+        return_forwarding: return_forwarding,
+        return_alias: return_alias
       )
     end
 
@@ -5993,7 +6011,91 @@ module Steep
 
     def contract_expression_matches?(expr, node)
       return false unless expr.is_a?(Contracts::Expr::Send)
-      build_contract_send_variants(expr).any? { |built| built == node }
+      variants = build_contract_send_variants(expr)
+      # felixefelip/steep#62: also match the aliased local-attr form of the
+      # expression (`record.post.user` for `self.owner.user`), so a deref through
+      # a local that projects a self path narrows once the contract is enforced.
+      variants += alias_substituted_variants(expr)
+      variants.any? { |built| built == node }
+    end
+
+    # For each `[local, attr] => path` alias of the current method whose `path`
+    # is a prefix of `expr`'s self path, build the node `local.attr.<remaining>`
+    # — the form the body actually wrote (`record.post.user`) for a `self`-rooted
+    # contract expression (`self.owner.user`). (felixefelip/steep#62)
+    def alias_substituted_variants(expr)
+      aliases = current_method_aliases
+      return [] if aliases.empty?
+
+      full = [expr.method] + expr.chain
+      aliases.filter_map do |(local, attr), path|
+        next unless path.size <= full.size && full[0, path.size] == path
+        node = ::Parser::AST::Node.new(:send, [::Parser::AST::Node.new(:lvar, [local]), attr])
+        full[path.size..].each do |seg|
+          node = ::Parser::AST::Node.new(:send, [node, seg])
+        end
+        node
+      end
+    end
+
+    # The `{ [local, attr] => [path_syms] }` aliases of the method currently
+    # being type-checked, derived syntactically from its body (the same
+    # derivation the contracts inferrer uses). Memoized per construction.
+    def current_method_aliases
+      # Reached only from `contract_narrowed_type`, which already gates on the
+      # current method having an *enforced* contract — a narrow set — so the
+      # per-method def lookup + memo here is cheap in aggregate.
+      mc = method_context
+      return {} unless mc&.name
+      class_name = module_context&.class_name
+      return {} unless class_name
+      bare = class_name.to_s.sub(/\A::/, "")
+      key = "#{bare}##{mc.name}"
+
+      @method_aliases_cache ||= {}
+      return @method_aliases_cache[key] if @method_aliases_cache.key?(key)
+
+      body = find_method_def_body(bare, mc.name)
+      aliases = body ? Contracts::AliasResolver.local_attr_aliases(body, class_name: bare, return_aliases: return_alias.to_h) : {}
+      @method_aliases_cache[key] = aliases
+    end
+
+    # Locate the body node of `class_name#method_name` in the current source.
+    def find_method_def_body(class_name, method_name)
+      root = source.node or return nil
+      find_def_in(root, class_name, method_name, nesting: [])
+    end
+
+    def find_def_in(node, class_name, method_name, nesting:)
+      return nil unless node.is_a?(::Parser::AST::Node)
+      case node.type
+      when :class, :module
+        const_node = node.children[0]
+        name = const_name_of(const_node)
+        new_nesting = name ? nesting + [name] : nesting
+        body = node.type == :class ? node.children[2] : node.children[1]
+        find_def_in(body, class_name, method_name, nesting: new_nesting)
+      when :def
+        return node.children[2] if nesting.join("::") == class_name && node.children[0] == method_name.to_sym
+        nil
+      else
+        node.children.each do |c|
+          result = find_def_in(c, class_name, method_name, nesting: nesting)
+          return result if result
+        end
+        nil
+      end
+    end
+
+    def const_name_of(node)
+      return nil unless node.is_a?(::Parser::AST::Node) && node.type == :const
+      scope, name = node.children
+      case scope&.type
+      when nil, :cbase then name.to_s
+      when :const
+        prefix = const_name_of(scope)
+        prefix ? "#{prefix}::#{name}" : name.to_s
+      end
     end
 
     # Narrow `receiver.attr` to the assigned value's type after
@@ -6106,7 +6208,8 @@ module Steep
       # `column.board` can actually be proven non-nil by flow (e.g. after
       # `column.board = board`, via `narrow_attribute_write`).
       explicit_receiver = !receiver.nil? && receiver.type != :self
-      return unless receiver.nil? || receiver.type == :self || narrowable_pure_receiver?(receiver)
+      return unless receiver.nil? || receiver.type == :self ||
+        narrowable_pure_receiver?(receiver) || return_forwarding_receiver?(receiver)
 
       target_names = precondition_target_type_names(receiver_type)
       return if target_names.empty?
@@ -6255,7 +6358,15 @@ module Steep
     end
 
     def precondition_holds?(expr, env, base_receiver: nil, location: nil)
-      build_contract_send_variants(expr, base_receiver: base_receiver, location: location).any? do |built|
+      variants = build_contract_send_variants(expr, base_receiver: base_receiver, location: location)
+      # felixefelip/steep#62 return forwarding: when the explicit receiver is a
+      # call whose result forwards `expr`'s head reader to its own receiver
+      # (`@post.assignments.owner` == `@post`), the requirement `self.owner.user`
+      # collapses to `@post.user` — provable via `@post`'s marker.
+      if base_receiver && (forwarded = return_forwarded_send(expr, base_receiver, location))
+        variants += [forwarded]
+      end
+      variants.any? do |built|
         entry = env.pure_method_calls.fetch(built, nil)
         if entry
           _call, type = entry
@@ -6279,6 +6390,56 @@ module Steep
     # the pure-call flow cache. Mirrors the throwaway-child synthesize pattern in
     # `narrow_attribute_write`: the child typing is discarded, so no
     # diagnostics/typings for the synthetic read leak into the real flow.
+    # felixefelip/steep#62. If `base_receiver` is `X.m` and calling `m` returns
+    # a proxy whose `expr`'s head reader is the receiver (per the return-
+    # forwarding registry), then `base_receiver.<head>.<chain>` is just
+    # `X.<chain>`. Build that collapsed send so the precondition can be
+    # discharged against `X`'s (marker-refined) type. Returns nil when no
+    # forwarding applies.
+    def return_forwarded_send(expr, base_receiver, location)
+      return nil if return_forwarding.empty?
+      return nil unless expr.is_a?(Contracts::Expr::Send)
+      return nil unless base_receiver.is_a?(::Parser::AST::Node) && base_receiver.type == :send
+
+      inner_receiver, method, *args = base_receiver.children
+      return nil unless inner_receiver && args.empty?
+      return nil unless typing.has_type?(inner_receiver)
+
+      readers = forwarding_readers_for(inner_receiver, method)
+      return nil unless readers&.include?(expr.method)
+
+      node = inner_receiver
+      expr.chain.each do |seg|
+        node = ::Parser::AST::Node.new(:send, [node, seg], location: location)
+      end
+      node
+    end
+
+    # The forwarded readers registered for `receiver.method`, resolving
+    # `receiver`'s class from its static type (walking a marker intersection to
+    # the base class the method lives on). nil when nothing is registered.
+    def forwarding_readers_for(receiver, method)
+      return nil unless typing.has_type?(receiver)
+      precondition_target_type_names(typing.type_of(node: receiver)).each do |name|
+        readers = return_forwarding.lookup(name.to_s.sub(/\A::/, ""), method)
+        return readers if readers
+      end
+      nil
+    rescue StandardError
+      nil
+    end
+
+    # A receiver of the shape `X.m` where `m` is a return-forwarding call — used
+    # to let `check_precondition_at_call_site` proceed on such a receiver even
+    # though it is not a narrowable pure node (the forwarding collapses it).
+    def return_forwarding_receiver?(node)
+      return false if return_forwarding.empty?
+      return false unless node.is_a?(::Parser::AST::Node) && node.type == :send
+      inner, method, *args = node.children
+      return false unless inner && args.empty?
+      !forwarding_readers_for(inner, method).nil?
+    end
+
     def contract_send_type_non_nil?(send_node)
       non_nil = false
       typing.new_child do |child|

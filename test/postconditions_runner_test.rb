@@ -146,6 +146,99 @@ class PostconditionsRunnerTest < Minitest::Test
     end
   end
 
+  ALIAS_RBS = <<~RBS
+    class PCUser
+      def name: () -> String
+    end
+    class PCPost
+      def user: () -> PCUser?
+      def assignments: () -> PCProxy
+    end
+    class PCPost::Validated
+      def user: () -> PCUser
+    end
+    class PCRecord
+      def post=: (PCPost) -> PCPost
+      def post: () -> PCPost
+    end
+    class PCProxy
+      @cached: PCUser?
+      def initialize: (PCPost owner) -> void
+      def owner: () -> PCPost
+      def build: () -> PCRecord
+      def capture: () -> void
+    end
+    class PCAliasController
+      @post: (PCPost & PCPost::Validated)
+      def run: () -> void
+    end
+  RBS
+
+  ALIAS_RUBY = <<~RUBY
+    class PCProxy
+      def initialize(owner)
+        @owner = owner
+      end
+
+      def owner
+        @owner
+      end
+
+      def build
+        record = PCRecord.new
+        record.post = owner
+        record
+      end
+
+      def capture
+        record = build
+        record.post.user.name
+        @cached = record.post.user
+      end
+    end
+
+    class PCPost
+      def assignments
+        PCProxy.new(self)
+      end
+    end
+
+    class PCAliasController
+      def run
+        @post.assignments.capture
+      end
+    end
+  RUBY
+
+  # felixefelip/steep#62: the postconditions pass must type-check with the
+  # project's real return-alias registry. `PCProxy#capture` establishes
+  # `@cached = record.post.user`, where `record = build` return-aliases
+  # `record.post` to `self.owner`; with `capture` enforced (via forwarding at
+  # `@post.assignments.capture`), that deref narrows to `::PCUser`, so `@cached`
+  # is refined from its declared `PCUser?`. If the runner type-checks with an
+  # empty registry the deref stays `(::PCUser | nil)` and no refinement is
+  # emitted — the bug this guards.
+  def test_runner_applies_return_alias_narrowing_to_ivar_refinement
+    in_tmpdir do
+      write("sig/alias.rbs", ALIAS_RBS)
+      write("app/alias.rb", ALIAS_RUBY)
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      # Persist contracts so `PCProxy#capture` is enforced before the
+      # postconditions pass reads them.
+      contracts = Steep::Contracts::Runner.new(project)
+      contracts.write(contracts.run)
+
+      project2 = setup_project(steepfile: FIXTURE_STEEPFILE)
+      entries = Postconditions::Runner.run(project2)
+
+      capture = entries.find { |e| e.class_name == "PCProxy" && e.method_name == :capture }
+      refute_nil capture, "expected a postcondition entry for PCProxy#capture"
+      assert_equal "::PCUser", capture.ivars[:"@cached"]&.to_s,
+                   "the return-aliased `record.post.user` should narrow to ::PCUser so @cached is refined"
+    end
+  end
+
   def test_runner_sidecar_consumable_by_consumer_on_next_run
     # The whole point of the runner: write a sidecar that the *next*
     # project load picks up and applies. Verifies the loop closes:

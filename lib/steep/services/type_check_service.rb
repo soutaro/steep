@@ -339,12 +339,28 @@ module Steep
         # that the registry doesn't carry today.
         project.invalidate_delegation_registry! if any_change
         project.invalidate_constructor_binding_registry! if any_change
+        project.invalidate_return_forwarding_registry! if any_change
+        project.invalidate_return_alias_registry! if any_change
       end
 
       def type_check_file(target:, subtyping:, path:, text:)
         Steep.logger.tagged "#type_check_file(#{path}@#{target.name})" do
           source = Source.parse(text, path: path, factory: subtyping.factory)
-          typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: yield, cursor: nil, contracts: project.contracts, postconditions: project.postconditions, callbacks: project.callbacks, delegation_registry: project.delegation_registry, constructor_bindings: project.constructor_binding_registry)
+
+          typing = TypeCheckService.type_check(
+            source: source,
+            subtyping: subtyping,
+            constant_resolver: yield,
+            cursor: nil,
+            contracts: project.contracts,
+            postconditions: project.postconditions,
+            callbacks: project.callbacks,
+            delegation_registry: project.delegation_registry,
+            constructor_bindings: project.constructor_binding_registry,
+            return_forwarding: project.return_forwarding_registry,
+            return_alias: project.return_alias_registry
+          )
+
           ignores = Source::IgnoreRanges.new(ignores: source.ignores)
           SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing, ignores: ignores)
         end
@@ -367,7 +383,19 @@ module Steep
       # check and the LSP providers read already-persisted, already-enforced
       # contracts, so they legitimately need no registry — only the Enforcement
       # / Runner paths pass the real one.
-      def self.type_check(source:, subtyping:, constant_resolver:, cursor:, contracts:, postconditions:, callbacks:, delegation_registry:, constructor_bindings: Project::ConstructorBindingRegistry.new)
+      def self.type_check(
+        source:,
+        subtyping:,
+        constant_resolver:,
+        cursor:,
+        contracts:,
+        postconditions:,
+        callbacks:,
+        delegation_registry:,
+        constructor_bindings:,
+        return_forwarding:,
+        return_alias:
+      )
         annotations = source.annotations(block: source.node, factory: subtyping.factory, context: nil)
 
         case annotations.self_type
@@ -445,7 +473,9 @@ module Steep
           postconditions: postconditions,
           callbacks: callbacks,
           delegation_registry: delegation_registry,
-          constructor_bindings: constructor_bindings
+          constructor_bindings: constructor_bindings,
+          return_forwarding: return_forwarding,
+          return_alias: return_alias
         )
 
         construction.synthesize(source.node) if source.node

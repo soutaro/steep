@@ -77,6 +77,31 @@ module Steep
       @constructor_binding_registry = nil
     end
 
+    # Project-wide registry of return-forwarding methods (a getter returning
+    # `Proxy.new(..., self)` forwards the proxy's `owner` reader to the
+    # receiver), used by `TypeConstruction` to collapse `recv.getter.owner` to
+    # `recv` when discharging a precondition (felixefelip/steep#62). Built on
+    # top of `constructor_binding_registry`; invalidated the same way.
+    def return_forwarding_registry
+      @return_forwarding_registry ||= ReturnForwardingRegistry.build(self, constructor_binding_registry)
+    end
+
+    def invalidate_return_forwarding_registry!
+      @return_forwarding_registry = nil
+    end
+
+    # Project-wide index of methods that return-alias a reader of their result
+    # to a self path (`Proxy#build` returns a record whose `post` is
+    # `self.owner`), used to root a caller's `x = build; x.post.user` at
+    # `self.owner.user` (felixefelip/steep#62). Invalidated like the others.
+    def return_alias_registry
+      @return_alias_registry ||= ReturnAliasRegistry.build(self)
+    end
+
+    def invalidate_return_alias_registry!
+      @return_alias_registry = nil
+    end
+
     def relative_path(path)
       path.relative_path_from(base_dir)
     rescue ArgumentError

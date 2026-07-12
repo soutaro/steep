@@ -1,13 +1,14 @@
 module Steep
   module Contracts
     class Inferrer
-      def self.infer(source, typing)
-        new(source, typing).infer
+      def self.infer(source, typing, return_aliases:)
+        new(source, typing, return_aliases: return_aliases).infer
       end
 
-      def initialize(source, typing)
+      def initialize(source, typing, return_aliases:)
         @source = source
         @typing = typing
+        @return_aliases = return_aliases
         @diagnostics_by_node = nil
       end
 
@@ -18,7 +19,7 @@ module Steep
         walk_classes(@source.node, nesting: []) do |def_node, class_name|
           next unless def_node.type == :def
 
-          obligations = collect_obligations(def_node)
+          obligations = collect_obligations(def_node, class_name)
           next if obligations.empty?
 
           key = "#{class_name}##{def_node.children[0]}"
@@ -78,11 +79,15 @@ module Steep
         end
       end
 
-      def collect_obligations(def_node)
+      def collect_obligations(def_node, class_name)
         body = def_node.children[2]
         return [] unless body
 
         body_range = node_range(def_node)
+        # felixefelip/steep#62: `{ [local, attr] => [path_syms] }` so a deref
+        # through a local aliased to a self path (`record.post` <- `self.owner`,
+        # directly or via `record = build`) is rooted at `self`.
+        aliases = Contracts::AliasResolver.local_attr_aliases(body, class_name: class_name, return_aliases: @return_aliases)
         obligations = []
 
         no_method_errors_within(body_range).each do |error|
@@ -90,7 +95,7 @@ module Steep
           next unless call_node && call_node.is_a?(Parser::AST::Node)
 
           receiver = call_node.children[0]
-          expr = self_path_to_expr(receiver)
+          expr = self_path_to_expr(receiver, aliases)
           next unless expr
 
           obligations << Predicate::NotNil.new(expr)
@@ -112,7 +117,7 @@ module Steep
         loc.begin_pos..loc.end_pos
       end
 
-      def self_path_to_expr(node)
+      def self_path_to_expr(node, aliases = {})
         return nil unless node.is_a?(Parser::AST::Node)
         return nil unless node.type == :send
 
@@ -121,6 +126,16 @@ module Steep
         while current.is_a?(Parser::AST::Node) && current.type == :send
           recv, mname, *args = current.children
           return nil unless args.empty?
+
+          # `local.attr` aliased to a self path (`record.post` ← `self.owner`):
+          # splice that self path in and chain the methods gathered so far on top
+          # (`record.post.user` → `self.owner.user`).
+          if recv.is_a?(Parser::AST::Node) && recv.type == :lvar &&
+              (path = aliases[[recv.children[0], mname]])
+            full = path + methods
+            return Expr::Send.new(receiver: Expr::SelfRef.instance, method: full.first, chain: full.drop(1))
+          end
+
           methods.unshift(mname)
           current = recv
         end

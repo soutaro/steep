@@ -85,7 +85,9 @@ module Steep
             postconditions: @project.postconditions,
             callbacks: @project.callbacks,
             delegation_registry: @project.delegation_registry,
-            constructor_bindings: @project.constructor_binding_registry
+            constructor_bindings: @project.constructor_binding_registry,
+            return_forwarding: @project.return_forwarding_registry,
+            return_alias: @project.return_alias_registry
           )
 
           typing.contract_call_sites.each do |obs|

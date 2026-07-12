@@ -61,7 +61,10 @@ class ContractsEnforcementTest < Minitest::Test
       contracts: store,
       postconditions: project.postconditions,
       callbacks: project.callbacks,
-      delegation_registry: project.delegation_registry
+      delegation_registry: project.delegation_registry,
+      constructor_bindings: project.constructor_binding_registry,
+      return_forwarding: project.return_forwarding_registry,
+      return_alias: project.return_alias_registry
     )
   end
 
@@ -489,6 +492,127 @@ class ContractsEnforcementTest < Minitest::Test
     case expr
     when Contracts::Expr::SelfRef then [:self]
     when Contracts::Expr::Send then [:send, expr_sig(expr.receiver), expr.method, expr.chain]
+    end
+  end
+
+  # felixefelip/steep#62 end-to-end: a deref through a local that projects a
+  # self path (`record = build; record.post.user`, where `build` returns a
+  # record whose `post` is `self.owner`) is rooted at `self.owner.user`,
+  # enforced at an external `.create!` site via return forwarding
+  # (`@post.assignments.owner` == `@post`), and narrowed in the body. Exercises
+  # all three registries (constructor-binding, return-forwarding, return-alias).
+  FORWARD_RBS = <<~RBS
+    class User
+      def name: () -> String
+    end
+
+    class Post
+      def user: () -> User?
+      def assignments: () -> Proxy
+    end
+
+    class Post::Validated
+      def user: () -> User
+    end
+
+    class Record
+      def post=: (Post) -> Post
+      def post: () -> Post
+    end
+
+    class Proxy
+      def initialize: (Post owner) -> void
+      def owner: () -> Post
+      def build: () -> Record
+      def create_record: () -> Record
+    end
+  RBS
+
+  FORWARD_APP = <<~RUBY
+    class Proxy
+      def initialize(owner)
+        @owner = owner
+      end
+
+      def owner
+        @owner
+      end
+
+      def build
+        record = Record.new
+        record.post = owner
+        record
+      end
+
+      def create_record
+        record = build
+        record.post.user.name
+        record
+      end
+    end
+
+    class Post
+      def assignments
+        Proxy.new(self)
+      end
+    end
+  RUBY
+
+  def test_closes_deref_through_return_aliased_local_at_forwarded_site
+    in_tmpdir do
+      write("sig/fwd.rbs", FORWARD_RBS + <<~RBS)
+        class Client
+          def run: (Post & Post::Validated) -> void
+        end
+      RBS
+      write("app/fwd.rb", FORWARD_APP + <<~RUBY)
+        class Client
+          def run(post)
+            post.assignments.create_record
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+      create = contracts.find { |c| c.key == "Proxy#create_record" }
+      refute_nil create, "return-aliasing roots `record.post.user` at `self.owner.user`"
+      assert_equal [[:not_nil, [:send, [:self], :owner, [:user]]]],
+                   create.requires.map { |r| [:not_nil, expr_sig(r.expr)] }
+      assert create.enforced,
+             "the external `.create_record` site forwards `@post.assignments.owner` to @post → enforced"
+
+      typing = type_check_file(project, "app/fwd.rb", store_of(contracts))
+      assert_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "the body's `record.post.user.name` narrows via the alias"
+    end
+  end
+
+  def test_does_not_close_forwarded_site_without_marker
+    in_tmpdir do
+      write("sig/fwd.rbs", FORWARD_RBS + <<~RBS)
+        class Client
+          def run: (Post) -> void
+        end
+      RBS
+      write("app/fwd.rb", FORWARD_APP + <<~RUBY)
+        class Client
+          def run(post)
+            post.assignments.create_record
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+      create = contracts.find { |c| c.key == "Proxy#create_record" }
+      refute_nil create
+      refute create.enforced,
+             "a bare Post receiver can't prove @post.user → not enforced"
+
+      typing = type_check_file(project, "app/fwd.rb", store_of(contracts))
+      refute_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "unenforced → the hidden `record.post.user.name` error surfaces"
     end
   end
 end

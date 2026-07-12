@@ -1091,7 +1091,9 @@ end
                                           context: context,
                                           typing: typing,
                                           delegation_registry: Steep::Project::DelegationRegistry.new,
-                                          constructor_bindings: Steep::Project::ConstructorBindingRegistry.new)
+                                          constructor_bindings: Steep::Project::ConstructorBindingRegistry.new,
+                                          return_forwarding: Steep::Project::ReturnForwardingRegistry.new,
+                                          return_alias: Steep::Project::ReturnAliasRegistry.new)
 
       for_module = construction.for_class(module_name_class_node, RBS::TypeName.parse("::Steep::Names::Module"), nil)
 
@@ -1184,7 +1186,9 @@ class Steep end
                                           context: context,
                                           typing: typing,
                                           delegation_registry: Steep::Project::DelegationRegistry.new,
-                                          constructor_bindings: Steep::Project::ConstructorBindingRegistry.new)
+                                          constructor_bindings: Steep::Project::ConstructorBindingRegistry.new,
+                                          return_forwarding: Steep::Project::ReturnForwardingRegistry.new,
+                                          return_alias: Steep::Project::ReturnAliasRegistry.new)
 
       for_module = construction.for_module(module_node, RBS::TypeName.parse("::Steep::Printable"))
 
