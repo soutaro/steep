@@ -10763,6 +10763,31 @@ RUBY
     end
   end
 
+  def test_self_type_binding_block_untyped_self
+    with_checker(<<-RBS) do |checker|
+class TestUntypedSelf
+  def run: () { () [self: untyped] -> void } -> void
+end
+      RBS
+      source = parse_ruby(<<RUBY)
+TestUntypedSelf.new.run do
+  anything_at_all
+  anything_at_all.chained_call
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        # A block declared `[self: untyped]` binds an untyped self, so an
+        # implicit-self send (`anything_at_all`) — whose receiver resolves to
+        # `Self` — must type as untyped instead of reporting "self does not
+        # have method", mirroring how an untyped receiver behaves everywhere.
+        assert_no_error typing
+      end
+    end
+  end
+
   def test_self_type_binding_type_parameter
     with_checker(<<-RBS) do |checker|
 class TestSelfBinding

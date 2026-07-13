@@ -3721,6 +3721,14 @@ module Steep
       end
 
       receiver_type = checker.factory.deep_expand_alias(recv_type)
+      # An implicit-self / `self` send inside a block whose declared self is
+      # `untyped` (`^() [self: untyped]`) must resolve as untyped — otherwise the
+      # receiver stays `Self`, whose interface can't be built against an untyped
+      # self, and every call wrongly reports "self does not have method ...".
+      # Expanding `Self` to the (untyped) self here routes it to the `Any` arm.
+      if receiver_type.is_a?(AST::Types::Self) && self_type.is_a?(AST::Types::Any)
+        receiver_type = self_type
+      end
       private = receiver.nil? || receiver.type == :self
 
       # Delegation chain narrowing (felixefelip/steep#32). If the
