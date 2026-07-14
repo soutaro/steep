@@ -37,7 +37,7 @@ module Steep
       s + ">"
     end
 
-    SPECIAL_LVAR_NAMES = Set[:_, :__any__, :__skip__]
+    SPECIAL_LVAR_NAMES = Set[nil, :_, :__any__, :__skip__]
 
     # a synthetic variable name for anonymous block params (can't conflict with
     # user variables since Ruby doesn't allow * in local variable names).
