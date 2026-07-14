@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: be8d12d6f9e1bbfb10df053b659954bf62029016
+  revision: 477dd46a5e96903f0d77f6f7a1d88a0b5f43e7e9
   branch: master
   specs:
     steep (2.1.0.dev)
@@ -39,7 +39,7 @@ GEM
       prism (>= 1.3.0)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
-    json (2.20.0)
+    json (2.21.1)
     language_server-protocol (3.17.0.6)
     listen (3.10.0)
       logger
@@ -76,7 +76,7 @@ GEM
       tsort
     reline (0.6.3)
       io-console (~> 0.5)
-    ruby-lsp (0.26.9)
+    ruby-lsp (0.26.10)
       language_server-protocol (~> 3.17.0)
       prism (>= 1.2, < 2.0)
       rbs (>= 3, < 5)
