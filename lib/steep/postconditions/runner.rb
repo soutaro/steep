@@ -33,7 +33,7 @@ module Steep
         @project.targets.each do |target|
           entries.concat(infer_for_target(target))
         end
-        merge(entries)
+        close_ivar_effects(merge(entries))
       end
 
       def output_path
@@ -49,6 +49,66 @@ module Steep
       end
 
       private
+
+      # Closes `may_write_ivars` over the self-call graph (felixefelip/steep#68,
+      # item 1): a method may write every ivar its callees may write.
+      #
+      #   redirect_to        writes @halted directly
+      #   authenticate_user  calls redirect_to  => may write @halted
+      #
+      # Without the closure the caller of `authenticate_user` keeps a narrowing
+      # of `@halted` that the callee already invalidated — the write is real,
+      # just one frame down (and, in the Rails guard shape, two blocks deep as
+      # well).
+      #
+      # Iterates to a fixpoint, so a chain of any depth converges; cycles are
+      # handled by the fixpoint itself (the sets only grow, and are bounded by
+      # the declared ivars).
+      def close_ivar_effects(entries)
+        by_key = entries.to_h { |entry| [entry_key(entry), entry] }
+        effects = by_key.transform_values { |entry| entry.may_write_ivars.dup }
+
+        loop do
+          changed = false
+          by_key.each do |key, entry|
+            entry.self_call_deps.each do |dep|
+              callee_effect = effects[dep] or next
+              before = effects[key].size
+              effects[key].merge(callee_effect)
+              changed ||= effects[key].size != before
+            end
+          end
+          break unless changed
+        end
+
+        resolved = by_key.transform_values do |entry|
+          entry.with_may_write(effects[key_of(entry)])
+        end
+
+        # felixefelip/steep#68 item 2: resolve each conditional-return whose gate
+        # is expressed `via` a self-method (`redirect_to`) to the ivar that
+        # method actually writes, now that the may-write closure is known. A gate
+        # that resolves to no ivar (the "halt" didn't write anything) is dropped.
+        resolved.each_value do |entry|
+          entry.conditional_returns.each do |method, spec|
+            next if spec[:gate_ivar]
+
+            via = spec[:gate_via] or next
+            # `redirect_to` may be inherited, so resolve its OWNER from the
+            # self-call edges (item 1 already keyed those by declaring class),
+            # then read that method's may-write closure.
+            dep = entry.self_call_deps.find { |d| d.end_with?("##{via}") }
+            spec[:gate_ivar] = dep && effects[dep]&.first
+          end
+          entry.conditional_returns.reject! { |_, spec| spec[:gate_ivar].nil? }
+        end
+
+        resolved.values.reject(&:empty?)
+      end
+
+      def key_of(entry)
+        entry_key(entry)
+      end
 
       def infer_for_target(target)
         loader = Project::Target.construct_env_loader(options: target.options, project: @project)
@@ -126,7 +186,11 @@ module Steep
               self_type_string: existing.self_type_string || entry.self_type_string,
               when_true_ivars: existing.when_true_ivars,
               when_true_self_type_string: existing.when_true_self_type_string,
-              returns_establishes: merged_establishes
+              returns_establishes: merged_establishes,
+              may_write_ivars: existing.may_write_ivars | entry.may_write_ivars,
+              self_call_deps: existing.self_call_deps | entry.self_call_deps,
+              returns_ivar: existing.returns_ivar || entry.returns_ivar,
+              conditional_returns: existing.conditional_returns.merge(entry.conditional_returns)
             )
           else
             by_key[key] = entry

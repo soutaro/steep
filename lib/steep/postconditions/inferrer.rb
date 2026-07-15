@@ -46,7 +46,14 @@ module Steep
           ivars = collect_ivar_refinements(def_node, class_name, singleton: singleton)
           when_true_ivars = collect_when_true_nonnil_refinements(def_node, class_name, singleton: singleton)
           returns_establishes = @return_establishment_inferrer.establishments(def_node)
-          next if ivars.empty? && when_true_ivars.empty? && returns_establishes.empty?
+          may_write = collect_ivar_writes(def_node, class_name, singleton: singleton)
+          self_call_deps = collect_self_call_deps(def_node)
+          returns_ivar = collect_returns_ivar(def_node, class_name, singleton: singleton)
+          conditional_returns = collect_conditional_returns(def_node, class_name, singleton: singleton)
+          if ivars.empty? && when_true_ivars.empty? && returns_establishes.empty? &&
+             may_write.empty? && self_call_deps.empty? && returns_ivar.nil? && conditional_returns.empty?
+            next
+          end
 
           method_name = def_node.children[0]
           self_type_string = marker_self_type_for(class_name, method_name, singleton: singleton) unless ivars.empty?
@@ -60,7 +67,11 @@ module Steep
             self_type_string: self_type_string,
             when_true_ivars: when_true_ivars,
             when_true_self_type_string: when_true_self_type_string,
-            returns_establishes: returns_establishes
+            returns_establishes: returns_establishes,
+            may_write_ivars: may_write,
+            self_call_deps: self_call_deps,
+            returns_ivar: returns_ivar,
+            conditional_returns: conditional_returns
           )
         end
         results
@@ -304,6 +315,226 @@ module Steep
         )
       end
 
+      # felixefelip/steep#68 (item 1), the EFFECT side of the inference.
+      #
+      # Every declared ivar the body assigns — anywhere, including inside a
+      # block it passes to someone else (`respond_to { |f| f.html { @x = 1 } }`),
+      # since a block body runs in this same `self`. Unlike
+      # `collect_ivar_refinements` this records no type: it is a MAY-write, used
+      # by the caller only to drop a now-stale narrowing.
+      def collect_ivar_writes(def_node, class_name, singleton:)
+        body = def_node.children[2]
+        return Set[] unless body
+
+        declared = declared_ivar_types(class_name, singleton: singleton)
+        writes = Set.new #: Set[Symbol]
+        walk_ivasgns(body) do |ivasgn_node|
+          name = ivasgn_node.children[0]
+          writes << name if declared.key?(name)
+        end
+        writes
+      end
+
+      # The self-sends of the body, as `"Class#method"` keys — the edges of the
+      # call graph the Runner closes over, so that a method whose only "write" is
+      # a call to something that writes (`authenticate_user` -> `redirect_to`)
+      # still reports the effect.
+      #
+      # Only self-sends: an ivar write inside `other.foo` mutates OTHER's ivars,
+      # not ours. The callee's OWNER comes from the typed call (`method_decls`),
+      # so an inherited method resolves to the class that declares it
+      # (`redirect_to` -> `ActionController::Base`), which is how the store is
+      # keyed.
+      def collect_self_call_deps(def_node)
+        body = def_node.children[2]
+        return Set[] unless body
+
+        deps = Set.new #: Set[String]
+        walk_sends(body) do |send_node|
+          receiver = send_node.children[0]
+          next unless receiver.nil? || receiver.type == :self
+
+          call = @typing.call_of(node: send_node) rescue nil
+          next unless call.is_a?(TypeInference::MethodCall::Typed)
+
+          call.method_decls.each do |decl|
+            method_name = decl.method_name
+            next unless method_name.respond_to?(:type_name)
+
+            owner = method_name.type_name.to_s.sub(/\A::/, "")
+            deps << "#{owner}##{method_name.method_name}"
+          end
+        end
+        deps
+      end
+
+      # felixefelip/steep#68 (item 2), the halt-check link. A method whose body
+      # is a single instance-variable read (`def performed?; @halted; end`) is a
+      # transparent getter of that ivar: testing it (`return if performed?`) must
+      # narrow the ivar, just as `attr_reader` already does. Returns the ivar
+      # name or nil.
+      def collect_returns_ivar(def_node, class_name, singleton:)
+        body = def_node.children[2]
+        return nil unless body
+
+        expr = last_expression(body)
+        return nil unless expr&.type == :ivar
+
+        name = expr.children[0]
+        declared_ivar_types(class_name, singleton: singleton).key?(name) ? name : nil
+      end
+
+      # felixefelip/steep#68 (item 2), the positive proof. Recognises a guard
+      # clause that aborts unless a nilable self-method is present:
+      #
+      #   def authenticate_user
+      #     unless current_user      # `if !current_user` too
+      #       redirect_to root_path  # writes a may-write ivar => halts
+      #       return
+      #     end
+      #     ...
+      #   end
+      #
+      # On the exit that did NOT halt, `current_user` is proven non-nil. That
+      # fact is gated by the ivar the halting branch writes (`@halted`): a caller
+      # sees it only where that ivar is known falsy — which is exactly what
+      # `return if performed?` establishes (via `returns_ivar`).
+      #
+      # => Hash[Symbol(method), { gate_ivar: Symbol?, gate_via: Symbol?, type: }]
+      # The gate is expressed as either the ivar the abort clause writes directly
+      # (`gate_ivar`) OR the self-method it calls to halt (`gate_via`, e.g.
+      # `redirect_to`) — the Runner resolves `gate_via` to the ivar that method
+      # actually writes, once the may-write closure is known.
+      def collect_conditional_returns(def_node, class_name, singleton:)
+        body = def_node.children[2]
+        return {} unless body
+
+        result = {} #: Hash[Symbol, untyped]
+        each_statement(body) do |stmt|
+          guard = negative_presence_guard(stmt) or next
+          method, gate = guard
+          next if result.key?(method)
+
+          nonnil = nonnil_return_of_self_method(method, class_name, singleton: singleton) or next
+          result[method] = gate.merge(type: nonnil)
+        end
+        result
+      end
+
+      # Matches `unless <self.method>; <halts>; return; end` (or the
+      # `if !<self.method>` spelling) and returns `[method, gate]`, where `gate`
+      # is `{ gate_ivar: }` or `{ gate_via: }`. The aborting branch must both
+      # halt (write an ivar directly, or call a self-method that does) and
+      # `return`.
+      def negative_presence_guard(node)
+        return nil unless node.is_a?(Parser::AST::Node) && node.type == :if
+
+        cond, true_clause, false_clause = node.children
+        # `unless X` parses as `if X (nil-then) (else)`, so the aborting body is
+        # whichever clause exists; require exactly one, guarded on the bare cond.
+        method = presence_condition_method(cond) or return nil
+        abort_clause = true_clause || false_clause
+        return nil unless abort_clause && (true_clause.nil? ^ false_clause.nil?)
+        return nil unless clause_returns?(abort_clause)
+
+        gate = halting_gate(abort_clause) or return nil
+        [method, gate]
+      end
+
+      # `current_user` in `unless current_user` / `if !current_user` — the bare
+      # self-send being tested for presence. Returns the method name or nil.
+      def presence_condition_method(cond)
+        node = cond
+        node = node.children[0] if node.is_a?(Parser::AST::Node) && node.type == :send && node.children[1] == :! && node.children[0]
+        return nil unless node.is_a?(Parser::AST::Node) && node.type == :send
+        return nil unless node.children[0].nil? || node.children[0].type == :self
+        return nil unless node.children[2..].to_a.empty? # no args
+
+        node.children[1]
+      end
+
+      def clause_returns?(clause)
+        walk_nodes(clause) { |n| return true if n.type == :return }
+        false
+      end
+
+      # How the abort clause halts: a direct ivar write (`{ gate_ivar: }`) or,
+      # failing that, the first self-method it calls (`{ gate_via: }`, resolved
+      # to that method's written ivar by the Runner). nil if it does neither.
+      def halting_gate(clause)
+        walk_nodes(clause) do |n|
+          return { gate_ivar: n.children[0] } if n.type == :ivasgn
+        end
+        walk_nodes(clause) do |n|
+          next unless n.type == :send
+          receiver = n.children[0]
+          return { gate_via: n.children[1] } if receiver.nil? || receiver.type == :self
+        end
+        nil
+      end
+
+      # The declared return type of `self.<method>`, with `nil` subtracted —
+      # the type it has on the proven-present exit. nil when the method has no
+      # such declaration or isn't actually nilable.
+      def nonnil_return_of_self_method(method, class_name, singleton:)
+        type_name = RBS::TypeName.parse("::#{class_name}").absolute! rescue (return nil)
+        definition =
+          if singleton
+            @definition_builder.build_singleton(type_name) rescue nil
+          else
+            @definition_builder.build_instance(type_name) rescue nil
+          end
+        return nil unless definition
+
+        method_def = definition.methods[method] or return nil
+        return_types = method_def.method_types.map { |mt| @factory.type(mt.type.return_type) }
+        return nil if return_types.empty?
+
+        ret = return_types.size == 1 ? return_types.first : AST::Types::Union.build(types: return_types)
+        nonnil = subtract_nil(ret)
+        nonnil unless nonnil == ret
+      end
+
+      def subtract_nil(type)
+        return type unless type.is_a?(AST::Types::Union)
+
+        remaining = type.types.reject { |t| t.is_a?(AST::Types::Nil) }
+        return type if remaining.size == type.types.size
+        return AST::Builtin.nil_type if remaining.empty?
+
+        remaining.size == 1 ? remaining.first : AST::Types::Union.build(types: remaining)
+      end
+
+      # Yields each top-level statement of a (possibly `:begin`) body.
+      def each_statement(body)
+        if body.type == :begin
+          body.children.each { |c| yield c if c.is_a?(Parser::AST::Node) }
+        else
+          yield body
+        end
+      end
+
+      # Every `:send`/`:csend` descendant, including those inside block bodies —
+      # the halt of a controller guard sits two blocks deep
+      # (`respond_to { |f| f.html { redirect_to … } }`), and the block runs in
+      # the same `self`, so its sends are ours.
+      def walk_sends(node, &block)
+        return unless node.is_a?(Parser::AST::Node)
+        yield node if node.type == :send || node.type == :csend
+        node.children.each do |child|
+          walk_sends(child, &block) if child.is_a?(Parser::AST::Node)
+        end
+      end
+
+      # Every descendant node (including the node itself).
+      def walk_nodes(node, &block)
+        return unless node.is_a?(Parser::AST::Node)
+        yield node
+        node.children.each do |child|
+          walk_nodes(child, &block) if child.is_a?(Parser::AST::Node)
+        end
+      end
+
       # Recursively walks `node` yielding every `:ivasgn` descendant.
       def walk_ivasgns(node, &block)
         return unless node.is_a?(Parser::AST::Node)
@@ -341,8 +572,18 @@ module Steep
       # Array[Symbol] of attribute names the method establishes non-nil
       # on its returned value (felixefelip/steep#56).
       attr_reader :returns_establishes
+      # Set[Symbol] of ivars the method may write, directly or transitively
+      # (felixefelip/steep#68). `self_call_deps` are the call-graph edges the
+      # Runner closes over to compute the transitive part; they are not
+      # serialized.
+      attr_reader :may_write_ivars, :self_call_deps
+      # felixefelip/steep#68 item 2. `returns_ivar`: this method transparently
+      # reads that ivar (halt-check getter). `conditional_returns`:
+      # { method => { gate_ivar:, type: } } self-methods proven non-nil on the
+      # unhalted exit, gated by the ivar's falsy state.
+      attr_reader :returns_ivar, :conditional_returns
 
-      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil, returns_establishes: [])
+      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil, returns_establishes: [], may_write_ivars: Set[], self_call_deps: Set[], returns_ivar: nil, conditional_returns: {})
         @class_name = class_name
         @method_name = method_name
         @singleton = singleton
@@ -351,6 +592,30 @@ module Steep
         @when_true_ivars = when_true_ivars
         @when_true_self_type_string = when_true_self_type_string
         @returns_establishes = returns_establishes
+        @may_write_ivars = may_write_ivars
+        @self_call_deps = self_call_deps
+        @returns_ivar = returns_ivar
+        @conditional_returns = conditional_returns
+      end
+
+      # A copy with `may_write_ivars` replaced — the Runner's fixpoint result.
+      def with_may_write(ivars)
+        InferredEntry.new(
+          class_name: class_name, method_name: method_name, singleton: singleton,
+          ivars: self.ivars, self_type_string: self_type_string,
+          when_true_ivars: when_true_ivars, when_true_self_type_string: when_true_self_type_string,
+          returns_establishes: returns_establishes,
+          may_write_ivars: ivars, self_call_deps: self_call_deps,
+          returns_ivar: returns_ivar, conditional_returns: conditional_returns
+        )
+      end
+
+      # Whether the entry says anything a consumer can use. Entries that exist
+      # only as call-graph nodes (no refinement, no effect) are dropped after
+      # the fixpoint.
+      def empty?
+        ivars.empty? && when_true_ivars.empty? && returns_establishes.empty? &&
+          may_write_ivars.empty? && returns_ivar.nil? && conditional_returns.empty?
       end
 
       def ==(other)
@@ -362,14 +627,16 @@ module Steep
           other.self_type_string == self_type_string &&
           other.when_true_ivars == when_true_ivars &&
           other.when_true_self_type_string == when_true_self_type_string &&
-          other.returns_establishes == returns_establishes
+          other.returns_establishes == returns_establishes &&
+          other.may_write_ivars == may_write_ivars
       end
 
       alias eql? ==
 
       def hash
         class_name.hash ^ method_name.hash ^ singleton.hash ^ ivars.hash ^ self_type_string.hash ^
-          when_true_ivars.hash ^ when_true_self_type_string.hash ^ returns_establishes.hash
+          when_true_ivars.hash ^ when_true_self_type_string.hash ^ returns_establishes.hash ^
+          may_write_ivars.hash
       end
     end
   end

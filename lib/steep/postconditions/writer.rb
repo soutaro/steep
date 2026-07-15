@@ -68,6 +68,25 @@ module Steep
           }
         end
         row["unconditional"] = unconditional unless unconditional.empty?
+        # The MAY-write effect (felixefelip/steep#68): not a refinement, so it
+        # sits outside the branches — it applies at every call site, and only
+        # tells the caller to stop trusting its narrowing of these ivars.
+        effects = {}
+        effects["may_write"] = entry.may_write_ivars.map(&:to_s).sort unless entry.may_write_ivars.empty?
+        # felixefelip/steep#68 item 2: halt-check getter link.
+        effects["returns_ivar"] = entry.returns_ivar.to_s if entry.returns_ivar
+        row["effects"] = effects unless effects.empty?
+
+        # felixefelip/steep#68 item 2: self-methods proven non-nil on the
+        # unhalted exit, keyed by the gate ivar.
+        unless entry.conditional_returns.empty?
+          row["conditional_returns"] = entry.conditional_returns.sort_by { |m, _| m.to_s }.each_with_object({}) do |(method, spec), acc|
+            acc[method.to_s] = {
+              "gate_ivar" => spec[:gate_ivar].to_s,
+              "type" => spec[:type].to_s
+            }
+          end
+        end
         unless entry.when_true_ivars.empty?
           row["when_true"] = serialize_branch(
             ivars: entry.when_true_ivars,

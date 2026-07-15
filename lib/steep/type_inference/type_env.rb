@@ -9,6 +9,11 @@ module Steep
       attr_reader :constant_env
       attr_reader :pure_method_calls
       attr_reader :refined_self_type
+      # felixefelip/steep#68 item 2: { method_sym => { gate_ivar:, type: } }.
+      # A self-method proven non-nil while `gate_ivar` is falsy — registered when
+      # the proving guard (`authenticate_user`) is called, consumed at the
+      # method's own call site once the gate is known falsy.
+      attr_reader :conditional_method_returns
 
       def to_s
         array = [] #: Array[String]
@@ -41,7 +46,7 @@ module Steep
         "{ #{array.join(", ")} }"
       end
 
-      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, declared_instance_variable_types: nil, global_types: {}, constant_types: {}, pure_method_calls: {}, refined_self_type: nil)
+      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, declared_instance_variable_types: nil, global_types: {}, constant_types: {}, pure_method_calls: {}, refined_self_type: nil, conditional_method_returns: {})
         @constant_env = constant_env
         @local_variable_types = local_variable_types
         @instance_variable_types = instance_variable_types
@@ -50,11 +55,12 @@ module Steep
         @constant_types = constant_types
         @pure_method_calls = pure_method_calls
         @refined_self_type = refined_self_type
+        @conditional_method_returns = conditional_method_returns
 
         @pure_node_descendants = {}
       end
 
-      def update(local_variable_types: self.local_variable_types, instance_variable_types: self.instance_variable_types, global_types: self.global_types, constant_types: self.constant_types, pure_method_calls: self.pure_method_calls, refined_self_type: self.refined_self_type)
+      def update(local_variable_types: self.local_variable_types, instance_variable_types: self.instance_variable_types, global_types: self.global_types, constant_types: self.constant_types, pure_method_calls: self.pure_method_calls, refined_self_type: self.refined_self_type, conditional_method_returns: self.conditional_method_returns)
         TypeEnv.new(
           constant_env,
           local_variable_types: local_variable_types,
@@ -63,11 +69,12 @@ module Steep
           global_types: global_types,
           constant_types: constant_types,
           pure_method_calls: pure_method_calls,
-          refined_self_type: refined_self_type
+          refined_self_type: refined_self_type,
+          conditional_method_returns: conditional_method_returns
         )
       end
 
-      def merge(local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {}, refined_self_type: self.refined_self_type)
+      def merge(local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {}, refined_self_type: self.refined_self_type, conditional_method_returns: self.conditional_method_returns)
         local_variable_types = self.local_variable_types.merge(local_variable_types)
         instance_variable_types = self.instance_variable_types.merge(instance_variable_types)
         global_types = self.global_types.merge(global_types)
@@ -82,7 +89,8 @@ module Steep
           global_types:  global_types,
           constant_types: constant_types,
           pure_method_calls: pure_method_calls,
-          refined_self_type: refined_self_type
+          refined_self_type: refined_self_type,
+          conditional_method_returns: conditional_method_returns
         )
       end
 
@@ -348,6 +356,28 @@ module Steep
 
       def invalidate_pure_node(node)
         merge(pure_method_calls: pure_node_invalidation(invalidated_pure_nodes(node)))
+      end
+
+      # Drops every cached pure self-send (`performed?`, `authenticated?`, …).
+      # felixefelip/steep#68: a pure predicate's return type depends on ivars its
+      # BODY reads, a dependency the pure-node cache — which only tracks
+      # syntactic descendants — cannot see. When something writes an ivar (an
+      # in-frame `@x = …` or a callee's may-write effect), those cached
+      # predicates are stale and must be recomputed. Restricted to self-sends:
+      # `other.foo` cannot read this receiver's ivars.
+      # Registers a conditional-return fact (felixefelip/steep#68 item 2).
+      def with_conditional_method_return(method, gate_ivar:, type:)
+        update(conditional_method_returns: conditional_method_returns.merge(method => { gate_ivar: gate_ivar, type: type }))
+      end
+
+      def invalidate_self_pure_calls
+        self_calls = pure_method_calls.keys.select do |node|
+          (node.type == :send || node.type == :csend) &&
+            (node.children[0].nil? || node.children[0].type == :self)
+        end
+        return self if self_calls.empty?
+
+        merge(pure_method_calls: pure_node_invalidation(self_calls))
       end
 
       def pure_node_invalidation(invalidated_nodes)

@@ -127,6 +127,125 @@ class PostconditionsRunnerTest < Minitest::Test
     end
   end
 
+  MAY_WRITE_RBS = <<~RBS
+    class MWController
+      @halted: bool
+
+      def redirect_to: () -> void
+      def guard: () -> void
+      def wrap: () -> void
+    end
+  RBS
+
+  # felixefelip/steep#68 (item 1): the effect is closed over the self-call
+  # graph, so a method whose only "write" is a call to a writer still reports
+  # it — through any depth, and through a block.
+  MAY_WRITE_RUBY = <<~RUBY
+    class MWController
+      def redirect_to
+        @halted = true
+      end
+
+      def guard
+        redirect_to
+      end
+
+      def wrap
+        [1].each do
+          guard
+        end
+      end
+    end
+  RUBY
+
+  def test_runner_closes_may_write_over_self_call_graph
+    in_tmpdir do
+      write("sig/mw.rbs", MAY_WRITE_RBS)
+      write("app/mw.rb", MAY_WRITE_RUBY)
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      entries = Postconditions::Runner.run(project)
+      by_method = entries.to_h { |e| [e.method_name, e] }
+
+      # Direct write.
+      assert_equal Set[:@halted], by_method[:redirect_to].may_write_ivars
+      # One hop: guard -> redirect_to.
+      assert_equal Set[:@halted], by_method[:guard].may_write_ivars
+      # Two hops, the second through a block: wrap -> (block) guard -> redirect_to.
+      assert_equal Set[:@halted], by_method[:wrap].may_write_ivars
+    end
+  end
+
+  def test_runner_serializes_may_write_effect
+    in_tmpdir do
+      write("sig/mw.rbs", MAY_WRITE_RBS)
+      write("app/mw.rb", MAY_WRITE_RUBY)
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+      entry = reparsed.lookup_instance("MWController", :guard)
+      refute_nil entry, "a method with only a may-write effect must still round-trip"
+      assert_equal Set[:@halted], entry.may_write_ivars
+    end
+  end
+
+  CR_RBS = <<~RBS
+    class User
+    end
+
+    class CRBase
+      @halted: bool
+      def redirect_to: () -> void
+    end
+
+    class CRController < CRBase
+      def current_user: () -> User?
+      def authenticate_user: () -> void
+    end
+  RBS
+
+  # felixefelip/steep#68 item 2: the guard halts through an INHERITED
+  # `redirect_to`, so the gate is recorded `via: redirect_to` and the Runner
+  # must resolve it — across the superclass boundary — to `@halted`.
+  CR_RUBY = <<~RUBY
+    class CRBase
+      def redirect_to
+        @halted = true
+      end
+    end
+
+    class CRController < CRBase
+      def authenticate_user
+        unless current_user
+          redirect_to
+          return
+        end
+      end
+    end
+  RUBY
+
+  def test_runner_resolves_conditional_return_gate_through_inheritance
+    in_tmpdir do
+      write("sig/cr.rbs", CR_RBS)
+      write("app/cr.rb", CR_RUBY)
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+      entry = reparsed.lookup_instance("CRController", :authenticate_user)
+      refute_nil entry
+      spec = entry.conditional_returns[:current_user]
+      refute_nil spec, "conditional return should survive gate resolution"
+      assert_equal :@halted, spec[:gate_ivar]
+      assert_equal "::User", spec[:type].to_s
+    end
+  end
+
   def test_runner_is_idempotent
     in_tmpdir do
       write("sig/company.rbs", FIXTURE_RBS)

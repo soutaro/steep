@@ -83,7 +83,12 @@ class PostconditionsInferrerTest < Minitest::Test
       end
     RUBY
 
-    assert_empty entries
+    # No REFINEMENT — the assignment narrows nothing. The method does still
+    # WRITE @company, so it carries the may-write effect (felixefelip/steep#68):
+    # a caller that narrowed @company must drop that view after the call.
+    refute_empty entries
+    assert_empty entries[0].ivars
+    assert_equal Set[:@company], entries[0].may_write_ivars
   end
 
   def test_does_not_infer_when_rhs_is_not_strict_subtype
@@ -276,12 +281,11 @@ class PostconditionsInferrerTest < Minitest::Test
     assert_empty entries
   end
 
-  def test_skips_truthy_bare_ivar_in_body
-    # `def has_name?; @name; end` returns the ivar's actual type
-    # (e.g. `String?`), not a logic type. The interpreter has no
-    # narrowing handle, so we silently skip. A future extension
-    # could partition the ivar's union (truthy vs falsy halves)
-    # but it's a separate decision.
+  def test_bare_ivar_body_is_a_transparent_getter
+    # `def has_name?; @name; end` proposes no when_true refinement (its return
+    # is the ivar's plain type, not a logic type). But it IS a transparent
+    # getter of @name (felixefelip/steep#68 item 2): testing it must narrow
+    # @name, so the entry carries `returns_ivar`.
     entries = infer_predicate_for(<<~RUBY)
       class PCPredVenue
         def has_name?
@@ -290,7 +294,9 @@ class PostconditionsInferrerTest < Minitest::Test
       end
     RUBY
 
-    assert_empty entries
+    assert_equal 1, entries.size
+    assert_empty entries[0].when_true_ivars
+    assert_equal :@name, entries[0].returns_ivar
   end
 
   def test_infers_when_true_for_multi_statement_body
@@ -412,5 +418,93 @@ class PostconditionsInferrerTest < Minitest::Test
 
     entry = entries.find { |e| e.method_name == :no_write }
     assert(entry.nil? || entry.returns_establishes.empty?)
+  end
+
+  # felixefelip/steep#68 item 2 — the guard-clause proof.
+  CR_RBS_FIXTURE = <<~RBS
+    class User
+    end
+
+    class CRGuardHost
+      @halted: bool
+
+      def current_user: () -> User?
+      def redirect_to: () -> void
+      def authenticate_user: () -> void
+      def no_return: () -> void
+    end
+  RBS
+
+  def infer_cr_for(ruby)
+    entries = nil
+    with_checker(CR_RBS_FIXTURE) do |checker|
+      source = parse_ruby(ruby)
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        entries = Postconditions::Inferrer.infer(source, typing, checker)
+      end
+    end
+    entries
+  end
+
+  def test_infers_conditional_return_from_guard_clause
+    # `unless current_user; <halt>; return; end` proves `current_user` non-nil
+    # on the unhalted exit. Here the halt is a direct ivar write, so the gate
+    # resolves to `@halted` in the inferrer itself.
+    entries = infer_cr_for(<<~RUBY)
+      class CRGuardHost
+        def authenticate_user
+          unless current_user
+            @halted = true
+            return
+          end
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :authenticate_user }
+    refute_nil entry
+    spec = entry.conditional_returns[:current_user]
+    refute_nil spec, "expected a conditional return for current_user"
+    assert_equal :@halted, spec[:gate_ivar]
+    assert_equal "::User", spec[:type].to_s
+  end
+
+  def test_conditional_return_gate_via_self_method
+    # When the halt is a self-method call (`redirect_to`) rather than a direct
+    # write, the inferrer records the gate `via` that method; the Runner
+    # resolves it to the written ivar (covered in the runner test).
+    entries = infer_cr_for(<<~RUBY)
+      class CRGuardHost
+        def authenticate_user
+          unless current_user
+            redirect_to
+            return
+          end
+        end
+      end
+    RUBY
+
+    spec = entries.find { |e| e.method_name == :authenticate_user }.conditional_returns[:current_user]
+    refute_nil spec
+    assert_nil spec[:gate_ivar]
+    assert_equal :redirect_to, spec[:gate_via]
+  end
+
+  def test_no_conditional_return_without_return_in_guard
+    # A guard that narrows but doesn't halt (no `return`) proves nothing about
+    # a later exit — the method falls through either way.
+    entries = infer_cr_for(<<~RUBY)
+      class CRGuardHost
+        def no_return
+          unless current_user
+            @halted = true
+          end
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :no_return }
+    assert(entry.nil? || entry.conditional_returns.empty?)
   end
 end

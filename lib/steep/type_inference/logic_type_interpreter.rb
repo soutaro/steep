@@ -211,6 +211,23 @@ module Steep
               end
             end
 
+            # felixefelip/steep#68 item 2: a transparent halt-check getter
+            # (`def performed?; @halted; end`) narrows its backing ivar, so
+            # `return if performed?` leaves `@halted` falsy on the continuing
+            # branch — the gate a conditional-return postcondition tests.
+            if (ivar = returns_ivar_of(node))
+              # The ivar's own truthy/falsy split, not the predicate's return
+              # (`bool` doesn't partition; and the backing ivar may be `true?`,
+              # whose falsy value is `nil`, not `false`).
+              ivar_truthy, ivar_falsy = partition_ivar(falsy_result.env.declared_instance_variable_type(ivar))
+              if ivar_truthy
+                truthy_result = Result.new(type: truthy_result.type, env: truthy_result.env.refine_types(instance_variable_types: { ivar => ivar_truthy }), unreachable: truthy_result.unreachable)
+              end
+              if ivar_falsy
+                falsy_result = Result.new(type: falsy_result.type, env: falsy_result.env.refine_types(instance_variable_types: { ivar => ivar_falsy }), unreachable: falsy_result.unreachable)
+              end
+            end
+
             truthy_result, falsy_result = apply_postconditions(
               node: node,
               receiver: receiver,
@@ -319,14 +336,27 @@ module Steep
           ]
 
         when :send
-          if env[node]
-            [
-              env.refine_types(pure_call_types: { node => truthy_type }),
-              env.refine_types(pure_call_types: { node => falsy_type })
-            ]
-          else
-            [env, env]
+          truthy_env, falsy_env =
+            if env[node]
+              [
+                env.refine_types(pure_call_types: { node => truthy_type }),
+                env.refine_types(pure_call_types: { node => falsy_type })
+              ]
+            else
+              [env, env]
+            end
+
+          # felixefelip/steep#68 item 2: a transparent halt-check getter
+          # (`def performed?; @halted; end`, `returns_ivar: @halted`) narrows
+          # its backing ivar too, so `return if performed?` leaves `@halted`
+          # falsy on the continuing branch — the gate other conditional-return
+          # postconditions test.
+          if (ivar = returns_ivar_of(node))
+            truthy_env = truthy_env.refine_types(instance_variable_types: { ivar => truthy_type })
+            falsy_env = falsy_env.refine_types(instance_variable_types: { ivar => falsy_type })
           end
+
+          [truthy_env, falsy_env]
         when :self
           # Mirror the `:lvar`/`:ivar` branches for `self`. Without this,
           # postcondition narrowing (#10) on a receiver of `self` (implicit
@@ -941,6 +971,32 @@ module Steep
       # inherited from modules / superclasses — e.g. an AR predicate that
       # lives in `Model::GeneratedAttributeMethods`), then falls back to
       # the type where the method is actually defined.
+      # An ivar's [truthy, falsy] split for `returns_ivar` narrowing. `bool`
+      # (an atomic `Boolean`) doesn't partition, so hand back the literals;
+      # otherwise defer to `partition_union` (`true?` → `[true, nil]`).
+      def partition_ivar(declared)
+        return [nil, nil] unless declared
+        return [TRUE, FALSE] if declared.is_a?(AST::Types::Boolean)
+
+        factory.partition_union(declared)
+      end
+
+      # The ivar a `:send` node transparently reads (`returns_ivar`), or nil.
+      # Only for self/implicit-self sends — `other.performed?` reads OTHER's
+      # ivar, not ours.
+      def returns_ivar_of(node)
+        return nil if postconditions.empty?
+        return nil unless node.type == :send
+        receiver = node.children[0]
+        return nil unless receiver.nil? || receiver.type == :self
+
+        call = typing.call_of(node: node) rescue (return nil)
+        return nil unless call.is_a?(TypeInference::MethodCall::Typed)
+
+        entry = lookup_postcondition_entry(call: call, receiver_type: self_type)
+        entry&.returns_ivar
+      end
+
       def lookup_postcondition_entry(call:, receiver_type:)
         method_sym = call.method_decls.map { |d| d.method_name.method_name }.compact.first
         return nil unless method_sym

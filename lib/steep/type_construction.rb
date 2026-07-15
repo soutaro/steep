@@ -3514,6 +3514,30 @@ module Steep
               receiver: receiver
             )
 
+            # felixefelip/steep#68 (item 1): the callee may WRITE ivars this
+            # frame has narrowed — directly, or through anything it calls on
+            # `self`. Drop those narrowings, or the caller keeps believing a
+            # fact the call already invalidated.
+            constr = constr.apply_ivar_effects(call: call, receiver: receiver)
+
+            # felixefelip/steep#68 (item 2). Two halves at this site:
+            #
+            #  * REGISTER — calling a guard (`authenticate_user`) whose entry
+            #    carries `conditional_returns` records, in the caller's env,
+            #    that `self.current_user` is non-nil while `@halted` is falsy.
+            #  * APPLY — calling `current_user` itself: if such a fact is on
+            #    record and its gate ivar is currently known falsy (established
+            #    by an earlier `return if performed?`), narrow this call's
+            #    return type to the proven-present type.
+            constr = constr.register_conditional_returns(call: call, receiver: receiver)
+            if self_receiver_for_attr?(receiver) &&
+                (spec = constr.conditional_return_spec(call)) &&
+                constr.ivar_known_falsy?(spec.fetch(:gate_ivar))
+              narrowed = spec.fetch(:type)
+              call = call.with_return_type(narrowed)
+              constr.add_typing(node, type: narrowed)
+            end
+
             if (pure_call, type = constr.context.type_env.pure_method_calls.fetch(node, nil))
               if type
                 call = pure_call.update(node: node, return_type: type)
@@ -3927,6 +3951,112 @@ module Steep
     #
     # `via_receiver:` inside `unconditional:` is parsed but not yet
     # applied — follow-up.
+    # felixefelip/steep#68 (item 1). Widens every ivar the callee MAY write back
+    # to its declared type, dropping any narrowing this frame had established —
+    # and drops the pure-call facts cached on it, exactly as an in-frame `@x = …`
+    # already does (`ivasgn`).
+    #
+    # Only for self/implicit-self receivers: `other.foo` writes OTHER's ivars.
+    #
+    # An ivar the entry also REFINES is left alone: `apply_unconditional_postconditions`
+    # has just given it a precise type, which is strictly better than the declared
+    # one and already accounts for the write.
+    #
+    # This is the invalidation half of the effect. The other half — knowing WHICH
+    # exit the callee took, and hence what actually holds (`performed? == false`
+    # => `current_user` non-nil) — is item 2: the path-sensitive exit state.
+    def apply_ivar_effects(call:, receiver:)
+      return self unless call.is_a?(TypeInference::MethodCall::Typed)
+      return self if postconditions.empty?
+      return self unless self_receiver_for_attr?(receiver)
+
+      entry = lookup_unconditional_postcondition_entry(call)
+      return self unless entry
+      return self if entry.may_write_ivars.empty?
+
+      refined = entry.unconditional&.ivar_type_strings&.keys || []
+      env = context.type_env
+      updates = {} #: Hash[Symbol, AST::Types::t]
+
+      entry.may_write_ivars.each do |name|
+        next if refined.include?(name)
+
+        declared = env.declared_instance_variable_type(name) or next
+        next if env.instance_variable_types[name] == declared
+
+        updates[name] = declared
+      end
+
+      update_type_env do |type_env|
+        # Widen any narrowed ivar the callee may have overwritten back to its
+        # declared type...
+        unless updates.empty?
+          updates.each_key do |name|
+            type_env = type_env.invalidate_pure_node(::Parser::AST::Node.new(:ivar, [name]))
+          end
+          type_env = type_env.refine_types(instance_variable_types: updates)
+        end
+        # ...and drop cached pure self-predicates whose value depends on an ivar
+        # the callee may have written (`performed?` reads `@__rbs_infer__performed`).
+        type_env.invalidate_self_pure_calls
+      end
+    end
+
+    # felixefelip/steep#68 item 2 — REGISTER. When a called method's entry
+    # carries `conditional_returns`, record each in the caller's env so a later
+    # call to the proven method can consume it (gated on the ivar's falsy state).
+    def register_conditional_returns(call:, receiver:)
+      return self unless call.is_a?(TypeInference::MethodCall::Typed)
+      return self if postconditions.empty?
+      return self unless self_receiver_for_attr?(receiver)
+
+      entry = lookup_unconditional_postcondition_entry(call)
+      return self unless entry && !entry.conditional_returns.empty?
+
+      constr = self
+      entry.conditional_returns.each do |method, spec|
+        type = checker.factory.type(spec.fetch(:type)) rescue next
+        constr = constr.update_type_env do |env|
+          env.with_conditional_method_return(method, gate_ivar: spec.fetch(:gate_ivar), type: type)
+        end
+      end
+      constr
+    end
+
+    # felixefelip/steep#68 item 2 — APPLY (lookup half). The recorded
+    # conditional-return spec for the method being called, or nil.
+    def conditional_return_spec(call)
+      return nil if context.type_env.conditional_method_returns.empty?
+
+      call.method_decls.filter_map do |decl|
+        context.type_env.conditional_method_returns[decl.method_name.method_name]
+      end.first
+    end
+
+    # Whether `ivar` is currently narrowed to a type with no truthy inhabitant
+    # (`nil`/`false`) — the gate for a conditional return. A widened
+    # (declared-`bool`) ivar is NOT falsy, so the fact stays gated until a
+    # `return if performed?` proves it.
+    def ivar_known_falsy?(ivar)
+      type = context.type_env[ivar] or return false
+      falsy_only?(type)
+    end
+
+    def falsy_only?(type)
+      case type
+      when AST::Types::Nil
+        true
+      when AST::Types::Literal
+        type.value == false
+      when AST::Types::Name::Instance
+        type.name.to_s == "::FalseClass"
+      when AST::Types::Union
+        type.types.all? { |t| falsy_only?(t) }
+      else
+        false
+      end
+    end
+
     def apply_unconditional_postconditions(node:, call:, receiver:)
       return self unless call.is_a?(TypeInference::MethodCall::Typed)
       return self if postconditions.empty?
