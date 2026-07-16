@@ -10,12 +10,13 @@ module Steep
         new(entries).dump
       end
 
-      def self.write(path, entries)
-        new(entries).write(path)
+      def self.write(path, entries, method_entry_facts: {})
+        new(entries, method_entry_facts: method_entry_facts).write(path)
       end
 
-      def initialize(entries)
+      def initialize(entries, method_entry_facts: {})
         @entries = entries
+        @method_entry_facts = method_entry_facts
       end
 
       def dump
@@ -35,10 +36,29 @@ module Steep
           .sort_by { |entry| sort_key(entry) }
           .map { |entry| serialize_entry(entry) }
 
-        {
+        document = {
           "version" => 1,
           "postconditions" => rows
         }
+        document["method_entry_facts"] = method_entry_rows unless @method_entry_facts.empty?
+        document
+      end
+
+      # felixefelip/steep#68 item 4: facts holding at each method's entry.
+      #
+      #   method_entry_facts:
+      #   - class: C
+      #     method: log_it
+      #     self_methods: { current_user: "::User" }
+      #     consts: { Current.user: "::User" }
+      def method_entry_rows
+        @method_entry_facts.sort.map do |key, facts|
+          class_name, method_name = key.split("#", 2)
+          row = { "class" => class_name, "method" => method_name }
+          row["self_methods"] = facts[:self_methods].sort.to_h { |m, t| [m.to_s, t] } unless facts[:self_methods].empty?
+          row["consts"] = facts[:consts].sort.to_h unless facts[:consts].empty?
+          row
+        end
       end
 
       def sort_key(entry)

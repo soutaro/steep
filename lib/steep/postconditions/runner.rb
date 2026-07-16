@@ -30,21 +30,32 @@ module Steep
 
       def run
         entries = []
+        @sequences = [] #: Array[MethodEntryInferrer::RunnerSequence]
         @project.targets.each do |target|
-          entries.concat(infer_for_target(target))
+          target_entries, target_sequences = infer_for_target(target)
+          entries.concat(target_entries)
+          @sequences.concat(target_sequences)
         end
-        close_ivar_effects(merge(entries))
+        resolved = close_ivar_effects(merge(entries))
+        @method_entry_facts = infer_method_entry_facts(resolved, @sequences)
+        resolved
       end
+
+      # felixefelip/steep#68 item 4: { "Class#method" => { self_methods:, consts: } }
+      # — the facts proven at each method's entry by the guards that the runner
+      # shows run before it. Nil until `run`.
+      attr_reader :method_entry_facts
 
       def output_path
         @project.absolute_path(DEFAULT_OUTPUT_PATH)
       end
 
       def write(entries)
-        if entries.empty?
+        facts = @method_entry_facts || {}
+        if entries.empty? && facts.empty?
           output_path.delete if output_path.file?
         else
-          Writer.write(output_path, entries)
+          Writer.write(output_path, entries, method_entry_facts: facts)
         end
       end
 
@@ -94,6 +105,13 @@ module Steep
           resolve_gates!(entry.conditional_const_returns, entry, effects)
         end
 
+        # felixefelip/steep#68 item 5: a `Const.user = <non-nil>` write also
+        # proves the OTHER constant attributes the setter establishes (its
+        # override does `self.author_name = value&.full_name`). Expand each
+        # guard's const-returns with those, when the singleton setter is
+        # confirmed to delegate to the instance one.
+        resolved.each_value { |entry| expand_transitive_const_returns(entry, resolved) }
+
         resolved.values.reject(&:empty?)
       end
 
@@ -116,6 +134,29 @@ module Steep
         entry_key(entry)
       end
 
+      # For each proven `Const.attr`, if the singleton `Const.attr=` delegates to
+      # the instance setter and that setter establishes further attributes, add
+      # `Const.<other>` under the same gate. `by_key` holds the setter entries.
+      def expand_transitive_const_returns(entry, by_key)
+        entry.conditional_const_returns.dup.each do |path, spec|
+          const_name, attr = path.split(".", 2)
+          next unless const_name && attr
+
+          singleton = by_key["#{const_name}.#{attr}="]
+          next unless singleton&.delegates_to_instance
+
+          instance_setter = by_key["#{const_name}##{attr}="]
+          next unless instance_setter
+
+          instance_setter.establishes_consts.each do |other, type|
+            other_path = "#{const_name}.#{other}"
+            next if entry.conditional_const_returns.key?(other_path)
+
+            entry.conditional_const_returns[other_path] = { gate_ivar: spec[:gate_ivar], type: type }
+          end
+        end
+      end
+
       def infer_for_target(target)
         loader = Project::Target.construct_env_loader(options: target.options, project: @project)
         file_loader = Services::FileLoader.new(base_dir: @project.base_dir)
@@ -132,6 +173,7 @@ module Steep
         subtyping = status.subtyping
         resolver = status.constant_resolver
         out = []
+        sequences = [] #: Array[MethodEntryInferrer::RunnerSequence]
 
         file_loader.each_path_in_patterns(target.source_pattern) do |path|
           absolute = @project.absolute_path(path)
@@ -165,9 +207,68 @@ module Steep
           )
 
           out.concat(Inferrer.infer(source, typing, subtyping))
+          sequences.concat(MethodEntryInferrer.sequences(source, typing))
         end
 
-        out
+        [out, sequences]
+      end
+
+      # felixefelip/steep#68 item 4. Turns each runner sequence into the facts
+      # holding at each called method's entry: walk the calls in order, carrying
+      # the union of every preceding guard's proven facts (a guard M running
+      # after G runs only if G didn't halt, so G's facts hold unconditionally at
+      # M's entry). A method appearing in more than one runner keeps the
+      # INTERSECTION — a fact only holds at entry if every path there proves it.
+      def infer_method_entry_facts(resolved, sequences)
+        by_key = resolved.to_h { |e| [entry_key(e), e] }
+        per_method = {} #: Hash[String, Hash[Symbol, Hash[untyped, String]]]
+        seen = {} #: Hash[String, bool]
+
+        sequences.each do |sequence|
+          accumulated = { self_methods: {}, consts: {} } #: Hash[Symbol, Hash[untyped, String]]
+
+          sequence.calls.each do |call|
+            key = "#{call[:class_name]}##{call[:method_name]}"
+            record_entry_facts(per_method, seen, key, accumulated)
+            accumulate_guard_facts(accumulated, by_key[key])
+          end
+        end
+
+        per_method.reject { |_, facts| facts[:self_methods].empty? && facts[:consts].empty? }
+      end
+
+      # Merge `accumulated` into `key`'s entry facts — intersecting with any
+      # facts already recorded for `key` (from another runner), since a fact
+      # must hold on every path to be sound at entry.
+      def record_entry_facts(per_method, seen, key, accumulated)
+        snapshot = { self_methods: accumulated[:self_methods].dup, consts: accumulated[:consts].dup }
+        if seen[key]
+          existing = per_method[key]
+          existing[:self_methods] = intersect(existing[:self_methods], snapshot[:self_methods])
+          existing[:consts] = intersect(existing[:consts], snapshot[:consts])
+        else
+          per_method[key] = snapshot
+          seen[key] = true
+        end
+      end
+
+      def accumulate_guard_facts(accumulated, entry)
+        return unless entry
+
+        entry.conditional_returns.each do |method, spec|
+          accumulated[:self_methods][method] = spec.fetch(:type).to_s
+        end
+        entry.conditional_const_returns.each do |path, spec|
+          accumulated[:consts][path] = spec.fetch(:type).to_s
+        end
+      end
+
+      # Keys common to both, keeping a value only when the two agree (a
+      # conflicting proof at entry is dropped conservatively).
+      def intersect(a, b)
+        (a.keys & b.keys).each_with_object({}) do |k, acc|
+          acc[k] = a[k] if a[k] == b[k]
+        end
       end
 
       def merge(entries)

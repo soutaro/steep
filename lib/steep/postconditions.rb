@@ -35,6 +35,7 @@ module Steep
         return Store.empty if paths.empty?
 
         merged = {} #: Hash[[String, Symbol], Entry]
+        merged_entry_facts = {} #: Hash[[String, Symbol], untyped]
         sources = []
 
         paths.each do |path|
@@ -50,12 +51,13 @@ module Steep
             end
             merged[key] = entry
           end
+          merged_entry_facts.merge!(sub.method_entry_facts) { |_, first, _second| first }
           sources << absolute.to_s
         rescue Psych::Exception, LoadError => e
           Steep.logger.warn { "[postconditions] failed to parse #{absolute}: #{e.message}" }
         end
 
-        Store.new(entries: merged, source: sources.join(", "))
+        Store.new(entries: merged, source: sources.join(", "), method_entry_facts: merged_entry_facts)
       end
     end
 
@@ -63,7 +65,7 @@ module Steep
       attr_reader :entries, :source
 
       def self.empty
-        new(entries: {}, source: nil)
+        new(entries: {}, source: nil, method_entry_facts: {})
       end
 
       def self.from_hash(raw, source:)
@@ -79,20 +81,55 @@ module Steep
           end
           index[key] = entry
         end
-        new(entries: index, source: source)
+        new(entries: index, source: source, method_entry_facts: parse_method_entry_facts(raw))
       end
 
-      def initialize(entries:, source:)
+      # felixefelip/steep#68 item 4: { [class, method] => { self_methods:, consts: } },
+      # types parsed lazily-eagerly to RBS::Types.
+      def self.parse_method_entry_facts(raw)
+        rows = (raw && raw["method_entry_facts"]) || []
+        rows.each_with_object({}) do |row, acc|
+          klass = row["class"]; method = row["method"]
+          next unless klass && method
+
+          self_methods = parse_fact_types(row["self_methods"], symbol_keys: true)
+          consts = parse_fact_types(row["consts"], symbol_keys: false)
+          next if self_methods.empty? && consts.empty?
+
+          acc[[klass.to_s, method.to_sym]] = { self_methods: self_methods, consts: consts }
+        end
+      end
+
+      def self.parse_fact_types(raw, symbol_keys:)
+        return {} unless raw.is_a?(Hash)
+
+        raw.each_with_object({}) do |(k, type_str), acc|
+          next unless type_str.is_a?(String)
+          type = RBS::Parser.parse_type(type_str) rescue next
+          acc[symbol_keys ? k.to_sym : k.to_s] = type
+        end
+      end
+
+      attr_reader :method_entry_facts
+
+      def initialize(entries:, source:, method_entry_facts: {})
         @entries = entries
         @source = source
+        @method_entry_facts = method_entry_facts
       end
 
       def empty?
-        @entries.empty?
+        @entries.empty? && @method_entry_facts.empty?
       end
 
       def lookup_instance(type_name, method_name)
         @entries[[type_name.to_s.sub(/\A::/, ""), method_name.to_sym]]
+      end
+
+      # felixefelip/steep#68 item 4: facts holding at `class_name#method_name`'s
+      # entry, or nil.
+      def lookup_method_entry_facts(class_name, method_name)
+        @method_entry_facts[[class_name.to_s.sub(/\A::/, ""), method_name.to_sym]]
       end
     end
 

@@ -164,6 +164,7 @@ require "steep/postconditions/return_establishment_inferrer"
 require "steep/postconditions/return_establishment_applier"
 require "steep/postconditions/writer"
 require "steep/postconditions/inferrer"
+require "steep/postconditions/method_entry_inferrer"
 require "steep/postconditions/runner"
 require "steep/callbacks"
 

@@ -322,6 +322,7 @@ module Steep
       ).build(type_env)
 
       type_env = apply_callbacks_for_method(method_name, type_env)
+      type_env = apply_method_entry_facts(method_name, type_env)
 
       method_params.errors.each do |error|
         typing.add_error error
@@ -3548,6 +3549,14 @@ module Steep
               constr.add_typing(node, type: narrowed)
             end
 
+            # felixefelip/steep#68 (item 4): the UNGATED apply of a fact the
+            # runner proved holds at this method's entry (a guard ran before it
+            # and didn't halt). Same narrowing as items 2/3, but with no gate.
+            if (narrowed = constr.method_entry_narrowed_type(node, receiver))
+              call = call.with_return_type(narrowed)
+              constr.add_typing(node, type: narrowed)
+            end
+
             if (pure_call, type = constr.context.type_env.pure_method_calls.fetch(node, nil))
               if type
                 call = pure_call.update(node: node, return_type: type)
@@ -4051,6 +4060,22 @@ module Steep
       end.first
     end
 
+    # felixefelip/steep#68 item 4 — the unconditional (method-entry) narrowing
+    # for a self-method call or a `Const.attr` read, or nil. No gate: the fact
+    # was seeded at method entry, where it holds outright.
+    def method_entry_narrowed_type(node, receiver)
+      env = context.type_env
+      return nil if env.unconditional_method_returns.empty? && env.unconditional_const_returns.empty?
+      return nil unless node.type == :send
+
+      if self_receiver_for_attr?(receiver)
+        env.unconditional_method_returns[node.children[1]]
+      elsif receiver.is_a?(::Parser::AST::Node) && receiver.type == :const
+        const_name = RBS::TypeName.parse(constant_path_string(receiver)) rescue (return nil)
+        env.unconditional_const_returns["#{const_name.to_s.sub(/\A::/, "")}.#{node.children[1]}"]
+      end
+    end
+
     # felixefelip/steep#68 item 3 — APPLY (lookup half). The recorded
     # constant conditional-return for a `Const.attr` read node, or nil. The
     # receiver must be a bare constant (`Current`), so the path is unambiguous.
@@ -4250,6 +4275,31 @@ module Steep
     # applied in their stored order, so the gen-erator emits in
     # declaration order and the latest declaration wins on conflicting
     # ivar writes. Mirrors Rails' `before_action` ordering semantics.
+    # felixefelip/steep#68 item 4. Seeds the facts the runner proved hold at
+    # this method's entry — that a guard running before it (and not halting)
+    # established. They land as UNCONDITIONAL self-method / constant narrowings
+    # (no gate: the method running is itself the proof the guard didn't halt),
+    # consumed at the corresponding read sites in the body.
+    def apply_method_entry_facts(method_name, type_env)
+      return type_env if postconditions.empty?
+
+      class_name = module_context&.class_name or return type_env
+      facts = postconditions.lookup_method_entry_facts(class_name.to_s, method_name) or return type_env
+
+      self_methods = to_ast_types(facts[:self_methods])
+      consts = to_ast_types(facts[:consts])
+      return type_env if self_methods.empty? && consts.empty?
+
+      type_env.with_method_entry_facts(self_methods: self_methods, consts: consts)
+    end
+
+    def to_ast_types(rbs_types)
+      rbs_types.each_with_object({}) do |(key, rbs_type), acc|
+        type = checker.factory.type(rbs_type) rescue next
+        acc[key] = type
+      end
+    end
+
     def apply_callbacks_for_method(method_name, type_env)
       return type_env if callbacks.empty?
 

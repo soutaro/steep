@@ -51,9 +51,12 @@ module Steep
           returns_ivar = collect_returns_ivar(def_node, class_name, singleton: singleton)
           conditional_returns = collect_conditional_returns(def_node, class_name, singleton: singleton)
           conditional_const_returns = collect_conditional_const_returns(def_node)
+          establishes_consts = collect_establishes_consts(def_node, singleton: singleton)
+          delegates_to_instance = singleton_delegates_to_instance?(def_node, singleton: singleton)
           if ivars.empty? && when_true_ivars.empty? && returns_establishes.empty? &&
              may_write.empty? && self_call_deps.empty? && returns_ivar.nil? &&
-             conditional_returns.empty? && conditional_const_returns.empty?
+             conditional_returns.empty? && conditional_const_returns.empty? &&
+             establishes_consts.empty? && !delegates_to_instance
             next
           end
 
@@ -74,7 +77,9 @@ module Steep
             self_call_deps: self_call_deps,
             returns_ivar: returns_ivar,
             conditional_returns: conditional_returns,
-            conditional_const_returns: conditional_const_returns
+            conditional_const_returns: conditional_const_returns,
+            establishes_consts: establishes_consts,
+            delegates_to_instance: delegates_to_instance
           )
         end
         results
@@ -457,6 +462,115 @@ module Steep
         result
       end
 
+      # felixefelip/steep#68 item 5, the establishment side. For an INSTANCE
+      # setter (`def user=(value)`), the other constant attributes its body
+      # establishes non-nil, given its argument is non-nil:
+      #
+      #   def user=(value)
+      #     super(value)
+      #     self.author_name = value&.full_name   # => establishes author_name
+      #   end
+      #
+      # `value&.full_name` is non-nil when `value` is (the safe-nav's only nil
+      # source), so setting `user` to a non-nil value sets `author_name` too.
+      # Keyed by attribute name; the Runner promotes these to the constant
+      # (`Current.author_name`) at each `Current.user = <non-nil>` write site.
+      # => Hash[Symbol(attr), AST::Types::t]
+      def collect_establishes_consts(def_node, singleton:)
+        return {} if singleton
+        return {} unless def_node.children[0].to_s.end_with?("=") && def_node.children[0] != :==
+
+        param = setter_param_name(def_node) or return {}
+        body = def_node.children[2] or return {}
+
+        result = {} #: Hash[Symbol, untyped]
+        walk_nodes(body) do |n|
+          write = self_attr_write(n) or next
+          attr, rhs = write
+          type = param_guarded_nonnil_type(rhs, param) or next
+          result[attr] = type
+        end
+        result
+      end
+
+      # Whether a SINGLETON setter (`def self.user=(value)`) delegates to the
+      # instance one (`instance.user = value`) — the CurrentAttributes shape the
+      # rbs_infer generator emits. Only then is it sound to attribute the
+      # instance setter's establishments to a `Const.user =` write.
+      def singleton_delegates_to_instance?(def_node, singleton:)
+        return false unless singleton
+        attr = def_node.children[0].to_s
+        return false unless attr.end_with?("=")
+        body = def_node.children[2] or return false
+
+        found = false
+        walk_nodes(body) do |n|
+          next unless n.type == :send && n.children[1].to_s == attr
+          recv = n.children[0]
+          found = true if recv&.type == :send && recv.children[0].nil? && recv.children[1] == :instance
+        end
+        found
+      end
+
+      def setter_param_name(def_node)
+        args = def_node.children[1]
+        req = args&.children&.find { |a| a.is_a?(Parser::AST::Node) && a.type == :arg }
+        req&.children&.first
+      end
+
+      # `self.<attr> = <rhs>` => `[attr_sym, rhs_node]`, else nil.
+      def self_attr_write(node)
+        return nil unless node.is_a?(Parser::AST::Node) && node.type == :send
+
+        method = node.children[1].to_s
+        return nil unless method.end_with?("=") && node.children[1] != :==
+
+        receiver = node.children[0]
+        return nil unless receiver.is_a?(Parser::AST::Node) && receiver.type == :self
+
+        rhs = node.children[2] or return nil
+        [method.chomp("=").to_sym, rhs]
+      end
+
+      # For `<param>&.<method>` / `<param>.<method>`, the method's return on the
+      # param's NON-NIL type, when that return is itself non-nil (so the write
+      # establishes the attribute). nil otherwise.
+      def param_guarded_nonnil_type(rhs, param)
+        return nil unless rhs.is_a?(Parser::AST::Node) && (rhs.type == :send || rhs.type == :csend)
+
+        recv = rhs.children[0]
+        return nil unless recv.is_a?(Parser::AST::Node) && recv.type == :lvar && recv.children[0] == param
+
+        recv_type = type_of(recv) or return nil
+        ret = resolve_method_return(subtract_nil(recv_type), rhs.children[1]) or return nil
+        subtract_nil(ret) == ret ? ret : nil
+      end
+
+      # The return type of `method` resolved on `type` (walking union/
+      # intersection members), or nil.
+      def resolve_method_return(type, method)
+        instance_type_names(type).each do |type_name|
+          definition = @definition_builder.build_instance(type_name) rescue next
+          method_def = definition.methods[method] or next
+          types = method_def.method_types.map { |mt| @factory.type(mt.type.return_type) }
+          next if types.empty?
+
+          return types.size == 1 ? types.first : AST::Types::Union.build(types: types)
+        end
+        nil
+      end
+
+      def instance_type_names(type)
+        case type
+        when AST::Types::Name::Instance
+          [type.name]
+        when AST::Types::Intersection, AST::Types::Union
+          type.types.flat_map { |t| instance_type_names(t) }
+        else
+          []
+        end
+      end
+
       # The halt gate of a method: the gate of the first top-level guard-clause
       # that halts and returns. Independent of what the clause's condition tests
       # — item 3's write isn't in the clause, it just shares the exit gate.
@@ -666,8 +780,12 @@ module Steep
       # felixefelip/steep#68 item 3: { "Const.attr" => { gate_ivar:, type: } } —
       # constant attributes proven non-nil on the unhalted exit.
       attr_reader :conditional_const_returns
+      # felixefelip/steep#68 item 5. `establishes_consts` (instance setters): other
+      # attributes set non-nil when the setter's arg is non-nil. `delegates_to_instance`
+      # (singleton setters): whether `self.x=` forwards to `instance.x=`.
+      attr_reader :establishes_consts, :delegates_to_instance
 
-      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil, returns_establishes: [], may_write_ivars: Set[], self_call_deps: Set[], returns_ivar: nil, conditional_returns: {}, conditional_const_returns: {})
+      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil, returns_establishes: [], may_write_ivars: Set[], self_call_deps: Set[], returns_ivar: nil, conditional_returns: {}, conditional_const_returns: {}, establishes_consts: {}, delegates_to_instance: false)
         @class_name = class_name
         @method_name = method_name
         @singleton = singleton
@@ -681,6 +799,8 @@ module Steep
         @returns_ivar = returns_ivar
         @conditional_returns = conditional_returns
         @conditional_const_returns = conditional_const_returns
+        @establishes_consts = establishes_consts
+        @delegates_to_instance = delegates_to_instance
       end
 
       # A copy with `may_write_ivars` replaced — the Runner's fixpoint result.
@@ -692,7 +812,8 @@ module Steep
           returns_establishes: returns_establishes,
           may_write_ivars: ivars, self_call_deps: self_call_deps,
           returns_ivar: returns_ivar, conditional_returns: conditional_returns,
-          conditional_const_returns: conditional_const_returns
+          conditional_const_returns: conditional_const_returns,
+          establishes_consts: establishes_consts, delegates_to_instance: delegates_to_instance
         )
       end
 

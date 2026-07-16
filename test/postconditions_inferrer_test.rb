@@ -423,11 +423,16 @@ class PostconditionsInferrerTest < Minitest::Test
   # felixefelip/steep#68 item 2 — the guard-clause proof.
   CR_RBS_FIXTURE = <<~RBS
     class User
+      def full_name: () -> String
+      def maybe_name: () -> String?
     end
 
     class Current
       def self.user: () -> User?
       def self.user=: (User?) -> User?
+      def self.instance: () -> Current
+      def user=: (User?) -> void
+      def author_name=: (String?) -> String?
     end
 
     class CRGuardHost
@@ -516,6 +521,51 @@ class PostconditionsInferrerTest < Minitest::Test
     refute_nil spec, "expected a conditional const return for Current.user"
     assert_equal :redirect_to, spec[:gate_via]
     assert_equal "::User", spec[:type].to_s
+  end
+
+  def test_infers_establishes_consts_from_instance_setter_override
+    # felixefelip/steep#68 item 5. An instance setter override that does
+    # `self.author_name = value&.full_name` establishes `author_name` non-nil
+    # when the arg is non-nil (`full_name` returns String). The singleton setter
+    # that forwards to `instance.user =` is flagged as delegating, so the Runner
+    # may attribute the establishment to a `Current.user =` write.
+    entries = infer_cr_for(<<~RUBY)
+      class Current
+        def user=(value)
+          @user = value
+          self.author_name = value&.full_name
+        end
+
+        def self.user=(value)
+          @user = value
+          instance.user = value
+        end
+      end
+    RUBY
+
+    instance_setter = entries.find { |e| e.method_name == :user= && !e.singleton }
+    refute_nil instance_setter
+    assert_equal "::String", instance_setter.establishes_consts[:author_name].to_s
+
+    singleton_setter = entries.find { |e| e.method_name == :user= && e.singleton }
+    refute_nil singleton_setter
+    assert singleton_setter.delegates_to_instance, "self.user= forwards to instance.user="
+  end
+
+  def test_no_establishes_consts_for_nilable_derived_write
+    # `self.author_name = value&.title` where `title` itself returns String? —
+    # even with value non-nil the result is nilable, so nothing is established.
+    entries = infer_cr_for(<<~RUBY)
+      class Current
+        def user=(value)
+          @user = value
+          self.author_name = value&.maybe_name
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :user= && !e.singleton }
+    assert(entry.nil? || entry.establishes_consts.empty?)
   end
 
   def test_no_conditional_const_return_for_nilable_write

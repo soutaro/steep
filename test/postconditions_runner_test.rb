@@ -305,6 +305,141 @@ class PostconditionsRunnerTest < Minitest::Test
     end
   end
 
+  ME_RBS = <<~RBS
+    class User
+    end
+
+    class Current
+      def self.user: () -> User?
+      def self.user=: (User?) -> User?
+    end
+
+    class MEController
+      @performed: bool
+      def current_user: () -> User?
+      def redirect_to: () -> void
+      def performed?: () -> bool
+      def authenticate_user: () -> void
+      def log_it: () -> void
+      def __rbs_infer__run_index: () -> void
+    end
+  RBS
+
+  ME_RUBY = <<~RUBY
+    class MEController
+      def redirect_to
+        @performed = true
+      end
+      def performed?
+        @performed
+      end
+      def authenticate_user
+        unless current_user
+          redirect_to
+          return
+        end
+        Current.user = current_user
+      end
+      def log_it
+      end
+      def __rbs_infer__run_index
+        authenticate_user
+        return if performed?
+        log_it
+        return if performed?
+      end
+    end
+  RUBY
+
+  # felixefelip/steep#68 item 4: the runner shows `log_it` runs after
+  # `authenticate_user`, so authenticate_user's proven facts (item 2 + 3) hold
+  # at log_it's entry.
+  def test_runner_infers_method_entry_facts_from_runner
+    in_tmpdir do
+      write("sig/me.rbs", ME_RBS)
+      write("app/me.rb", ME_RUBY)
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+      facts = reparsed.lookup_method_entry_facts("MEController", :log_it)
+      refute_nil facts, "log_it should get authenticate_user's facts at entry"
+      assert_equal "::User", facts[:self_methods][:current_user].to_s
+      assert_equal "::User", facts[:consts]["Current.user"].to_s
+    end
+  end
+
+  TC_RBS = <<~RBS
+    class User
+      def full_name: () -> String
+    end
+
+    class Current
+      def self.user: () -> User?
+      def self.user=: (User?) -> User?
+      def self.author_name: () -> String?
+      def self.instance: () -> Current
+      def user=: (User?) -> void
+      def author_name=: (String?) -> String?
+    end
+
+    class TCHost
+      @halted: bool
+      def current_user: () -> User?
+      def redirect_to: () -> void
+      def authenticate_user: () -> void
+    end
+  RBS
+
+  TC_RUBY = <<~RUBY
+    class Current
+      def user=(value)
+        @user = value
+        self.author_name = value&.full_name
+      end
+      def self.user=(value)
+        @user = value
+        instance.user = value
+      end
+    end
+
+    class TCHost
+      def redirect_to
+        @halted = true
+      end
+      def authenticate_user
+        unless current_user
+          redirect_to
+          return
+        end
+        Current.user = current_user
+      end
+    end
+  RUBY
+
+  # felixefelip/steep#68 item 5: `Current.user = <non-nil>` also proves
+  # `Current.author_name`, because the (delegated) instance setter establishes it.
+  def test_runner_expands_transitive_const_returns
+    in_tmpdir do
+      write("sig/tc.rbs", TC_RBS)
+      write("app/tc.rb", TC_RUBY)
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+      entry = reparsed.lookup_instance("TCHost", :authenticate_user)
+      refute_nil entry
+      assert entry.conditional_const_returns.key?("Current.user")
+      author = entry.conditional_const_returns["Current.author_name"]
+      refute_nil author, "the setter's establishment should promote to a const return"
+      assert_equal "::String", author[:type].to_s
+    end
+  end
+
   def test_runner_is_idempotent
     in_tmpdir do
       write("sig/company.rbs", FIXTURE_RBS)

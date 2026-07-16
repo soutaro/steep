@@ -5402,6 +5402,80 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_postconditions__method_entry_facts_narrow_inside_body
+    # felixefelip/steep#68 item 4. A `method_entry_facts` entry (inferred from a
+    # runner that shows `log_it` runs after the guard) narrows `Current.user`
+    # and `current_user` UNCONDITIONALLY at `log_it`'s entry, so reads inside its
+    # body typecheck. A method with no entry facts (`orphan`) still errors.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class MEHost
+            def current_user: () -> User?
+            def log_it: () -> void
+            def orphan: () -> void
+          end
+
+          class Current
+            def self.user: () -> User?
+          end
+
+          class User
+            def id: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class MEHost
+            def current_user
+              _ = nil
+            end
+
+            def log_it
+              current_user.id
+              Current.user.id
+            end
+
+            def orphan
+              Current.user.id
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([]).then { |_|
+        Steep::Postconditions::Store.from_hash(
+          {
+            "method_entry_facts" => [
+              {
+                "class" => "MEHost",
+                "method" => "log_it",
+                "self_methods" => { "current_user" => "::User" },
+                "consts" => { "Current.user" => "::User" }
+              }
+            ]
+          },
+          source: "test"
+        )
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 12
+                character: 17
+              end:
+                line: 12
+                character: 19
+            severity: ERROR
+            message: Type `(::User | nil)` does not have method `id`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_postconditions__update_refines_receiver
     run_type_check_test(
       signatures: {
