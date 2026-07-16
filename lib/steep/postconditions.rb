@@ -115,6 +115,8 @@ module Steep
       # { method_sym => { gate_ivar: Symbol, type: RBS::Types::t } } — self-methods
       # proven non-nil while `gate_ivar` is falsy.
       attr_reader :returns_ivar, :conditional_returns
+      # felixefelip/steep#68 item 3: { "Const.attr" => { gate_ivar:, type: } }.
+      attr_reader :conditional_const_returns
 
       def self.parse(row, source:)
         return nil unless row.is_a?(Hash)
@@ -127,6 +129,7 @@ module Steep
         may_write = parse_may_write(row["effects"])
         returns_ivar = parse_returns_ivar(row["effects"])
         conditional_returns = parse_conditional_returns(row["conditional_returns"], source: source)
+        conditional_const_returns = parse_conditional_const_returns(row["conditional_const_returns"], source: source)
         # `unconditional:` fires at every call site of the method, with no
         # regard for whether the return value is used as a guard. Carries
         # the same shape as `when_true`/`when_false` (`self`, `via_receiver`,
@@ -141,7 +144,7 @@ module Steep
         #     another caller ivar.
         unconditional = Branch.parse(row["unconditional"], source: source)
         return nil unless when_true || when_false || unconditional || may_write.any? ||
-                          returns_ivar || conditional_returns.any?
+                          returns_ivar || conditional_returns.any? || conditional_const_returns.any?
 
         new(
           class_name: klass.to_s,
@@ -151,7 +154,8 @@ module Steep
           unconditional: unconditional,
           may_write_ivars: may_write,
           returns_ivar: returns_ivar,
-          conditional_returns: conditional_returns
+          conditional_returns: conditional_returns,
+          conditional_const_returns: conditional_const_returns
         )
       end
 
@@ -192,7 +196,33 @@ module Steep
         end
       end
 
-      def initialize(class_name:, method_name:, when_true:, when_false:, unconditional: nil, may_write_ivars: Set[], returns_ivar: nil, conditional_returns: {})
+      # felixefelip/steep#68 item 3. Same shape, but keyed by the `"Const.attr"`
+      # path string (a constant read, not a self-method symbol):
+      #
+      #   conditional_const_returns:
+      #     Current.user: { gate_ivar: "@__rbs_infer__performed", type: "::User" }
+      def self.parse_conditional_const_returns(raw, source:)
+        return {} unless raw.is_a?(Hash)
+
+        raw.each_with_object({}) do |(path, spec), acc|
+          next unless spec.is_a?(Hash)
+          gate = spec["gate_ivar"]
+          type_str = spec["type"]
+          next unless path.is_a?(String) && gate.is_a?(String) && gate.start_with?("@") && type_str.is_a?(String)
+
+          type = begin
+                   RBS::Parser.parse_type(type_str)
+                 rescue StandardError => e
+                   Steep.logger.warn { "[postconditions] bad conditional_const_returns type #{type_str.inspect} (#{source}): #{e.message}" }
+                   nil
+                 end
+          next unless type
+
+          acc[path] = { gate_ivar: gate.to_sym, type: type }
+        end
+      end
+
+      def initialize(class_name:, method_name:, when_true:, when_false:, unconditional: nil, may_write_ivars: Set[], returns_ivar: nil, conditional_returns: {}, conditional_const_returns: {})
         @class_name = class_name
         @method_name = method_name
         @when_true = when_true
@@ -201,6 +231,7 @@ module Steep
         @may_write_ivars = may_write_ivars
         @returns_ivar = returns_ivar
         @conditional_returns = conditional_returns
+        @conditional_const_returns = conditional_const_returns
       end
     end
 

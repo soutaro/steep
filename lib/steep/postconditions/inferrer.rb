@@ -50,8 +50,10 @@ module Steep
           self_call_deps = collect_self_call_deps(def_node)
           returns_ivar = collect_returns_ivar(def_node, class_name, singleton: singleton)
           conditional_returns = collect_conditional_returns(def_node, class_name, singleton: singleton)
+          conditional_const_returns = collect_conditional_const_returns(def_node)
           if ivars.empty? && when_true_ivars.empty? && returns_establishes.empty? &&
-             may_write.empty? && self_call_deps.empty? && returns_ivar.nil? && conditional_returns.empty?
+             may_write.empty? && self_call_deps.empty? && returns_ivar.nil? &&
+             conditional_returns.empty? && conditional_const_returns.empty?
             next
           end
 
@@ -71,7 +73,8 @@ module Steep
             may_write_ivars: may_write,
             self_call_deps: self_call_deps,
             returns_ivar: returns_ivar,
-            conditional_returns: conditional_returns
+            conditional_returns: conditional_returns,
+            conditional_const_returns: conditional_const_returns
           )
         end
         results
@@ -421,6 +424,84 @@ module Steep
         result
       end
 
+      # felixefelip/steep#68 (item 3) — the constant-rooted proof. A guard that
+      # halts, then writes a non-nil value to a constant attribute:
+      #
+      #   def authenticate_user
+      #     unless current_user
+      #       redirect_to        # halts => gate @performed
+      #       return
+      #     end
+      #     Current.user = current_user   # top-level, non-nil (past the guard)
+      #   end
+      #
+      # proves `Current.user` non-nil on the unhalted exit, gated by the same
+      # halt ivar as the self-method case. Keyed by the `"Const.attr"` path.
+      #
+      # => Hash[String, { gate_ivar: Symbol?, gate_via: Symbol?, type: }]
+      def collect_conditional_const_returns(def_node)
+        body = def_node.children[2]
+        return {} unless body
+
+        gate = method_halt_gate(body) or return {}
+
+        result = {} #: Hash[String, untyped]
+        each_statement(body) do |stmt|
+          write = const_attr_write(stmt) or next
+          const_path, rhs = write
+          next if result.key?(const_path)
+
+          type = nonnil_value_type(rhs) or next
+          result[const_path] = gate.merge(type: type)
+        end
+        result
+      end
+
+      # The halt gate of a method: the gate of the first top-level guard-clause
+      # that halts and returns. Independent of what the clause's condition tests
+      # — item 3's write isn't in the clause, it just shares the exit gate.
+      def method_halt_gate(body)
+        each_statement(body) do |stmt|
+          next unless stmt.is_a?(Parser::AST::Node) && stmt.type == :if
+
+          _, true_clause, false_clause = stmt.children
+          abort_clause = true_clause || false_clause
+          next unless abort_clause && (true_clause.nil? ^ false_clause.nil?)
+          next unless clause_returns?(abort_clause)
+
+          gate = halting_gate(abort_clause) and return gate
+        end
+        nil
+      end
+
+      # `Current.user = <rhs>` => `["Current.user", rhs_node]`, else nil. The
+      # receiver must be a constant (self/ivar writes are items 1/2's job).
+      def const_attr_write(node)
+        return nil unless node.is_a?(Parser::AST::Node) && node.type == :send
+
+        method = node.children[1]
+        return nil unless method.to_s.end_with?("=") && method != :==
+
+        receiver = node.children[0]
+        return nil unless receiver.is_a?(Parser::AST::Node) && receiver.type == :const
+
+        const_name = extract_const_name(receiver) or return nil
+        rhs = node.children[2] or return nil
+
+        ["#{const_name}.#{method.to_s.chomp("=")}", rhs]
+      end
+
+      # The type of a written value, only when it is provably non-nil at that
+      # point (so `Current.user` can be asserted present). A nilable or untyped
+      # RHS yields nil — nothing is proven.
+      def nonnil_value_type(rhs)
+        type = type_of(rhs) or return nil
+        return nil if type.is_a?(AST::Types::Any)
+        return nil unless subtract_nil(type) == type # already nil-free
+
+        type
+      end
+
       # Matches `unless <self.method>; <halts>; return; end` (or the
       # `if !<self.method>` spelling) and returns `[method, gate]`, where `gate`
       # is `{ gate_ivar: }` or `{ gate_via: }`. The aborting branch must both
@@ -582,8 +663,11 @@ module Steep
       # { method => { gate_ivar:, type: } } self-methods proven non-nil on the
       # unhalted exit, gated by the ivar's falsy state.
       attr_reader :returns_ivar, :conditional_returns
+      # felixefelip/steep#68 item 3: { "Const.attr" => { gate_ivar:, type: } } —
+      # constant attributes proven non-nil on the unhalted exit.
+      attr_reader :conditional_const_returns
 
-      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil, returns_establishes: [], may_write_ivars: Set[], self_call_deps: Set[], returns_ivar: nil, conditional_returns: {})
+      def initialize(class_name:, method_name:, singleton:, ivars: {}, self_type_string: nil, when_true_ivars: {}, when_true_self_type_string: nil, returns_establishes: [], may_write_ivars: Set[], self_call_deps: Set[], returns_ivar: nil, conditional_returns: {}, conditional_const_returns: {})
         @class_name = class_name
         @method_name = method_name
         @singleton = singleton
@@ -596,6 +680,7 @@ module Steep
         @self_call_deps = self_call_deps
         @returns_ivar = returns_ivar
         @conditional_returns = conditional_returns
+        @conditional_const_returns = conditional_const_returns
       end
 
       # A copy with `may_write_ivars` replaced — the Runner's fixpoint result.
@@ -606,7 +691,8 @@ module Steep
           when_true_ivars: when_true_ivars, when_true_self_type_string: when_true_self_type_string,
           returns_establishes: returns_establishes,
           may_write_ivars: ivars, self_call_deps: self_call_deps,
-          returns_ivar: returns_ivar, conditional_returns: conditional_returns
+          returns_ivar: returns_ivar, conditional_returns: conditional_returns,
+          conditional_const_returns: conditional_const_returns
         )
       end
 
@@ -615,7 +701,8 @@ module Steep
       # the fixpoint.
       def empty?
         ivars.empty? && when_true_ivars.empty? && returns_establishes.empty? &&
-          may_write_ivars.empty? && returns_ivar.nil? && conditional_returns.empty?
+          may_write_ivars.empty? && returns_ivar.nil? && conditional_returns.empty? &&
+          conditional_const_returns.empty?
       end
 
       def ==(other)

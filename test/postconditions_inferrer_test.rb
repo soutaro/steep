@@ -425,6 +425,11 @@ class PostconditionsInferrerTest < Minitest::Test
     class User
     end
 
+    class Current
+      def self.user: () -> User?
+      def self.user=: (User?) -> User?
+    end
+
     class CRGuardHost
       @halted: bool
 
@@ -489,6 +494,47 @@ class PostconditionsInferrerTest < Minitest::Test
     refute_nil spec
     assert_nil spec[:gate_ivar]
     assert_equal :redirect_to, spec[:gate_via]
+  end
+
+  def test_infers_conditional_const_return_from_guarded_write
+    # felixefelip/steep#68 item 3. `unless current_user; halt; return; end`
+    # followed by a top-level `Current.user = current_user` (non-nil past the
+    # guard) proves `Current.user` non-nil on the unhalted exit.
+    entries = infer_cr_for(<<~RUBY)
+      class CRGuardHost
+        def authenticate_user
+          unless current_user
+            redirect_to
+            return
+          end
+          Current.user = current_user
+        end
+      end
+    RUBY
+
+    spec = entries.find { |e| e.method_name == :authenticate_user }.conditional_const_returns["Current.user"]
+    refute_nil spec, "expected a conditional const return for Current.user"
+    assert_equal :redirect_to, spec[:gate_via]
+    assert_equal "::User", spec[:type].to_s
+  end
+
+  def test_no_conditional_const_return_for_nilable_write
+    # `Current.user = current_user` BEFORE proving `current_user` present — the
+    # written value is nilable, so nothing about `Current.user` is proven.
+    entries = infer_cr_for(<<~RUBY)
+      class CRGuardHost
+        def authenticate_user
+          Current.user = current_user
+          unless current_user
+            redirect_to
+            return
+          end
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :authenticate_user }
+    assert(entry.nil? || entry.conditional_const_returns.empty?)
   end
 
   def test_no_conditional_return_without_return_in_guard

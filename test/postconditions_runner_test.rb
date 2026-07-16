@@ -227,6 +227,65 @@ class PostconditionsRunnerTest < Minitest::Test
     end
   RUBY
 
+  CC_RBS = <<~RBS
+    class User
+    end
+
+    class Current
+      def self.user: () -> User?
+      def self.user=: (User?) -> User?
+    end
+
+    class CCBase
+      @halted: bool
+      def redirect_to: () -> void
+    end
+
+    class CCController < CCBase
+      def current_user: () -> User?
+      def authenticate_user: () -> void
+    end
+  RBS
+
+  CC_RUBY = <<~RUBY
+    class CCBase
+      def redirect_to
+        @halted = true
+      end
+    end
+
+    class CCController < CCBase
+      def authenticate_user
+        unless current_user
+          redirect_to
+          return
+        end
+        Current.user = current_user
+      end
+    end
+  RUBY
+
+  # felixefelip/steep#68 item 3: the constant-attribute fact round-trips and its
+  # gate resolves through the inherited `redirect_to`, like the self-method one.
+  def test_runner_serializes_conditional_const_return
+    in_tmpdir do
+      write("sig/cc.rbs", CC_RBS)
+      write("app/cc.rb", CC_RUBY)
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+      entry = reparsed.lookup_instance("CCController", :authenticate_user)
+      refute_nil entry
+      spec = entry.conditional_const_returns["Current.user"]
+      refute_nil spec, "constant conditional return should survive gate resolution"
+      assert_equal :@halted, spec[:gate_ivar]
+      assert_equal "::User", spec[:type].to_s
+    end
+  end
+
   def test_runner_resolves_conditional_return_gate_through_inheritance
     in_tmpdir do
       write("sig/cr.rbs", CR_RBS)

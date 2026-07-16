@@ -5303,6 +5303,105 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_postconditions__conditional_const_return_narrows_past_halt_check
+    # felixefelip/steep#68 item 3. `authenticate_user` writes `Current.user =`
+    # a non-nil value on its unhalted exit (`conditional_const_returns`, gated by
+    # `@halted`). After `authenticate_user; return if performed?`, a read of the
+    # constant attribute `Current.user` narrows to `User`; without the guard it
+    # stays nilable and errors.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class CCHost
+            @halted: bool
+
+            def current_user: () -> User?
+            def redirect_to: () -> void
+            def performed?: () -> bool
+            def authenticate_user: () -> void
+            def guarded: () -> void
+            def unguarded: () -> void
+          end
+
+          class Current
+            def self.user: () -> User?
+            def self.user=: (User?) -> User?
+          end
+
+          class User
+            def id: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class CCHost
+            def current_user
+              User.new if @halted
+            end
+
+            def redirect_to
+              @halted = true
+            end
+
+            def performed?
+              @halted
+            end
+
+            def authenticate_user
+              unless current_user
+                redirect_to
+                return
+              end
+              Current.user = current_user
+            end
+
+            def guarded
+              authenticate_user
+              return if performed?
+
+              Current.user.id
+            end
+
+            def unguarded
+              authenticate_user
+              Current.user.id
+            end
+          end
+        RUBY
+      },
+      postconditions: postconditions_store([
+        {
+          "class" => "CCHost",
+          "method" => "performed?",
+          "effects" => { "returns_ivar" => "@halted" }
+        },
+        {
+          "class" => "CCHost",
+          "method" => "authenticate_user",
+          "conditional_const_returns" => {
+            "Current.user" => { "gate_ivar" => "@halted", "type" => "::User" }
+          }
+        }
+      ]),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 31
+                character: 17
+              end:
+                line: 31
+                character: 19
+            severity: ERROR
+            message: Type `(::User | nil)` does not have method `id`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_postconditions__update_refines_receiver
     run_type_check_test(
       signatures: {

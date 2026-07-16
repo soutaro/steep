@@ -87,6 +87,16 @@ module Steep
             }
           end
         end
+        # felixefelip/steep#68 item 3: constant attributes proven non-nil on the
+        # unhalted exit, keyed by the `Const.attr` path.
+        unless entry.conditional_const_returns.empty?
+          row["conditional_const_returns"] = entry.conditional_const_returns.sort.each_with_object({}) do |(path, spec), acc|
+            acc[path] = {
+              "gate_ivar" => spec[:gate_ivar].to_s,
+              "type" => spec[:type].to_s
+            }
+          end
+        end
         unless entry.when_true_ivars.empty?
           row["when_true"] = serialize_branch(
             ivars: entry.when_true_ivars,

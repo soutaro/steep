@@ -3538,6 +3538,16 @@ module Steep
               constr.add_typing(node, type: narrowed)
             end
 
+            # felixefelip/steep#68 (item 3): the same APPLY, but for a read of a
+            # constant attribute (`Current.user`) rather than a self-method — the
+            # fact came from a `Const.attr = <non-nil>` write in the guard.
+            if (spec = constr.conditional_const_return_spec(node, receiver)) &&
+                constr.ivar_known_falsy?(spec.fetch(:gate_ivar))
+              narrowed = spec.fetch(:type)
+              call = call.with_return_type(narrowed)
+              constr.add_typing(node, type: narrowed)
+            end
+
             if (pure_call, type = constr.context.type_env.pure_method_calls.fetch(node, nil))
               if type
                 call = pure_call.update(node: node, return_type: type)
@@ -4011,13 +4021,21 @@ module Steep
       return self unless self_receiver_for_attr?(receiver)
 
       entry = lookup_unconditional_postcondition_entry(call)
-      return self unless entry && !entry.conditional_returns.empty?
+      return self unless entry
+      return self if entry.conditional_returns.empty? && entry.conditional_const_returns.empty?
 
       constr = self
       entry.conditional_returns.each do |method, spec|
         type = checker.factory.type(spec.fetch(:type)) rescue next
         constr = constr.update_type_env do |env|
           env.with_conditional_method_return(method, gate_ivar: spec.fetch(:gate_ivar), type: type)
+        end
+      end
+      # item 3: constant-attribute facts (`Current.user`), keyed by path string.
+      entry.conditional_const_returns.each do |path, spec|
+        type = checker.factory.type(spec.fetch(:type)) rescue next
+        constr = constr.update_type_env do |env|
+          env.with_conditional_const_return(path, gate_ivar: spec.fetch(:gate_ivar), type: type)
         end
       end
       constr
@@ -4031,6 +4049,24 @@ module Steep
       call.method_decls.filter_map do |decl|
         context.type_env.conditional_method_returns[decl.method_name.method_name]
       end.first
+    end
+
+    # felixefelip/steep#68 item 3 — APPLY (lookup half). The recorded
+    # constant conditional-return for a `Const.attr` read node, or nil. The
+    # receiver must be a bare constant (`Current`), so the path is unambiguous.
+    def conditional_const_return_spec(node, receiver)
+      return nil if context.type_env.conditional_const_returns.empty?
+      return nil unless node.type == :send
+      return nil unless receiver.is_a?(::Parser::AST::Node) && receiver.type == :const
+
+      const_name = RBS::TypeName.parse(constant_path_string(receiver)) rescue (return nil)
+      context.type_env.conditional_const_returns["#{const_name.to_s.sub(/\A::/, "")}.#{node.children[1]}"]
+    end
+
+    # `(:const nil :Current)` / `(:const (:const nil :A) :B)` => "Current" / "A::B".
+    def constant_path_string(node)
+      parent, name = node.children
+      parent ? "#{constant_path_string(parent)}::#{name}" : name.to_s
     end
 
     # Whether `ivar` is currently narrowed to a type with no truthy inhabitant

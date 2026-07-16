@@ -90,20 +90,26 @@ module Steep
         # method actually writes, now that the may-write closure is known. A gate
         # that resolves to no ivar (the "halt" didn't write anything) is dropped.
         resolved.each_value do |entry|
-          entry.conditional_returns.each do |method, spec|
-            next if spec[:gate_ivar]
-
-            via = spec[:gate_via] or next
-            # `redirect_to` may be inherited, so resolve its OWNER from the
-            # self-call edges (item 1 already keyed those by declaring class),
-            # then read that method's may-write closure.
-            dep = entry.self_call_deps.find { |d| d.end_with?("##{via}") }
-            spec[:gate_ivar] = dep && effects[dep]&.first
-          end
-          entry.conditional_returns.reject! { |_, spec| spec[:gate_ivar].nil? }
+          resolve_gates!(entry.conditional_returns, entry, effects)
+          resolve_gates!(entry.conditional_const_returns, entry, effects)
         end
 
         resolved.values.reject(&:empty?)
+      end
+
+      # Resolve each spec whose gate is expressed `via` a self-method to the ivar
+      # that method actually writes (via item 1's self-call edges, which carry
+      # the declaring class so an inherited `redirect_to` resolves correctly),
+      # then drop any spec left without a gate ivar.
+      def resolve_gates!(specs, entry, effects)
+        specs.each_value do |spec|
+          next if spec[:gate_ivar]
+
+          via = spec[:gate_via] or next
+          dep = entry.self_call_deps.find { |d| d.end_with?("##{via}") }
+          spec[:gate_ivar] = dep && effects[dep]&.first
+        end
+        specs.reject! { |_, spec| spec[:gate_ivar].nil? }
       end
 
       def key_of(entry)
@@ -190,7 +196,8 @@ module Steep
               may_write_ivars: existing.may_write_ivars | entry.may_write_ivars,
               self_call_deps: existing.self_call_deps | entry.self_call_deps,
               returns_ivar: existing.returns_ivar || entry.returns_ivar,
-              conditional_returns: existing.conditional_returns.merge(entry.conditional_returns)
+              conditional_returns: existing.conditional_returns.merge(entry.conditional_returns),
+              conditional_const_returns: existing.conditional_const_returns.merge(entry.conditional_const_returns)
             )
           else
             by_key[key] = entry
