@@ -6605,8 +6605,13 @@ module Steep
       when AST::Types::Name::Instance
         [receiver_type.name]
       when AST::Types::Self
+        # `self_type` may itself be a marker-refined intersection
+        # (`TagDestroy & TagDestroy::AfterTestNokogiri`) after a postcondition
+        # narrowed self at a preceding self-call — decompose it the same way an
+        # explicit intersection receiver is, so a subsequent contracted
+        # self-call is still recognized as a call site (felixefelip/rbs_infer#71).
         st = self_type
-        st.is_a?(AST::Types::Name::Instance) ? [st.name] : []
+        st.is_a?(AST::Types::Self) ? [] : precondition_target_type_names(st)
       when AST::Types::Intersection
         # A marker-refined receiver such as `(Post & Post::Validated)`: the
         # contract lives on the base class, while the nested marker only refines
@@ -6636,10 +6641,15 @@ module Steep
         # No flow fact cached the read. Fall back to the receiver's static type:
         # a marker-refined receiver (e.g. `(Post & Post::Validated)`) can already
         # guarantee `receiver.attr` is non-nil through the marker's refined return
-        # type, even though the bare class types it nilable. Only meaningful at an
-        # explicit-receiver call site (`base_receiver` set) — for a `self` call
-        # inside the body the enclosing-contract path handles propagation.
-        next false unless base_receiver
+        # type, even though the bare class types it nilable. This covers both an
+        # explicit aliased receiver (`base_receiver` set, felixefelip/steep#62)
+        # and a `self` call whose `self` a preceding postcondition narrowed to a
+        # marker intersection (`self` is `X & X::AfterFoo`, so `self.attr` types
+        # non-nil through the marker) — the read that establishes it lives in a
+        # different method, so nothing cached a flow fact here
+        # (felixefelip/rbs_infer#71). When `self` is unrefined, the synthesized
+        # `self.attr` is still nilable and this returns false, so a genuinely
+        # unestablished self-call is left to propagate to the enclosing contract.
         contract_send_type_non_nil?(built)
       end
     end

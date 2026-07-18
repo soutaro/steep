@@ -358,6 +358,83 @@ class ContractsEnforcementTest < Minitest::Test
     end
   end
 
+  # felixefelip/rbs_infer#71 (full pipeline): a self-call whose `self` a
+  # *preceding postcondition* narrowed to a marker intersection — the real
+  # `TagDestroy` shape, with the `.steep_postconditions.yml` sidecar INFERRED by
+  # Steep (not hand-written). `set_xml` writes `@xml` non-nil, so the
+  # postconditions Runner infers `self` → `Widget & Widget::AfterSetXml`; `run`
+  # calls `set_xml` before `use_xml`, whose body dereferences `self.xml`. Through
+  # the postconditions Runner → contracts Runner + Enforcement → check, the
+  # inferred `not_nil xml` contract on `use_xml` must become enforced (its sole
+  # call site is satisfied by the marker), so the body narrows and `xml.nodes`
+  # type-checks. On the old code the intersection-self call site was neither
+  # recognized nor discharged, so `enforced` stayed false and `xml.nodes`
+  # surfaced a NoMethod. (`AfterSetXml` is declared in the RBS the way rbs_infer
+  # emits its marker classes; the inferrer names the marker to match.)
+  def test_enforced_when_sole_self_caller_establishes_via_postcondition_marker
+    in_tmpdir do
+      write("sig/marker_self.rbs", <<~RBS)
+        class XmlDoc
+          def nodes: () -> Array[Integer]
+        end
+
+        class Widget
+          attr_reader xml: XmlDoc?
+          def set_xml: () -> void
+          def use_xml: () -> Array[Integer]
+          def run: () -> void
+        end
+
+        class Widget::AfterSetXml
+          def xml: () -> XmlDoc
+        end
+      RBS
+      write("app/marker_self.rb", <<~RUBY)
+        class Widget
+          def set_xml
+            @xml = XmlDoc.new
+          end
+
+          def use_xml
+            xml.nodes
+          end
+
+          def run
+            set_xml
+            use_xml
+          end
+        end
+      RUBY
+
+      # Infer the postcondition sidecar with Steep itself, exactly as the real
+      # `steep check` pipeline does before contract inference.
+      pc_runner = Steep::Postconditions::Runner.new(setup_project(steepfile: STEEPFILE))
+      pc_runner.write(pc_runner.run)
+      reparsed = Steep::Postconditions::Store.from_hash(
+        YAML.safe_load(pc_runner.output_path.read), source: "<test>"
+      )
+      set_xml_pc = reparsed.lookup_instance("Widget", :set_xml)
+      refute_nil set_xml_pc, "expected a postcondition inferred for Widget#set_xml"
+      assert_equal "::Widget & ::Widget::AfterSetXml", set_xml_pc.unconditional.self_type_string,
+                   "the inferred marker name must match the RBS-declared marker class"
+
+      # Fresh project so `project.postconditions` loads the just-written sidecar.
+      project = setup_project(steepfile: STEEPFILE)
+
+      contracts = Contracts::Runner.run(project)
+      use_xml = contracts.find { |c| c.key == "Widget#use_xml" }
+      refute_nil use_xml, "expected a contract inferred for Widget#use_xml"
+      assert use_xml.enforced,
+             "run establishes @xml via set_xml's marker before use_xml → the sole self-call site is satisfied → enforced"
+
+      typing = type_check_file(project, "app/marker_self.rb", store_of(contracts))
+      assert_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
+                   "enforced contract narrows use_xml's body, so `xml.nodes` is clean"
+      assert_empty typing.errors.grep(Diagnostic::Ruby::PreconditionUnsatisfied),
+                   "run establishes the marker before use_xml → no PreconditionUnsatisfied"
+    end
+  end
+
   # felixefelip/steep#60: close a precondition across a constructor ivar-binding
   # and a `.new` argument site. `Proxy#probe` dereferences `self.owner.user`;
   # `owner` is `@owner`, bound in `initialize` to the constructor argument. When

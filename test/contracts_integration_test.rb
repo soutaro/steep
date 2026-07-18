@@ -130,6 +130,48 @@ class ContractsIntegrationTest < Minitest::Test
     end
   end
 
+  # felixefelip/rbs_infer#71: after a postcondition narrows `self` to a marker
+  # intersection (`Foo & Foo::AfterSet`, where the marker refines `name` to
+  # non-nil), a self-call to a contracted method the marker satisfies must be
+  # (a) recognized as a call site and (b) recorded as satisfied. Otherwise the
+  # contract's Enforcement never counts the site, `enforced` stays false, and
+  # the body is never narrowed — the `TagDestroy#parse_xml`-after-`test_nokogiri`
+  # case that motivated the fix.
+  def test_self_call_satisfied_by_marker_narrowed_self
+    marker_rbs = <<~RBS
+      class Foo
+        attr_reader name: String?
+        def use_name: () -> Integer
+      end
+
+      class Foo::AfterSet
+        attr_reader name: String
+      end
+    RBS
+
+    with_checker(marker_rbs) do |checker|
+      source = parse_ruby(<<~RUBY)
+        # @type self: ::Foo & ::Foo::AfterSet
+        def caller
+          use_name
+        end
+      RUBY
+
+      with_standard_construction(checker, source, contracts: use_name_contract) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_empty typing.errors.grep(Diagnostic::Ruby::PreconditionUnsatisfied),
+                     "marker-narrowed self proves self.name non-nil, so the self-call is satisfied"
+
+        observed = typing.contract_call_sites.select { |o| o[:key] == "Foo#use_name" }
+        assert_equal 1, observed.size,
+                     "the marker-narrowed self-call must be recognized as a contract call site"
+        assert observed.first[:satisfied],
+               "the marker must discharge the precondition at the call site"
+      end
+    end
+  end
+
   def test_no_contract_means_no_change_in_behavior
     with_checker(CONTRACT_RBS) do |checker|
       source = parse_ruby(<<~RUBY)
