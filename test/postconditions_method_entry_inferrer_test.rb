@@ -17,7 +17,21 @@ class PostconditionsMethodEntryInferrerTest < Minitest::Test
       def current_user_present?: () -> bool
       def index: () -> void
       def __rbs_infer__run_index: () -> void
+      def gate_flow: () -> void
       def helper: () -> void
+    end
+
+    class MFoo
+      def self.name: () -> String?
+      def self.name=: (String? value) -> void
+    end
+
+    class MBar
+      def foo_name: () -> String?
+    end
+
+    class MRun
+      def run: () -> void
     end
   RBS
 
@@ -47,15 +61,38 @@ class PostconditionsMethodEntryInferrerTest < Minitest::Test
     RUBY
 
     assert_equal 1, sequences.size
-    names = sequences[0].calls.map { |c| c[:method_name] }
+    calls = sequences[0].events.select { |e| e[:kind] == :call }
     # `authenticate_user`, `set_thing` (from `if cond`), `index` — the
     # `return if performed?` halt checks and the `current_user_present?`
     # condition are skipped.
-    assert_equal [:authenticate_user, :set_thing, :index], names
-    assert_equal "MEIController", sequences[0].calls.first[:class_name]
+    assert_equal [:authenticate_user, :set_thing, :index], calls.map { |c| c[:method_name] }
+    assert_equal "MEIController", calls.first[:class_name]
+    assert calls.all? { |c| c[:same_self] }, "self-send handlers are same-self"
   end
 
-  def test_ignores_non_runner_methods
+  def test_halt_check_makes_a_flow_regardless_of_method_name
+    # No `__rbs_infer__run_` name — the flow is recognized purely by the `return if performed?`
+    # halt structure (felixefelip/steep#78, `RUNNER_PREFIX` removed).
+    sequences = sequences_for(<<~RUBY)
+      class MEIController
+        def gate_flow
+          authenticate_user
+          return if performed?
+          index
+        end
+      end
+    RUBY
+
+    assert_equal 1, sequences.size
+    kinds = sequences[0].events.map { |e| e[:kind] }
+    assert_includes kinds, :halt, "the `return if performed?` is a halt event"
+    calls = sequences[0].events.select { |e| e[:kind] == :call }.map { |c| c[:method_name] }
+    assert_equal [:authenticate_user, :index], calls
+  end
+
+  def test_ignores_ordinary_method_without_const_write
+    # A plain method with only self-calls and no constant write is not a runner and carries no
+    # #78 const-flow — no sequence.
     sequences = sequences_for(<<~RUBY)
       class MEIController
         def helper
@@ -66,5 +103,49 @@ class PostconditionsMethodEntryInferrerTest < Minitest::Test
     RUBY
 
     assert_empty sequences
+  end
+
+  def test_plain_flow_const_write_then_cross_object_call
+    sequences = sequences_for(<<~RUBY)
+      class MRun
+        def run
+          MFoo.name = "x"
+          MBar.new.foo_name
+        end
+      end
+    RUBY
+
+    assert_equal 1, sequences.size
+    events = sequences[0].events
+
+    # The const-write comes first, before any call event.
+    assert_equal :const_write, events[0][:kind]
+    assert_equal "MFoo", events[0][:base]
+    assert_equal "name", events[0][:attr]
+    assert events[0][:nonnil], "a String literal RHS is non-nil"
+
+    # `MBar.new.foo_name` records `foo_name` (the chain walk reaches it even though `.new` is
+    # its receiver), as a cross-object call.
+    foo = events.find { |e| e[:kind] == :call && e[:method_name] == :foo_name }
+    refute_nil foo
+    assert_equal "MBar", foo[:class_name]
+    refute foo[:same_self], "an instance-receiver call is cross-object"
+  end
+
+  def test_nilable_const_write_is_not_nonnil
+    sequences = sequences_for(<<~RUBY)
+      class MRun
+        def run
+          # @type var maybe: ::String?
+          maybe = nil
+          MFoo.name = maybe
+          MBar.new.foo_name
+        end
+      end
+    RUBY
+
+    const_write = sequences[0].events.find { |e| e[:kind] == :const_write }
+    refute_nil const_write
+    refute const_write[:nonnil], "a nilable RHS establishes nothing (invalidates instead)"
   end
 end

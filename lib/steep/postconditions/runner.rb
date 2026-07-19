@@ -31,6 +31,7 @@ module Steep
       def run
         entries = []
         @sequences = [] #: Array[MethodEntryInferrer::RunnerSequence]
+        @defined_method_keys = Set.new #: Set[String]
         @project.targets.each do |target|
           target_entries, target_sequences = infer_for_target(target)
           entries.concat(target_entries)
@@ -235,6 +236,7 @@ module Steep
 
           out.concat(Inferrer.infer(source, typing, subtyping))
           sequences.concat(MethodEntryInferrer.sequences(source, typing))
+          @defined_method_keys.merge(MethodEntryInferrer.defined_method_keys(source))
         end
 
         [out, sequences]
@@ -253,22 +255,53 @@ module Steep
 
         sequences.each do |sequence|
           accumulated = { self_methods: {}, consts: {} } #: Hash[Symbol, Hash[untyped, String]]
+          pending_guards = [] #: Array[[untyped, bool]]
 
-          sequence.calls.each do |call|
-            key = "#{call[:class_name]}##{call[:method_name]}"
-            record_entry_facts(per_method, seen, key, accumulated)
-            accumulate_guard_facts(accumulated, by_key[key])
+          sequence.events.each do |event|
+            case event[:kind]
+            when :call
+              key = "#{event[:class_name]}##{event[:method_name]}"
+              entry = by_key[key]
+              # A transparent halt-ivar getter (`def performed?; @halted; end`, `returns_ivar`)
+              # is a predicate, not a fact-producing handler — the tool-neutral replacement for
+              # the old `HALT_CHECK = :performed?` name-match (felixefelip/steep#78).
+              next if halt_predicate?(entry)
+              record_entry_facts(per_method, seen, key, accumulated, same_self: event[:same_self])
+              # A call's guard facts (`conditional_*`) are proven only on its NON-halting exit,
+              # so they hold downstream only once a halt check has ruled out the halting exit.
+              # Hold them until a `:halt` promotes them.
+              pending_guards << [entry, event[:same_self]] if entry
+            when :halt
+              # Past the halt, the pending calls did NOT halt — promote their conditional facts.
+              pending_guards.each { |entry, same_self| accumulate_guard_facts(accumulated, entry, same_self: same_self) }
+              pending_guards.clear
+            when :const_write
+              apply_const_write_facts(accumulated, by_key, event)
+            end
           end
         end
 
+        # Keep only facts for methods whose bodies are re-type-checked from source (the only
+        # ones a fact can narrow). Drops the dead facts a chain walk records for builtin/stdlib
+        # calls (`String#upcase`, `Class#new`).
+        per_method.select! { |key, _| @defined_method_keys.include?(key) }
         per_method.reject { |_, facts| facts[:self_methods].empty? && facts[:consts].empty? }
       end
 
+      # A method that transparently returns an ivar is a predicate (a halt check like
+      # `performed?`), not a handler whose entry we track.
+      def halt_predicate?(entry)
+        entry ? !entry.returns_ivar.nil? : false
+      end
+
       # Merge `accumulated` into `key`'s entry facts — intersecting with any
-      # facts already recorded for `key` (from another runner), since a fact
-      # must hold on every path to be sound at entry.
-      def record_entry_facts(per_method, seen, key, accumulated)
-        snapshot = { self_methods: accumulated[:self_methods].dup, consts: accumulated[:consts].dup }
+      # facts already recorded for `key` (from another sequence), since a fact
+      # must hold on every path to be sound at entry. A cross-object call
+      # (`same_self: false`) carries only const (global) facts — the caller's
+      # `self`-method facts are about a different receiver.
+      def record_entry_facts(per_method, seen, key, accumulated, same_self: true)
+        self_methods = same_self ? accumulated[:self_methods] : {}
+        snapshot = { self_methods: self_methods.dup, consts: accumulated[:consts].dup }
         if seen[key]
           existing = per_method[key]
           existing[:self_methods] = intersect(existing[:self_methods], snapshot[:self_methods])
@@ -279,14 +312,35 @@ module Steep
         end
       end
 
-      def accumulate_guard_facts(accumulated, entry)
+      def accumulate_guard_facts(accumulated, entry, same_self: true)
         return unless entry
 
-        entry.conditional_returns.each do |method, spec|
-          accumulated[:self_methods][method] = spec.fetch(:type).to_s
+        if same_self
+          entry.conditional_returns.each do |method, spec|
+            accumulated[:self_methods][method] = spec.fetch(:type).to_s
+          end
         end
         entry.conditional_const_returns.each do |path, spec|
           accumulated[:consts][path] = spec.fetch(:type).to_s
+        end
+      end
+
+      # A `Const.attr = <rhs>` in the flow establishes (non-nil rhs) or invalidates (nilable
+      # rhs) every const the setter's `establishes_consts` proves — the sequence-level analogue
+      # of `TypeConstruction#apply_const_establishes_on_write` (felixefelip/steep#78). The setter
+      # entry is keyed the same whether instance (`#`) or singleton (`.`).
+      def apply_const_write_facts(accumulated, by_key, event)
+        base = event[:base]
+        setter = by_key["#{base}##{event[:attr]}="] || by_key["#{base}.#{event[:attr]}="]
+        return unless setter
+
+        setter.establishes_consts.each do |other, type|
+          path = "#{base}.#{other}"
+          if event[:nonnil]
+            accumulated[:consts][path] = type.to_s
+          else
+            accumulated[:consts].delete(path)
+          end
         end
       end
 
