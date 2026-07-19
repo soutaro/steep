@@ -221,4 +221,89 @@ class PostconditionsConstEstablishesTest < Minitest::Test
       end
     end
   end
+
+  # The memoized-singleton READ/WRITE path. A sibling attribute established
+  # non-nil at a `Foo.user = <non-nil>` write can be read back — and written —
+  # through the memoized accessor (`Foo.foo_instance.name`) as well as the
+  # constant path (`Foo.name`); `foo_instance` is a singleton accessor whose
+  # return type IS an instance of `Foo`, so both name the same slot. `name=`
+  # takes `String?` on both the singleton and instance so the nilable writes
+  # below type-check.
+  MEMOIZED_RBS = <<~RBS
+    class Foo
+      def self.foo_instance: () -> Foo
+      def self.name: () -> String?
+      def self.user=: (String value) -> void
+      def self.name=: (String? value) -> void
+      def name: () -> String?
+      def name=: (String? value) -> void
+    end
+  RBS
+
+  # The `(send (send (const nil :Foo) :foo_instance) :name)` read node.
+  def foo_instance_name_read_type(source, typing)
+    node = find_descendant(source.node) do |n|
+      n.type == :send && n.children[1] == :name &&
+        n.children[0].is_a?(::Parser::AST::Node) &&
+        n.children[0].type == :send && n.children[0].children[1] == :foo_instance
+    end
+    typing.type_of(node: node)
+  end
+
+  def test_read_narrows_sibling_through_memoized_accessor
+    with_checker(MEMOIZED_RBS) do |checker|
+      source = parse_ruby(<<~RUBY)
+        Foo.user = "x"
+        Foo.foo_instance.name
+      RUBY
+
+      with_standard_construction(checker, source, postconditions: establishes_name_store) do |construction, typing|
+        construction.synthesize(source.node)
+        t = foo_instance_name_read_type(source, typing)
+        assert_equal "::String", t.to_s,
+                     "after `Foo.user = <non-nil>`, `Foo.foo_instance.name` narrows to non-nil via the memoized accessor, same slot as `Foo.name`"
+      end
+    end
+  end
+
+  def test_nilable_write_through_accessor_invalidates
+    with_checker(MEMOIZED_RBS) do |checker|
+      source = parse_ruby(<<~RUBY)
+        # @type var maybe: ::String?
+        maybe = nil
+        Foo.user = "x"
+        Foo.foo_instance.name = maybe
+        Foo.name
+      RUBY
+
+      with_standard_construction(checker, source, postconditions: establishes_name_store) do |construction, typing|
+        construction.synthesize(source.node)
+        t = last_foo_name_type(source, typing)
+        assert_equal "(::String | nil)", t.to_s,
+                     "a nilable write through the memoized accessor (`Foo.foo_instance.name = maybe`) must invalidate the `Foo.name` fact established by the sibling `Foo.user =` write"
+      end
+    end
+  end
+
+  def test_nilable_write_to_sibling_established_attr_invalidates
+    # The written setter (`name=`) has NO establishes_consts of its own — the
+    # `name` fact was proven by the sibling `user=`. Invalidation keys on the
+    # WRITTEN attribute, so a `Foo.name = <nilable>` still drops it.
+    with_checker(MEMOIZED_RBS) do |checker|
+      source = parse_ruby(<<~RUBY)
+        # @type var maybe: ::String?
+        maybe = nil
+        Foo.user = "x"
+        Foo.name = maybe
+        Foo.name
+      RUBY
+
+      with_standard_construction(checker, source, postconditions: establishes_name_store) do |construction, typing|
+        construction.synthesize(source.node)
+        t = last_foo_name_type(source, typing)
+        assert_equal "(::String | nil)", t.to_s,
+                     "a nilable write to a sibling-established attr must invalidate it even when the attr's own setter establishes nothing"
+      end
+    end
+  end
 end
