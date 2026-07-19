@@ -3540,12 +3540,20 @@ module Steep
             #    by an earlier `return if performed?`), narrow this call's
             #    return type to the proven-present type.
             constr = constr.register_conditional_returns(call: call, receiver: receiver)
+            # Whether a postcondition FACT (items 2/3/4 below) narrowed this
+            # node's return type. Such a fact is proven at this exact program
+            # point and must survive the pure-method-call restoration below —
+            # otherwise a pure ivar getter (`def self.name; @name; end`) whose
+            # cached return type is the declared (widened) type would clobber it.
+            # felixefelip/steep#76.
+            fact_narrowed = false
             if self_receiver_for_attr?(receiver) &&
                 (spec = constr.conditional_return_spec(call)) &&
                 constr.ivar_known_falsy?(spec.fetch(:gate_ivar))
               narrowed = spec.fetch(:type)
               call = call.with_return_type(narrowed)
               constr.add_typing(node, type: narrowed)
+              fact_narrowed = true
             end
 
             # felixefelip/steep#68 (item 3): the same APPLY, but for a read of a
@@ -3556,6 +3564,7 @@ module Steep
               narrowed = spec.fetch(:type)
               call = call.with_return_type(narrowed)
               constr.add_typing(node, type: narrowed)
+              fact_narrowed = true
             end
 
             # felixefelip/steep#68 (item 4): the UNGATED apply of a fact the
@@ -3564,10 +3573,11 @@ module Steep
             if (narrowed = constr.method_entry_narrowed_type(node, receiver))
               call = call.with_return_type(narrowed)
               constr.add_typing(node, type: narrowed)
+              fact_narrowed = true
             end
 
             if (pure_call, type = constr.context.type_env.pure_method_calls.fetch(node, nil))
-              if type
+              if type && !fact_narrowed
                 call = pure_call.update(node: node, return_type: type)
                 constr.add_typing(node, type: call.return_type)
               end
@@ -4228,7 +4238,20 @@ module Steep
 
       last_arg = node.children.last
       return self unless last_arg.is_a?(::Parser::AST::Node) && typing.has_type?(last_arg)
-      return self if contract_nullable_type?(typing.type_of(node: last_arg))
+
+      paths = branch.const_establishes_rbs_types.keys.map { |attr| "#{base}.#{attr}" }
+
+      # A nilable/nil write to `Const.attr` invalidates the established non-nil
+      # facts this setter proves — otherwise a stale `Const.attr: NonNil` would
+      # survive a `Const.attr = nil` and mask the nil at a later read.
+      # felixefelip/steep#76 (RC3). Runs before the non-nil establishment below
+      # so the two writes never coexist for the same setter.
+      if contract_nullable_type?(typing.type_of(node: last_arg))
+        return self if paths.empty?
+        return update_type_env do |env|
+          env.update(unconditional_const_returns: env.unconditional_const_returns.reject { |k, _| paths.include?(k) })
+        end
+      end
 
       consts = {} #: Hash[String, AST::Types::t]
       branch.const_establishes_rbs_types.each do |attr, rbs_type|

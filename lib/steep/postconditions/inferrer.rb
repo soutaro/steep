@@ -477,20 +477,74 @@ module Steep
       # (`Current.author_name`) at each `Current.user = <non-nil>` write site.
       # => Hash[Symbol(attr), AST::Types::t]
       def collect_establishes_consts(def_node, singleton:)
-        return {} if singleton
         return {} unless def_node.children[0].to_s.end_with?("=") && def_node.children[0] != :==
 
         param = setter_param_name(def_node) or return {}
         body = def_node.children[2] or return {}
 
         result = {} #: Hash[Symbol, untyped]
-        walk_nodes(body) do |n|
-          write = self_attr_write(n) or next
-          attr, rhs = write
-          type = param_guarded_nonnil_type(rhs, param) or next
-          result[attr] = type
+
+        # Side-effect establishments — `self.<other> = <param>.<method>` writes a
+        # SIBLING attribute non-nil whenever the param is. Instance setters only:
+        # in a singleton body `self` is the class, so `self.<other> =` would key
+        # a different (singleton) attribute the runner's delegation gate doesn't
+        # cover.
+        unless singleton
+          walk_nodes(body) do |n|
+            write = self_attr_write(n) or next
+            attr, rhs = write
+            type = param_guarded_nonnil_type(rhs, param) or next
+            result[attr] = type
+          end
         end
+
+        # Own-attribute establishment — a setter `<attr>=` that writes its OWN
+        # backing with the (non-nil) param, via `super(<param>)` / bare `super`,
+        # `@<attr> = <param>`, or `self.<attr> = <param>`. Establishes `<attr>`
+        # at the param's non-nil type. Sound for both instance (delegated) and
+        # singleton setters because the consumer gates each establishment on the
+        # ACTUAL argument being non-nil at every `Const.<attr> = ...` site — so
+        # storing the non-nil type holds even when the param is declared nilable
+        # (a `Const.<attr> = nil` write establishes nothing). felixefelip/steep#76.
+        own_attr = def_node.children[0].to_s.chomp("=").to_sym
+        if (type = own_attribute_establishment_type(body, param, own_attr))
+          result[own_attr] ||= type
+        end
+
         result
+      end
+
+      # The param's non-nil type when the setter body writes its OWN attribute
+      # (`own_attr`) with the bare param — `super(<param>)` / `super`,
+      # `@<own_attr> = <param>`, or `self.<own_attr> = <param>` — else nil. Reads
+      # the param's type off whichever typed param-lvar node is present; bare
+      # `super` alone (no explicit param node to type) is not enough on its own.
+      def own_attribute_establishment_type(body, param, own_attr)
+        param_node = nil #: Parser::AST::Node?
+
+        walk_nodes(body) do |n|
+          case n.type
+          when :super
+            arg = n.children[0]
+            param_node ||= arg if param_lvar?(arg, param)
+          when :ivasgn
+            ivar, rhs = n.children
+            param_node ||= rhs if ivar == :"@#{own_attr}" && param_lvar?(rhs, param)
+          when :send
+            write = self_attr_write(n)
+            param_node ||= write[1] if write && write[0] == own_attr && param_lvar?(write[1], param)
+          end
+        end
+
+        return nil unless param_node
+
+        type = type_of(param_node) or return nil
+        return nil if type.is_a?(AST::Types::Any)
+        subtract_nil(type)
+      end
+
+      def param_lvar?(node, param)
+        node.is_a?(Parser::AST::Node) && node.type == :lvar && node.children[0] == param
       end
 
       # Whether a SINGLETON setter (`def self.user=(value)`) delegates to the

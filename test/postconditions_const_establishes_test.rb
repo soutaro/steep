@@ -154,6 +154,53 @@ class PostconditionsConstEstablishesTest < Minitest::Test
     end
   end
 
+  # felixefelip/steep#76 (RC3). An establishment for `Const.attr` is not
+  # monotonic: a LATER `Const.attr = <nilable>` write to the same attribute
+  # invalidates the earlier non-nil fact, so a read after it is nilable again.
+  OWN_RBS = <<~RBS
+    class Foo
+      def self.name: () -> String?
+      def self.name=: (String? value) -> void
+    end
+  RBS
+
+  def own_name_establishes_store
+    Postconditions::Store.from_hash(
+      {
+        "version" => 1,
+        "postconditions" => [
+          {
+            "class" => "Foo",
+            "method" => "name=",
+            "unconditional" => {
+              "establishes_consts" => { "name" => "::String" }
+            }
+          }
+        ]
+      },
+      source: "<test>"
+    )
+  end
+
+  def test_nilable_write_invalidates_earlier_establishment
+    with_checker(OWN_RBS) do |checker|
+      source = parse_ruby(<<~RUBY)
+        # @type var maybe: ::String?
+        maybe = nil
+        Foo.name = "x"
+        Foo.name = maybe
+        Foo.name
+      RUBY
+
+      with_standard_construction(checker, source, postconditions: own_name_establishes_store) do |construction, typing|
+        construction.synthesize(source.node)
+        t = last_foo_name_type(source, typing)
+        assert_equal "(::String | nil)", t.to_s,
+                     "a later `Foo.name = <nilable>` must invalidate the earlier establishment"
+      end
+    end
+  end
+
   def test_nil_write_does_not_establish
     with_checker(RBS) do |checker|
       # `Foo.user = nil` would be a type error against `(String)`, but the point

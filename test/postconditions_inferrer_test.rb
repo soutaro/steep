@@ -552,6 +552,41 @@ class PostconditionsInferrerTest < Minitest::Test
     assert singleton_setter.delegates_to_instance, "self.user= forwards to instance.user="
   end
 
+  def test_infers_own_attribute_establish_from_super
+    # felixefelip/steep#76 (RC1). A setter that forwards the param via `super`
+    # establishes its OWN attribute (`user`) at the param's non-nil type — the
+    # `attr_accessor` override pattern.
+    entries = infer_cr_for(<<~RUBY)
+      class Current
+        def user=(value)
+          super(value)
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :user= && !e.singleton }
+    refute_nil entry
+    assert_equal "::User", entry.establishes_consts[:user].to_s
+  end
+
+  def test_infers_own_attribute_establish_for_singleton_ivar_write
+    # felixefelip/steep#76 (RC1). A SINGLETON setter writing its own backing
+    # ivar (`def self.user=(value); @user = value; end`) establishes `user` at
+    # the param's non-nil type — the direct const-path accessor pattern
+    # (`Example4::Foo`).
+    entries = infer_cr_for(<<~RUBY)
+      class Current
+        def self.user=(value)
+          @user = value
+        end
+      end
+    RUBY
+
+    entry = entries.find { |e| e.method_name == :user= && e.singleton }
+    refute_nil entry
+    assert_equal "::User", entry.establishes_consts[:user].to_s
+  end
+
   def test_no_establishes_consts_for_nilable_derived_write
     # `self.author_name = value&.title` where `title` itself returns String? —
     # even with value non-nil the result is nilable, so nothing is established.
@@ -565,7 +600,13 @@ class PostconditionsInferrerTest < Minitest::Test
     RUBY
 
     entry = entries.find { |e| e.method_name == :user= && !e.singleton }
-    assert(entry.nil? || entry.establishes_consts.empty?)
+    # The DERIVED write `self.author_name = value&.maybe_name` is nilable-derived,
+    # so `author_name` is not established. The own-attribute `user` IS established
+    # from `@user = value` at the param's non-nil type — a separate, correct fact
+    # (felixefelip/steep#76).
+    refute_nil entry
+    refute entry.establishes_consts.key?(:author_name)
+    assert_equal "::User", entry.establishes_consts[:user].to_s
   end
 
   def test_no_conditional_const_return_for_nilable_write
