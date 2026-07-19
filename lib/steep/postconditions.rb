@@ -273,7 +273,7 @@ module Steep
     end
 
     class Branch
-      attr_reader :self_type_string, :via_receivers, :ivar_type_strings, :drops_type_strings, :returns_establishes
+      attr_reader :self_type_string, :via_receivers, :ivar_type_strings, :drops_type_strings, :returns_establishes, :const_establishes_type_strings
 
       def self.parse(raw, source:)
         return nil unless raw.is_a?(Hash)
@@ -282,14 +282,41 @@ module Steep
         ivars = parse_ivars(raw["ivars"], source: source)
         drops = parse_drops(raw["drops"], source: source)
         returns_establishes = parse_returns_establishes(raw["returns"], source: source)
+        const_establishes = parse_const_establishes(raw["establishes_consts"], source: source)
         has_content = (self_str.is_a?(String) && !self_str.empty?) ||
                       via_receivers.any? ||
                       ivars.any? ||
                       drops.any? ||
-                      returns_establishes.any?
+                      returns_establishes.any? ||
+                      const_establishes.any?
         return nil unless has_content
 
-        new(self_type_string: self_str, via_receivers: via_receivers, ivar_type_strings: ivars, drops_type_strings: drops, returns_establishes: returns_establishes)
+        new(self_type_string: self_str, via_receivers: via_receivers, ivar_type_strings: ivars, drops_type_strings: drops, returns_establishes: returns_establishes, const_establishes_type_strings: const_establishes)
+      end
+
+      # Parses the `establishes_consts:` payload — a hash mapping sibling
+      # attribute names (getters, no leading `@`) to RBS type strings, e.g.
+      # `{ "name" => "::String" }`. felixefelip/rbs_infer#71: calling this
+      # method (a singleton setter `Const.user=`) with a NON-NIL argument
+      # establishes each `Const.<attr>` non-nil — the memoized-singleton
+      # analog of `returns.establishes`, but the fact lands on the constant
+      # receiver of the write rather than on a returned value. Entries with
+      # non-string values or empty keys are dropped with a warn.
+      def self.parse_const_establishes(raw, source:)
+        return {} unless raw.is_a?(Hash)
+        result = {} #: Hash[Symbol, String]
+        raw.each do |name, type_str|
+          unless name.is_a?(String) && !name.empty? && !name.start_with?("@")
+            Steep.logger.warn { "[postconditions] establishes_consts: key must be a non-empty attribute name (no `@`), got #{name.inspect} (#{source})" }
+            next
+          end
+          unless type_str.is_a?(String) && !type_str.empty?
+            Steep.logger.warn { "[postconditions] establishes_consts: value must be a non-empty type string, got #{type_str.inspect} for #{name} (#{source})" }
+            next
+          end
+          result[name.to_sym] = type_str
+        end
+        result
       end
 
       # Parses the `returns:` payload — the return-value refinement
@@ -371,12 +398,26 @@ module Steep
         result
       end
 
-      def initialize(self_type_string:, via_receivers: [], ivar_type_strings: {}, drops_type_strings: [], returns_establishes: [])
+      def initialize(self_type_string:, via_receivers: [], ivar_type_strings: {}, drops_type_strings: [], returns_establishes: [], const_establishes_type_strings: {})
         @self_type_string = self_type_string
         @via_receivers = via_receivers
         @ivar_type_strings = ivar_type_strings
         @drops_type_strings = drops_type_strings
         @returns_establishes = returns_establishes
+        @const_establishes_type_strings = const_establishes_type_strings
+      end
+
+      # Lazy-parsed `Hash[Symbol, RBS::Types::t]` for the `establishes_consts:`
+      # slot. Cached; entries that fail to parse are dropped with a warning.
+      def const_establishes_rbs_types
+        return @const_establishes_rbs_types if defined?(@const_establishes_rbs_types)
+        @const_establishes_rbs_types = const_establishes_type_strings.each_with_object({}) do |(name, type_str), hash|
+          begin
+            hash[name] = RBS::Parser.parse_type(type_str)
+          rescue RBS::ParsingError => e
+            Steep.logger.warn { "[postconditions] failed to parse establishes_consts[#{name}] type #{type_str.inspect}: #{e.message}" }
+          end
+        end
       end
 
       # Parses the YAML `self:` payload into an `RBS::Types::t`. Cached so

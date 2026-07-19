@@ -52,7 +52,7 @@ module Steep
           conditional_returns = collect_conditional_returns(def_node, class_name, singleton: singleton)
           conditional_const_returns = collect_conditional_const_returns(def_node)
           establishes_consts = collect_establishes_consts(def_node, singleton: singleton)
-          delegates_to_instance = singleton_delegates_to_instance?(def_node, singleton: singleton)
+          delegates_to_instance = singleton_delegates_to_instance?(def_node, class_name, singleton: singleton)
           if ivars.empty? && when_true_ivars.empty? && returns_establishes.empty? &&
              may_write.empty? && self_call_deps.empty? && returns_ivar.nil? &&
              conditional_returns.empty? && conditional_const_returns.empty? &&
@@ -494,10 +494,10 @@ module Steep
       end
 
       # Whether a SINGLETON setter (`def self.user=(value)`) delegates to the
-      # instance one (`instance.user = value`) — the CurrentAttributes shape the
-      # rbs_infer generator emits. Only then is it sound to attribute the
-      # instance setter's establishments to a `Const.user =` write.
-      def singleton_delegates_to_instance?(def_node, singleton:)
+      # instance one (`instance.user = value`) over an instance of the enclosing
+      # class. Only then is it sound to attribute the instance setter's
+      # establishments to a `Const.user =` write.
+      def singleton_delegates_to_instance?(def_node, class_name, singleton:)
         return false unless singleton
         attr = def_node.children[0].to_s
         return false unless attr.end_with?("=")
@@ -506,10 +506,28 @@ module Steep
         found = false
         walk_nodes(body) do |n|
           next unless n.type == :send && n.children[1].to_s == attr
-          recv = n.children[0]
-          found = true if recv&.type == :send && recv.children[0].nil? && recv.children[1] == :instance
+          found = true if delegating_instance_receiver?(n.children[0], class_name)
         end
         found
+      end
+
+      # The receiver of a delegated setter call (`instance.user = value`) that
+      # stands in for an instance of the enclosing class. Two shapes:
+      #   - the Rails `CurrentAttributes` convention, a bare `instance` call; and
+      #   - any memoized singleton accessor (`foo_instance`, from
+      #     `@foo_instance ||= Foo.new`) whose resolved return type IS an
+      #     instance of `class_name`. It's the type, not the accessor's name,
+      #     that makes the delegation sound, so we read it off the typed node
+      #     rather than pattern-matching the `||=` body — a memoized accessor
+      #     under any name is recognized.
+      def delegating_instance_receiver?(recv, class_name)
+        return false unless recv.is_a?(Parser::AST::Node)
+        return false unless recv.type == :send && recv.children[0].nil?
+        return true if recv.children[1] == :instance
+
+        recv_type = type_of(recv) or return false
+        target = "::#{class_name}"
+        instance_type_names(subtract_nil(recv_type)).any? { |name| name.to_s == target }
       end
 
       def setter_param_name(def_node)
@@ -817,13 +835,30 @@ module Steep
         )
       end
 
+      # A copy with `establishes_consts` replaced — the Runner drops them when no
+      # delegating singleton setter confirms the write path (piece 1).
+      def with_establishes_consts(consts)
+        InferredEntry.new(
+          class_name: class_name, method_name: method_name, singleton: singleton,
+          ivars: ivars, self_type_string: self_type_string,
+          when_true_ivars: when_true_ivars, when_true_self_type_string: when_true_self_type_string,
+          returns_establishes: returns_establishes,
+          may_write_ivars: may_write_ivars, self_call_deps: self_call_deps,
+          returns_ivar: returns_ivar, conditional_returns: conditional_returns,
+          conditional_const_returns: conditional_const_returns,
+          establishes_consts: consts, delegates_to_instance: delegates_to_instance
+        )
+      end
+
       # Whether the entry says anything a consumer can use. Entries that exist
       # only as call-graph nodes (no refinement, no effect) are dropped after
-      # the fixpoint.
+      # the fixpoint. `delegates_to_instance` is metadata the Runner consumes to
+      # gate an instance setter's establishments, not a serialized fact — so it
+      # does NOT keep an entry alive, but a surviving `establishes_consts` does.
       def empty?
         ivars.empty? && when_true_ivars.empty? && returns_establishes.empty? &&
           may_write_ivars.empty? && returns_ivar.nil? && conditional_returns.empty? &&
-          conditional_const_returns.empty?
+          conditional_const_returns.empty? && establishes_consts.empty?
       end
 
       def ==(other)

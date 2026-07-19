@@ -87,6 +87,14 @@ module Steep
             "establishes" => entry.returns_establishes.map(&:to_s).sort
           }
         end
+        # felixefelip/rbs_infer#71 (piece 1): sibling const attributes this setter
+        # proves non-nil at a `Const.attr =` write site. The Runner has already
+        # gated these on a delegating singleton, so serialize whatever survives.
+        unless entry.establishes_consts.empty?
+          unconditional["establishes_consts"] = entry.establishes_consts
+            .sort_by { |name, _| name.to_s }
+            .each_with_object({}) { |(name, type), h| h[name.to_s] = type.to_s }
+        end
         row["unconditional"] = unconditional unless unconditional.empty?
         # The MAY-write effect (felixefelip/steep#68): not a refinement, so it
         # sits outside the branches — it applies at every call site, and only

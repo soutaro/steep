@@ -112,7 +112,34 @@ module Steep
         # confirmed to delegate to the instance one.
         resolved.each_value { |entry| expand_transitive_const_returns(entry, resolved) }
 
+        # felixefelip/rbs_infer#71 (piece 1): gate the UNCONDITIONAL establishment
+        # (`Const.attr =` proves a sibling non-nil for the rest of the frame) on a
+        # confirmed delegation. An instance setter's `establishes_consts` fires at
+        # a `Const.attr =` write only when the singleton `Const.attr=` forwards to
+        # it — otherwise the singleton could do anything and the establishment is
+        # unsound. Drop the establishments where no delegating singleton exists so
+        # the Writer serializes them only for the memoized-singleton shape.
+        gate_establishes_consts_on_delegation!(resolved)
+
         resolved.values.reject(&:empty?)
+      end
+
+      # For each instance setter carrying `establishes_consts`, keep them only if
+      # the sibling singleton setter (`Const.attr=`) is confirmed to delegate to
+      # it; otherwise clear them. Runs before the `empty?` reject, so an instance
+      # setter left with nothing to say is then dropped.
+      def gate_establishes_consts_on_delegation!(resolved)
+        resolved.each do |key, entry|
+          next if entry.singleton || entry.establishes_consts.empty?
+
+          method = entry.method_name.to_s
+          next unless method.end_with?("=")
+
+          singleton = resolved["#{entry.class_name}.#{method}"]
+          next if singleton&.delegates_to_instance
+
+          resolved[key] = entry.with_establishes_consts({})
+        end
       end
 
       # Resolve each spec whose gate is expressed `via` a self-method to the ivar
@@ -298,7 +325,9 @@ module Steep
               self_call_deps: existing.self_call_deps | entry.self_call_deps,
               returns_ivar: existing.returns_ivar || entry.returns_ivar,
               conditional_returns: existing.conditional_returns.merge(entry.conditional_returns),
-              conditional_const_returns: existing.conditional_const_returns.merge(entry.conditional_const_returns)
+              conditional_const_returns: existing.conditional_const_returns.merge(entry.conditional_const_returns),
+              establishes_consts: existing.establishes_consts.merge(entry.establishes_consts),
+              delegates_to_instance: existing.delegates_to_instance || entry.delegates_to_instance
             )
           else
             by_key[key] = entry
