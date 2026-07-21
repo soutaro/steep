@@ -161,6 +161,14 @@ module Steep
 
       def typecheck_progress: (guid: String, path: Pathname, target: Project::Target, diagnostics: Array[LSPDiagnostic::json]?) -> void
 
+      # Reports the file to the master even when the given block raises an error
+      #
+      # The master waits for `$/steep/typeCheck/progress` of every file it assigned, and the type check session
+      # never finishes if a worker skips reporting a file, for example because building a definition
+      # from the RBS environment raised an error during type checking.
+      #
+      def reporting_typecheck_progress: (ValidateAppSignatureJob | ValidateLibrarySignatureJob | TypeCheckCodeJob | TypeCheckInlineCodeJob job) { () -> Array[LSPDiagnostic::json]? } -> void
+
       def workspace_symbol_result: (untyped query) -> untyped
 
       def stats_result: () -> Array[StatsCalculator::stats]
