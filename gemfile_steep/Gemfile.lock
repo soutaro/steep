@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 477dd46a5e96903f0d77f6f7a1d88a0b5f43e7e9
+  revision: 9e2110d93e0369de7e9889bb132def22575cc646
   branch: master
   specs:
     steep (2.1.0.dev)
@@ -24,13 +24,13 @@ GEM
   remote: https://rubygems.org/
   specs:
     ast (2.4.3)
-    concurrent-ruby (1.3.7)
+    concurrent-ruby (1.3.8)
     csv (3.3.5)
     debug (1.11.1)
       irb (~> 1.10)
       reline (>= 0.3.8)
     drb (2.2.3)
-    erb (6.0.4)
+    erb (6.0.6)
     ffi (1.17.4)
     fileutils (1.8.0)
     io-console (0.8.2)
@@ -50,7 +50,7 @@ GEM
       drb (~> 2.0)
       prism (~> 1.5)
     mutex_m (0.3.0)
-    parser (3.3.11.1)
+    parser (3.3.12.0)
       ast (~> 2.4.1)
       racc
     pp (0.6.4)
