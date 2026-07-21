@@ -43,6 +43,9 @@ module Steep
 
       def update: (?self_type: AST::Types::t?, ?instance_type: AST::Types::t?, ?module_type: AST::Types::t?) -> Substitution
 
+      # Returns true if the given free variable is substituted by this substitution
+      def domain?: (AST::Types::variable) -> bool
+
       def apply?: (AST::Types::t) -> bool
 
       def add!: (Symbol v, AST::Types::t ty) -> self

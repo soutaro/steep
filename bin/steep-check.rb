@@ -31,6 +31,9 @@ OptionParser.new do |opts|
   opts.on("--profile=MODE", "vernier, memory, stackprof, none, majo, memory2, dumpall") do |mode|
     profile_mode = mode.to_sym
   end
+  opts.on("--gc=MODE", "default, batch (disable GC and run full GC every 3M allocations)") do |mode|
+    $gc_mode = mode.to_sym
+  end
 end.parse!(ARGV)
 
 command_line_args = ARGV.dup
@@ -61,13 +64,13 @@ class Command
 
     signature_files = {}
     file_loader.each_path_in_patterns(target.signature_pattern) do |path|
-      signature_files[path] = path.read
+      signature_files[path] = path.read(encoding: "UTF-8")
     end
 
     target.options.load_collection_lock
 
     signature_service = Steep::Project::Target.construct_env_loader(options: target.options, project: project).yield_self do |loader|
-      Steep::Services::SignatureService.load_from(loader)
+      Steep::Services::SignatureService.load_from(loader, implicitly_returns_nil: target.implicitly_returns_nil)
     end
 
     env = signature_service.latest_env
@@ -76,9 +79,9 @@ class Command
 
     signature_files.each do |path, content|
       buffer = RBS::Buffer.new(name: path.to_s, content: content)
-      buffer, dirs, decls = RBS::Parser.parse_signature(buffer)
-      env.add_signature(buffer: buffer, directives: dirs, decls: decls)
-      new_decls.merge(decls)
+      source = RBS::Source::RBS.new(*RBS::Parser.parse_signature(buffer))
+      env.add_source(source)
+      new_decls.merge(source.declarations)
     end
 
     env.resolve_type_names(only: new_decls)
@@ -89,23 +92,35 @@ class Command
 
     source_files = {}
     file_loader.each_path_in_patterns(target.source_pattern, command_line_args) do |path|
-      source_files[path] = path.read
+      source_files[path] = path.read(encoding: "UTF-8")
     end
 
     definition_builder = RBS::DefinitionBuilder.new(env: env)
     factory = AST::Types::Factory.new(builder: definition_builder)
-    builder = Interface::Builder.new(factory)
+    builder = Interface::Builder.new(factory, implicitly_returns_nil: target.implicitly_returns_nil)
     subtyping = Subtyping::Check.new(builder: builder)
 
     typings = {}
 
+    resolver = RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
+
+    if $gc_mode == :batch
+      GC.disable
+      gc_alloc_base = GC.stat(:total_allocated_objects)
+    end
+
     source_files.each do |path, content|
+      if $gc_mode == :batch && GC.stat(:total_allocated_objects) - gc_alloc_base > 3_000_000
+        GC.enable
+        GC.start(full_mark: true, immediate_sweep: true)
+        GC.disable
+        gc_alloc_base = GC.stat(:total_allocated_objects)
+      end
       source = Source.parse(content, path: path, factory: factory)
 
       self_type = AST::Builtin::Object.instance_type
 
       annotations = source.annotations(block: source.node, factory: factory, context: nil)
-      resolver = RBS::Resolver::ConstantResolver.new(builder: factory.definition_builder)
       const_env = TypeInference::ConstantEnv.new(factory: factory, context: nil, resolver: resolver)
 
       type_env = TypeInference::TypeEnvBuilder.new(
@@ -139,6 +154,10 @@ class Command
 
       construction.synthesize(source.node)
       typings[path] = typing
+    end
+
+    if $gc_mode == :batch
+      GC.enable
     end
 
     typings
@@ -239,13 +258,29 @@ when :none
   pp attr_writer: ObjectSpace.each_object(RBS::AST::Members::AttrWriter).count
   pp attr_accessor: ObjectSpace.each_object(RBS::AST::Members::AttrAccessor).count
 
+  gc_time = GC.total_time
+  stat = GC.stat
+  started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
   Steep.measure("type check", level: :fatal) do
-    GC.disable
     typings = command.type_check_files(command_line_args, env)
 
     pp steep_method_types: ObjectSpace.each_object(Steep::Interface::MethodType).count, rbs_method_types: ObjectSpace.each_object(RBS::MethodType).count
     pp any: ObjectSpace.each_object(Steep::AST::Types::Any).count, void: ObjectSpace.each_object(Steep::AST::Types::Void).count, self: ObjectSpace.each_object(Steep::AST::Types::Self).count
   end
+
+  finished_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  wall = finished_at - started_at
+  gc = (GC.total_time - gc_time) / 1_000_000_000.0
+  rss_kb = File.read("/proc/self/status")[/VmHWM:\s+(\d+)/, 1].to_i rescue 0
+  puts format(
+    ">> wall: %.2fs, gc: %.2fs (%.1f%%), minor GC: %d, major GC: %d, allocated objects: %d, peak RSS: %dMB",
+    wall, gc, gc / wall * 100,
+    GC.stat(:minor_gc_count) - stat[:minor_gc_count],
+    GC.stat(:major_gc_count) - stat[:major_gc_count],
+    GC.stat(:total_allocated_objects) - stat[:total_allocated_objects],
+    rss_kb / 1024
+  )
 end
 
 typings.size

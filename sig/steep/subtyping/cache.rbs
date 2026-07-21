@@ -1,17 +1,43 @@
 module Steep
   module Subtyping
     class Cache
-      attr_reader subtypes: untyped
+      # Cache results are partitioned by the context (self/instance/class types),
+      # which changes far less frequently than the relations being checked.
+      #
+      # `Check#with_context` fetches the bucket for the current context once, and
+      # each `check_type` looks up the relation in that bucket, so the hot lookup
+      # hashes a `Relation` (with a memoized hash) instead of building and
+      # hashing a 5-element key array every time.
+      class ContextBucket
+        type bounds = Hash[Symbol, AST::Types::t]
+
+        # Results for relations without variable upper bounds, keyed by the relation
+        attr_reader unbounded: Hash[Relation[AST::Types::t], Result::t]
+
+        # Results for relations with variable upper bounds, keyed by `[relation, bounds]`
+        attr_reader bounded: Hash[[Relation[AST::Types::t], bounds], Result::t]
+
+        def initialize: () -> void
+
+        def []: (Relation[AST::Types::t] relation, bounds bounds) -> Result::t?
+
+        def []=: (Relation[AST::Types::t] relation, bounds bounds, Result::t value) -> Result::t
+
+        def empty?: () -> bool
+      end
+
+      type context = [AST::Types::t?, AST::Types::t?, AST::Types::t?]
+
+      @contexts: Hash[context, ContextBucket]
 
       def initialize: () -> void
 
-      def subtype: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds) -> untyped
+      def bucket: (AST::Types::t? self_type, AST::Types::t? instance_type, AST::Types::t? class_type) -> ContextBucket
 
-      def []: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds) -> untyped
+      # Returns the cache contents keyed by `[relation, self_type, instance_type, class_type, bounds]`
+      def subtypes: () -> Hash[[Relation[AST::Types::t], AST::Types::t?, AST::Types::t?, AST::Types::t?, ContextBucket::bounds], Result::t]
 
-      def []=: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds, untyped value) -> untyped
-
-      def no_subtype_cache?: () -> untyped
+      def no_subtype_cache?: () -> bool
     end
   end
 end

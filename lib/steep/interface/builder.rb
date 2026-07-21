@@ -54,28 +54,42 @@ module Steep
         end
       end
 
-      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :implicitly_returns_nil
+      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :ground_shape_cache, :implicitly_returns_nil
 
       def initialize(factory, implicitly_returns_nil:)
         @factory = factory
         @object_shape_cache = {}
         @union_shape_cache = {}
         @singleton_shape_cache = {}
+        @ground_shape_cache = {}
         @implicitly_returns_nil = implicitly_returns_nil
       end
 
       def shape(type, config)
-        Steep.logger.tagged "shape(#{type})" do
-          if shape = raw_shape(type, config)
-            # Optimization that skips unnecessary substitution
-            if type.free_variables.include?(AST::Types::Self.instance)
-              shape
+        Steep.logger.tagged(-> { "shape(#{type})" }) do
+          if type.free_variables.empty?
+            # The shape of a type without free variables (`self`, `instance`, `class`, or type variables)
+            # is determined by the type itself, regardless of the config.
+            # Sharing the shape also shares the lazily resolved methods between the callers.
+            fetch_cache(ground_shape_cache, type) do
+              compute_shape(type, config)
+            end
+          else
+            compute_shape(type, config)
+          end
+        end
+      end
+
+      def compute_shape(type, config)
+        if shape = raw_shape(type, config)
+          # Optimization that skips unnecessary substitution
+          if type.free_variables.include?(AST::Types::Self.instance)
+            shape
+          else
+            if s = config.subst
+              shape.subst(s)
             else
-              if s = config.subst
-                shape.subst(s)
-              else
-                shape
-              end
+              shape
             end
           end
         end
@@ -273,11 +287,11 @@ module Steep
 
       def singleton_shape(type_name)
         singleton_shape_cache[type_name] ||= begin
-          shape = Interface::Shape.new(type: AST::Types::Name::Singleton.new(name: type_name), private: true)
+          shape = Interface::Shape.new(type: AST::Types::Name::Singleton.intern(name: type_name), private: true)
           definition = factory.definition_builder.build_singleton(type_name)
 
           definition.methods.each do |name, method|
-            Steep.logger.tagged "method = #{type_name}.#{name}" do
+            Steep.logger.tagged(-> { "method = #{type_name}.#{name}" }) do
               overloads = method.defs.map do |type_def|
                 method_name = method_name_for(type_def, name)
                 method_type = factory.method_type(type_def.type)
@@ -309,13 +323,13 @@ module Steep
           definition or raise
 
           definition.methods.each do |name, method|
-            Steep.logger.tagged "method = #{type_name}##{name}" do
+            Steep.logger.tagged(-> { "method = #{type_name}##{name}" }) do
               overloads = method.defs.map do |type_def|
                 method_name = method_name_for(type_def, name)
                 method_type = factory.method_type(type_def.type)
                 method_type = replace_primitive_method(method_name, type_def, method_type)
                 if type_name.class?
-                  method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Types::Name::Singleton.new(name: type_name) }
+                  method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Types::Name::Singleton.intern(name: type_name) }
                 end
                 method_type = add_implicitly_returns_nil(type_def.each_annotation, method_type)
                 Shape::MethodOverload.new(method_type, [type_def])
@@ -462,7 +476,7 @@ module Steep
                 MethodType.new(
                   type_params: [],
                   type: Function.new(
-                    params: Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
+                    params: Function::Params.build(required: [AST::Types::Literal.intern(value: index)]),
                     return_type: elem_type,
                     location: nil
                   ),
@@ -485,7 +499,7 @@ module Steep
                 MethodType.new(
                   type_params: [],
                   type: Function.new(
-                    params: Function::Params.build(required: [AST::Types::Literal.new(value: index), elem_type]),
+                    params: Function::Params.build(required: [AST::Types::Literal.intern(value: index), elem_type]),
                     return_type: elem_type,
                     location: nil
                   ),
@@ -508,7 +522,7 @@ module Steep
                 MethodType.new(
                   type_params: [],
                   type: Function.new(
-                    params: Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
+                    params: Function::Params.build(required: [AST::Types::Literal.intern(value: index)]),
                     return_type: elem_type,
                     location: nil
                   ),
@@ -519,7 +533,7 @@ module Steep
                   type: Function.new(
                     params: Function::Params.build(
                       required: [
-                        AST::Types::Literal.new(value: index),
+                        AST::Types::Literal.intern(value: index),
                         AST::Types::Var.new(name: :T)
                       ]
                     ),
@@ -531,7 +545,7 @@ module Steep
                 MethodType.new(
                   type_params: [TypeParam.new(name: :T, upper_bound: nil, variance: :invariant, unchecked: false, default_type: nil)],
                   type: Function.new(
-                    params: Function::Params.build(required: [AST::Types::Literal.new(value: index)]),
+                    params: Function::Params.build(required: [AST::Types::Literal.intern(value: index)]),
                     return_type: AST::Types::Union.build(types: [elem_type, AST::Types::Var.new(name: :T)]),
                     location: nil
                   ),
@@ -603,7 +617,7 @@ module Steep
 
       def record_shape(record)
         all_key_type = AST::Types::Union.build(
-          types: record.elements.each_key.map {|value| AST::Types::Literal.new(value: value).back_type }
+          types: record.elements.each_key.map {|value| AST::Types::Literal.intern(value: value).back_type }
         )
         all_value_type = AST::Types::Union.build(types: record.elements.values)
         hash_type = AST::Builtin::Hash.instance_type(all_key_type, all_value_type)
@@ -618,7 +632,7 @@ module Steep
             method_name: :[],
             private_method: false,
             overloads: record.elements.map do |key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value)
+              key_type = AST::Types::Literal.intern(value: key_value)
 
               if record.optional?(key_value)
                 value_type = AST::Builtin.optional(value_type)
@@ -647,7 +661,7 @@ module Steep
             method_name: :[]=,
             private_method: false,
             overloads: record.elements.map do |key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value)
+              key_type = AST::Types::Literal.intern(value: key_value)
               Shape::MethodOverload.new(
                 MethodType.new(
                   type_params: [],
@@ -670,7 +684,7 @@ module Steep
             method_name: :fetch,
             private_method: false,
             overloads: record.elements.flat_map {|key_value, value_type|
-              key_type = AST::Types::Literal.new(value: key_value)
+              key_type = AST::Types::Literal.intern(value: key_value)
 
               [
                 MethodType.new(

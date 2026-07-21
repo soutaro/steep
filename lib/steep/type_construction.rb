@@ -341,8 +341,8 @@ module Steep
         instance_def = checker.factory.definition_builder.build_instance(module_name)
         module_def = checker.factory.definition_builder.build_singleton(module_name)
 
-        instance_type = AST::Types::Name::Instance.new(name: module_name, args: module_args)
-        module_type = AST::Types::Name::Singleton.new(name: module_name)
+        instance_type = AST::Types::Name::Instance.intern(name: module_name, args: module_args)
+        module_type = AST::Types::Name::Singleton.intern(name: module_name)
 
         TypeInference::Context::ModuleContext.new(
           instance_type: instance_type,
@@ -730,7 +730,7 @@ module Steep
     end
 
     def synthesize(node, hint: nil, condition: false)
-      Steep.logger.tagged "synthesize:(#{node.location&.yield_self {|loc| loc.expression.to_s.split(/:/, 2).last } || "-"})" do
+      Steep.logger.tagged(-> { "synthesize:(#{node.location&.yield_self {|loc| loc.expression.to_s.split(/:/, 2).last } || "-"})" }) do
         Steep.logger.debug node.type
         case node.type
         when :begin, :kwbegin
@@ -1410,7 +1410,7 @@ module Steep
           add_typing(node, type: AST::Builtin::Float.instance_type)
 
         when :rational
-          add_typing(node, type: AST::Types::Name::Instance.new(name: RBS::TypeName.parse("::Rational"), args: []))
+          add_typing(node, type: AST::Types::Name::Instance.intern(name: RBS::TypeName.parse("::Rational"), args: []))
 
         when :complex
           add_typing(node, type: AST::Types::Name::Instance.new(name: RBS::TypeName.parse("::Complex"), args: []))
@@ -1452,7 +1452,7 @@ module Steep
           end
 
         when :true, :false
-          ty = node.type == :true ? AST::Types::Literal.new(value: true) : AST::Types::Literal.new(value: false)
+          ty = node.type == :true ? AST::Types::Literal.intern(value: true) : AST::Types::Literal.intern(value: false)
 
           case
           when hint && check_relation(sub_type: ty, super_type: hint).success? && !hint.is_a?(AST::Types::Any) && !hint.is_a?(AST::Types::Top)
@@ -3615,7 +3615,7 @@ module Steep
 
     def try_special_method(node, receiver_type:, method_name:, method_overload:, arguments:, block_params:, block_body:, hint:)
       method_type = method_overload.method_type
-      decls = method_overload.method_decls(method_name).to_set
+      decls = method_overload.method_decls_set(method_name)
 
       case
       when decl = decls.find {|decl| SPECIAL_METHOD_NAMES.fetch(:array_compact).include?(decl.method_name) }
@@ -3688,11 +3688,45 @@ module Steep
     end
 
     def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:)
+      if method.overloads.size == 1
+        # The result of the only overload is committed either way, so the speculative typing
+        # with a child typing is skipped.
+        overload = method.overloads.fetch(0)
+
+        Steep.logger.tagged overload.method_type do
+          call, constr = try_special_method(
+            node,
+            receiver_type: receiver_type,
+            method_name: method_name,
+            method_overload: overload,
+            arguments: arguments,
+            block_params: block_params,
+            block_body: block_body,
+            hint: hint
+          ) || try_method_type(
+            node,
+            receiver_type: receiver_type,
+            method_name: method_name,
+            method_overload: overload,
+            arguments: arguments,
+            block_params: block_params,
+            block_body: block_body,
+            tapp: tapp,
+            hint: hint
+          )
+
+          return [
+            call,
+            update_type_env { constr.context.type_env }
+          ]
+        end
+      end
+
       # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
       fails = []
 
       method.overloads.each do |overload|
-        Steep.logger.tagged overload.method_type.to_s do
+        Steep.logger.tagged overload.method_type do
           typing.new_child() do |child_typing|
             constr = self.with_new_typing(child_typing)
 
@@ -3965,7 +3999,7 @@ module Steep
       constr = self
 
       method_type = method_overload.method_type
-      decls = method_overload.method_decls(method_name).to_set
+      decls = method_overload.method_decls_set(method_name)
 
       if tapp && type_args = tapp.types?(module_context.nesting, checker, [])
         type_arity = method_type.type_params.size
@@ -4939,7 +4973,7 @@ module Steep
         when AST::Types::Any
           nil
         else
-          literal_type = AST::Types::Literal.new(value: literal)
+          literal_type = AST::Types::Literal.intern(value: literal)
           if check_relation(sub_type: literal_type, super_type: hint).success?
             unwrap(hint)
           end
@@ -5156,7 +5190,7 @@ module Steep
                 false
               end #: AST::Types::Record::key
 
-            _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.new(value: key))
+            _, constr = constr.synthesize(key_node, hint: AST::Types::Literal.intern(value: key))
 
             value_type, constr = constr.synthesize(value_node, hint: hints[key])
 

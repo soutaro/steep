@@ -39,7 +39,7 @@ module Steep
         "{ #{array.join(", ")} }"
       end
 
-      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {})
+      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {}, pure_node_descendants: {})
         @constant_env = constant_env
         @local_variable_types = local_variable_types
         @instance_variable_types = instance_variable_types
@@ -47,7 +47,9 @@ module Steep
         @constant_types = constant_types
         @pure_method_calls = pure_method_calls
 
-        @pure_node_descendants = {}
+        # The cache is shared between the TypeEnvs derived through `#update`/`#merge`,
+        # because the descendants of a node never change.
+        @pure_node_descendants = pure_node_descendants
       end
 
       def update(local_variable_types: self.local_variable_types, instance_variable_types: self.instance_variable_types, global_types: self.global_types, constant_types: self.constant_types, pure_method_calls: self.pure_method_calls)
@@ -57,7 +59,8 @@ module Steep
           instance_variable_types: instance_variable_types,
           global_types: global_types,
           constant_types: constant_types,
-          pure_method_calls: pure_method_calls
+          pure_method_calls: pure_method_calls,
+          pure_node_descendants: @pure_node_descendants
         )
       end
 
@@ -74,7 +77,8 @@ module Steep
           instance_variable_types: instance_variable_types,
           global_types:  global_types,
           constant_types: constant_types,
-          pure_method_calls: pure_method_calls
+          pure_method_calls: pure_method_calls,
+          pure_node_descendants: @pure_node_descendants
         )
       end
 

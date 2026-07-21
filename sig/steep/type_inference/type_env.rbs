@@ -47,7 +47,8 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]],
+          ?pure_node_descendants: Hash[Parser::AST::Node, Set[Parser::AST::Node]]
         ) -> void
 
       def update: (

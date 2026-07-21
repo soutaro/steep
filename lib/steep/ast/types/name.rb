@@ -32,7 +32,35 @@ module Steep
             @args = args
           end
 
+          # Returns a shared instance for the given name and args
+          #
+          # Types without free variables are cached and shared, which makes the identity test
+          # the fast path of `#==`/`#eql?` work more frequently.
+          # Note that the sharing is best-effort -- types constructed with `.new` are still
+          # equal to the shared instances by the structural comparison.
+          #
+          def self.intern(name:, args:)
+            if args.empty?
+              no_args_table = (@no_args_table ||= {}) #: Hash[RBS::TypeName, instance]
+              no_args_table[name] ||= new(name: name, args: args)
+            else
+              table = (@with_args_table ||= {}) #: Hash[[RBS::TypeName, Array[AST::Types::t]], instance]
+              key = [name, args] #: [RBS::TypeName, Array[AST::Types::t]]
+              if type = table[key]
+                type
+              else
+                type = new(name: name, args: args)
+                if args.all? {|arg| arg.free_variables.empty? }
+                  table[key] = type
+                end
+                type
+              end
+            end
+          end
+
           def ==(other)
+            return true if equal?(other)
+
             other.class == self.class &&
               other.name == name &&
               other.args == args
@@ -53,8 +81,8 @@ module Steep
           end
 
           def subst(s)
-            if free_variables.intersect?(s.domain)
-              _ = self.class.new(
+            if free_variables.any? {|var| s.domain?(var) }
+              _ = self.class.intern(
                 name: name,
                 args: args.map {|a| a.subst(s) }
               )
@@ -88,12 +116,24 @@ module Steep
           def map_type(&block)
             args = self.args.map(&block)
 
-            _ = self.class.new(name: self.name, args: self.args)
+            _ = self.class.intern(name: self.name, args: args)
           end
         end
 
         class Singleton < Base
+          # Returns a shared instance for the given name
+          #
+          # Note that the sharing is best-effort -- types constructed with `.new` are still
+          # equal to the shared instances by the structural comparison.
+          #
+          def self.intern(name:)
+            table = (@table ||= {}) #: Hash[RBS::TypeName, Singleton]
+            table[name] ||= new(name: name)
+          end
+
           def ==(other)
+            return true if equal?(other)
+
             other.class == self.class &&
               other.name == name
           end
@@ -113,7 +153,7 @@ module Steep
 
         class Instance < Applying
           def to_module
-            Singleton.new(name: name)
+            Singleton.intern(name: name)
           end
         end
 

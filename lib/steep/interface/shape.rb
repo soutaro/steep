@@ -6,26 +6,43 @@ module Steep
 
         attr_reader :method_defs
 
+        SORT_KEY_NO_LOCATION = ["", -1].freeze #: [String, Integer]
+
         def initialize(method_type, defs)
           @method_type = method_type
-          @method_defs = defs.sort_by do |defn|
-            buf = +""
-
-            if loc = defn.type.location
-              buf << loc.buffer.name.to_s
-              buf << ":"
-              buf << loc.start_pos.to_s
+          if defs.size > 1
+            @method_defs = defs.sort_by do |defn|
+              if loc = defn.type.location
+                [loc.buffer.name.to_s, loc.start_pos]
+              else
+                SORT_KEY_NO_LOCATION
+              end
             end
-
-            buf
+            @method_defs.uniq!
+          else
+            @method_defs = defs.dup
           end
-          @method_defs.uniq!
         end
 
         def subst(s)
-          overload = MethodOverload.new(method_type.subst(s), [])
+          method_type_ = method_type.subst(s)
+          return self if method_type_.equal?(method_type)
+
+          overload = MethodOverload.new(method_type_, [])
           overload.method_defs.replace(method_defs)
           overload
+        end
+
+        # Memoized version of `method_decls(name).to_set`
+        #
+        # The result is frozen because the overload object may be shared through the shape cache.
+        #
+        def method_decls_set(name)
+          unless decls_set = @method_decls_set
+            decls_set = {} #: Hash[Symbol, Set[TypeInference::MethodCall::MethodDecl]]
+            @method_decls_set = decls_set
+          end
+          decls_set[name] ||= method_decls(name).to_set.freeze
         end
 
         def method_decls(name)
@@ -134,13 +151,24 @@ module Steep
 
           resolved_methods[name] ||= begin
             entry = methods.fetch(name)
-            Entry.new(
-              method_name: name,
-              overloads: entry.overloads.map do |overload|
+
+            if subst.empty?
+              entry
+            else
+              overloads = entry.overloads.map do |overload|
                 overload.subst(subst)
-              end,
-              private_method: entry.private_method?
-            )
+              end
+
+              if overloads.each_with_index.all? {|overload, index| overload.equal?(entry.overloads[index]) }
+                entry
+              else
+                Entry.new(
+                  method_name: name,
+                  overloads: overloads,
+                  private_method: entry.private_method?
+                )
+              end
+            end
           end
         end
 
