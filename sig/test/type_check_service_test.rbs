@@ -66,4 +66,32 @@ class TypeCheckServiceTest < Minitest::Test
   def test_typecheck_source__ancestor_error_with_library_location: () -> untyped
 
   def test_typecheck_source__ancestor_error_with_user_file_location: () -> untyped
+
+  def test_type_check_needed__predicates: () -> untyped
+
+  def test_signature_validation_needed__predicates: () -> untyped
+
+  # Only the source files referencing a changed type are re-type-checked, and a
+  # pending re-check survives an unrelated intervening update (the need is
+  # recorded on the file, not recomputed per cycle). The change is to a
+  # signature, not the `.rb` content, so a source file's cached object survives
+  # unless it is actually re-type-checked -- object identity observes which files
+  # were re-checked.
+  def test_typecheck_source__rechecks_only_affected_files: () -> untyped
+
+  # Only the signature files whose referenced types changed are re-validated, and
+  # a pending re-validation survives an unrelated intervening update. An
+  # unaffected file's cached SignatureFile object survives.
+  def test_validate_signature__revalidates_only_affected_files: () -> untyped
+
+  def test_inline_change_marks_dependent_source_outdated: () -> untyped
+
+  def source_recheck_project: () -> untyped
+
+  def normalize_recheck_diagnostics: (untyped diagnostics) -> untyped
+
+  # Regression (rbs-inline workflow): the `.rb` is created before its generated
+  # `.rbs`, so the referenced type is unresolved and absent from the cached
+  # refs. The file must still be re-checked once the signature appears.
+  def test_incremental_recheck__file_rechecked_after_referenced_type_is_added_later: () -> untyped
 end

@@ -40,6 +40,8 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_handle_job_validate_app_signature: () -> untyped
 
+  def test_handle_job_validate_app_signature_reuses_unaffected: () -> untyped
+
   def test_handle_job_validate_app_signature_skip: () -> untyped
 
   def test_handle_job_validate_lib_signature: () -> untyped
@@ -49,6 +51,8 @@ class TypeCheckWorkerTest < Minitest::Test
   def test_handle_job_typecheck_code: () -> untyped
 
   def test_handle_job_typecheck_code_diagnostics: () -> untyped
+
+  def test_handle_job_typecheck_code_reuses_unaffected_file: () -> untyped
 
   def test_handle_job_typecheck_skip: () -> untyped
 

@@ -80,9 +80,19 @@ module Steep
 
       attr_reader :implicitly_returns_nil
 
+      # Type names whose definitions changed in the most recent `#update`,
+      # already including the closure over descendants and nested declarations
+      # so consumers need not expand it themselves.
+      attr_reader :last_changed_type_names
+
       def initialize(status:, implicitly_returns_nil:)
         @status = status
         @implicitly_returns_nil = implicitly_returns_nil
+        @last_changed_type_names = Set[]
+      end
+
+      def reset_last_changed_type_names
+        @last_changed_type_names = Set[]
       end
 
       def self.load_from(loader, implicitly_returns_nil:)
@@ -393,6 +403,11 @@ module Steep
           add_descendants(graph: new_graph, names: new_names, set: changed_names)
           add_nested_decls(env: new_env, names: new_names, set: changed_names)
 
+          add_type_alias_dependencies(env: old_env, set: changed_names)
+          add_type_alias_dependencies(env: new_env, set: changed_names)
+
+          @last_changed_type_names = changed_names
+
           old_definition_builder.update(
             env: new_env,
             ancestor_builder: new_ancestor_builder,
@@ -496,6 +511,40 @@ module Steep
               set << name
             end
           end
+        end
+      end
+
+      # Adds aliases that (transitively) reference any name already in `set`:
+      # changing a referenced type changes the alias's meaning. Doing this here,
+      # on the changed side, lets a referencing file record only the alias name.
+      def add_type_alias_dependencies(env:, set:)
+        referenced_by = {} #: Hash[RBS::TypeName, Set[RBS::TypeName]]
+
+        env.type_alias_decls.each do |alias_name, entry|
+          each_type_name_in(entry.decl.type) do |referenced|
+            (referenced_by[referenced] ||= Set[]) << alias_name
+          end
+        end
+
+        queue = set.to_a
+        until queue.empty?
+          name = queue.shift or break
+          (referenced_by[name] || Set[]).each do |alias_name|
+            if set.add?(alias_name)
+              queue << alias_name
+            end
+          end
+        end
+      end
+
+      def each_type_name_in(type, &block)
+        case type
+        when RBS::Types::ClassInstance, RBS::Types::ClassSingleton, RBS::Types::Interface, RBS::Types::Alias
+          yield type.name
+        end
+
+        type.each_type do |child|
+          each_type_name_in(child, &block)
         end
       end
     end
