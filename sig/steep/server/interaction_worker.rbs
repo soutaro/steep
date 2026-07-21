@@ -45,7 +45,19 @@ module Steep
         def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
       end
 
-      type job = HoverJob | CompletionJob | SignatureHelpJob
+      class ReferencesQueryJob
+        attr_reader id: String
+
+        attr_reader path: Pathname
+
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
+      end
+
+      type job = HoverJob | CompletionJob | SignatureHelpJob | ReferencesQueryJob
 
       module LSP = LanguageServer::Protocol
 
@@ -84,6 +96,8 @@ module Steep
       def format_completion_item: (CompletionProvider::item item) -> LanguageServer::Protocol::Interface::CompletionItem
 
       def builtin_types: (Integer prefix_size, Integer line, Integer column) -> Array[LanguageServer::Protocol::Interface::CompletionItem]
+
+      def process_references_query: (ReferencesQueryJob job) -> Array[untyped]
     end
   end
 end
