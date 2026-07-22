@@ -103,7 +103,7 @@ module Steep
             when :send, :csend
               result_node =
                 case parents[0]&.type
-                when :block, :numblock
+                when :block, :numblock, :itblock
                   if node == parents.fetch(0).children[0]
                     parents.fetch(0)
                   else

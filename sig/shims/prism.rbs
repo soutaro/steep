@@ -14,5 +14,15 @@ module Prism
 
       attr_reader diagnostics: untyped
     end
+
+    class Parser34 < Parser
+      def initialize: (Parser::Builders::Default builder) -> void
+
+      def parse: (Parser::Source::Buffer) -> Parser::AST::Node
+
+      def parse_with_comments: (Parser::Source::Buffer) -> [Parser::AST::Node, Array[Parser::Source::Comment]]
+
+      attr_reader diagnostics: untyped
+    end
   end
 end

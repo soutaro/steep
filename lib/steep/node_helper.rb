@@ -220,7 +220,7 @@ module Steep
 
     def private_send?(node)
       case node.type
-      when :block, :numblock
+      when :block, :numblock, :itblock
         private_send?(node.children[0])
       when :send, :csend
         receiver, = deconstruct_send_node!(node)
@@ -243,7 +243,7 @@ module Steep
         when :send, :csend, :super
           if block_node
             case block_node.type
-            when :block, :numblock
+            when :block, :numblock, :itblock
               if send_node.equal?(block_node.children[0])
                 return [send_node, block_node]
               end
