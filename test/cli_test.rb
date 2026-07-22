@@ -911,6 +911,31 @@ end
     end
   end
 
+  def test_check_inline_save_expectations
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      stdout, status = sh(*steep, "check", "--save-expectations")
+
+      assert_predicate status, :success?, stdout
+      assert_match(/Saved expectations in steep_expectations\.yml/, stdout)
+
+      expectations = YAML.load_file(current_dir + "steep_expectations.yml")
+      refute_empty expectations
+      assert_equal ["lib/foo.rb"], expectations.map {|entry| entry["file"] }
+      refute_empty expectations[0]["diagnostics"]
+    end
+  end
+
   def test_check_expression_success
     stdout, status = sh(*steep, "check", "-e", "1 + 2")
 
