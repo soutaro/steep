@@ -4305,8 +4305,10 @@ module Steep
       # establishment below so the two never coexist for the same write.
       if contract_nullable_type?(typing.type_of(node: last_arg))
         drop = ["#{base}.#{written_attr}", *sibling_paths]
+        dropped_attrs = drop.map { |path| path.delete_prefix("#{base}.") }
         return update_type_env do |env|
-          env.update(unconditional_const_returns: env.unconditional_const_returns.reject { |k, _| drop.include?(k) })
+          env = env.update(unconditional_const_returns: env.unconditional_const_returns.reject { |k, _| drop.include?(k) })
+          invalidate_pure_slot_reads(env, base, dropped_attrs)
         end
       end
 
@@ -4324,6 +4326,41 @@ module Steep
       return self if consts.empty?
 
       update_type_env { |env| env.with_method_entry_facts(self_methods: {}, consts: consts) }
+    end
+
+    # Companion to the const-path fact invalidation above. Dropping the fact
+    # (`unconditional_const_returns`) is not enough on a nilable write: Steep's
+    # pure-send cache (`pure_method_calls`) may still hold a NON-NIL type for the
+    # getter read of the same slot, cached at an earlier narrowed read. That
+    # cache is keyed structurally (`Parser::AST::Node#==` ignores line), so the
+    # `Const.attr` read node at a later line is the SAME key; with the fact now
+    # gone (`fact_narrowed` false), the stale cached non-nil type WINS at the
+    # read and masks the nil. Invalidate those cached reads for every dropped
+    # attribute — both the direct getter (`Const.attr`) and the memoized-accessor
+    # read (`Const.<accessor>.attr`) whose receiver resolves to the same base,
+    # the two spellings this write already recognizes. Each entry is set to
+    # `[call, nil]` — the same shape `invalidate_pure_node` produces — so the
+    # next read re-derives the (nilable) declared type. felixefelip/steep#76/#82.
+    def invalidate_pure_slot_reads(env, base, attrs)
+      attr_syms = attrs.map(&:to_sym)
+      invalidation = {} #: Hash[Parser::AST::Node, [TypeInference::MethodCall::Typed, AST::Types::t?]]
+      env.pure_method_calls.each do |read_node, pair|
+        next unless read_node.type == :send
+        next unless attr_syms.include?(read_node.children[1])
+        recv = read_node.children[0]
+        next unless recv.is_a?(::Parser::AST::Node)
+        resolved =
+          if recv.type == :const
+            resolved_const_name_string(recv)
+          else
+            memoized_singleton_accessor_base(recv)
+          end
+        next unless resolved == base
+        call, _ = pair
+        invalidation[read_node] = [call, nil]
+      end
+      return env if invalidation.empty?
+      env.merge(pure_method_calls: invalidation)
     end
 
     # Walks `rbs_type` collecting every class/module name referenced

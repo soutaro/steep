@@ -306,4 +306,55 @@ class PostconditionsConstEstablishesTest < Minitest::Test
       end
     end
   end
+
+  # The pure-send cache gap. The established fact narrows `Foo.name`, but a READ
+  # of it also caches the narrowed (non-nil) type in Steep's structurally-keyed
+  # pure-send cache. A later nilable write must invalidate THAT cache too, not
+  # only the fact — otherwise the stale non-nil cached type wins at the next read
+  # (the fact is already gone) and masks the nil. The distinguishing ingredient
+  # over `test_nilable_write_to_sibling_established_attr_invalidates` is the
+  # intervening narrowed read that populates the cache.
+  def test_nilable_write_invalidates_pure_cache_from_intervening_read
+    with_checker(MEMOIZED_RBS) do |checker|
+      source = parse_ruby(<<~RUBY)
+        # @type var maybe: ::String?
+        maybe = nil
+        Foo.user = "x"     # establishes Foo.name non-nil
+        Foo.name           # narrowed read — caches Foo.name non-nil in the pure-send cache
+        Foo.name = maybe   # nilable write — must invalidate the fact AND the pure cache
+        Foo.name           # must be nilable again
+      RUBY
+
+      with_standard_construction(checker, source, postconditions: establishes_name_store) do |construction, typing|
+        construction.synthesize(source.node)
+        t = last_foo_name_type(source, typing)
+        assert_equal "(::String | nil)", t.to_s,
+                     "an intervening narrowed read caches `Foo.name` non-nil; a later nilable write must invalidate that pure-send cache, not just the fact"
+      end
+    end
+  end
+
+  # Same gap, reached through the memoized accessor on both the read that
+  # populates the cache and the write that must invalidate it — the cached read
+  # node is `Foo.foo_instance.name`, keyed by the same-slot base.
+  def test_nilable_write_through_accessor_invalidates_pure_cache_from_intervening_read
+    with_checker(MEMOIZED_RBS) do |checker|
+      source = parse_ruby(<<~RUBY)
+        # @type var maybe: ::String?
+        maybe = nil
+        Foo.user = "x"                 # establishes Foo.name non-nil
+        Foo.foo_instance.name          # narrowed read through the accessor — caches non-nil
+        Foo.foo_instance.name = maybe  # nilable write through the accessor — must invalidate
+        Foo.foo_instance.name          # must be nilable again
+      RUBY
+
+      with_standard_construction(checker, source, postconditions: establishes_name_store) do |construction, typing|
+        construction.synthesize(source.node)
+        # The last statement is the trailing `Foo.foo_instance.name` read.
+        t = last_foo_name_type(source, typing)
+        assert_equal "(::String | nil)", t.to_s,
+                     "a narrowed read then a nilable write, both through the memoized accessor, must invalidate the accessor read's pure-send cache"
+      end
+    end
+  end
 end
