@@ -565,19 +565,21 @@ module Steep
         found
       end
 
-      # The receiver of a delegated setter call (`instance.user = value`) that
-      # stands in for an instance of the enclosing class. Two shapes:
-      #   - the Rails `CurrentAttributes` convention, a bare `instance` call; and
-      #   - any memoized singleton accessor (`foo_instance`, from
-      #     `@foo_instance ||= Foo.new`) whose resolved return type IS an
-      #     instance of `class_name`. It's the type, not the accessor's name,
-      #     that makes the delegation sound, so we read it off the typed node
-      #     rather than pattern-matching the `||=` body — a memoized accessor
-      #     under any name is recognized.
+      # The receiver of a delegated setter call (`foo_instance.user = value`)
+      # that stands in for an instance of the enclosing class: any memoized
+      # singleton accessor (from `@foo ||= Foo.new`) whose resolved return type
+      # IS an instance of `class_name`. It's the type, not the accessor's name,
+      # that makes the delegation sound, so we read it off the typed node rather
+      # than pattern-matching the `||=` body — a memoized accessor under any name
+      # is recognized.
+      #
+      # Recognition is purely by return type; no accessor name is special-cased.
+      # A singleton accessor typed as the concrete class is recognized; one whose
+      # RBS return type is `untyped` (as some framework accessors are) is not,
+      # which is correct — the caller is expected to expose a typed accessor.
       def delegating_instance_receiver?(recv, class_name)
         return false unless recv.is_a?(Parser::AST::Node)
         return false unless recv.type == :send && recv.children[0].nil?
-        return true if recv.children[1] == :instance
 
         recv_type = type_of(recv) or return false
         target = "::#{class_name}"
