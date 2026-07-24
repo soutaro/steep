@@ -1511,6 +1511,7 @@ module Steep
 
               if class_name
                 check_deprecation_constant(class_name, name_node, name_node.location.expression)
+                check_warning_constant(class_name, name_node, name_node.location.expression)
               end
             else
               _, constr = synthesize(name_node)
@@ -1570,6 +1571,7 @@ module Steep
 
               if module_name
                 check_deprecation_constant(module_name, name_node, name_node.location.expression)
+                check_warning_constant(module_name, name_node, name_node.location.expression)
               end
             else
               _, constr = synthesize(name_node)
@@ -1642,6 +1644,7 @@ module Steep
             if name
               typing.source_index.add_reference(constant: name, ref: node)
               constr.check_deprecation_constant(name, node, node.location.expression)
+              constr.check_warning_constant(name, node, node.location.expression)
             end
 
             Pair.new(type: type, constr: constr)
@@ -1662,6 +1665,7 @@ module Steep
               typing.source_index.add_definition(constant: constant_name, definition: node)
               location = node.location #: Parser::Source::Map & Parser::AST::_Variable
               constr.check_deprecation_constant(constant_name, node, location.name)
+              constr.check_warning_constant(constant_name, node, location.name)
             end
 
             value_type, constr = constr.synthesize(node.children.last, hint: constant_type)
@@ -2438,6 +2442,7 @@ module Steep
 
             location = node.location #: Parser::Source::Map & Parser::AST::_Variable
             constr.check_deprecation_global(name, node, location.name)
+            constr.check_warning_global(name, node, location.name)
 
             type, constr = constr.gvasgn(node, rhs_type)
 
@@ -2449,6 +2454,7 @@ module Steep
             name = node.children.first
 
             check_deprecation_global(name, node, node.location.expression)
+            check_warning_global(name, node, node.location.expression)
 
             if type = context.type_env[name]
               add_typing(node, type: type)
@@ -3277,6 +3283,23 @@ module Steep
       nil
     end
 
+    def warning_send?(call)
+      case call.node.type
+      when :send, :csend, :block, :numblock
+        # supported
+      else
+        return
+      end
+
+      call.method_decls.each do |decl|
+        if pair = AnnotationsHelper.warning_annotation?(decl.method_def.each_annotation.to_a)
+          return pair
+        end
+      end
+
+      nil
+    end
+
     def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:, tapp:, hint:)
       method = interface.methods[method_name]
 
@@ -3340,6 +3363,33 @@ module Steep
                 Diagnostic::Ruby::DeprecatedReference.new(
                   node: node,
                   location: loc.selector,
+                  message: message
+                )
+              )
+            end
+
+            if (_, message = warning_send?(call))
+              send_node =
+                case node.type
+                when :block, :numblock
+                  node.children[0]
+                else
+                  node
+                end
+
+              # `send_node` is usually a `:send`/`:csend` node with a selector, but a
+              # block can also wrap a `super`/`zsuper` node which has no selector.
+              location =
+                if (_, _, _, loc = deconstruct_send_node(send_node))
+                  loc.selector
+                else
+                  send_node.location.expression
+                end
+
+              constr.typing.add_error(
+                Diagnostic::Ruby::WarningReference.new(
+                  node: node,
+                  location: location,
                   message: message
                 )
               )
@@ -5338,9 +5388,15 @@ module Steep
       end
     end
 
-    def check_deprecation_global(name, node, location)
+    private def global_annotations(name)
       if global_entry = checker.factory.env.global_decls[name]
-        if (_, message = AnnotationsHelper.deprecated_annotation?(global_entry.decl.annotations))
+        global_entry.decl.annotations
+      end
+    end
+
+    def check_deprecation_global(name, node, location)
+      if annotations = global_annotations(name)
+        if (_, message = AnnotationsHelper.deprecated_annotation?(annotations))
           typing.add_error(
             Diagnostic::Ruby::DeprecatedReference.new(
               node: node,
@@ -5352,31 +5408,60 @@ module Steep
       end
     end
 
-    def check_deprecation_constant(name, node, location)
+    def check_warning_global(name, node, location)
+      if annotations = global_annotations(name)
+        if (_, message = AnnotationsHelper.warning_annotation?(annotations))
+          typing.add_error(
+            Diagnostic::Ruby::WarningReference.new(
+              node: node,
+              location: location,
+              message: message
+            )
+          )
+        end
+      end
+    end
+
+    private def constant_annotations(name)
       entry = checker.builder.factory.env.constant_entry(name)
 
-      annotations =
-        case entry
-        when RBS::Environment::ModuleEntry, RBS::Environment::ClassEntry
-          entry.each_decl.flat_map do |decl|
-            if decl.is_a?(RBS::AST::Declarations::Base)
-              decl.annotations
-            else
-              []
-            end
-          end
-        when RBS::Environment::ConstantEntry, RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-          if entry.decl.is_a?(RBS::AST::Declarations::Base)
-            entry.decl.annotations
+      case entry
+      when RBS::Environment::ModuleEntry, RBS::Environment::ClassEntry
+        entry.each_decl.flat_map do |decl|
+          if decl.is_a?(RBS::AST::Declarations::Base)
+            decl.annotations
           else
-            [] #: Array[RBS::AST::Annotation]
+            []
           end
         end
+      when RBS::Environment::ConstantEntry, RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+        if entry.decl.is_a?(RBS::AST::Declarations::Base)
+          entry.decl.annotations
+        else
+          [] #: Array[RBS::AST::Annotation]
+        end
+      end
+    end
 
-      if annotations
+    def check_deprecation_constant(name, node, location)
+      if annotations = constant_annotations(name)
         if (_, message = AnnotationsHelper.deprecated_annotation?(annotations))
           typing.add_error(
             Diagnostic::Ruby::DeprecatedReference.new(
+              node: node,
+              location: location,
+              message: message
+            )
+          )
+        end
+      end
+    end
+
+    def check_warning_constant(name, node, location)
+      if annotations = constant_annotations(name)
+        if (_, message = AnnotationsHelper.warning_annotation?(annotations))
+          typing.add_error(
+            Diagnostic::Ruby::WarningReference.new(
               node: node,
               location: location,
               message: message
