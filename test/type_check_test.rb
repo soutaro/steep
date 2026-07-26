@@ -4847,6 +4847,53 @@ class TypeCheckTest < Minitest::Test
     ENV.delete("STEEP_ERB_CONVENTION")
   end
 
+  def test_self_method_applies_method_entry_facts_to_toplevel
+    # `@type self_method: View#__rbs_infer__body` gives a top-level body (an ERB
+    # template compiled to a method at runtime) the identity of that method, so
+    # its recorded method-entry facts narrow reads in it. Here `Bar.user` is
+    # nilable by RBS; the fact proves it non-nil, so `.name` type-checks. Without
+    # the fact the read would be a NoMethod error, so `diagnostics: []` is proof
+    # the annotation applied the fact to the top-level body.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class MERUser
+            def name: () -> String
+          end
+          class MERBar
+            def self.user: () -> MERUser?
+          end
+          class MERView
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type self_method: MERView#__rbs_infer__body
+          MERBar.user.name
+        RUBY
+      },
+      postconditions: Steep::Postconditions::Store.from_hash(
+        {
+          "version" => 1,
+          "method_entry_facts" => [
+            {
+              "class" => "MERView",
+              "method" => "__rbs_infer__body",
+              "consts" => { "MERBar.user" => "::MERUser" }
+            }
+          ]
+        },
+        source: "<test>"
+      ),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_type_instance_annotation_imports_ivars_from_annotated_type
     run_type_check_test(
       signatures: {

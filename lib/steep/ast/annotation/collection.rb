@@ -13,6 +13,7 @@ module Steep
         attr_reader :block_type_annotation
         attr_reader :return_type_annotation
         attr_reader :self_type_annotation
+        attr_reader :self_method_annotation
         attr_reader :instance_type_annotation
         attr_reader :module_type_annotation
         attr_reader :implement_module_annotation
@@ -42,6 +43,11 @@ module Steep
               @return_type_annotation = annotation
             when SelfType
               @self_type_annotation = annotation
+            when SelfMethod
+              # Binds `self` like SelfType (it carries the instance type) AND
+              # records the method whose entry facts apply to this top-level body.
+              @self_type_annotation = annotation
+              @self_method_annotation = annotation
             when ConstType
               @const_type_annotations[annotation.name] = annotation
             when InstanceType
@@ -95,6 +101,12 @@ module Steep
 
         def self_type
           absolute_type(self_type_annotation&.type)
+        end
+
+        # The method name from `@type self_method: Klass#method`, or nil. The
+        # class is exposed through `self_type` (SelfMethod also sets it).
+        def self_method_name
+          self_method_annotation&.method_name
         end
 
         def instance_type

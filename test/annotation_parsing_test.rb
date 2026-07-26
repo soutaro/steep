@@ -72,6 +72,26 @@ class AnnotationParsingTest < Minitest::Test
     end
   end
 
+  def test_self_method
+    with_factory do |factory|
+      annot = parse_annotation("@type self_method: ERBPostsShow#__rbs_infer__body", factory: factory)
+      assert_instance_of Annotation::SelfMethod, annot
+      # Carries the enclosing class as its self instance type...
+      assert_equal parse_type("ERBPostsShow", factory: factory), annot.type
+      # ...plus the method whose entry facts apply to the top-level body.
+      assert_equal :__rbs_infer__body, annot.method_name
+    end
+  end
+
+  def test_self_method_namespaced
+    with_factory do |factory|
+      annot = parse_annotation("@type self_method: A::B::View#render_body", factory: factory)
+      assert_instance_of Annotation::SelfMethod, annot
+      assert_equal parse_type("A::B::View", factory: factory), annot.type
+      assert_equal :render_body, annot.method_name
+    end
+  end
+
   def test_const_type
     with_factory do |factory|
       annot = parse_annotation("@type const Foo::Bar::Baz: String", factory: factory)

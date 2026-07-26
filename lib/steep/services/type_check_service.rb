@@ -442,6 +442,21 @@ module Steep
           type_env = type_env.merge(constant_types: toplevel_updates) unless toplevel_updates.empty?
         end
 
+        # Top-level method-entry facts: a body checked with
+        # `@type self_method: Klass#method` (an ERB view template, which at
+        # runtime IS a method) is the body of that method, so apply the method's
+        # entry facts here — the top-level analogue of `apply_method_entry_facts`.
+        # Reuses the const-path fact representation and the read-site narrowing
+        # (`method_entry_narrowed_type`) verbatim; the annotation supplies the key.
+        if (entry_method = annotations.self_method_name) &&
+            (facts = postconditions.lookup_method_entry_facts(module_name.to_s, entry_method))
+          consts = facts[:consts].transform_values { |rbs_type| subtyping.factory.type(rbs_type) }
+          self_methods = facts[:self_methods].transform_values { |rbs_type| subtyping.factory.type(rbs_type) }
+          unless consts.empty? && self_methods.empty?
+            type_env = type_env.with_method_entry_facts(self_methods: self_methods, consts: consts)
+          end
+        end
+
         context = TypeInference::Context.new(
           block_context: nil,
           module_context: TypeInference::Context::ModuleContext.new(

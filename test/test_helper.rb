@@ -700,6 +700,17 @@ module TypeConstructionHelper
       type_env = type_env.merge(constant_types: toplevel_updates) unless toplevel_updates.empty?
     end
 
+    # Mirror TypeCheckService.type_check: apply method-entry facts to a
+    # top-level body checked with `@type self_method: Klass#method`.
+    if (entry_method = annotations.self_method_name) &&
+        (facts = postconditions.lookup_method_entry_facts(module_name.to_s, entry_method))
+      consts = facts[:consts].transform_values { |rbs_type| checker.factory.type(rbs_type) }
+      self_methods = facts[:self_methods].transform_values { |rbs_type| checker.factory.type(rbs_type) }
+      unless consts.empty? && self_methods.empty?
+        type_env = type_env.with_method_entry_facts(self_methods: self_methods, consts: consts)
+      end
+    end
+
     context = Context.new(
       block_context: nil,
       method_context: nil,

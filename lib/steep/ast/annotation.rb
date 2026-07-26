@@ -48,6 +48,30 @@ module Steep
       class BlockType < Typed; end
       class SelfType < Typed; end
       class InstanceType < Typed; end
+
+      # `@type self_method: Klass#method` — like `SelfType` (binds `self` to an
+      # instance of `Klass`) but ALSO names a method whose entry facts apply to
+      # this top-level body. Used for a body checked outside a `def` that at
+      # runtime IS a method (an ERB view template compiled to a method): the
+      # annotation carries the `Klass#method` identity so the method-entry-fact
+      # machinery can narrow reads in it, without physically wrapping the source
+      # in a `def` (which would shift line positions).
+      class SelfMethod
+        include Located
+
+        attr_reader :type
+        attr_reader :method_name
+
+        def initialize(type:, method_name:, location: nil)
+          @type = type
+          @method_name = method_name
+          @location = location
+        end
+
+        def ==(other)
+          other.is_a?(self.class) && other.type == type && other.method_name == method_name
+        end
+      end
       class ModuleType < Typed; end
       class BreakType < Typed; end
 

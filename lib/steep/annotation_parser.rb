@@ -136,6 +136,17 @@ module Steep
           AST::Annotation::BlockType.new(type: type, location: location)
         end
 
+      when /@type\s+self_method#{COLON}(?<type>#{CONST_NAME})#(?<method>#{METHOD_NAME})/
+        Regexp.last_match.yield_self do |match|
+          match or raise
+          type = parse_type(match, location: location)
+          AST::Annotation::SelfMethod.new(
+            type: type,
+            method_name: (match[:method] or raise).to_sym,
+            location: location
+          )
+        end
+
       when keyword_and_type("self")
         Regexp.last_match.yield_self do |match|
           match or raise
