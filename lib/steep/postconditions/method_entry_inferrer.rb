@@ -164,10 +164,10 @@ module Steep
       end
 
       # The ordered events of a method body, in source order. Each statement is a `Const.attr =
-      # rhs` write (`:const_write`), a `return if <pred>` guard clause (`:halt`), or an
-      # expression whose method calls are recovered in evaluation order
-      # (`Bar.new.foo_name.upcase` => `new`, `foo_name`, `upcase`) so a callee whose entry we
-      # care about isn't hidden as an inner receiver of a longer chain.
+      # rhs` write (`:const_write`), an `@x = rhs` write (`:ivar_write`), a `return if <pred>`
+      # guard clause (`:halt`), or an expression whose method calls are recovered in evaluation
+      # order (`Bar.new.foo_name.upcase` => `new`, `foo_name`, `upcase`) so a callee whose entry
+      # we care about isn't hidden as an inner receiver of a longer chain.
       def method_events(def_node)
         body = def_node.children[2]
         return [] unless body
@@ -176,6 +176,16 @@ module Steep
         statements(body).each do |stmt|
           if (cw = const_write_event(stmt))
             events << cw
+          elsif (iw = ivar_write_event(stmt))
+            # The RHS runs BEFORE the assignment, so its calls are part of the flow and are
+            # recorded first — `@posts = recent_posts` both carries the accumulated facts to
+            # `recent_posts`'s entry and then establishes `@posts`. Emitting only the write
+            # would silently drop every call hidden on the right-hand side.
+            each_call_send(stmt.children[1]) do |send_node|
+              next if send_node.children[1].to_s.end_with?("=")
+              call = call_event(send_node) and events << call
+            end
+            events << iw
           elsif halt_statement?(stmt)
             events << { kind: :halt }
           else
@@ -259,6 +269,22 @@ module Steep
         return nil unless rhs.is_a?(Parser::AST::Node)
 
         { kind: :const_write, base: base, attr: mname.to_s.chomp("="), nonnil: nonnil_rhs?(rhs) }
+      end
+
+      # `@x = <rhs>` => `{ kind: :ivar_write, name: :@x, type:, nonnil: }`, else nil. The
+      # written TYPE is carried (not just "established"), because unlike a const attribute —
+      # whose declared type the setter entry already knows — an ivar fact is only as precise
+      # as the value assigned here. A nilable/untyped RHS establishes nothing and invalidates.
+      def ivar_write_event(stmt)
+        return nil unless stmt.is_a?(Parser::AST::Node) && stmt.type == :ivasgn
+
+        name, rhs = stmt.children
+        return nil unless name.is_a?(Symbol) && rhs.is_a?(Parser::AST::Node)
+
+        type = (@typing.type_of(node: rhs) rescue nil)
+        return nil unless type
+
+        { kind: :ivar_write, name: name, type: type.to_s, nonnil: nonnil_rhs?(rhs) }
       end
 
       # A resolved method call => `{ kind: :call, class_name:, method_name:, same_self:,

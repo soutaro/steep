@@ -134,7 +134,7 @@ module Steep
       # method-entry const fact does, but only inside this branch.
       def self.apply_argument_facts(body_constr, arg_facts, patterns)
         keys = patterns.filter_map { |pat| Postconditions::LiteralKey.of(pat) }
-        ArgumentFacts.apply(body_constr, ArgumentFacts.consts_for(arg_facts, keys))
+        ArgumentFacts.apply(body_constr, ArgumentFacts.facts_for(arg_facts, keys))
       end
 
       attr_reader :location, :node, :condition_node, :when_nodes, :else_node

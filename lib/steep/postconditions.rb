@@ -149,6 +149,7 @@ module Steep
       #     param: which
       #     pattern: ":name"
       #     consts: { Example7::Foo.name: "::String" }
+      #     ivars: { "@name": "::String" }
       def self.parse_argument_entry_facts(raw)
         rows = (raw && raw["argument_entry_facts"]) || []
         rows.each_with_object({}) do |row, acc|
@@ -157,12 +158,14 @@ module Steep
           next unless klass && method && param && pattern
 
           consts = parse_fact_types(row["consts"], symbol_keys: false)
-          next if consts.empty?
+          ivars = parse_fact_types(row["ivars"], symbol_keys: true)
+          next if consts.empty? && ivars.empty?
 
           (acc[[klass.to_s, method.to_sym]] ||= []) << {
             param_name: param.to_sym,
             pattern: pattern.to_s,
-            consts: consts
+            consts: consts,
+            ivars: ivars
           }
         end
       end

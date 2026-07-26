@@ -902,4 +902,134 @@ class PostconditionsRunnerTest < Minitest::Test
                    "a literal written after a splat cannot be pinned to a parameter"
     end
   end
+
+  IVAR_FACTS_RBS = <<~RBS
+    class IVHost
+      @name: String?
+      @value: Integer?
+      def run_name: () -> void
+      def run_age: () -> void
+      def show: (Symbol) -> void
+      def clobber: () -> void
+    end
+  RBS
+
+  def test_runner_partitions_ivar_facts_by_literal_argument
+    # The ivar analogue of the const partitioning: each caller establishes a DIFFERENT ivar
+    # before dispatching, so the whole-method meet proves neither, and only the per-literal
+    # partition keeps each branch readable.
+    in_tmpdir do
+      write("sig/iv.rbs", IVAR_FACTS_RBS)
+      write("app/iv.rb", <<~RUBY)
+        class IVHost
+          def run_name
+            @name = 'John Doe'
+            show(:name)
+          end
+          def run_age
+            @value = 42
+            show(:age)
+          end
+          def show(which)
+            case which
+            when :name then @name
+            when :age then @value
+            end
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+      partitions = reparsed.lookup_argument_entry_facts("IVHost", :show)
+      by_pattern = partitions.to_h { |p| [p[:pattern], p] }
+
+      name_partition = by_pattern[":name"]
+      refute_nil name_partition
+      assert_equal "::String", name_partition[:ivars][:@name].to_s
+      refute name_partition[:ivars].key?(:@value), "the :name partition must not carry the :age caller's ivar"
+
+      age_partition = by_pattern[":age"]
+      refute_nil age_partition
+      assert_equal "::Integer", age_partition[:ivars][:@value].to_s
+      refute age_partition[:ivars].key?(:@name), "the :age partition must not carry the :name caller's ivar"
+    end
+  end
+
+  def test_runner_drops_ivar_facts_across_a_cross_object_call
+    # An ivar fact is about the CALLER's `self`. Dispatching on ANOTHER object reaches a
+    # receiver whose ivars this flow says nothing about, so the partition must carry none.
+    in_tmpdir do
+      write("sig/iv.rbs", IVAR_FACTS_RBS)
+      write("app/iv.rb", <<~RUBY)
+        class IVHost
+          def run_name
+            @name = 'John Doe'
+            IVHost.new.show(:name)
+          end
+          def run_age
+            @value = 42
+            IVHost.new.show(:age)
+          end
+          def show(which)
+            case which
+            when :name then @name
+            when :age then @value
+            end
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      partitions = runner.argument_entry_facts["IVHost#show"] || []
+      assert partitions.all? { |p| p[:ivars].empty? },
+             "a cross-object call carries no ivar facts"
+    end
+  end
+
+  def test_runner_drops_ivar_facts_written_by_an_intervening_call
+    # `clobber` may write `@name`, so the narrowing established before it does not survive
+    # to the dispatch — the may-write closure applied to the flow walk.
+    in_tmpdir do
+      write("sig/iv.rbs", IVAR_FACTS_RBS)
+      write("app/iv.rb", <<~RUBY)
+        class IVHost
+          def clobber
+            @name = nil
+          end
+          def run_name
+            @name = 'John Doe'
+            clobber
+            show(:name)
+          end
+          def run_age
+            @value = 42
+            show(:age)
+          end
+          def show(which)
+            case which
+            when :name then @name
+            when :age then @value
+            end
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      partitions = runner.argument_entry_facts["IVHost#show"] || []
+      name_partition = partitions.find { |p| p[:pattern] == ":name" }
+
+      refute name_partition && name_partition[:ivars].key?(:@name),
+             "an ivar a callee may write cannot survive to the dispatch"
+    end
+  end
 end

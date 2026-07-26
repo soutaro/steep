@@ -212,6 +212,32 @@ class PostconditionsMethodEntryInferrerTest < Minitest::Test
     refute foo[:same_self], "an instance-receiver call is cross-object"
   end
 
+  def test_ivar_write_records_its_rhs_calls_before_the_write
+    # An `@x = <rhs>` statement is an `:ivar_write` event, but the RHS runs FIRST, so its
+    # calls stay in the flow — and in that order. Recording only the write would silently
+    # drop every call hidden on the right-hand side, cutting those callees off from the
+    # facts accumulated so far.
+    sequences = sequences_for(<<~RUBY)
+      class MRun
+        def run
+          MFoo.name = "x"
+          @bar = MBar.new.foo_name
+        end
+      end
+    RUBY
+
+    events = sequences[0].events
+    kinds = events.map { |e| e[:kind] }
+
+    foo_index = events.index { |e| e[:kind] == :call && e[:method_name] == :foo_name }
+    write_index = kinds.index(:ivar_write)
+
+    refute_nil foo_index, "the RHS call must still be recorded"
+    refute_nil write_index
+    assert foo_index < write_index, "the RHS call runs before the assignment"
+    assert_equal :@bar, events[write_index][:name]
+  end
+
   def test_nilable_const_write_is_not_nonnil
     sequences = sequences_for(<<~RUBY)
       class MRun

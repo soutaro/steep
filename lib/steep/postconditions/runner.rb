@@ -407,7 +407,7 @@ module Steep
         unpinned = Set.new #: Set[[String, Symbol]]
 
         sequences.each do |sequence|
-          accumulated = { self_methods: {}, consts: {} } #: Hash[Symbol, Hash[untyped, String]]
+          accumulated = { self_methods: {}, consts: {}, ivars: {} } #: Hash[Symbol, Hash[untyped, String]]
           pending_guards = [] #: Array[[untyped, bool]]
 
           sequence.events.each do |event|
@@ -416,12 +416,22 @@ module Steep
               entry = by_key["#{event[:class_name]}##{event[:method_name]}"]
               next if halt_predicate?(entry)
               record_argument_facts(buckets, seen, unpinned, event, accumulated)
+              # An ivar narrowing does not survive a call that MAY write it — the write is
+              # real, just one frame down (the may-write closure from felixefelip/steep#68).
+              # Consts are unaffected: they are invalidated by an explicit nilable write.
+              invalidate_written_ivars(accumulated, entry, same_self: event[:same_self])
               pending_guards << [entry, event[:same_self]] if entry
             when :halt
               pending_guards.each { |e, ss| accumulate_guard_facts(accumulated, e, same_self: ss) }
               pending_guards.clear
             when :const_write
               apply_const_write_facts(accumulated, by_key, event)
+            when :ivar_write
+              if event[:nonnil]
+                accumulated[:ivars][event[:name]] = event[:type]
+              else
+                accumulated[:ivars].delete(event[:name])
+              end
             end
           end
         end
@@ -444,6 +454,11 @@ module Steep
         names = @method_param_names[key] or return
 
         by_index = (event[:arg_keys] || []).to_h
+        # An ivar fact is about the CALLER's `self`, so it transfers only to a call on that
+        # same object. A cross-object call (`other.show(:name)`) reaches a different receiver
+        # whose ivars this flow says nothing about — the same gate `record_entry_facts`
+        # applies to self-method facts. Consts are global and cross freely.
+        ivars = event[:same_self] ? accumulated[:ivars] : {}
 
         names.each_with_index do |param, index|
           pattern = by_index[index]
@@ -454,12 +469,23 @@ module Steep
 
           bucket_key = [key, param, pattern]
           if seen[bucket_key]
-            buckets[bucket_key][:consts] = intersect(buckets[bucket_key][:consts], accumulated[:consts])
+            bucket = buckets[bucket_key]
+            bucket[:consts] = intersect(bucket[:consts], accumulated[:consts])
+            bucket[:ivars] = intersect(bucket[:ivars], ivars)
           else
-            buckets[bucket_key] = { consts: accumulated[:consts].dup }
+            buckets[bucket_key] = { consts: accumulated[:consts].dup, ivars: ivars.dup }
             seen[bucket_key] = true
           end
         end
+      end
+
+      # Drop every accumulated ivar narrowing the callee may write (transitively). Only for a
+      # same-self call: a call on another object cannot write this object's ivars.
+      def invalidate_written_ivars(accumulated, entry, same_self:)
+        return unless entry && same_self
+        return if accumulated[:ivars].empty?
+
+        entry.may_write_ivars.each { |name| accumulated[:ivars].delete(name) }
       end
 
       # Turn the raw buckets into the serializable `{ "Class#method" => [{param:, pattern:,
@@ -477,9 +503,10 @@ module Steep
           if (uncond = @method_entry_facts[key])
             consts = consts.reject { |path, type| uncond[:consts][path] == type }
           end
-          next if consts.empty?
+          ivars = facts[:ivars]
+          next if consts.empty? && ivars.empty?
 
-          (result[key] ||= []) << { param: param, pattern: pattern, consts: consts }
+          (result[key] ||= []) << { param: param, pattern: pattern, consts: consts, ivars: ivars }
         end
 
         result

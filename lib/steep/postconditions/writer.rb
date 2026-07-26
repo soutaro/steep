@@ -55,6 +55,7 @@ module Steep
       #     param: which
       #     pattern: ":name"
       #     consts: { Example7::Foo.name: "::String" }
+      #     ivars: { "@name": "::String" }
       def argument_entry_rows
         rows = [] #: Array[Hash[String, untyped]]
         @argument_entry_facts.sort.each do |key, partitions|
@@ -62,13 +63,17 @@ module Steep
           partitions
             .sort_by { |p| [p[:param].to_s, p[:pattern]] }
             .each do |partition|
-              rows << {
+              row = {
                 "class" => class_name,
                 "method" => method_name,
                 "param" => partition[:param].to_s,
-                "pattern" => partition[:pattern],
-                "consts" => partition[:consts].sort.to_h
+                "pattern" => partition[:pattern]
               }
+              consts = partition[:consts] || {}
+              ivars = partition[:ivars] || {}
+              row["consts"] = consts.sort.to_h unless consts.empty?
+              row["ivars"] = ivars.sort_by { |n, _| n.to_s }.to_h { |n, t| [n.to_s, t] } unless ivars.empty?
+              rows << row
             end
         end
         rows

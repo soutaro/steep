@@ -17,8 +17,9 @@ module Steep
     # Everything is keyed by `Postconditions::LiteralKey`, the same canonical literal string
     # the producer used, so the two sides agree by construction.
     module ArgumentFacts
-      # `{ literal_key => { const path => AST type } }` — the partitions recorded for
-      # `param_name` on the method currently being checked, or `{}`.
+      # `{ literal_key => { consts: { path => AST type }, ivars: { :@x => AST type } } }` —
+      # the partitions recorded for `param_name` on the method currently being checked, or
+      # `{}`.
       #
       # Returns `{}` when the parameter is reassigned anywhere in the method body: the
       # correlation is between the CALLER's argument and the branch, and once the local no
@@ -37,11 +38,18 @@ module Steep
         partitions.each_with_object({}) do |partition, result|
           next unless partition[:param_name] == param_name
 
-          consts = partition[:consts].each_with_object({}) do |(path, rbs_type), acc|
-            type = factory.type(rbs_type) rescue next
-            acc[path] = type
-          end
-          result[partition[:pattern]] = consts unless consts.empty?
+          consts = to_ast_types(partition[:consts], factory)
+          ivars = to_ast_types(partition[:ivars] || {}, factory)
+          next if consts.empty? && ivars.empty?
+
+          result[partition[:pattern]] = { consts: consts, ivars: ivars }
+        end
+      end
+
+      def self.to_ast_types(rbs_types, factory)
+        rbs_types.each_with_object({}) do |(key, rbs_type), acc|
+          type = factory.type(rbs_type) rescue next
+          acc[key] = type
         end
       end
 
@@ -72,24 +80,34 @@ module Steep
         nil
       end
 
-      # The union of the const facts of every partition whose literal is among `literal_keys`
-      # (a `when` clause may list several patterns).
-      def self.consts_for(partitions, literal_keys)
-        literal_keys.each_with_object({}) do |key, consts|
-          if (facts = partitions[key])
-            consts.merge!(facts)
-          end
+      # The union of the facts of every partition whose literal is among `literal_keys` (a
+      # `when` clause may list several patterns).
+      def self.facts_for(partitions, literal_keys)
+        consts = {} #: Hash[String, AST::Types::t]
+        ivars = {} #: Hash[Symbol, AST::Types::t]
+
+        literal_keys.each do |key|
+          next unless (facts = partitions[key])
+          consts.merge!(facts[:consts])
+          ivars.merge!(facts[:ivars])
         end
+
+        { consts: consts, ivars: ivars }
       end
 
-      # Merge const facts into a branch's env, through the same slot a method-entry const
-      # fact uses — so a const read inside the branch narrows exactly as it would if the fact
-      # had been proven unconditionally at entry.
-      def self.apply(constr, consts)
-        return constr if consts.empty?
+      # Merge a partition's facts into a branch's env: consts through the same slot a
+      # method-entry const fact uses, ivars as a refinement of the declared ivar type — so a
+      # read inside the branch narrows exactly as it would if the fact had been proven
+      # unconditionally at entry.
+      def self.apply(constr, facts)
+        consts = facts[:consts]
+        ivars = facts[:ivars]
+        return constr if consts.empty? && ivars.empty?
 
         constr.update_type_env do |env|
-          env.with_method_entry_facts(self_methods: {}, consts: consts)
+          env = env.with_method_entry_facts(self_methods: {}, consts: consts) unless consts.empty?
+          env = env.refine_types(instance_variable_types: ivars) unless ivars.empty?
+          env
         end
       end
 
@@ -103,7 +121,7 @@ module Steep
         partitions = partitions_for(constr, param_name)
         return constr if partitions.empty?
 
-        apply(constr, consts_for(partitions, [key]))
+        apply(constr, facts_for(partitions, [key]))
       end
 
       # The parameter names a def reassigns anywhere in its body (`which = :name`), including

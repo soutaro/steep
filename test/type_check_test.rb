@@ -5697,6 +5697,84 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_postconditions__argument_entry_facts_narrow_ivars_in_branch
+    # Ivar partitions: the `when :name` branch refines `@name` to the type the `:name`
+    # callers established, and only there. Negative controls: the `:other` branch has no
+    # partition, and a read outside the `case` sees the declared nilable type.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class IVDispatcher
+            @name: String?
+            @value: Integer?
+            def show: (Symbol) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class IVDispatcher
+            def show(which)
+              @name.upcase
+
+              case which
+              when :name then @name.upcase
+              when :age then @value.abs
+              when :other then @name.upcase
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: Steep::Postconditions::Store.from_hash(
+        {
+          "argument_entry_facts" => [
+            {
+              "class" => "IVDispatcher",
+              "method" => "show",
+              "param" => "which",
+              "pattern" => ":name",
+              "ivars" => { "@name" => "::String" }
+            },
+            {
+              "class" => "IVDispatcher",
+              "method" => "show",
+              "param" => "which",
+              "pattern" => ":age",
+              "ivars" => { "@value" => "::Integer" }
+            }
+          ]
+        },
+        source: "test"
+      ),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 10
+              end:
+                line: 3
+                character: 16
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 27
+              end:
+                line: 8
+                character: 33
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_postconditions__argument_entry_facts_skip_reassigned_parameter
     # The correlation is between the CALLER's argument and the branch. Once the body
     # reassigns the parameter, testing it proves nothing about what the caller passed, so
