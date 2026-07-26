@@ -141,10 +141,11 @@ module Steep
           elsif halt_statement?(stmt)
             events << { kind: :halt }
           else
-            target = call_target(stmt) or next
-            each_call_send(target) do |send_node|
-              next if send_node.children[1].to_s.end_with?("=")
-              call = call_event(send_node) and events << call
+            call_targets(stmt).each do |target|
+              each_call_send(target) do |send_node|
+                next if send_node.children[1].to_s.end_with?("=")
+                call = call_event(send_node) and events << call
+              end
             end
           end
         end
@@ -162,15 +163,33 @@ module Steep
         clause&.type == :return && (then_clause.nil? ^ else_clause.nil?)
       end
 
-      # The sub-expression whose calls we walk: the sole clause of a conditional call
-      # (`handler if cond` / `handler unless cond`, skipping the `cond`), else the statement
-      # itself. Halt checks are handled separately.
-      def call_target(stmt)
-        if stmt.type == :if
+      # The sub-expressions whose calls we walk. A full `if/else` and a `case/when` are
+      # BRANCH-SENSITIVE flows: we descend into EVERY branch, not just one. Each branch's
+      # calls are dominated by the writes that precede the whole conditional (both branches
+      # see them), so a call sitting in the `else` (`render :new` under `if @post.save`)
+      # belongs in the flow exactly as much as one in the `then`. `@typing` already gives
+      # each branch its branch-sensitive types, so no per-branch scoping is needed here —
+      # only top-level statement writes are emitted as `:const_write`, so a write nested
+      # inside one branch never leaks to a sibling branch or past the merge (conservative,
+      # sound).
+      #
+      # A modifier conditional (`handler if cond` / `handler unless cond`) has a single
+      # present clause; the `cond` is skipped. A bare expression is its own target. Halt
+      # checks (`return if <pred>`) are handled separately, before this.
+      def call_targets(stmt)
+        case stmt.type
+        when :if
           _cond, then_clause, else_clause = stmt.children
-          return then_clause || else_clause
+          [then_clause, else_clause].compact
+        when :case
+          _subject, *when_clauses, else_clause = stmt.children
+          # A `when` node is `[*conditions, body]`; its body is the last child. The `case`
+          # subject and each `when`'s conditions are skipped, like an `if`'s `cond`.
+          bodies = when_clauses.map { |w| w.children.last }
+          (bodies + [else_clause]).compact
+        else
+          [stmt]
         end
-        stmt
       end
 
       # Yields every `:send` node under `node` in evaluation order (a send's receiver and args

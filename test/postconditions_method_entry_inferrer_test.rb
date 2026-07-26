@@ -133,6 +133,47 @@ class PostconditionsMethodEntryInferrerTest < Minitest::Test
     assert_equal [:authenticate_user, :index], calls.map { |c| c[:method_name] }
   end
 
+  def test_full_if_else_walks_both_branches
+    # BRANCH-SENSITIVE flow extraction: a full `if/else` contributes the calls of BOTH
+    # clauses, not just the `then`. The `else`-branch call (`index`) used to be dropped
+    # because only one clause was walked. The `if` condition (`current_user_present?`) is
+    # skipped, like a modifier conditional's `cond`.
+    sequences = sequences_for(<<~RUBY)
+      class MEIController
+        def helper
+          if current_user_present?
+            authenticate_user
+          else
+            index
+          end
+        end
+      end
+    RUBY
+
+    assert_equal 1, sequences.size
+    calls = sequences[0].events.select { |e| e[:kind] == :call }.map { |c| c[:method_name] }
+    assert_equal [:authenticate_user, :index], calls
+  end
+
+  def test_case_when_walks_every_branch
+    # A `case/when` is branch-sensitive like `if/else`: every `when` body and the `else`
+    # contribute their calls; the `case` subject and the `when` conditions are skipped.
+    sequences = sequences_for(<<~RUBY)
+      class MEIController
+        def helper
+          case current_user_present?
+          when true then authenticate_user
+          else index
+          end
+        end
+      end
+    RUBY
+
+    assert_equal 1, sequences.size
+    calls = sequences[0].events.select { |e| e[:kind] == :call }.map { |c| c[:method_name] }
+    assert_equal [:authenticate_user, :index], calls
+  end
+
   def test_truly_empty_body_is_not_a_sequence
     sequences = sequences_for(<<~RUBY)
       class MEIController
