@@ -288,7 +288,8 @@ module Steep
         return_type: annots.return_type || method_type&.type&.return_type || AST::Builtin.any_type,
         super_method: super_method,
         forward_arg_type: method_params.forward_arg_type,
-        block_param_name: block_param_name
+        block_param_name: block_param_name,
+        reassigned_parameters: TypeInference::ArgumentFacts.reassigned_parameters(node)
       )
 
       local_variable_types = method_params.each_param.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t]
@@ -2017,6 +2018,12 @@ module Steep
                 constr
                   .update_type_env { truthy.env }
                   .for_branch(true_clause)
+                  # Argument-sensitive entry facts (peça 3): `if which == :name` reaches its
+                  # truthy clause only for callers who passed `:name`, so that partition's
+                  # facts hold here — the `if` analogue of a `when :name` clause. Only the
+                  # truthy side: "not this literal" pins the argument to nothing. `elsif` is
+                  # a nested `:if`, so it is covered by the same path.
+                  .yield_self {|c| TypeInference::ArgumentFacts.apply_for_condition(c, cond) }
                   .tap {|constr| typing.cursor_context.set_node_context(true_clause, constr.context) }
                   .synthesize(true_clause, hint: hint)
             end

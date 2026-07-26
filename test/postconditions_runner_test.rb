@@ -766,4 +766,140 @@ class PostconditionsRunnerTest < Minitest::Test
       assert_nil name_partition, "a :name caller that establishes nothing must drop the partition"
     end
   end
+
+  def test_runner_drops_argument_facts_when_a_call_site_passes_a_non_literal
+    # SOUNDNESS. A caller that passes a variable (`show(sym)`) establishes nothing and may
+    # reach ANY branch at runtime — including `when :name`, whose partition claims
+    # `AFFoo.name`. Since that argument cannot be pinned to a literal, no partition on that
+    # parameter is provable and all of them must be dropped. Without this, one dynamic call
+    # site silently invalidates the whole correlation.
+    in_tmpdir do
+      write("sig/af.rbs", <<~RBS)
+        #{ARG_FACTS_RBS}
+        class AFRun
+          def run_dynamic: (Symbol) -> void
+        end
+      RBS
+      write("app/af.rb", <<~RUBY)
+        #{ARG_FACTS_RUBY}
+        class AFRun
+          def run_dynamic(sym)
+            AFDispatcher.new.show(sym)
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      assert_empty runner.argument_entry_facts,
+                   "a non-literal call site must drop every partition on that parameter"
+    end
+  end
+
+  def test_runner_keeps_argument_facts_for_a_different_parameter
+    # The drop is per PARAMETER, not per method: an unpinned argument at one position must
+    # not take down a partition proven at another.
+    in_tmpdir do
+      write("sig/af.rbs", <<~RBS)
+        class AFFoo
+          def self.name: () -> String?
+          def self.name=: (String?) -> void
+        end
+        class AFTwo
+          def show: (Symbol, Symbol) -> void
+        end
+        class AFRunTwo
+          def run_a: (Symbol) -> void
+          def run_b: (Symbol) -> void
+        end
+      RBS
+      write("app/af.rb", <<~RUBY)
+        class AFFoo
+          def self.name
+            @name
+          end
+          def self.name=(value)
+            @name = value
+          end
+        end
+        class AFTwo
+          def show(first, second)
+            case second
+            when :name then AFFoo.name
+            end
+          end
+        end
+        class AFRunTwo
+          def run_a(sym)
+            AFFoo.name = "John Doe"
+            AFTwo.new.show(sym, :name)
+          end
+          def run_b(sym)
+            AFTwo.new.show(sym, :other)
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      partitions = runner.argument_entry_facts["AFTwo#show"] || []
+      params = partitions.map { |p| p[:param] }.uniq
+
+      refute_includes params, :first, "the unpinned first parameter must have no partition"
+      assert_includes params, :second, "the literal-pinned second parameter keeps its partition"
+    end
+  end
+
+  def test_runner_drops_argument_facts_after_a_splat
+    # A splat makes every following position unknowable — the literal `:name` written after
+    # it could land on any parameter — so nothing past it may be pinned.
+    in_tmpdir do
+      write("sig/af.rbs", <<~RBS)
+        class AFFoo
+          def self.name: () -> String?
+          def self.name=: (String?) -> void
+        end
+        class AFSplat
+          def show: (*Symbol) -> void
+        end
+        class AFRunSplat
+          def run: (Array[Symbol]) -> void
+        end
+      RBS
+      write("app/af.rb", <<~RUBY)
+        class AFFoo
+          def self.name
+            @name
+          end
+          def self.name=(value)
+            @name = value
+          end
+        end
+        class AFSplat
+          def show(first, second)
+            case second
+            when :name then AFFoo.name
+            end
+          end
+        end
+        class AFRunSplat
+          def run(list)
+            AFFoo.name = "John Doe"
+            AFSplat.new.show(*list, :name)
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      assert_empty runner.argument_entry_facts["AFSplat#show"] || [],
+                   "a literal written after a splat cannot be pinned to a parameter"
+    end
+  end
 end

@@ -5610,6 +5610,173 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_postconditions__argument_entry_facts_narrow_in_if_equality_branch
+    # The `if` analogue of a `when` clause: `if which == :name` reaches its truthy branch
+    # only for callers who passed `:name`, so the same partition applies. `elsif` is a
+    # nested `if` and rides the same path. Negative controls: the `else` branch pins the
+    # argument to nothing, and a read before the `if` gets no partition at all.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class IFFoo
+            def self.name: () -> String?
+          end
+
+          class IFAge
+            def self.value: () -> Integer?
+          end
+
+          class IFDispatcher
+            def show: (Symbol) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class IFDispatcher
+            def show(which)
+              IFFoo.name.upcase
+
+              if which == :name
+                IFFoo.name.upcase
+              elsif which == :age
+                IFAge.value.abs
+              else
+                IFFoo.name.upcase
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: Steep::Postconditions::Store.from_hash(
+        {
+          "argument_entry_facts" => [
+            {
+              "class" => "IFDispatcher",
+              "method" => "show",
+              "param" => "which",
+              "pattern" => ":name",
+              "consts" => { "IFFoo.name" => "::String" }
+            },
+            {
+              "class" => "IFDispatcher",
+              "method" => "show",
+              "param" => "which",
+              "pattern" => ":age",
+              "consts" => { "IFAge.value" => "::Integer" }
+            }
+          ]
+        },
+        source: "test"
+      ),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 15
+              end:
+                line: 3
+                character: 21
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 10
+                character: 17
+              end:
+                line: 10
+                character: 23
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__argument_entry_facts_skip_reassigned_parameter
+    # The correlation is between the CALLER's argument and the branch. Once the body
+    # reassigns the parameter, testing it proves nothing about what the caller passed, so
+    # the partition must not apply — in either the `case` or the `if` shape.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class RAFoo
+            def self.name: () -> String?
+          end
+
+          class RADispatcher
+            def show: (Symbol) -> void
+            def other: () -> Symbol
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class RADispatcher
+            def show(which)
+              which = other
+
+              case which
+              when :name then RAFoo.name.upcase
+              end
+
+              if which == :name
+                RAFoo.name.upcase
+              end
+            end
+
+            def other
+              :name
+            end
+          end
+        RUBY
+      },
+      postconditions: Steep::Postconditions::Store.from_hash(
+        {
+          "argument_entry_facts" => [
+            {
+              "class" => "RADispatcher",
+              "method" => "show",
+              "param" => "which",
+              "pattern" => ":name",
+              "consts" => { "RAFoo.name" => "::String" }
+            }
+          ]
+        },
+        source: "test"
+      ),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 6
+                character: 31
+              end:
+                line: 6
+                character: 37
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 10
+                character: 17
+              end:
+                line: 10
+                character: 23
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_postconditions__argument_entry_facts_ignore_non_parameter_subject
     # The correlation only holds when the case subject is a bare read of the parameter the
     # fact was partitioned on. A `case` on something else (here a self-call) must NOT pick

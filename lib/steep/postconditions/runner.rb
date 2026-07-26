@@ -401,6 +401,10 @@ module Steep
 
         buckets = {} #: Hash[[String, Symbol, String], Hash[Symbol, untyped]]
         seen = {} #: Hash[[String, Symbol, String], bool]
+        # (method key, param) pairs where some call site passed something we cannot pin to a
+        # literal. Such a caller may reach ANY branch, so no partition on that parameter is
+        # provable — see `record_argument_facts`.
+        unpinned = Set.new #: Set[[String, Symbol]]
 
         sequences.each do |sequence|
           accumulated = { self_methods: {}, consts: {} } #: Hash[Symbol, Hash[untyped, String]]
@@ -411,7 +415,7 @@ module Steep
             when :call
               entry = by_key["#{event[:class_name]}##{event[:method_name]}"]
               next if halt_predicate?(entry)
-              record_argument_facts(buckets, seen, event, accumulated)
+              record_argument_facts(buckets, seen, unpinned, event, accumulated)
               pending_guards << [entry, event[:same_self]] if entry
             when :halt
               pending_guards.each { |e, ss| accumulate_guard_facts(accumulated, e, same_self: ss) }
@@ -422,22 +426,32 @@ module Steep
           end
         end
 
-        finalize_argument_facts(buckets)
+        finalize_argument_facts(buckets, unpinned)
       end
 
       # Record the accumulated consts for each literal positional argument of a call, MEETing
       # with any facts already bucketed for the same (method, param, literal) — a fact must
       # hold at every such site to survive. The call site's positional INDEX is translated to
       # the callee's parameter NAME so the consumer can match it against a `case <param>`.
-      def record_argument_facts(buckets, seen, event, accumulated)
-        arg_keys = event[:arg_keys]
-        return if arg_keys.nil? || arg_keys.empty?
-
+      #
+      # A parameter this call site does NOT pin to a literal — a variable (`show(sym)`), a
+      # splat, or an argument left to its default — marks the parameter UNPINNED. That caller
+      # may reach any branch, including one whose partition claims facts it never established,
+      # so every partition on that parameter has to be dropped. Without this, a single
+      # dynamic-argument call site silently invalidates the whole correlation.
+      def record_argument_facts(buckets, seen, unpinned, event, accumulated)
         key = "#{event[:class_name]}##{event[:method_name]}"
         names = @method_param_names[key] or return
 
-        arg_keys.each do |index, pattern|
-          param = names[index] or next
+        by_index = (event[:arg_keys] || []).to_h
+
+        names.each_with_index do |param, index|
+          pattern = by_index[index]
+          unless pattern
+            unpinned << [key, param]
+            next
+          end
+
           bucket_key = [key, param, pattern]
           if seen[bucket_key]
             buckets[bucket_key][:consts] = intersect(buckets[bucket_key][:consts], accumulated[:consts])
@@ -452,11 +466,12 @@ module Steep
       # consts:}] }`: keep only methods whose bodies are re-type-checked from source, drop the
       # facts already unconditional at the method's entry (a partition carries only what is
       # SPECIFIC to its argument), and drop a partition left with nothing.
-      def finalize_argument_facts(buckets)
+      def finalize_argument_facts(buckets, unpinned)
         result = {} #: Hash[String, Array[Hash[Symbol, untyped]]]
 
         buckets.each do |(key, param, pattern), facts|
           next unless @defined_method_keys.include?(key)
+          next if unpinned.include?([key, param])
 
           consts = facts[:consts]
           if (uncond = @method_entry_facts[key])

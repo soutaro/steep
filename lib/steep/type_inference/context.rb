@@ -10,7 +10,12 @@ module Steep
         attr_reader :forward_arg_type
         attr_reader :block_param_name
 
-        def initialize(name:, method:, method_type:, return_type:, super_method:, forward_arg_type:, block_param_name: nil)
+        # Parameter names the body reassigns (`which = :name`). Argument-sensitive entry
+        # facts (peça 3) correlate a branch with the CALLER's argument, so a parameter that
+        # no longer holds what the caller passed must not carry that correlation.
+        attr_reader :reassigned_parameters
+
+        def initialize(name:, method:, method_type:, return_type:, super_method:, forward_arg_type:, block_param_name: nil, reassigned_parameters: Set.new)
           @name = name
           @method = method
           @return_type = return_type
@@ -18,6 +23,11 @@ module Steep
           @super_method = super_method
           @forward_arg_type = forward_arg_type
           @block_param_name = block_param_name
+          @reassigned_parameters = reassigned_parameters
+        end
+
+        def reassigned_parameter?(name)
+          reassigned_parameters.include?(name)
         end
 
         def block_type

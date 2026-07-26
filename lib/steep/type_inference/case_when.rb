@@ -126,41 +126,15 @@ module Steep
       def self.argument_facts_for(constr, condition_node)
         return {} unless condition_node.is_a?(Parser::AST::Node) && condition_node.type == :lvar
 
-        param_name = condition_node.children[0]
-        class_name = constr.module_context&.class_name or return {}
-        method_name = constr.method_context&.name or return {}
-
-        partitions = constr.postconditions.lookup_argument_entry_facts(class_name.to_s, method_name)
-        return {} if partitions.empty?
-
-        factory = constr.checker.factory
-        partitions.each_with_object({}) do |partition, result|
-          next unless partition[:param_name] == param_name
-
-          consts = partition[:consts].each_with_object({}) do |(path, rbs_type), acc|
-            type = factory.type(rbs_type) rescue next
-            acc[path] = type
-          end
-          result[partition[:pattern]] = consts unless consts.empty?
-        end
+        ArgumentFacts.partitions_for(constr, condition_node.children[0])
       end
 
       # Merge into the branch env the const facts of every partition whose literal matches one
       # of this `when`'s patterns — narrowing const reads (`Foo.name`) exactly as a
       # method-entry const fact does, but only inside this branch.
       def self.apply_argument_facts(body_constr, arg_facts, patterns)
-        consts = {} #: Hash[String, AST::Types::t]
-        patterns.each do |pat|
-          key = Postconditions::LiteralKey.of(pat) or next
-          if (facts = arg_facts[key])
-            consts.merge!(facts)
-          end
-        end
-        return body_constr if consts.empty?
-
-        body_constr.update_type_env do |env|
-          env.with_method_entry_facts(self_methods: {}, consts: consts)
-        end
+        keys = patterns.filter_map { |pat| Postconditions::LiteralKey.of(pat) }
+        ArgumentFacts.apply(body_constr, ArgumentFacts.consts_for(arg_facts, keys))
       end
 
       attr_reader :location, :node, :condition_node, :when_nodes, :else_node

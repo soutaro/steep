@@ -41,6 +41,10 @@ module Steep
       # facts before walking it, so facts propagate transitively through the call graph.
       RunnerSequence = Struct.new(:events, :owner, keyword_init: true)
 
+      # Argument shapes past which a call's positional indices can no longer be matched to
+      # the callee's parameters.
+      UNRELIABLE_ARG_TYPES = Set[:splat, :forwarded_args, :forwarded_restarg, :forwarded_kwrestarg].freeze
+
       def self.sequences(source, typing)
         new(source, typing).sequences
       end
@@ -277,14 +281,19 @@ module Steep
         }
       end
 
-      # The leading positional literal arguments of a call, as `[index, LiteralKey]` pairs.
-      # Stops at the first non-literal / splat / keyword / block argument — past it the
-      # positional indices are no longer reliable.
+      # The positional literal arguments of a call, as `[index, LiteralKey]` pairs.
+      #
+      # A plain non-literal argument (`show(sym, :name)`) is SKIPPED, not a stopping point:
+      # it still occupies exactly one position, so the literals after it keep their indices —
+      # the Runner then marks the skipped position unpinned. Only a splat or argument
+      # forwarding makes the following indices unknowable, and there we stop.
       def literal_arg_keys(send_node)
         keys = [] #: Array[[Integer, String]]
         send_node.children.drop(2).each_with_index do |arg, index|
-          key = LiteralKey.of(arg) or break
-          keys << [index, key]
+          break if arg.is_a?(Parser::AST::Node) && UNRELIABLE_ARG_TYPES.include?(arg.type)
+          if (key = LiteralKey.of(arg))
+            keys << [index, key]
+          end
         end
         keys
       end
