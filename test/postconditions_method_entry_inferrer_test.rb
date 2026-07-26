@@ -114,14 +114,29 @@ class PostconditionsMethodEntryInferrerTest < Minitest::Test
     assert_equal [:authenticate_user, :index], calls
   end
 
-  def test_ignores_ordinary_method_without_const_write
-    # A plain method with only self-calls and no constant write is not a runner and carries no
-    # #78 const-flow — no sequence.
+  def test_call_only_method_is_a_sequence_for_transitive_seeding
+    # A method with only calls establishes nothing on its own, but under the Runner's
+    # fixpoint it FORWARDS its owner's seeded entry facts to its callees. So it must still
+    # be a sequence (owned by `MEIController#helper`), carrying its call events.
     sequences = sequences_for(<<~RUBY)
       class MEIController
         def helper
           authenticate_user
           index
+        end
+      end
+    RUBY
+
+    assert_equal 1, sequences.size
+    assert_equal "MEIController#helper", sequences[0].owner
+    calls = sequences[0].events.select { |e| e[:kind] == :call }
+    assert_equal [:authenticate_user, :index], calls.map { |c| c[:method_name] }
+  end
+
+  def test_truly_empty_body_is_not_a_sequence
+    sequences = sequences_for(<<~RUBY)
+      class MEIController
+        def helper
         end
       end
     RUBY

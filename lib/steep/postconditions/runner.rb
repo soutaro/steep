@@ -254,11 +254,34 @@ module Steep
       # INTERSECTION — a fact only holds at entry if every path there proves it.
       def infer_method_entry_facts(resolved, sequences)
         by_key = resolved.to_h { |e| [entry_key(e), e] }
+
+        # Fixpoint over the call graph. Each pass seeds a flow with its owner's entry facts
+        # from the previous pass, so facts propagate transitively (M establishes F, calls N,
+        # N carries F to its own callees). Facts only GROW pass to pass — a larger seed can
+        # only widen the per-call-site intersection — and the (method, fact) space is finite,
+        # so this converges; the iteration cap is a belt-and-braces guard. Pass 0 (empty seed)
+        # reproduces the one-hop result.
+        prev = {} #: Hash[String, Hash[Symbol, Hash[untyped, String]]]
+        (sequences.size + 2).times do
+          per_method = run_entry_fact_pass(by_key, sequences, prev)
+          # Keep only facts for methods whose bodies are re-type-checked from source (the only
+          # ones a fact can narrow). Drops the dead facts a chain walk records for builtin/stdlib
+          # calls (`String#upcase`, `Class#new`).
+          per_method = per_method.select { |key, _| @defined_method_keys.include?(key) }
+          per_method = per_method.reject { |_, facts| facts[:self_methods].empty? && facts[:consts].empty? }
+          break if per_method == prev
+          prev = per_method
+        end
+        prev
+      end
+
+      # One pass of the fixpoint: walk every flow with its `accumulated` seeded from `prev`.
+      def run_entry_fact_pass(by_key, sequences, prev)
         per_method = {} #: Hash[String, Hash[Symbol, Hash[untyped, String]]]
         seen = {} #: Hash[String, bool]
 
         sequences.each do |sequence|
-          accumulated = { self_methods: {}, consts: {} } #: Hash[Symbol, Hash[untyped, String]]
+          accumulated = seed_entry_facts(prev, sequence.owner)
           pending_guards = [] #: Array[[untyped, bool]]
 
           sequence.events.each do |event|
@@ -285,11 +308,16 @@ module Steep
           end
         end
 
-        # Keep only facts for methods whose bodies are re-type-checked from source (the only
-        # ones a fact can narrow). Drops the dead facts a chain walk records for builtin/stdlib
-        # calls (`String#upcase`, `Class#new`).
-        per_method.select! { |key, _| @defined_method_keys.include?(key) }
-        per_method.reject { |_, facts| facts[:self_methods].empty? && facts[:consts].empty? }
+        per_method
+      end
+
+      # The starting facts for a flow: its owner's entry facts from the previous pass (a copy,
+      # so the walk's mutations don't leak back). Empty for a top-level flow or the first pass.
+      def seed_entry_facts(prev, owner)
+        facts = owner && prev[owner]
+        return { self_methods: {}, consts: {} } unless facts
+
+        { self_methods: facts[:self_methods].dup, consts: facts[:consts].dup }
       end
 
       # A method that transparently returns an ivar is a predicate (a halt check like

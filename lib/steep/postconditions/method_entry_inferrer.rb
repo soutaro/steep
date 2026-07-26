@@ -35,8 +35,11 @@ module Steep
     # its definer. Under the project's whole-program (closed-world) assumption, intersecting a
     # method's entry facts over its observed call sites is treated as sound.
     class MethodEntryInferrer
-      # One flow: `events` is an ordered list of `:call` / `:const_write` / `:halt` events.
-      RunnerSequence = Struct.new(:events, keyword_init: true)
+      # One flow: `events` is an ordered list of `:call` / `:const_write` / `:halt` events,
+      # and `owner` is the `"Class#method"` whose body this flow is (nil for a top-level
+      # flow with no enclosing class). The Runner seeds a flow with `owner`'s own entry
+      # facts before walking it, so facts propagate transitively through the call graph.
+      RunnerSequence = Struct.new(:events, :owner, keyword_init: true)
 
       def self.sequences(source, typing)
         new(source, typing).sequences
@@ -84,30 +87,42 @@ module Steep
         return [] unless @source.node
 
         result = [] #: Array[RunnerSequence]
-        each_method_def(@source.node) do |def_node|
+        each_method_def(@source.node, []) do |def_node, owner|
           events = method_events(def_node)
-          # A flow only produces facts through a `:halt` (guard-fact promotion) or a
-          # `:const_write` (establishment). A body with neither propagates nothing, so skip it —
-          # keeping the sequence set small without naming any method.
-          next unless events.any? { |e| e[:kind] == :halt || e[:kind] == :const_write }
-          result << RunnerSequence.new(events: events)
+          # Keep a flow that either PRODUCES facts (`:halt` promotion / `:const_write`
+          # establishment) OR merely PROPAGATES them (`:call`): once the Runner seeds a
+          # flow with its owner's entry facts, a body of pure calls forwards those facts
+          # to its callees (transitive narrowing). A body with none of these is inert.
+          next if events.empty?
+          result << RunnerSequence.new(events: events, owner: owner)
         end
         result
       end
 
       private
 
-      # Yields every method def (`def`) reachable under a class/module. Does not recurse into a
-      # def body (nested defs don't participate in the enclosing flow).
-      def each_method_def(node, &block)
+      # Yields `[def_node, "Class#method"]` for every method def under a class/module,
+      # tracking lexical nesting for the owner key (nil at top level). Mirrors `walk_defs`
+      # so owner keys line up with `defined_method_keys` and recorded callee keys.
+      def each_method_def(node, nesting, &block)
         return unless node.is_a?(Parser::AST::Node)
 
-        if node.type == :def
-          yield node
-          return
+        case node.type
+        when :class, :module
+          name = const_lexical_name(node.children[0])
+          inner = name ? nesting + [name] : nesting
+          body = node.type == :class ? node.children[2] : node.children[1]
+          each_method_def(body, inner, &block) if body
+        when :def
+          owner = nesting.empty? ? nil : "#{nesting.join("::")}##{node.children[0]}"
+          yield node, owner
+        when :begin, :kwbegin
+          node.children.each { |c| each_method_def(c, nesting, &block) }
+        when :sclass
+          each_method_def(node.children[1], nesting, &block)
+        else
+          node.children.each { |c| each_method_def(c, nesting, &block) if c.is_a?(Parser::AST::Node) }
         end
-
-        node.children.each { |c| each_method_def(c, &block) if c.is_a?(Parser::AST::Node) }
       end
 
       # The ordered events of a method body, in source order. Each statement is a `Const.attr =

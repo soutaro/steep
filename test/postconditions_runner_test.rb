@@ -371,6 +371,75 @@ class PostconditionsRunnerTest < Minitest::Test
     end
   end
 
+  def test_runner_propagates_facts_transitively_to_the_second_hop
+    in_tmpdir do
+      write("sig/fp.rbs", <<~RBS)
+        class User
+        end
+        class Current
+          def self.user: () -> User?
+          def self.user=: (User?) -> User?
+        end
+        class FPController
+          @performed: bool
+          def current_user: () -> User?
+          def redirect_to: () -> void
+          def performed?: () -> bool
+          def authenticate_user: () -> void
+          def one_hop: () -> void
+          def two_hop: () -> void
+          def __rbs_infer__run_index: () -> void
+        end
+      RBS
+      write("app/fp.rb", <<~RUBY)
+        class FPController
+          def redirect_to
+            @performed = true
+          end
+          def performed?
+            @performed
+          end
+          def authenticate_user
+            unless current_user
+              redirect_to
+              return
+            end
+            Current.user = current_user
+          end
+          def one_hop
+            two_hop
+          end
+          def two_hop
+          end
+          def __rbs_infer__run_index
+            authenticate_user
+            return if performed?
+            one_hop
+            return if performed?
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+
+      # First hop: `one_hop` is called directly from the runner, where the guard proved
+      # `Current.user` — the one-hop propagation that already worked.
+      one = reparsed.lookup_method_entry_facts("FPController", :one_hop)
+      refute_nil one, "one_hop should get the guard's Current.user at entry"
+      assert_equal "::User", one[:consts]["Current.user"].to_s
+
+      # Second hop: `two_hop` is reached ONLY through `one_hop`. The fixpoint seeds `one_hop`
+      # with its own entry fact, so it forwards `Current.user` to `two_hop`.
+      two = reparsed.lookup_method_entry_facts("FPController", :two_hop)
+      refute_nil two, "two_hop should inherit Current.user transitively through one_hop"
+      assert_equal "::User", two[:consts]["Current.user"].to_s
+    end
+  end
+
   TC_RBS = <<~RBS
     class User
       def full_name: () -> String
