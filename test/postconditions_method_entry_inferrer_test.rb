@@ -70,6 +70,30 @@ class PostconditionsMethodEntryInferrerTest < Minitest::Test
     assert calls.all? { |c| c[:same_self] }, "self-send handlers are same-self"
   end
 
+  def test_defined_method_keys_includes_self_method_annotation
+    # A top-level body checked with `@type self_method: X#m` (an ERB template
+    # compiled to a method at runtime) IS the source body of `X#m`, so it must
+    # contribute `X#m` to the defined-method keys — otherwise the Runner's
+    # defined-key filter drops the entry fact a guarded render records for it.
+    with_checker(RBS_FIXTURE) do |checker|
+      source = parse_ruby(<<~RUBY)
+        Object.new
+        # @type self_method: MBar#__rbs_infer__body
+      RUBY
+
+      keys = Postconditions::MethodEntryInferrer.defined_method_keys(source)
+      assert_includes keys, "MBar#__rbs_infer__body"
+    end
+  end
+
+  def test_defined_method_keys_omits_self_method_when_absent
+    with_checker(RBS_FIXTURE) do |checker|
+      source = parse_ruby("Object.new\n")
+      keys = Postconditions::MethodEntryInferrer.defined_method_keys(source)
+      assert_empty keys.grep(/__rbs_infer__body/)
+    end
+  end
+
   def test_halt_check_makes_a_flow_regardless_of_method_name
     # No `__rbs_infer__run_` name — the flow is recognized purely by the `return if performed?`
     # halt structure (felixefelip/steep#78, `RUNNER_PREFIX` removed).

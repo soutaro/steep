@@ -59,7 +59,25 @@ module Steep
       def defined_method_keys
         keys = [] #: Array[String]
         walk_defs(@source.node, []) { |cls, mname| keys << "#{cls}##{mname}" } if @source.node
+        # A top-level body checked with `@type self_method: Klass#method` IS the
+        # source body of that method (an ERB template compiled to a method at
+        # runtime), so it "defines" `Klass#method` for entry-fact purposes —
+        # otherwise the Runner's defined-key filter drops the inferred fact.
+        keys.concat(self_method_def_keys)
         keys
+      end
+
+      # `["ERBPostsShow#__rbs_infer__body"]` for a source carrying
+      # `@type self_method: ERBPostsShow#__rbs_infer__body`, else `[]`. The
+      # annotation is parsed onto the root node at build time.
+      def self_method_def_keys
+        node = @source.node or return []
+        (@source.mapping[node] || []).filter_map do |annot|
+          next unless annot.is_a?(AST::Annotation::SelfMethod)
+          type = annot.type
+          next unless type.is_a?(AST::Types::Name::Instance)
+          "#{type.name.to_s.sub(/\A::/, "")}##{annot.method_name}"
+        end
       end
 
       def sequences

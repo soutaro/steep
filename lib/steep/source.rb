@@ -44,7 +44,11 @@ module Steep
         source_code = extract_ruby_from_erb(source_code)
 
         if ENV["STEEP_ERB_CONVENTION"] && (erb_class = ErbSelfTypeResolver.resolve(path))
-          source_code = source_code + "\n# @type self: #{erb_class}"
+          # `self_method` (not plain `self`): an ERB template compiles to a
+          # method at runtime, so give the top-level body that method identity —
+          # letting method-entry facts narrow reads in it. Appended at the END so
+          # ERB line positions stay 1:1 (a physical `def` wrapper would shift them).
+          source_code = source_code + "\n# @type self_method: #{erb_class}#__rbs_infer__body"
         end
       end
 

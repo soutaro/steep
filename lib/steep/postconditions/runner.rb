@@ -205,7 +205,11 @@ module Steep
 
         file_loader.each_path_in_patterns(target.source_pattern) do |path|
           absolute = @project.absolute_path(path)
-          next unless absolute.file? && absolute.extname == ".rb"
+          # `.erb` too: a template checked with `@type self_method: X#m` (ERB
+          # convention) is the source body of `X#m`, so it must contribute
+          # `X#m` to `defined_method_keys` — otherwise the fact a guarded action
+          # records for the view's entry is dropped by the defined-key filter.
+          next unless absolute.file? && [".rb", ".erb"].include?(absolute.extname)
 
           text = absolute.read
           source = begin
