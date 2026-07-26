@@ -73,6 +73,12 @@ module Steep
           constr.synthesize(condition_node)
         end
 
+        # Argument-sensitive entry facts (peça 3): when the case subject is a bare read of a
+        # method parameter, a `when :literal` branch is reachable only for callers who passed
+        # that literal — and those callers established the const facts recorded for this
+        # (param, literal) partition. Apply them inside the matching branch.
+        arg_facts = argument_facts_for(constr, case_when.condition_node)
+
         case_when.when_clauses() do |when_pats, patterns, body_node, loc|
           patterns.each do |pat|
             when_pats.add_pattern(pat) {|test, constr| constr.synthesize(test) }
@@ -84,6 +90,7 @@ module Steep
 
           if body_node
             body_constr = body_constr.for_branch(body_node)
+            body_constr = apply_argument_facts(body_constr, arg_facts, patterns) unless arg_facts.empty?
             type, body_constr = body_constr.synthesize(body_node, hint: hint, condition: condition)
           else
             type = AST::Builtin.nil_type
@@ -110,6 +117,50 @@ module Steep
         end
 
         case_when.result()
+      end
+
+      # `{ LiteralKey => { const_path => AST type } }` for the argument-sensitive partitions
+      # whose parameter is the case subject, or `{}`. Only a bare `case <param>` qualifies —
+      # the subject must be a direct read of a method parameter for the (param == literal)
+      # correlation to hold.
+      def self.argument_facts_for(constr, condition_node)
+        return {} unless condition_node.is_a?(Parser::AST::Node) && condition_node.type == :lvar
+
+        param_name = condition_node.children[0]
+        class_name = constr.module_context&.class_name or return {}
+        method_name = constr.method_context&.name or return {}
+
+        partitions = constr.postconditions.lookup_argument_entry_facts(class_name.to_s, method_name)
+        return {} if partitions.empty?
+
+        factory = constr.checker.factory
+        partitions.each_with_object({}) do |partition, result|
+          next unless partition[:param_name] == param_name
+
+          consts = partition[:consts].each_with_object({}) do |(path, rbs_type), acc|
+            type = factory.type(rbs_type) rescue next
+            acc[path] = type
+          end
+          result[partition[:pattern]] = consts unless consts.empty?
+        end
+      end
+
+      # Merge into the branch env the const facts of every partition whose literal matches one
+      # of this `when`'s patterns — narrowing const reads (`Foo.name`) exactly as a
+      # method-entry const fact does, but only inside this branch.
+      def self.apply_argument_facts(body_constr, arg_facts, patterns)
+        consts = {} #: Hash[String, AST::Types::t]
+        patterns.each do |pat|
+          key = Postconditions::LiteralKey.of(pat) or next
+          if (facts = arg_facts[key])
+            consts.merge!(facts)
+          end
+        end
+        return body_constr if consts.empty?
+
+        body_constr.update_type_env do |env|
+          env.with_method_entry_facts(self_methods: {}, consts: consts)
+        end
       end
 
       attr_reader :location, :node, :condition_node, :when_nodes, :else_node

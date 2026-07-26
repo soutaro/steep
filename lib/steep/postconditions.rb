@@ -22,6 +22,24 @@ module Steep
   # `when_true` / `when_false` are independent and optional. The `self:`
   # type string is parsed lazily via `RBS::Parser.parse_type`.
   module Postconditions
+    # Canonical string for a literal AST node, used to correlate a call-site
+    # argument (`show(:name)`) with the matching `when :name` pattern on the
+    # consumer side (felixefelip/steep argument-sensitive entry facts). Both
+    # sides build the key from the SAME literal shapes, so equal literals
+    # produce equal keys. Returns nil for a non-literal node.
+    module LiteralKey
+      def self.of(node)
+        return nil unless node.is_a?(Parser::AST::Node)
+
+        case node.type
+        when :sym  then ":#{node.children[0]}"
+        when :str  then node.children[0].inspect
+        when :int, :float then node.children[0].to_s
+        when :true, :false, :nil then node.type.to_s
+        end
+      end
+    end
+
     # Glob (relative to `base_dir`) used to discover sidecar files. Unlike
     # the single-file `Steep::Contracts`, postconditions are written by
     # external generators (rbs_rails, rbs_inline, hand-authored…) that all
@@ -36,6 +54,7 @@ module Steep
 
         merged = {} #: Hash[[String, Symbol], Entry]
         merged_entry_facts = {} #: Hash[[String, Symbol], untyped]
+        merged_arg_facts = {} #: Hash[[String, Symbol], untyped]
         sources = []
 
         paths.each do |path|
@@ -52,12 +71,15 @@ module Steep
             merged[key] = entry
           end
           merged_entry_facts.merge!(sub.method_entry_facts) { |_, first, _second| first }
+          sub.argument_entry_facts.each do |key, rows|
+            (merged_arg_facts[key] ||= []).concat(rows)
+          end
           sources << absolute.to_s
         rescue Psych::Exception, LoadError => e
           Steep.logger.warn { "[postconditions] failed to parse #{absolute}: #{e.message}" }
         end
 
-        Store.new(entries: merged, source: sources.join(", "), method_entry_facts: merged_entry_facts)
+        Store.new(entries: merged, source: sources.join(", "), method_entry_facts: merged_entry_facts, argument_entry_facts: merged_arg_facts)
       end
     end
 
@@ -65,7 +87,7 @@ module Steep
       attr_reader :entries, :source
 
       def self.empty
-        new(entries: {}, source: nil, method_entry_facts: {})
+        new(entries: {}, source: nil, method_entry_facts: {}, argument_entry_facts: {})
       end
 
       def self.from_hash(raw, source:)
@@ -81,7 +103,12 @@ module Steep
           end
           index[key] = entry
         end
-        new(entries: index, source: source, method_entry_facts: parse_method_entry_facts(raw))
+        new(
+          entries: index,
+          source: source,
+          method_entry_facts: parse_method_entry_facts(raw),
+          argument_entry_facts: parse_argument_entry_facts(raw)
+        )
       end
 
       # felixefelip/steep#68 item 4: { [class, method] => { self_methods:, consts: } },
@@ -110,16 +137,47 @@ module Steep
         end
       end
 
-      attr_reader :method_entry_facts
+      # Argument-sensitive entry facts (peça 3): facts that hold at a method's
+      # entry only for the callers that passed a specific literal at a given
+      # parameter. Indexed by [class, method] => array of
+      # { param_name:, pattern:, consts: }, where `pattern` is the LiteralKey of
+      # the argument (`":name"`) and `consts` are RBS::Types keyed by const path.
+      #
+      #   argument_entry_facts:
+      #   - class: Example7::Dispatcher
+      #     method: show
+      #     param: which
+      #     pattern: ":name"
+      #     consts: { Example7::Foo.name: "::String" }
+      def self.parse_argument_entry_facts(raw)
+        rows = (raw && raw["argument_entry_facts"]) || []
+        rows.each_with_object({}) do |row, acc|
+          klass = row["class"]; method = row["method"]
+          param = row["param"]; pattern = row["pattern"]
+          next unless klass && method && param && pattern
 
-      def initialize(entries:, source:, method_entry_facts: {})
+          consts = parse_fact_types(row["consts"], symbol_keys: false)
+          next if consts.empty?
+
+          (acc[[klass.to_s, method.to_sym]] ||= []) << {
+            param_name: param.to_sym,
+            pattern: pattern.to_s,
+            consts: consts
+          }
+        end
+      end
+
+      attr_reader :method_entry_facts, :argument_entry_facts
+
+      def initialize(entries:, source:, method_entry_facts: {}, argument_entry_facts: {})
         @entries = entries
         @source = source
         @method_entry_facts = method_entry_facts
+        @argument_entry_facts = argument_entry_facts
       end
 
       def empty?
-        @entries.empty? && @method_entry_facts.empty?
+        @entries.empty? && @method_entry_facts.empty? && @argument_entry_facts.empty?
       end
 
       def lookup_instance(type_name, method_name)
@@ -130,6 +188,13 @@ module Steep
       # entry, or nil.
       def lookup_method_entry_facts(class_name, method_name)
         @method_entry_facts[[class_name.to_s.sub(/\A::/, ""), method_name.to_sym]]
+      end
+
+      # Argument-sensitive entry facts (peça 3) for a method, or `[]`: the
+      # per-(param, literal) fact partitions the consumer applies inside the
+      # matching `when`/`case` branch.
+      def lookup_argument_entry_facts(class_name, method_name)
+        @argument_entry_facts[[class_name.to_s.sub(/\A::/, ""), method_name.to_sym]] || []
       end
     end
 

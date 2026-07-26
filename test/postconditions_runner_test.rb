@@ -642,4 +642,128 @@ class PostconditionsRunnerTest < Minitest::Test
                    entry.unconditional.ivar_type_strings[:"@company"]
     end
   end
+
+  ARG_FACTS_RBS = <<~RBS
+    class AFFoo
+      def self.name: () -> String?
+      def self.name=: (String?) -> void
+    end
+    class AFAge
+      def self.value: () -> Integer?
+      def self.value=: (Integer?) -> void
+    end
+    class AFDispatcher
+      def show: (Symbol) -> void
+    end
+    class AFRun
+      def run_name: () -> void
+      def run_age: () -> void
+    end
+  RBS
+
+  ARG_FACTS_RUBY = <<~RUBY
+    class AFFoo
+      def self.name
+        @name
+      end
+      def self.name=(value)
+        @name = value
+      end
+    end
+    class AFAge
+      def self.value
+        @value
+      end
+      def self.value=(value)
+        @value = value
+      end
+    end
+    class AFDispatcher
+      def show(which)
+        case which
+        when :name then AFFoo.name
+        when :age  then AFAge.value
+        end
+      end
+    end
+    class AFRun
+      def run_name
+        AFFoo.name = "John Doe"
+        AFDispatcher.new.show(:name)
+      end
+      def run_age
+        AFAge.value = 42
+        AFDispatcher.new.show(:age)
+      end
+    end
+  RUBY
+
+  def test_runner_partitions_entry_facts_by_literal_argument
+    # Argument-sensitive entry facts (peça 3). `show` is called with `:name` from a site
+    # where `AFFoo.name` is established, and with `:age` from a site where `AFAge.value`
+    # is. The whole-method entry fact is the MEET over both sites, so it holds NEITHER.
+    # Partitioning by the literal argument keeps each fact attached to the callers that
+    # actually prove it.
+    in_tmpdir do
+      write("sig/af.rbs", ARG_FACTS_RBS)
+      write("app/af.rb", ARG_FACTS_RUBY)
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+
+      # The unconditional entry fact for `show` carries neither const — the meet drops both.
+      unconditional = reparsed.lookup_method_entry_facts("AFDispatcher", :show)
+      if unconditional
+        refute unconditional[:consts].key?("AFFoo.name"), "the meet over both call sites cannot prove AFFoo.name"
+        refute unconditional[:consts].key?("AFAge.value"), "the meet over both call sites cannot prove AFAge.value"
+      end
+
+      partitions = reparsed.lookup_argument_entry_facts("AFDispatcher", :show)
+      assert_equal 2, partitions.size, "one partition per literal argument"
+
+      by_pattern = partitions.to_h { |p| [p[:pattern], p] }
+
+      name_partition = by_pattern[":name"]
+      refute_nil name_partition
+      assert_equal :which, name_partition[:param_name], "the call-site index resolves to the callee's param name"
+      assert_equal "::String", name_partition[:consts]["AFFoo.name"].to_s
+      refute name_partition[:consts].key?("AFAge.value"), "the :name partition must not carry the :age caller's fact"
+
+      age_partition = by_pattern[":age"]
+      refute_nil age_partition
+      assert_equal :which, age_partition[:param_name]
+      assert_equal "::Integer", age_partition[:consts]["AFAge.value"].to_s
+      refute age_partition[:consts].key?("AFFoo.name"), "the :age partition must not carry the :name caller's fact"
+    end
+  end
+
+  def test_runner_meets_argument_facts_across_call_sites_with_the_same_literal
+    # Two callers pass `:name`, but only one establishes `AFFoo.name`. A partition is the
+    # MEET over its own call sites, so the fact must be dropped — soundness is per-literal,
+    # not per-caller.
+    in_tmpdir do
+      write("sig/af.rbs", ARG_FACTS_RBS)
+      write("app/af.rb", <<~RUBY)
+        #{ARG_FACTS_RUBY}
+        class AFRun
+          def run_name_unestablished
+            AFDispatcher.new.show(:name)
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+      partitions = reparsed.lookup_argument_entry_facts("AFDispatcher", :show)
+      name_partition = partitions.find { |p| p[:pattern] == ":name" }
+
+      assert_nil name_partition, "a :name caller that establishes nothing must drop the partition"
+    end
+  end
 end

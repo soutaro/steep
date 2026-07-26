@@ -32,6 +32,7 @@ module Steep
         entries = []
         @sequences = [] #: Array[MethodEntryInferrer::RunnerSequence]
         @defined_method_keys = Set.new #: Set[String]
+        @method_param_names = {} #: Hash[String, Array[Symbol]]
         @project.targets.each do |target|
           target_entries, target_sequences = infer_for_target(target)
           entries.concat(target_entries)
@@ -39,6 +40,7 @@ module Steep
         end
         resolved = close_ivar_effects(merge(entries))
         @method_entry_facts = infer_method_entry_facts(resolved, @sequences)
+        @argument_entry_facts = infer_argument_entry_facts(resolved, @sequences)
         resolved
       end
 
@@ -47,16 +49,22 @@ module Steep
       # shows run before it. Nil until `run`.
       attr_reader :method_entry_facts
 
+      # Argument-sensitive entry facts (peça 3): { [class, method] => [{ param_name:,
+      # pattern:, consts: }] } — facts that hold at a method's entry only for the callers
+      # that passed a specific literal at a given parameter. Nil until `run`.
+      attr_reader :argument_entry_facts
+
       def output_path
         @project.absolute_path(DEFAULT_OUTPUT_PATH)
       end
 
       def write(entries)
         facts = @method_entry_facts || {}
-        if entries.empty? && facts.empty?
+        arg_facts = @argument_entry_facts || {}
+        if entries.empty? && facts.empty? && arg_facts.empty?
           output_path.delete if output_path.file?
         else
-          Writer.write(output_path, entries, method_entry_facts: facts)
+          Writer.write(output_path, entries, method_entry_facts: facts, argument_entry_facts: arg_facts)
         end
       end
 
@@ -241,6 +249,7 @@ module Steep
           out.concat(Inferrer.infer(source, typing, subtyping))
           sequences.concat(MethodEntryInferrer.sequences(source, typing))
           @defined_method_keys.merge(MethodEntryInferrer.defined_method_keys(source))
+          @method_param_names.merge!(MethodEntryInferrer.method_param_names(source))
         end
 
         [out, sequences]
@@ -374,6 +383,91 @@ module Steep
             accumulated[:consts].delete(path)
           end
         end
+      end
+
+      # Argument-sensitive entry facts (peça 3). Walks each flow like the entry-fact pass, but
+      # instead of attributing the accumulated facts to a callee unconditionally, it buckets
+      # them by the LITERAL the caller passed: `run_name` establishes `Foo.name` then calls
+      # `show(:name)`, so `Foo.name` is attributed to `show` ONLY for the `:name` partition.
+      # The whole-app entry fact (`infer_method_entry_facts`) is the MEET over all sites and
+      # drops both here — this partitioning is what keeps a shared dispatcher precise.
+      #
+      # No fixpoint: the establishing write and the call sit in the SAME flow (a caller sets
+      # up state, then dispatches), so one walk with an empty seed captures it. Const facts
+      # only — a `case <param>` branch narrows const reads; self-method partitioning is out
+      # of scope.
+      def infer_argument_entry_facts(resolved, sequences)
+        by_key = resolved.to_h { |e| [entry_key(e), e] }
+
+        buckets = {} #: Hash[[String, Symbol, String], Hash[Symbol, untyped]]
+        seen = {} #: Hash[[String, Symbol, String], bool]
+
+        sequences.each do |sequence|
+          accumulated = { self_methods: {}, consts: {} } #: Hash[Symbol, Hash[untyped, String]]
+          pending_guards = [] #: Array[[untyped, bool]]
+
+          sequence.events.each do |event|
+            case event[:kind]
+            when :call
+              entry = by_key["#{event[:class_name]}##{event[:method_name]}"]
+              next if halt_predicate?(entry)
+              record_argument_facts(buckets, seen, event, accumulated)
+              pending_guards << [entry, event[:same_self]] if entry
+            when :halt
+              pending_guards.each { |e, ss| accumulate_guard_facts(accumulated, e, same_self: ss) }
+              pending_guards.clear
+            when :const_write
+              apply_const_write_facts(accumulated, by_key, event)
+            end
+          end
+        end
+
+        finalize_argument_facts(buckets)
+      end
+
+      # Record the accumulated consts for each literal positional argument of a call, MEETing
+      # with any facts already bucketed for the same (method, param, literal) — a fact must
+      # hold at every such site to survive. The call site's positional INDEX is translated to
+      # the callee's parameter NAME so the consumer can match it against a `case <param>`.
+      def record_argument_facts(buckets, seen, event, accumulated)
+        arg_keys = event[:arg_keys]
+        return if arg_keys.nil? || arg_keys.empty?
+
+        key = "#{event[:class_name]}##{event[:method_name]}"
+        names = @method_param_names[key] or return
+
+        arg_keys.each do |index, pattern|
+          param = names[index] or next
+          bucket_key = [key, param, pattern]
+          if seen[bucket_key]
+            buckets[bucket_key][:consts] = intersect(buckets[bucket_key][:consts], accumulated[:consts])
+          else
+            buckets[bucket_key] = { consts: accumulated[:consts].dup }
+            seen[bucket_key] = true
+          end
+        end
+      end
+
+      # Turn the raw buckets into the serializable `{ "Class#method" => [{param:, pattern:,
+      # consts:}] }`: keep only methods whose bodies are re-type-checked from source, drop the
+      # facts already unconditional at the method's entry (a partition carries only what is
+      # SPECIFIC to its argument), and drop a partition left with nothing.
+      def finalize_argument_facts(buckets)
+        result = {} #: Hash[String, Array[Hash[Symbol, untyped]]]
+
+        buckets.each do |(key, param, pattern), facts|
+          next unless @defined_method_keys.include?(key)
+
+          consts = facts[:consts]
+          if (uncond = @method_entry_facts[key])
+            consts = consts.reject { |path, type| uncond[:consts][path] == type }
+          end
+          next if consts.empty?
+
+          (result[key] ||= []) << { param: param, pattern: pattern, consts: consts }
+        end
+
+        result
       end
 
       # Keys common to both, keeping a value only when the two agree (a

@@ -10,13 +10,14 @@ module Steep
         new(entries).dump
       end
 
-      def self.write(path, entries, method_entry_facts: {})
-        new(entries, method_entry_facts: method_entry_facts).write(path)
+      def self.write(path, entries, method_entry_facts: {}, argument_entry_facts: {})
+        new(entries, method_entry_facts: method_entry_facts, argument_entry_facts: argument_entry_facts).write(path)
       end
 
-      def initialize(entries, method_entry_facts: {})
+      def initialize(entries, method_entry_facts: {}, argument_entry_facts: {})
         @entries = entries
         @method_entry_facts = method_entry_facts
+        @argument_entry_facts = argument_entry_facts
       end
 
       def dump
@@ -41,7 +42,36 @@ module Steep
           "postconditions" => rows
         }
         document["method_entry_facts"] = method_entry_rows unless @method_entry_facts.empty?
+        document["argument_entry_facts"] = argument_entry_rows unless @argument_entry_facts.empty?
         document
+      end
+
+      # Argument-sensitive entry facts (peça 3): facts holding at a method's entry only for
+      # the callers that passed a specific literal at a given parameter.
+      #
+      #   argument_entry_facts:
+      #   - class: Example7::Dispatcher
+      #     method: show
+      #     param: which
+      #     pattern: ":name"
+      #     consts: { Example7::Foo.name: "::String" }
+      def argument_entry_rows
+        rows = [] #: Array[Hash[String, untyped]]
+        @argument_entry_facts.sort.each do |key, partitions|
+          class_name, method_name = key.split("#", 2)
+          partitions
+            .sort_by { |p| [p[:param].to_s, p[:pattern]] }
+            .each do |partition|
+              rows << {
+                "class" => class_name,
+                "method" => method_name,
+                "param" => partition[:param].to_s,
+                "pattern" => partition[:pattern],
+                "consts" => partition[:consts].sort.to_h
+              }
+            end
+        end
+        rows
       end
 
       # felixefelip/steep#68 item 4: facts holding at each method's entry.

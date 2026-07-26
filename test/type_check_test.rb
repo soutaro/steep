@@ -5523,6 +5523,157 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_postconditions__argument_entry_facts_narrow_inside_matching_branch
+    # Argument-sensitive entry facts (peça 3). `show` is a shared dispatcher: its
+    # whole-method entry facts are the MEET over all call sites, which proves nothing.
+    # But a `when :name` branch runs only for callers who passed `:name`, and those
+    # callers established `AEFoo.name` — so the partition narrows the read inside that
+    # branch only. `:age` gets its own partition; `:other`, with no partition, still
+    # errors (negative control), as does a read outside the `case`.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class AEFoo
+            def self.name: () -> String?
+          end
+
+          class AEAge
+            def self.value: () -> Integer?
+          end
+
+          class AEDispatcher
+            def show: (Symbol) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class AEDispatcher
+            def show(which)
+              AEFoo.name.upcase
+
+              case which
+              when :name then AEFoo.name.upcase
+              when :age then AEAge.value.abs
+              when :other then AEFoo.name.upcase
+              end
+            end
+          end
+        RUBY
+      },
+      postconditions: Steep::Postconditions::Store.from_hash(
+        {
+          "argument_entry_facts" => [
+            {
+              "class" => "AEDispatcher",
+              "method" => "show",
+              "param" => "which",
+              "pattern" => ":name",
+              "consts" => { "AEFoo.name" => "::String" }
+            },
+            {
+              "class" => "AEDispatcher",
+              "method" => "show",
+              "param" => "which",
+              "pattern" => ":age",
+              "consts" => { "AEAge.value" => "::Integer" }
+            }
+          ]
+        },
+        source: "test"
+      ),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 15
+              end:
+                line: 3
+                character: 21
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 32
+              end:
+                line: 8
+                character: 38
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_postconditions__argument_entry_facts_ignore_non_parameter_subject
+    # The correlation only holds when the case subject is a bare read of the parameter the
+    # fact was partitioned on. A `case` on something else (here a self-call) must NOT pick
+    # up the partition — the caller proved nothing about it.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class AEFoo2
+            def self.name: () -> String?
+          end
+
+          class AEDispatcher2
+            def show: (Symbol) -> void
+            def other: () -> Symbol
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class AEDispatcher2
+            def show(which)
+              case other
+              when :name then AEFoo2.name.upcase
+              end
+            end
+
+            def other
+              :name
+            end
+          end
+        RUBY
+      },
+      postconditions: Steep::Postconditions::Store.from_hash(
+        {
+          "argument_entry_facts" => [
+            {
+              "class" => "AEDispatcher2",
+              "method" => "show",
+              "param" => "which",
+              "pattern" => ":name",
+              "consts" => { "AEFoo2.name" => "::String" }
+            }
+          ]
+        },
+        source: "test"
+      ),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 32
+              end:
+                line: 4
+                character: 38
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_postconditions__update_refines_receiver
     run_type_check_test(
       signatures: {

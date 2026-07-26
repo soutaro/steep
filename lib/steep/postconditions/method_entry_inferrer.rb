@@ -54,6 +54,15 @@ module Steep
         new(source, nil).defined_method_keys
       end
 
+      # `{ "Class#method" => [param name symbols] }` for every method defined in this source,
+      # keyed the same way call owners resolve (`#` for both instance and singleton defs).
+      # The Runner uses it to translate a call site's positional argument INDEX into the
+      # callee's parameter NAME, so an argument-sensitive fact can be matched against the
+      # `case <param>` subject on the consumer side.
+      def self.method_param_names(source)
+        new(source, nil).method_param_names
+      end
+
       def initialize(source, typing)
         @source = source
         @typing = typing
@@ -68,6 +77,31 @@ module Steep
         # otherwise the Runner's defined-key filter drops the inferred fact.
         keys.concat(self_method_def_keys)
         keys
+      end
+
+      def method_param_names
+        result = {} #: Hash[String, Array[Symbol]]
+        return result unless @source.node
+        walk_defs(@source.node, []) do |class_path, method_name, def_node|
+          next unless def_node
+          result["#{class_path}##{method_name}"] = positional_param_names(def_node)
+        end
+        result
+      end
+
+      # The leading required/optional positional parameter names of a def, in order. Stops at
+      # the first rest/keyword/block parameter — past it a positional call-site index no
+      # longer maps to a name.
+      def positional_param_names(def_node)
+        args = def_node.type == :defs ? def_node.children[2] : def_node.children[1]
+        return [] unless args.is_a?(Parser::AST::Node)
+
+        names = [] #: Array[Symbol]
+        args.children.each do |param|
+          break unless param.is_a?(Parser::AST::Node) && (param.type == :arg || param.type == :optarg)
+          names << param.children[0]
+        end
+        names
       end
 
       # `["ERBPostsShow#__rbs_infer__body"]` for a source carrying
@@ -223,10 +257,12 @@ module Steep
         { kind: :const_write, base: base, attr: mname.to_s.chomp("="), nonnil: nonnil_rhs?(rhs) }
       end
 
-      # A resolved method call => `{ kind: :call, class_name:, method_name:, same_self: }`, else
-      # nil. `same_self` is false for an explicit non-self receiver — a cross-object call
-      # (`Bar.new.foo_name`) carries only const (global) facts, never the caller's `self`-method
-      # facts.
+      # A resolved method call => `{ kind: :call, class_name:, method_name:, same_self:,
+      # arg_keys: }`, else nil. `same_self` is false for an explicit non-self receiver — a
+      # cross-object call (`Bar.new.foo_name`) carries only const (global) facts, never the
+      # caller's `self`-method facts. `arg_keys` records the LEADING positional literal
+      # arguments as `[index, LiteralKey]` pairs (`show(:name)` => `[[0, ":name"]]`), which
+      # the Runner turns into argument-sensitive entry facts.
       def call_event(send_node)
         owner = resolve_owner(send_node) or return nil
         receiver = send_node.children[0]
@@ -236,8 +272,21 @@ module Steep
           kind: :call,
           class_name: owner[:class_name],
           method_name: owner[:method_name],
-          same_self: same_self
+          same_self: same_self,
+          arg_keys: literal_arg_keys(send_node)
         }
+      end
+
+      # The leading positional literal arguments of a call, as `[index, LiteralKey]` pairs.
+      # Stops at the first non-literal / splat / keyword / block argument — past it the
+      # positional indices are no longer reliable.
+      def literal_arg_keys(send_node)
+        keys = [] #: Array[[Integer, String]]
+        send_node.children.drop(2).each_with_index do |arg, index|
+          key = LiteralKey.of(arg) or break
+          keys << [index, key]
+        end
+        keys
       end
 
       def resolve_owner(call_node)
@@ -298,9 +347,9 @@ module Steep
           body = node.type == :class ? node.children[2] : node.children[1]
           walk_defs(body, inner, &block) if body
         when :def
-          yield nesting.join("::"), node.children[0] unless nesting.empty?
+          yield nesting.join("::"), node.children[0], node unless nesting.empty?
         when :defs
-          yield nesting.join("::"), node.children[1] unless nesting.empty?
+          yield nesting.join("::"), node.children[1], node unless nesting.empty?
         when :begin, :kwbegin
           node.children.each { |c| walk_defs(c, nesting, &block) }
         when :sclass
