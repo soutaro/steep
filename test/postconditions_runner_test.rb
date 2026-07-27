@@ -854,6 +854,144 @@ class PostconditionsRunnerTest < Minitest::Test
     end
   end
 
+  def test_runner_establishes_ivars_from_a_setter_method_call
+    # felixefelip/steep#92 item 1. The flow walk used to react only to a literal
+    # `@x = ...`, so a `before_action`-style setter — the commonest shape there is —
+    # established nothing, even though the fact was already computed and sitting in
+    # the setter's own `unconditional.ivars`.
+    in_tmpdir do
+      write("sig/iv.rbs", <<~RBS)
+        #{IVAR_FACTS_RBS.chomp.sub(/\nend\z/, "\n  def set_name: () -> void\nend")}
+      RBS
+      write("app/iv.rb", <<~RUBY)
+        class IVHost
+          def set_name
+            @name = 'John Doe'
+          end
+          def run_name
+            set_name
+            show(:name)
+          end
+          def run_age
+            @value = 42
+            show(:age)
+          end
+          def show(which)
+            case which
+            when :name then @name
+            when :age then @value
+            end
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      partitions = runner.argument_entry_facts["IVHost#show"] || []
+      name_partition = partitions.find { |p| p[:pattern] == ":name" }
+
+      refute_nil name_partition, "a setter CALL must establish the ivar it proves"
+      assert_equal "::String", name_partition[:ivars][:@name].to_s
+    end
+  end
+
+  def test_runner_does_not_establish_an_ivar_a_call_only_nils_out
+    # A method that sets an ivar to nil records that faithfully, but "it is nil now"
+    # narrows nothing — and re-adding it would undo the may-write invalidation. Same
+    # rule a literal nilable write follows.
+    in_tmpdir do
+      write("sig/iv.rbs", IVAR_FACTS_RBS)
+      write("app/iv.rb", <<~RUBY)
+        class IVHost
+          def clobber
+            @name = nil
+          end
+          def run_name
+            @name = 'John Doe'
+            clobber
+            show(:name)
+          end
+          def run_age
+            @value = 42
+            show(:age)
+          end
+          def show(which)
+            case which
+            when :name then @name
+            when :age then @value
+            end
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      partitions = runner.argument_entry_facts["IVHost#show"] || []
+      name_partition = partitions.find { |p| p[:pattern] == ":name" }
+
+      refute name_partition && name_partition[:ivars].key?(:@name),
+             "an establishment of nil must not resurrect the invalidated ivar"
+    end
+  end
+
+  def test_runner_records_ivars_in_method_entry_facts
+    # felixefelip/steep#92 item 4. `method_entry_facts` carried self-methods and
+    # consts only; an ivar established before a call did not reach that call's entry.
+    in_tmpdir do
+      write("sig/iv.rbs", <<~RBS)
+        class IVHost
+          @name: String?
+          def set_name: () -> void
+          def helper: () -> void
+          def other: () -> void
+          def run: () -> void
+        end
+        class IVOther
+          def helper: () -> void
+        end
+      RBS
+      write("app/iv.rb", <<~RUBY)
+        class IVHost
+          def set_name
+            @name = 'John Doe'
+          end
+          def helper
+            @name.to_s
+            nil
+          end
+          def run
+            set_name
+            helper
+            IVOther.new.helper
+          end
+        end
+        class IVOther
+          def helper
+            nil
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.write(runner.run)
+
+      reparsed = Postconditions::Store.from_hash(YAML.safe_load(runner.output_path.read), source: runner.output_path.to_s)
+
+      facts = reparsed.lookup_method_entry_facts("IVHost", :helper)
+      refute_nil facts, "helper runs after set_name, so @name holds at its entry"
+      assert_equal "::String", facts[:ivars][:@name].to_s
+
+      # An ivar fact is about the CALLER's self, so it must not cross to another object.
+      cross = reparsed.lookup_method_entry_facts("IVOther", :helper)
+      assert cross.nil? || cross[:ivars].empty?, "a cross-object call carries no ivar facts"
+    end
+  end
+
   def test_runner_drops_argument_facts_after_a_splat
     # A splat makes every following position unknowable — the literal `:name` written after
     # it could land on any parameter — so nothing past it may be pinned.

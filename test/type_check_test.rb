@@ -5697,6 +5697,63 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_postconditions__method_entry_facts_narrow_ivars_at_entry
+    # felixefelip/steep#92 item 4. `method_entry_facts` carried self-methods and consts
+    # only; an ivar established before the call did not reach the callee's entry. Now it
+    # refines the declared ivar type there — `orphan`, with no entry facts, still errors.
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class MEIvarHost
+            @post: String?
+            def log_it: () -> void
+            def orphan: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class MEIvarHost
+            def log_it
+              @post.upcase
+            end
+
+            def orphan
+              @post.upcase
+            end
+          end
+        RUBY
+      },
+      postconditions: Steep::Postconditions::Store.from_hash(
+        {
+          "method_entry_facts" => [
+            {
+              "class" => "MEIvarHost",
+              "method" => "log_it",
+              "ivars" => { "@post" => "::String" }
+            }
+          ]
+        },
+        source: "test"
+      ),
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 7
+                character: 10
+              end:
+                line: 7
+                character: 16
+            severity: ERROR
+            message: Type `(::String | nil)` does not have method `upcase`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_postconditions__argument_entry_facts_narrow_ivars_in_branch
     # Ivar partitions: the `when :name` branch refines `@name` to the type the `:name`
     # callers established, and only there. Negative controls: the `:other` branch has no

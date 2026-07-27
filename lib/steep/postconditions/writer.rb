@@ -86,12 +86,15 @@ module Steep
       #     method: log_it
       #     self_methods: { current_user: "::User" }
       #     consts: { Current.user: "::User" }
+      #     ivars: { "@post": "::Post" }
       def method_entry_rows
         @method_entry_facts.sort.map do |key, facts|
           class_name, method_name = key.split("#", 2)
           row = { "class" => class_name, "method" => method_name }
           row["self_methods"] = facts[:self_methods].sort.to_h { |m, t| [m.to_s, t] } unless facts[:self_methods].empty?
           row["consts"] = facts[:consts].sort.to_h unless facts[:consts].empty?
+          ivars = facts[:ivars] || {}
+          row["ivars"] = ivars.sort_by { |n, _| n.to_s }.to_h { |n, t| [n.to_s, t] } unless ivars.empty?
           row
         end
       end

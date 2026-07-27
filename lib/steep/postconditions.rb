@@ -121,9 +121,10 @@ module Steep
 
           self_methods = parse_fact_types(row["self_methods"], symbol_keys: true)
           consts = parse_fact_types(row["consts"], symbol_keys: false)
-          next if self_methods.empty? && consts.empty?
+          ivars = parse_fact_types(row["ivars"], symbol_keys: true)
+          next if self_methods.empty? && consts.empty? && ivars.empty?
 
-          acc[[klass.to_s, method.to_sym]] = { self_methods: self_methods, consts: consts }
+          acc[[klass.to_s, method.to_sym]] = { self_methods: self_methods, consts: consts, ivars: ivars }
         end
       end
 

@@ -277,7 +277,9 @@ module Steep
           # ones a fact can narrow). Drops the dead facts a chain walk records for builtin/stdlib
           # calls (`String#upcase`, `Class#new`).
           per_method = per_method.select { |key, _| @defined_method_keys.include?(key) }
-          per_method = per_method.reject { |_, facts| facts[:self_methods].empty? && facts[:consts].empty? }
+          per_method = per_method.reject do |_, facts|
+            facts[:self_methods].empty? && facts[:consts].empty? && (facts[:ivars] || {}).empty?
+          end
           break if per_method == prev
           prev = per_method
         end
@@ -303,6 +305,7 @@ module Steep
               # the old `HALT_CHECK = :performed?` name-match (felixefelip/steep#78).
               next if halt_predicate?(entry)
               record_entry_facts(per_method, seen, key, accumulated, same_self: event[:same_self])
+              apply_call_ivar_effects(accumulated, entry, same_self: event[:same_self])
               # A call's guard facts (`conditional_*`) are proven only on its NON-halting exit,
               # so they hold downstream only once a halt check has ruled out the halting exit.
               # Hold them until a `:halt` promotes them.
@@ -313,6 +316,8 @@ module Steep
               pending_guards.clear
             when :const_write
               apply_const_write_facts(accumulated, by_key, event)
+            when :ivar_write
+              apply_ivar_write(accumulated, event)
             end
           end
         end
@@ -324,9 +329,9 @@ module Steep
       # so the walk's mutations don't leak back). Empty for a top-level flow or the first pass.
       def seed_entry_facts(prev, owner)
         facts = owner && prev[owner]
-        return { self_methods: {}, consts: {} } unless facts
+        return { self_methods: {}, consts: {}, ivars: {} } unless facts
 
-        { self_methods: facts[:self_methods].dup, consts: facts[:consts].dup }
+        { self_methods: facts[:self_methods].dup, consts: facts[:consts].dup, ivars: (facts[:ivars] || {}).dup }
       end
 
       # A method that transparently returns an ivar is a predicate (a halt check like
@@ -341,12 +346,17 @@ module Steep
       # (`same_self: false`) carries only const (global) facts — the caller's
       # `self`-method facts are about a different receiver.
       def record_entry_facts(per_method, seen, key, accumulated, same_self: true)
+        # Ivars, like self-methods, are about the CALLER's `self`: a cross-object call
+        # reaches a receiver whose ivars this flow says nothing about. Consts are global
+        # and cross freely.
         self_methods = same_self ? accumulated[:self_methods] : {}
-        snapshot = { self_methods: self_methods.dup, consts: accumulated[:consts].dup }
+        ivars = same_self ? accumulated[:ivars] : {}
+        snapshot = { self_methods: self_methods.dup, consts: accumulated[:consts].dup, ivars: ivars.dup }
         if seen[key]
           existing = per_method[key]
           existing[:self_methods] = intersect(existing[:self_methods], snapshot[:self_methods])
           existing[:consts] = intersect(existing[:consts], snapshot[:consts])
+          existing[:ivars] = intersect(existing[:ivars] || {}, snapshot[:ivars])
         else
           per_method[key] = snapshot
           seen[key] = true
@@ -416,10 +426,7 @@ module Steep
               entry = by_key["#{event[:class_name]}##{event[:method_name]}"]
               next if halt_predicate?(entry)
               record_argument_facts(buckets, seen, unpinned, event, accumulated)
-              # An ivar narrowing does not survive a call that MAY write it — the write is
-              # real, just one frame down (the may-write closure from felixefelip/steep#68).
-              # Consts are unaffected: they are invalidated by an explicit nilable write.
-              invalidate_written_ivars(accumulated, entry, same_self: event[:same_self])
+              apply_call_ivar_effects(accumulated, entry, same_self: event[:same_self])
               pending_guards << [entry, event[:same_self]] if entry
             when :halt
               pending_guards.each { |e, ss| accumulate_guard_facts(accumulated, e, same_self: ss) }
@@ -427,11 +434,7 @@ module Steep
             when :const_write
               apply_const_write_facts(accumulated, by_key, event)
             when :ivar_write
-              if event[:nonnil]
-                accumulated[:ivars][event[:name]] = event[:type]
-              else
-                accumulated[:ivars].delete(event[:name])
-              end
+              apply_ivar_write(accumulated, event)
             end
           end
         end
@@ -479,13 +482,54 @@ module Steep
         end
       end
 
-      # Drop every accumulated ivar narrowing the callee may write (transitively). Only for a
-      # same-self call: a call on another object cannot write this object's ivars.
-      def invalidate_written_ivars(accumulated, entry, same_self:)
+      # The ivar effect of a call, in the order the callee produces it: every ivar it MAY
+      # write is invalidated, then every ivar its postcondition PROVES populated is
+      # established.
+      #
+      # The establishment half is felixefelip/steep#92 item 1. A flow walk that reacts only
+      # to a literal `@x = ...` misses the commonest shape there is — a `before_action`-style
+      # setter — even though the fact is already computed and sitting in `unconditional.ivars`.
+      # Establishing after invalidating matters: a setter both may-writes and proves the same
+      # ivar, and what it proves is the more precise statement.
+      #
+      # Same-self only: a call on another object neither writes nor proves anything about
+      # this object's ivars.
+      def apply_call_ivar_effects(accumulated, entry, same_self:)
         return unless entry && same_self
-        return if accumulated[:ivars].empty?
 
         entry.may_write_ivars.each { |name| accumulated[:ivars].delete(name) }
+
+        # `InferredEntry#ivars` — the producer's own shape for what the Writer
+        # serializes as `unconditional.ivars`.
+        established = entry.ivars
+        return if established.nil? || established.empty?
+
+        established.each do |name, type|
+          # A method that sets an ivar to nil (`def clobber; @name = nil; end`) records
+          # that faithfully, but "it is nil now" narrows nothing — and re-adding it here
+          # would undo the may-write invalidation just applied. Same rule the literal
+          # write follows: an informative type establishes, anything else only clears.
+          accumulated[:ivars][name] = type.to_s if informative_type?(type)
+        end
+      end
+
+      # Whether a type says anything useful about an ivar being populated. Mirrors
+      # `MethodEntryInferrer#nonnil_rhs?`, over an AST type rather than a node.
+      def informative_type?(type)
+        return false if type.nil?
+        return false if type.is_a?(AST::Types::Nil) || type.is_a?(AST::Types::Any)
+        return type.types.none? { |t| t.is_a?(AST::Types::Nil) || t.is_a?(AST::Types::Any) } if type.is_a?(AST::Types::Union)
+
+        true
+      end
+
+      # An `@x = <rhs>` establishes (non-nil rhs) or invalidates (nilable rhs) the ivar.
+      def apply_ivar_write(accumulated, event)
+        if event[:nonnil]
+          accumulated[:ivars][event[:name]] = event[:type]
+        else
+          accumulated[:ivars].delete(event[:name])
+        end
       end
 
       # Turn the raw buckets into the serializable `{ "Class#method" => [{param:, pattern:,

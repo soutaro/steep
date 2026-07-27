@@ -4489,9 +4489,14 @@ module Steep
 
       self_methods = to_ast_types(facts[:self_methods])
       consts = to_ast_types(facts[:consts])
-      return type_env if self_methods.empty? && consts.empty?
+      ivars = to_ast_types(facts[:ivars] || {})
+      return type_env if self_methods.empty? && consts.empty? && ivars.empty?
 
-      type_env.with_method_entry_facts(self_methods: self_methods, consts: consts)
+      type_env = type_env.with_method_entry_facts(self_methods: self_methods, consts: consts)
+      # An ivar fact refines the declared ivar type at entry, the same slot a
+      # postcondition's `unconditional.ivars` uses (felixefelip/steep#92 item 4).
+      type_env = type_env.refine_types(instance_variable_types: ivars) unless ivars.empty?
+      type_env
     end
 
     def to_ast_types(rbs_types)
