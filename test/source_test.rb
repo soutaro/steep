@@ -1042,7 +1042,12 @@ super { } # $ nil
     end
   end
 
-  def test_erb_convention_injects_self_type_annotation
+  # The injected annotation is `@type self_method:`, not a plain `@type self:` (#86): a
+  # template compiles to a METHOD at runtime, so the body is given that method's identity
+  # rather than only its receiver's type — which is what lets method-entry facts narrow
+  # reads in it. `SelfMethod` binds `self` exactly as `SelfType` does, and names the
+  # method on top; asserting the method name is the half a `SelfType` could never carry.
+  def test_erb_convention_injects_self_method_annotation
     with_factory({ "erb_class.rbs" => <<~RBS }) do |factory|
         class ERBPostsShow
         end
@@ -1055,10 +1060,12 @@ super { } # $ nil
       ENV["STEEP_ERB_CONVENTION"] = "1"
       source = Steep::Source.parse(erb_code, path: Pathname("app/views/posts/show.html.erb"), factory: factory)
 
-      # The node-level annotations should contain a self type annotation for ERBPostsShow
       annotations = source.mapping[source.node] || []
-      self_annotation = annotations.find { |a| a.is_a?(Steep::AST::Annotation::SelfType) }
-      refute_nil self_annotation, "Expected @type self: ERBPostsShow annotation to be injected"
+      self_annotation = annotations.find { |a| a.is_a?(Steep::AST::Annotation::SelfMethod) }
+      refute_nil self_annotation,
+                 "Expected @type self_method: ERBPostsShow#__rbs_infer__body annotation to be injected"
+      assert_equal "ERBPostsShow", self_annotation.type.to_s
+      assert_equal :__rbs_infer__body, self_annotation.method_name
     ensure
       ENV.delete("STEEP_ERB_CONVENTION")
     end

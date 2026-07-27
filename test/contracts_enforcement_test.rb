@@ -371,7 +371,21 @@ class ContractsEnforcementTest < Minitest::Test
   # recognized nor discharged, so `enforced` stayed false and `xml.nodes`
   # surfaced a NoMethod. (`AfterSetXml` is declared in the RBS the way rbs_infer
   # emits its marker classes; the inferrer names the marker to match.)
-  def test_enforced_when_sole_self_caller_establishes_via_postcondition_marker
+  #
+  # Since #94, method-entry facts carry IVARS, and this is exactly the shape they
+  # cover: `use_xml`'s sole caller runs `set_xml` first, so the Runner records
+  # `Widget#use_xml -> @xml: ::XmlDoc` and the body no longer errors. Contracts are
+  # inferred FROM errors (`Contracts::Inferrer` reads `NoMethod` diagnostics), so no
+  # contract is inferred here any more — not because the guarantee weakened, but
+  # because a stronger mechanism discharges it before a diagnostic exists.
+  #
+  # The assertions below therefore pin the OUTCOME (`xml.nodes` clean, no
+  # `PreconditionUnsatisfied`), which is what the test was always really about, plus
+  # the entry fact that now delivers it. The contract path itself stays covered by
+  # the shapes entry facts cannot reach — an EXTERNAL caller with a marker-refined
+  # receiver (`test_enforced_when_sole_caller_has_marker_refined_receiver`) and the
+  # constructor-chain tests below.
+  def test_entry_facts_discharge_a_sole_self_caller_establishing_via_postcondition
     in_tmpdir do
       write("sig/marker_self.rbs", <<~RBS)
         class XmlDoc
@@ -421,17 +435,23 @@ class ContractsEnforcementTest < Minitest::Test
       # Fresh project so `project.postconditions` loads the just-written sidecar.
       project = setup_project(steepfile: STEEPFILE)
 
+      # `run` calls `set_xml` before `use_xml`, so the sole call site establishes `@xml`
+      # and the Runner records it as an entry fact of `use_xml` (#94).
+      entry = reparsed.lookup_method_entry_facts("Widget", :use_xml)
+      refute_nil entry, "expected method-entry facts inferred for Widget#use_xml"
+      assert_equal "::XmlDoc", entry[:ivars][:"@xml"].to_s,
+                   "the sole caller runs set_xml first → @xml is XmlDoc at use_xml's entry"
+
       contracts = Contracts::Runner.run(project)
-      use_xml = contracts.find { |c| c.key == "Widget#use_xml" }
-      refute_nil use_xml, "expected a contract inferred for Widget#use_xml"
-      assert use_xml.enforced,
-             "run establishes @xml via set_xml's marker before use_xml → the sole self-call site is satisfied → enforced"
+      assert_nil contracts.find { |c| c.key == "Widget#use_xml" },
+                 "the entry fact discharges the dereference before a NoMethod diagnostic exists, " \
+                 "and contracts are inferred FROM those diagnostics → nothing left to require"
 
       typing = type_check_file(project, "app/marker_self.rb", store_of(contracts))
       assert_empty typing.errors.grep(Diagnostic::Ruby::NoMethod),
-                   "enforced contract narrows use_xml's body, so `xml.nodes` is clean"
+                   "the entry fact narrows use_xml's body, so `xml.nodes` is clean"
       assert_empty typing.errors.grep(Diagnostic::Ruby::PreconditionUnsatisfied),
-                   "run establishes the marker before use_xml → no PreconditionUnsatisfied"
+                   "run establishes @xml before use_xml → no PreconditionUnsatisfied"
     end
   end
 
