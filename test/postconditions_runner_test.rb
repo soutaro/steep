@@ -992,6 +992,111 @@ class PostconditionsRunnerTest < Minitest::Test
     end
   end
 
+  def test_runner_carries_an_argument_fact_across_a_hop
+    # felixefelip/steep#93. The dispatching body establishes nothing itself — the
+    # establishment happened one frame up — so the walk used to contribute `{}` for that
+    # call site, and since a partition is the MEET over its call sites, that emptied it.
+    # Seeding each flow with its owner's (already converged) entry facts carries the fact
+    # across the hop.
+    in_tmpdir do
+      write("sig/iv.rbs", <<~RBS)
+        class IVHost
+          @name: String?
+          @value: Integer?
+          def run_name: () -> void
+          def run_age: () -> void
+          def dispatch_name: () -> void
+          def dispatch_age: () -> void
+          def show: (Symbol) -> void
+        end
+      RBS
+      write("app/iv.rb", <<~RUBY)
+        class IVHost
+          def run_name
+            @name = 'John Doe'
+            dispatch_name
+          end
+          def run_age
+            @value = 42
+            dispatch_age
+          end
+          def dispatch_name
+            show(:name)
+          end
+          def dispatch_age
+            show(:age)
+          end
+          def show(which)
+            case which
+            when :name then @name
+            when :age then @value
+            end
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      partitions = runner.argument_entry_facts["IVHost#show"] || []
+      by_pattern = partitions.to_h { |p| [p[:pattern], p] }
+
+      refute_nil by_pattern[":name"], "the :name partition must survive the hop"
+      assert_equal "::String", by_pattern[":name"][:ivars][:@name].to_s
+      refute by_pattern[":name"][:ivars].key?(:@value), "the :name partition keeps only its own caller's fact"
+
+      refute_nil by_pattern[":age"], "the :age partition must survive the hop"
+      assert_equal "::Integer", by_pattern[":age"][:ivars][:@value].to_s
+    end
+  end
+
+  def test_runner_still_meets_away_a_partition_when_one_hop_establishes_nothing
+    # Seeding does not weaken the meet: a dispatching path that proves nothing — at any
+    # depth — still empties the partition, because the fact must hold on EVERY path.
+    in_tmpdir do
+      write("sig/iv.rbs", <<~RBS)
+        class IVHost
+          @name: String?
+          def run_name: () -> void
+          def run_bare: () -> void
+          def dispatch_name: () -> void
+          def dispatch_bare: () -> void
+          def show: (Symbol) -> void
+        end
+      RBS
+      write("app/iv.rb", <<~RUBY)
+        class IVHost
+          def run_name
+            @name = 'John Doe'
+            dispatch_name
+          end
+          def run_bare
+            dispatch_bare
+          end
+          def dispatch_name
+            show(:name)
+          end
+          def dispatch_bare
+            show(:name)
+          end
+          def show(which)
+            case which
+            when :name then @name
+            end
+          end
+        end
+      RUBY
+      project = setup_project(steepfile: FIXTURE_STEEPFILE)
+
+      runner = Postconditions::Runner.new(project)
+      runner.run
+
+      partitions = runner.argument_entry_facts["IVHost#show"] || []
+      assert_empty partitions, "a hop that establishes nothing must still empty the partition"
+    end
+  end
+
   def test_runner_drops_argument_facts_after_a_splat
     # A splat makes every following position unknowable — the literal `:name` written after
     # it could land on any parameter — so nothing past it may be pinned.

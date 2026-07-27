@@ -417,7 +417,20 @@ module Steep
         unpinned = Set.new #: Set[[String, Symbol]]
 
         sequences.each do |sequence|
-          accumulated = { self_methods: {}, consts: {}, ivars: {} } #: Hash[Symbol, Hash[untyped, String]]
+          # felixefelip/steep#93. Seeded with the OWNER's entry facts, not empty.
+          #
+          # The walk used to start each flow from nothing, on the assumption that the
+          # establishing write and the dispatch sit in the same body. They do not in the
+          # shape this feature exists to serve: a `before_action` establishes `@post`, the
+          # action body calls `render :edit`, and the establishment is one frame up. That
+          # body established nothing itself, so it contributed `{}` — and since a partition
+          # is the MEET over its call sites, one such caller emptied it for everyone.
+          #
+          # No second fixpoint is needed: `@method_entry_facts` is already converged (its
+          # own fixpoint ran just above), and argument partitions are consumed by the
+          # checker at branch level — nothing feeds them back into entry facts. One seeded
+          # pass therefore reaches the same result a fixpoint would.
+          accumulated = seed_entry_facts(@method_entry_facts, sequence.owner) #: Hash[Symbol, Hash[untyped, String]]
           pending_guards = [] #: Array[[untyped, bool]]
 
           sequence.events.each do |event|
