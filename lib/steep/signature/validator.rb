@@ -214,7 +214,17 @@ module Steep
           ancestor_ancestors.self_types or raise
           ancestor_ancestors.params or raise
           self_constraints = ancestor_ancestors.self_types.map do |self_ancestor|
-            s = Interface::Substitution.build(ancestor_ancestors.params, args)
+            params = ancestor_ancestors.params
+
+            if source = self_ancestor.source
+              if entry = env.class_decls[ancestor.name]
+                if decl = entry.each_decl.find { _1.is_a?(RBS::AST::Declarations::Module) && _1.self_types.include?(source) }
+                  params = decl.type_params.map(&:name)
+                end
+              end
+            end
+
+            s = Interface::Substitution.build(params, args)
             ancestor_to_type(self_ancestor).subst(s)
           end
 
