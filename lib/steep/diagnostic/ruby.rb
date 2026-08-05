@@ -112,7 +112,7 @@ module Steep
           send = case node.type
                  when :send, :csend
                    node
-                 when :block, :numblock
+                 when :block, :numblock, :itblock
                    node.children[0]
                  end
 
@@ -163,7 +163,7 @@ module Steep
           send = case node.type
                  when :send, :csend
                    node
-                 when :block, :numblock
+                 when :block, :numblock, :itblock
                    node.children[0]
                  end
 
@@ -245,7 +245,7 @@ module Steep
                   loc ||= node.loc.operator if node.loc.respond_to?(:operator) # steep:ignore NoMethod
                   loc ||= node.loc.selector if node.loc.respond_to?(:selector) # steep:ignore NoMethod
                   loc
-                when :block
+                when :block, :numblock, :itblock
                   node.children[0].loc.selector
                 end
           super(node: node, location: loc || node.loc.expression)
@@ -1061,7 +1061,7 @@ module Steep
         def header_line
           header =
             case node&.type
-            when :send, :csend, :block, :numblock
+            when :send, :csend, :block, :numblock, :itblock
               "The method is deprecated"
             when :const, :casgn
               "The constant is deprecated"

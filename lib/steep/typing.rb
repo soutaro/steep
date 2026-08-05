@@ -106,7 +106,7 @@ module Steep
             set(body_begin_pos..body_end_pos, context)
           end
 
-        when :block, :numblock
+        when :block, :numblock, :itblock
           range = block_range(node)
           set(range, context)
 
@@ -132,7 +132,7 @@ module Steep
                         node.loc.begin.end_pos # steep:ignore NoMethod
                       end
           end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
-        when :numblock
+        when :numblock, :itblock
           send_node, _ = node.children
           begin_pos = node.loc.begin.end_pos # steep:ignore NoMethod
           end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
@@ -245,7 +245,7 @@ module Steep
                       node.loc.begin.end_pos # steep:ignore NoMethod
                     end
         end_pos = node.loc.end.begin_pos # steep:ignore NoMethod
-      when :numblock
+      when :numblock, :itblock
         send_node, _ = node.children
         begin_pos = node.loc.begin.end_pos # steep:ignore NoMethod
         end_pos = node.loc.end.begin_pos # steep:ignore NoMethod

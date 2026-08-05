@@ -8382,6 +8382,56 @@ RUBY
     end
   end
 
+  def test_ruby3_it_parameter1
+    with_checker do |checker|
+      source = parse_ruby(<<RUBY)
+[1].map { it.to_s }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_equal parse_type("::Array[::String]"), type
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_ruby3_it_parameter2
+    with_checker(<<RBS) do |checker|
+module Ruby3
+  class Foo
+    def foo: (Integer) { (Integer) -> void } -> void
+
+    def bar: (foo: Integer) { (Integer) -> void } -> void
+  end
+end
+RBS
+
+      source = parse_ruby(<<RUBY)
+Ruby3::Foo.new().foo { it }
+Ruby3::Foo.new().bar { it }
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, error
+            assert_equal "foo", error.location.source
+          end
+
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::InsufficientKeywordArguments, error
+            assert_equal "bar", error.location.source
+          end
+        end
+      end
+    end
+  end
+
   def test_type_check_def_without_decl
     with_checker(<<RBS) do |checker|
 RBS

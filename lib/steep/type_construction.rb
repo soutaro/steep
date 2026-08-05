@@ -2696,7 +2696,7 @@ module Steep
             constr.add_typing(node, type: type)
           end
 
-        when :block, :numblock, :send, :csend
+        when :block, :numblock, :itblock, :send, :csend
           synthesize_sendish(node, hint: hint, tapp: nil)
 
         when :forwarded_args, :forward_arg
@@ -2770,6 +2770,20 @@ module Steep
             arg_nodes = max_num.times.map {|i| Parser::AST::Node.new(:arg, [:"_#{i+1}"]) }
           end
 
+          params = Parser::AST::Node.new(:args, arg_nodes)
+
+          if send_node.type == :lambda
+            # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
+            type_lambda(node, params_node: params, body_node: body, type_hint: hint)
+          else
+            type_send(node, send_node: send_node, block_params: params, block_body: body, unwrap: send_node.type == :csend, tapp: tapp, hint: hint)
+          end
+        end
+      when :itblock
+        yield_self do
+          send_node, _name, body = node.children
+
+          arg_nodes = [Parser::AST::Node.new(:procarg0, [:it])]
           params = Parser::AST::Node.new(:args, arg_nodes)
 
           if send_node.type == :lambda
@@ -3346,7 +3360,7 @@ module Steep
             end
           end
 
-          if node.type == :csend || ((node.type == :block || node.type == :numblock) && node.children[0].type == :csend)
+          if node.type == :csend || ((node.type == :block || node.type == :numblock || node.type == :itblock) && node.children[0].type == :csend)
             optional_type = AST::Types::Union.build(types: [call.return_type, AST::Builtin.nil_type])
             call = call.with_return_type(optional_type)
           end
@@ -3509,7 +3523,7 @@ module Steep
 
         when AST::Types::Any
           case node.type
-          when :block, :numblock
+          when :block, :numblock, :itblock
             # @type var node: Parser::AST::Node & Parser::AST::_BlockNode
             block_annotations = source.annotations(block: node, factory: checker.factory, context: nesting)
             block_params or raise
