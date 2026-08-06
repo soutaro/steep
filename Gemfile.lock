@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    steep (2.1.0.dev)
+    steep (2.1.0.dev.1)
       concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
       fileutils (>= 1.1.0)
@@ -102,4 +102,4 @@ DEPENDENCIES
   vernier (~> 1.5)
 
 BUNDLED WITH
-  4.0.5
+  4.0.9
