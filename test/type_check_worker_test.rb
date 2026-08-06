@@ -329,6 +329,67 @@ class TypeCheckWorkerTest < Minitest::Test
     end
   end
 
+  def test_handle_job_validate_app_signature_reuses_unaffected
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        foo = current_dir + "sig/foo.rbs"
+        bar = current_dir + "sig/bar.rbs"
+
+        # Cycle 1: validate both signature files.
+        worker.instance_variable_set(:@current_type_check_guid, "guid1")
+        {}.tap do |changes|
+          changes[Pathname("sig/foo.rbs")] = [Services::ContentChange.string("class Foo\n  def f: () -> Integer\nend\n")]
+          changes[Pathname("sig/bar.rbs")] = [Services::ContentChange.string("class Bar\n  def b: () -> Integer\nend\n")]
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid1", changes: changes))
+        end
+        worker.handle_job(TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid1", path: foo, target: project.targets[0]))
+        worker.handle_job(TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid1", path: bar, target: project.targets[0]))
+        2.times { master_read_queue.pop }
+
+        # Cycle 2: change only Foo.
+        worker.instance_variable_set(:@current_type_check_guid, "guid2")
+        worker.handle_job(
+          TypeCheckWorker::StartTypeCheckJob.new(
+            guid: "guid2",
+            changes: { Pathname("sig/foo.rbs") => [Services::ContentChange.string("class Foo\n  def f: () -> String\nend\n")] }
+          )
+        )
+
+        # Foo's definition changed -> must be re-validated; Bar is unaffected.
+        assert worker.service.signature_validation_needed?(path: Pathname("sig/foo.rbs"), target: project.targets[0])
+        refute worker.service.signature_validation_needed?(path: Pathname("sig/bar.rbs"), target: project.targets[0])
+
+        # Re-validating Bar reuses its cached result (same SignatureFile kept);
+        # Foo is recomputed (a fresh SignatureFile replaces the cached one).
+        bar_before = worker.service.signature_files[:lib][Pathname("sig/bar.rbs")]
+        foo_before = worker.service.signature_files[:lib][Pathname("sig/foo.rbs")]
+
+        worker.handle_job(TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid2", path: foo, target: project.targets[0]))
+        worker.handle_job(TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid2", path: bar, target: project.targets[0]))
+        2.times { master_read_queue.pop }
+
+        assert_same bar_before, worker.service.signature_files[:lib][Pathname("sig/bar.rbs")]
+        refute_same foo_before, worker.service.signature_files[:lib][Pathname("sig/foo.rbs")]
+      end
+    end
+  end
+
   def test_handle_job_validate_app_signature_skip
     in_tmpdir do
       with_master_read_queue do |master_read_queue|
@@ -579,6 +640,89 @@ class TypeCheckWorkerTest < Minitest::Test
             assert_equal 3, diagnostic[:severity]
           end
         end
+      end
+    end
+  end
+
+  def test_handle_job_typecheck_code_reuses_unaffected_file
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid1")
+
+        # Cycle 1: load everything and check both files. Foo and Bar live in
+        # separate signature files so that a change to one does not mark the
+        # other as changed.
+        {}.tap do |changes|
+          changes[Pathname("lib/a.rb")] = [Services::ContentChange.string("Foo.new.foo\n")]
+          changes[Pathname("lib/b.rb")] = [Services::ContentChange.string("Bar.new.bar\n")]
+          changes[Pathname("sig/foo.rbs")] = [Services::ContentChange.string(<<~RBS)]
+            class Foo
+              def foo: () -> void
+            end
+          RBS
+          changes[Pathname("sig/bar.rbs")] = [Services::ContentChange.string(<<~RBS)]
+            class Bar
+              def bar: () -> void
+            end
+          RBS
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid1", changes: changes))
+        end
+
+        worker.handle_job(TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid1", path: current_dir + "lib/a.rb", target: project.targets[0]))
+        worker.handle_job(TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid1", path: current_dir + "lib/b.rb", target: project.targets[0]))
+        2.times { master_read_queue.pop }
+
+        # Cycle 2: change only Foo; Bar's file is untouched.
+        worker.instance_variable_set(:@current_type_check_guid, "guid2")
+        {}.tap do |changes|
+          changes[Pathname("sig/foo.rbs")] = [Services::ContentChange.string(<<~RBS)]
+            class Foo
+              def foo: () -> Integer
+            end
+          RBS
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid2", changes: changes))
+        end
+
+        changed_names = worker.service.signature_services[:lib].last_changed_type_names
+        assert_includes changed_names, RBS::TypeName.parse("::Foo")
+        refute_includes changed_names, RBS::TypeName.parse("::Bar")
+
+        a_before = worker.service.source_files[Pathname("lib/a.rb")]
+        b_before = worker.service.source_files[Pathname("lib/b.rb")]
+
+        worker.handle_job(TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid2", path: current_dir + "lib/a.rb", target: project.targets[0]))
+        worker.handle_job(TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid2", path: current_dir + "lib/b.rb", target: project.targets[0]))
+
+        # Both files still report progress (the master's completion accounting is
+        # unchanged): one notification per file.
+        a_message = master_read_queue.pop
+        b_message = master_read_queue.pop
+        assert_equal TypeCheck__Progress::METHOD, a_message[:method]
+        assert_equal TypeCheck__Progress::METHOD, b_message[:method]
+
+        # a.rb references Foo (which changed) and was re-checked: a fresh
+        # SourceFile object replaced the cached one.
+        refute_same a_before, worker.service.source_files[Pathname("lib/a.rb")]
+
+        # b.rb references only Bar (unchanged) and its own content is unchanged,
+        # so its cached result was reused without re-running the type check.
+        assert_same b_before, worker.service.source_files[Pathname("lib/b.rb")]
       end
     end
   end

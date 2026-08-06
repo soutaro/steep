@@ -88,4 +88,15 @@ class ValidationTest < Minitest::Test
   def test_validate__deprecated__generic: () -> untyped
 
   def test_validate__deprecated__namespace: () -> untyped
+
+  # `#referenced_type_names` collects every type name the validator touches.
+  # Both paths are exercised: member types (#validate_type) and ancestors /
+  # self-type constraints (#ancestor_to_type).
+  def test_referenced_type_names: () -> untyped
+
+  def test_referenced_type_names__generic_bound: () -> untyped
+
+  def test_referenced_type_names__type_alias: () -> untyped
+
+  def test_referenced_type_names__constant: () -> untyped
 end

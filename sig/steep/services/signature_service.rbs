@@ -98,6 +98,10 @@ module Steep
 
       attr_reader implicitly_returns_nil: bool
 
+      attr_reader last_changed_type_names: Set[RBS::TypeName]
+
+      def reset_last_changed_type_names: () -> void
+
       def initialize: (status: status, implicitly_returns_nil: bool) -> void
 
       def self.load_from: (RBS::EnvironmentLoader loader, implicitly_returns_nil: bool) -> SignatureService
@@ -163,6 +167,10 @@ module Steep
       def add_descendants: (graph: RBS::AncestorGraph, names: Set[RBS::TypeName], set: Set[RBS::TypeName]) -> void
 
       def add_nested_decls: (env: RBS::Environment, names: Set[RBS::TypeName], set: Set[RBS::TypeName]) -> void
+
+      def add_type_alias_dependencies: (env: RBS::Environment, set: Set[RBS::TypeName]) -> void
+
+      def each_type_name_in: (RBS::Types::t `type`) { (RBS::TypeName) -> void } -> void
     end
   end
 end

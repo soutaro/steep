@@ -1,0 +1,26 @@
+module Steep
+  # Collects the RBS type names referenced while type-checking a source file: a
+  # sound over-approximation of the file's type dependencies, used to decide
+  # whether it needs re-checking when a type changes.
+  #
+  # Names come from the type-resolution result (node types and resolved method
+  # calls) and from annotations (`@type`, `@implements`), which influence
+  # inference without appearing as a node's inferred type.
+  class TypeNameReferences
+    @type_names: Set[RBS::TypeName]
+
+    attr_reader type_names: Set[RBS::TypeName]
+
+    def initialize: () -> void
+
+    def self.from_source_file: (typing: Typing, source: Source) -> Set[RBS::TypeName]
+
+    def collect_from_typing: (Typing typing) -> void
+
+    def collect_from_annotations: (Source source) -> void
+
+    def add_type: (AST::Types::t type) -> void
+
+    def add_type_name: (RBS::TypeName type_name) -> void
+  end
+end
