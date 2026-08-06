@@ -65,6 +65,10 @@ module Steep
       #
       private def validate_type_name_deprecation: (RBS::TypeName, RBS::Location[untyped, untyped]) -> void
 
+      # Validate if type name has a warning
+      #
+      private def validate_type_name_warning: (RBS::TypeName, RBS::Location[untyped, untyped]) -> void
+
       # Validate a type and its descendants
       #
       def validate_type: (RBS::Types::t `type`) -> void
