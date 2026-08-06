@@ -348,8 +348,100 @@ namespace :gem do
       print_changelog_json(changelog_base(args[:version]))
     end
   end
-end
 
+  # There are three kinds of release: `X.Y.Z`, `X.Y.Z.pre.N`, and `X.Y.Z.dev.N`. The
+  # `.dev.N` ones are cut from the development line for people who need a specific
+  # change early; they are not written up in the changelog, so there are no notes to
+  # publish and nothing worth announcing.
+  def dev_release?(version)
+    Gem::Version.new(version).segments.include?("dev")
+  end
+
+  # The body of the topmost section of CHANGELOG.md, which is the release being
+  # prepared, minus its own heading.
+  #
+  # The encoding is explicit because the default external encoding follows the
+  # locale, and the changelog is not ASCII.
+  #
+  def changelog_section(version)
+    content = File.read(File.join(__dir__, "CHANGELOG.md"), encoding: Encoding::UTF_8)
+    section = content.scan(/^## \d.*?(?=^## \d)/m)[0] or raise "🚨 Cannot find a release section in CHANGELOG.md"
+    heading, _, body = section.partition("\n")
+    heading.include?(version) or raise "🚨 CHANGELOG.md starts with `#{heading.strip}`, which is not #{version}"
+    body.strip
+  end
+
+  desc "Check that the working tree is ready to be released as the given version"
+  task :check_release, [:version] do |_task, args|
+    version = args[:version] or raise "🚨 Pass the version being released: `rake 'gem:check_release[2.1.0]'`"
+    Gem::Version.correct?(version) or raise "🚨 `#{version}` is not a version number."
+
+    # The version being released and the version the commit declares are stated
+    # separately -- one by whoever starts the release, one by the commit itself --
+    # so that releasing the wrong commit, or releasing the right one under the wrong
+    # name, fails here rather than on RubyGems.
+    version == Steep::VERSION or
+      raise "🚨 Releasing #{version}, but this commit declares `Steep::VERSION = #{Steep::VERSION.inspect}`."
+
+    if dev_release?(version)
+      puts "✅ #{version} is the version of this commit. It is a dev release, so CHANGELOG.md is not checked."
+    else
+      changelog_section(version)
+      puts "✅ #{version} is the version of this commit, and CHANGELOG.md documents it."
+    end
+  end
+
+  desc "Create and push the `vX.Y.Z` tag for Steep::VERSION"
+  task :tag do
+    tag = "v#{Steep::VERSION}"
+
+    # Annotated, so that the tag carries its own author and date rather than
+    # borrowing the tagged commit's.
+    sh "git", "tag", "--annotate", "--message", "Steep #{Steep::VERSION}", tag
+    sh "git", "push", "origin", tag
+
+    puts "🏷️  Pushed #{tag}."
+  end
+
+  desc "Publish the GitHub release for Steep::VERSION, unless it is a `.dev.` version"
+  task :gh_release do
+    require "open3"
+
+    version = Gem::Version.new(Steep::VERSION)
+    major, minor, *_ = Steep::VERSION.split(".")
+    tag = "v#{Steep::VERSION}"
+
+    if dev_release?(Steep::VERSION)
+      puts "⏭️  #{Steep::VERSION} is a dev release, so there is no GitHub release to publish."
+      next
+    end
+
+    # The release is created against an existing tag, so that the artifacts and the
+    # notes describe a commit that is already immutable.
+    _, status = Open3.capture2("git", "rev-parse", "--verify", "--quiet", "#{tag}^{commit}")
+    raise "🚨 No such tag: `#{tag}`. Tag the release before creating the GitHub release." unless status.success?
+
+    notes = <<~NOTES
+      [Release note](https://github.com/soutaro/steep/wiki/Release-Note-#{major}.#{minor})
+
+      #{changelog_section(Steep::VERSION)}
+    NOTES
+
+    # Published rather than drafted: the notes are the changelog section that was
+    # already reviewed in the release pull request, so there is nothing left to edit.
+    command = [
+      "gh", "release", "create", tag,
+      "--title=#{Steep::VERSION}",
+      "--notes=#{notes}"
+    ]
+    command << "--prerelease" if version.prerelease?
+
+    output, status = Open3.capture2(*command)
+    raise "🚨 `gh release create` failed: #{status.inspect}" unless status.success?
+
+    puts "📝 Released #{tag}: #{output.chomp}"
+  end
+end
 namespace :release do
   desc "Ensure release note"
   task :note do

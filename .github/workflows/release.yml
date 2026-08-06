@@ -1,0 +1,238 @@
+name: Release gem
+
+# Builds, publishes, and announces a release. Dispatch it with the commit being
+# released and the version that commit declares.
+#
+# Everything is built from `commit`, not from wherever the default branch happens to
+# be when the run starts, so the release describes a state that is already immutable.
+# `version` is the same fact stated a second time -- the run stops before anything is
+# built unless it matches the `Steep::VERSION` of that commit, so dispatching the wrong
+# commit, or the right one under the wrong name, is a failed run rather than a gem
+# that has to be yanked.
+#
+# `dry_run` builds and checks the gem and stops before the tag, which is how the build
+# is exercised without releasing anything.
+#
+# See doc/release.md.
+#
+# One job on purpose. Tagging, pushing the gem, and opening the GitHub release all
+# belong to a single release, and keeping them in one place keeps their order readable
+# -- the tag is created once the gem is known to build and run, and before anything is
+# published, so the reversible step comes before the irreversible one.
+#
+# The file name is what the RubyGems trusted publisher for `steep` is registered
+# against, so it cannot be renamed without registering the new name first.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Commit to release, as a full 40-character SHA"
+        required: true
+      version:
+        description: "Version to release, without the leading `v` (e.g. `2.1.0`)"
+        required: true
+      dry_run:
+        description: "Build and check the gem without tagging or publishing anything"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the tag, publish the GitHub release
+      id-token: write # trusted publishing to RubyGems
+    env:
+      # The inputs are read through the environment rather than interpolated into
+      # the scripts below.
+      COMMIT: ${{ inputs.commit }}
+      VERSION: ${{ inputs.version }}
+      TAG: v${{ inputs.version }}
+    steps:
+      # The gemspec takes its file list from `git ls-files`, so the gem is built from
+      # the committed state -- of the dispatched commit, since that is what is checked
+      # out. The full history is needed to tell which branches contain it.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+
+      # Before anything is installed or built: these are the two things the release is
+      # named after and built from, and a mistake in either is cheapest to catch here.
+      - name: Check the inputs
+        run: |
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::\`$COMMIT\` is not a full 40-character SHA. A release names one exact commit."
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9][0-9a-zA-Z.]*$ ]]; then
+            echo "::error::\`$VERSION\` is not a version number. Pass it without the leading \`v\`."
+            exit 1
+          fi
+
+          # A release proper is cut from the default branch, while a patch release can
+          # be cut from a release branch, so which branch the commit is on is not this
+          # workflow's business. That it is on one is: a commit no branch contains is
+          # one that nothing in the repository leads to any more.
+          git fetch --no-tags origin "+refs/heads/*:refs/remotes/origin/*"
+          branches=$(git branch --remotes --contains "$COMMIT" --format "%(refname:lstrip=3)")
+          if [ -z "$branches" ]; then
+            echo "::error::$COMMIT is not on any branch."
+            exit 1
+          fi
+          echo "Branches containing $COMMIT:"
+          printf '%s\n' "$branches"
+
+      # A tag that already exists is a version that has already been released, and
+      # pushing it would fail after the build rather than before it.
+      - name: Check that the tag does not exist
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "::error::$TAG already exists, so $VERSION has been released."
+            exit 1
+          fi
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+          bundler: none
+      - name: Update rubygems & bundler
+        run: gem update --system
+      - name: Install gems
+        run: |
+          gem install bundler
+          bundle install --jobs 4 --retry 3
+
+      # Fails before anything is built or pushed: the version has to be the one the
+      # released commit declares, and -- unless this is a `.dev.N` release -- the one
+      # CHANGELOG.md is written up for.
+      - name: Check the version and the changelog
+        run: bundle exec rake "gem:check_release[$VERSION]"
+
+      - name: Build the gem
+        run: |
+          mkdir -p pkg
+          gem build steep.gemspec -o "pkg/steep-$VERSION.gem"
+
+      # `git ls-files` vouches for what is committed, but the gemspec filters that list
+      # by hand, so the built gem is where a renamed executable or a newly added
+      # development directory shows up.
+      - name: Check the built gem
+        run: |
+          ruby -rrubygems/package -e '
+            spec = Gem::Package.new(ARGV[0]).spec
+
+            raise "unexpected platform: #{spec.platform}" unless spec.platform.to_s == "ruby"
+            raise "the gem must not declare an extension" unless spec.extensions.empty?
+            raise "exe/steep is missing" unless spec.files.include?("exe/steep")
+            raise "lib/steep.rb is missing" unless spec.files.include?("lib/steep.rb")
+
+            excluded = spec.files.grep(%r{\A(test|spec|features|smoke|sig|gemfile_steep|\.github|\.vscode)/})
+            raise "unexpected files in the gem: #{excluded.first(5).inspect}" unless excluded.empty?
+
+            puts "#{spec.full_name}: #{spec.files.size} files"
+          ' "pkg/steep-$VERSION.gem"
+
+      # The checks above cannot tell whether the gem actually runs. Install it the way
+      # a user would, outside this repository and outside the bundle, and type check
+      # with it: that exercises the executable, the runtime dependencies, the RBS
+      # environment setup, and the type checker itself, which is the failure metadata
+      # cannot catch.
+      - name: Check the gem by type checking with it
+        run: |
+          gem install --no-document "pkg/steep-$VERSION.gem"
+
+          installed=$(steep --version)
+          if [ "$installed" != "$VERSION" ]; then
+            echo "::error::\`steep --version\` reports \`$installed\`, not \`$VERSION\`."
+            exit 1
+          fi
+
+          work=$(mktemp -d)
+          mkdir -p "$work/lib" "$work/sig"
+          cat > "$work/Steepfile" <<'STEEPFILE'
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+          STEEPFILE
+          cat > "$work/sig/hello.rbs" <<'RBS'
+          class Hello
+            def greet: (String name) -> String
+          end
+          RBS
+
+          # A project that type checks clean has to exit 0 ...
+          cat > "$work/lib/hello.rb" <<'RUBY'
+          class Hello
+            def greet(name)
+              "Hello, #{name}!"
+            end
+          end
+          RUBY
+          (cd "$work" && steep check)
+
+          # ... and one that does not has to be reported, so that a `steep check` which
+          # quietly checks nothing cannot pass for a working gem.
+          cat > "$work/lib/hello.rb" <<'RUBY'
+          class Hello
+            def greet(name)
+              name.no_such_method
+            end
+          end
+          RUBY
+          if output=$(cd "$work" && steep check 2>&1); then
+            echo "::error::\`steep check\` found no problem in a project that has one."
+            printf '%s\n' "$output"
+            exit 1
+          fi
+          printf '%s\n' "$output" | grep -q "lib/hello.rb" || {
+            echo "::error::\`steep check\` failed without reporting lib/hello.rb."
+            printf '%s\n' "$output"
+            exit 1
+          }
+          echo "steep $VERSION type checks through the installed gem"
+
+      # Uploaded before publishing, so a failed push still leaves the gem behind.
+      # This is also where a dry run ends.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gem
+          path: pkg/*.gem
+          if-no-files-found: error
+
+      # Everything below runs only for a real release.
+
+      # The tag comes after the gem is known to build and run, and before anything is
+      # published: a tag can be deleted, while a version pushed to RubyGems can only be
+      # yanked. What it names was decided by the checkout rather than by the tagging,
+      # so nothing rests on it being created first.
+      - name: Tag the release
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          bundle exec rake gem:tag
+
+      - name: Configure RubyGems credentials
+        if: ${{ !inputs.dry_run }}
+        # No floating major tag on this action, so the exact release is pinned.
+        uses: rubygems/configure-rubygems-credentials@v2.1.0
+
+      - name: Push the gem
+        if: ${{ !inputs.dry_run }}
+        run: gem push "pkg/steep-$VERSION.gem"
+
+      # Last, so that a failed push never announces a release that has no gem.
+      - name: Publish the GitHub release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bundle exec rake gem:gh_release
