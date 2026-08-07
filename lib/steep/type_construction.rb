@@ -1761,6 +1761,19 @@ module Steep
             else
               if hint
                 tuples = select_flatten_types(hint) {|type| type.is_a?(AST::Types::Tuple) } #: Array[AST::Types::Tuple]
+                if tuples.empty?
+                  # An interface hint like `Hash::_Pair[K, V]` (which rbs 4.1 uses for the blocks of `Array#to_h`
+                  # and `Hash#to_h` and for the array-of-pairs argument of `Hash.[]`) is not a tuple type itself,
+                  # but declares the tuple it accepts through its `#to_ary` method.
+                  # Deconstruct such hints so the array literal can be inferred as a tuple.
+                  candidates = select_flatten_types(hint) do |type|
+                    type.is_a?(AST::Types::Name::Interface) || type.is_a?(AST::Types::Intersection)
+                  end
+                  tuples = candidates.filter_map do |type|
+                    converted = try_convert(type, :to_ary)
+                    converted if converted.is_a?(AST::Types::Tuple)
+                  end #: Array[AST::Types::Tuple]
+                end
                 unless tuples.empty?
                   fallback_pair = nil #: Pair?
                   tuples.each do |tuple|

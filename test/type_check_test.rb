@@ -4580,4 +4580,133 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_array_literal_with_pair_interface_hint
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          interface _KeyValue[K, V]
+            def to_ary: () -> [K, V]
+          end
+
+          class PairMaker
+            def make: [K, V] () { (String) -> _KeyValue[K, V] } -> Hash[K, V]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          maker = PairMaker.new
+          hash = maker.make {|string| [string, string.size] }
+          hash.each_key {|key| key.upcase }
+          hash.each_value {|value| value + 1 }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_array_literal_with_pair_interface_intersection_hint
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          interface _KeyValue[K, V]
+            def to_ary: () -> [K, V]
+          end
+
+          class PairMaker
+            def make_pair: () { (String) -> ([Symbol, Integer] & _KeyValue[Symbol, Integer]) } -> Hash[Symbol, Integer]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          maker = PairMaker.new
+          maker.make_pair {|string| [string.to_sym, string.size] }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_array_literal_with_pair_interface_hint_two_params_block
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          interface _KeyValue[K, V]
+            def to_ary: () -> [K, V]
+          end
+
+          class PairMaker
+            def make_from_pairs: [K, V] () { (Symbol, Integer) -> _KeyValue[K, V] } -> Hash[K, V]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          maker = PairMaker.new
+          hash = maker.make_from_pairs {|key, value| [key.to_s, value.to_f] }
+          hash.each_key {|key| key.upcase }
+          hash.each_value {|value| value.floor }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_array_literal_with_pair_interface_hint_mismatch
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          interface _KeyValue[K, V]
+            def to_ary: () -> [K, V]
+          end
+
+          class PairMaker
+            def make_exact: () { (String) -> _KeyValue[Symbol, Integer] } -> Hash[Symbol, Integer]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          maker = PairMaker.new
+          maker.make_exact {|string| [string, 1] }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 17
+              end:
+                line: 2
+                character: 40
+            severity: ERROR
+            message: |-
+              Cannot allow block body have type `[::String, ::Integer]` because declared as type `::_KeyValue[::Symbol, ::Integer]`
+                [::String, ::Integer] <: ::_KeyValue[::Symbol, ::Integer]
+                  () -> [::String, ::Integer] <: () -> [::Symbol, ::Integer]
+                    [::String, ::Integer] <: [::Symbol, ::Integer]
+                      ::String <: ::Symbol
+                        ::Object <: ::Symbol
+                          ::BasicObject <: ::Symbol
+            code: Ruby::BlockBodyTypeMismatch
+      YAML
+    )
+  end
 end
