@@ -583,6 +583,62 @@ class TypeCheckWorkerTest < Minitest::Test
     end
   end
 
+  def test_handle_job_typecheck_code_error
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+        {}.tap do |changes|
+          changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<~RUBY)]
+            Hello.new.world()
+          RUBY
+          # `Module#ruby2_keywords` conflicts with the *private* method in core, and
+          # building a definition raises an error during type checking, not validation.
+          changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<~RBS)]
+            class Hello
+              def world: () -> void
+            end
+
+            class Module
+              def ruby2_keywords: (*Symbol) -> void
+            end
+          RBS
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+        end
+
+        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
+        assert_raises(RBS::DuplicatedMethodDefinitionError) do
+          worker.handle_job(job)
+        end
+
+        # The file is reported to the master even when the type check fails, so that
+        # the master doesn't wait for the file forever
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+          assert_equal "guid", message[:params][:guid]
+          assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
+          assert_nil message[:params][:diagnostics]
+        end
+      end
+    end
+  end
+
   def test_handle_job_typecheck_skip
     in_tmpdir do
       with_master_read_queue do |master_read_queue|

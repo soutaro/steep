@@ -237,55 +237,58 @@ module Steep
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateAppSignature for guid=#{job.guid}, path=#{job.path}" }
 
-            formatter = Diagnostic::LSPFormatter.new({}, **{})
+            reporting_typecheck_progress(job) do
+              formatter = Diagnostic::LSPFormatter.new({}, **{})
 
-            diagnostics = service.validate_signature(path: project.relative_path(job.path), target: job.target)
+              diagnostics = service.validate_signature(path: project.relative_path(job.path), target: job.target)
 
-            typecheck_progress(
-              path: job.path,
-              guid: job.guid,
-              target: job.target,
-              diagnostics: diagnostics.filter_map { formatter.format(_1) }
-            )
+              diagnostics.filter_map { formatter.format(_1) }
+            end
           end
 
         when ValidateLibrarySignatureJob
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateLibrarySignature for guid=#{job.guid}, path=#{job.path}" }
 
-            formatter = Diagnostic::LSPFormatter.new({}, **{})
-            diagnostics = service.validate_signature(path: job.path, target: job.target)
+            reporting_typecheck_progress(job) do
+              formatter = Diagnostic::LSPFormatter.new({}, **{})
+              diagnostics = service.validate_signature(path: job.path, target: job.target)
 
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics.filter_map { formatter.format(_1) })
+              diagnostics.filter_map { formatter.format(_1) }
+            end
           end
 
         when TypeCheckCodeJob
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}, target=#{job.target.name}" }
-            group_target = project.group_for_source_path(job.path) || job.target
-            formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
-            relative_path = project.relative_path(job.path)
-            diagnostics = service.typecheck_source(path: relative_path, target: job.target)
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
+            reporting_typecheck_progress(job) do
+              group_target = project.group_for_source_path(job.path) || job.target
+              formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
+              relative_path = project.relative_path(job.path)
+              diagnostics = service.typecheck_source(path: relative_path, target: job.target)
+              diagnostics&.filter_map { formatter.format(_1) }
+            end
           end
 
         when TypeCheckInlineCodeJob
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing TypeCheckInlineCodeJob for guid=#{job.guid}, path=#{job.path}, target=#{job.target.name}" }
-            group_target = project.group_for_inline_source_path(job.path) || job.target
-            formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
-            relative_path = project.relative_path(job.path)
-            diagnostics = service.typecheck_source(path: relative_path, target: job.target) #: Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base] | nil
-            signature_diagnostics = service.validate_signature(path: relative_path, target: job.target)
-            if diagnostics
-              diagnostics.concat(signature_diagnostics)
-            else
-              unless signature_diagnostics.empty?
-                diagnostics = signature_diagnostics
+            reporting_typecheck_progress(job) do
+              group_target = project.group_for_inline_source_path(job.path) || job.target
+              formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
+              relative_path = project.relative_path(job.path)
+              diagnostics = service.typecheck_source(path: relative_path, target: job.target) #: Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base] | nil
+              signature_diagnostics = service.validate_signature(path: relative_path, target: job.target)
+              if diagnostics
+                diagnostics.concat(signature_diagnostics)
+              else
+                unless signature_diagnostics.empty?
+                  diagnostics = signature_diagnostics
+                end
               end
-            end
 
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
+              diagnostics&.filter_map { formatter.format(_1) }
+            end
           end
 
         when WorkspaceSymbolJob
@@ -312,6 +315,20 @@ module Steep
 
       def typecheck_progress(guid:, path:, target:, diagnostics:)
         writer.write(CustomMethods::TypeCheck__Progress.notification({ guid: guid, path: path.to_s, target: target.name.to_s, diagnostics: diagnostics }))
+      end
+
+      # Reports the file to the master even when the given block raises an error
+      #
+      # The master waits for `$/steep/typeCheck/progress` of every file it assigned, and the type check session
+      # never finishes if a worker skips reporting a file, for example because building a definition
+      # from the RBS environment raised an error during type checking.
+      #
+      def reporting_typecheck_progress(job)
+        diagnostics = yield
+        typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics)
+      rescue StandardError
+        typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: nil)
+        raise
       end
 
       def workspace_symbol_result(query)
