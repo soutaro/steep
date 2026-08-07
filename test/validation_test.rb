@@ -485,6 +485,33 @@ end
     end
   end
 
+  def test_validate_mixin_with_renamed_type_params
+    with_checker <<~RBS do |checker|
+      interface _Each[A]
+        def each: () { (A) -> void } -> void
+      end
+
+      module Enum[E] : _Each[E]
+      end
+
+      module Enum[Elem] : _Each[Elem]
+      end
+
+      class Collection
+        include Enum[String]
+
+        def each: () { (String) -> void } -> void
+      end
+    RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(RBS::TypeName.parse("::Collection"))
+
+        assert_predicate validator, :no_error?
+      end
+    end
+  end
+
   def test_validate_mixin_module
     with_checker <<-EOF do |checker|
 interface _FooEach[A]
