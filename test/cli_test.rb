@@ -1017,13 +1017,13 @@ end
 
       begin
         finally_holds(timeout: 30) do
-          stdout, status = sh(*steep, "query", "hover", "foo.rb:2:1")
+          stdout, status = sh(*steep, "query", "hover", "foo.rb:1:0")
           assert_predicate status, :success?
 
           result = JSON.parse(stdout.lines.first, symbolize_names: true)
           assert_equal "foo.rb", result[:file]
-          assert_equal 2, result[:line]
-          assert_equal 1, result[:column]
+          assert_equal 1, result[:line]
+          assert_equal 0, result[:column]
           assert result[:result], "Expected hover result"
         end
       ensure
@@ -1051,7 +1051,7 @@ end
 
       begin
         finally_holds(timeout: 30) do
-          stdout, status = sh(*steep, "query", "hover", "foo.rb:2:1", "foo.rb:2:5")
+          stdout, status = sh(*steep, "query", "hover", "foo.rb:1:0", "foo.rb:1:4")
           assert_predicate status, :success?
 
           lines = stdout.lines
