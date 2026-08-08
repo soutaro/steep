@@ -33,6 +33,10 @@ module Steep
         attr_reader from: from
 
         def initialize: (name: TypeName, from: from) -> void
+
+        def as_json: () -> Hash[Symbol, String]
+
+        def self.from_json: (untyped hash) -> ConstantQuery
       end
 
       # Query a method
@@ -46,6 +50,10 @@ module Steep
         attr_reader from: from
 
         def initialize: (name: method_name, from: from) -> void
+
+        def as_json: () -> Hash[Symbol, String]
+
+        def self.from_json: (untyped hash) -> MethodQuery
       end
 
       # Query a type name
@@ -56,9 +64,15 @@ module Steep
         attr_reader name: TypeName
 
         def initialize: (name: TypeName) -> void
+
+        def as_json: () -> Hash[Symbol, String]
+
+        def self.from_json: (untyped hash) -> TypeNameQuery
       end
 
       type query = ConstantQuery | MethodQuery | TypeNameQuery
+
+      def self.query_from_json: (untyped hash) -> query
 
       # Parsed result of a name string given to `steep query definition NAME`.
       #
@@ -102,6 +116,18 @@ module Steep
       #
       def query_definition: (name) -> Array[loc]
 
+      # Returns array of locations that is a response to a *Find references* request
+      #
+      def references: (path: Pathname, line: Integer, column: Integer, include_declaration: bool) -> Array[loc]
+
+      # Resolves the symbol at the given position into reference queries
+      #
+      def resolve_references_queries: (path: Pathname, line: Integer, column: Integer) -> Array[query]
+
+      # Finds references matching the given queries
+      #
+      def find_references: (queries: Array[query], include_declaration: bool) -> Array[loc]
+
       # Returns array of locations that is a response to a *Go to type-definition* request
       #
       def type_definition: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
@@ -129,6 +155,12 @@ module Steep
       def type_name_locations: (TypeName name, ?locations: Array[target_loc]) -> Array[target_loc]
 
       def interface_and_type_alias_locations: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
+
+      def constant_references_in_ruby: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
+
+      def method_references_in_ruby: (method_name name, locations: Array[target_loc]) -> Array[target_loc]
+
+      def type_name_references_in_rbs: (TypeName name, locations: Array[target_loc]) -> Array[target_loc]
     end
   end
 end

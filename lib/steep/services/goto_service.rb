@@ -15,11 +15,48 @@ module Steep
 
       class ConstantQuery < Struct.new(:name, :from, keyword_init: true)
         include SourceHelper
+
+        def as_json
+          { kind: "constant", name: name.to_s, from: from.to_s }
+        end
+
+        def self.from_json(hash)
+          new(name: RBS::TypeName.parse(hash[:name] || hash["name"]), from: (hash[:from] || hash["from"]).to_sym)
+        end
       end
       class MethodQuery < Struct.new(:name, :from, keyword_init: true)
         include SourceHelper
+
+        def as_json
+          { kind: "method", name: name.to_s, from: from.to_s }
+        end
+
+        def self.from_json(hash)
+          new(name: MethodName(hash[:name] || hash["name"]), from: (hash[:from] || hash["from"]).to_sym)
+        end
       end
       class TypeNameQuery < Struct.new(:name, keyword_init: true)
+        def as_json
+          { kind: "type_name", name: name.to_s }
+        end
+
+        def self.from_json(hash)
+          new(name: RBS::TypeName.parse(hash[:name] || hash["name"]))
+        end
+      end
+
+      def self.query_from_json(hash)
+        kind = hash[:kind] || hash["kind"]
+        case kind
+        when "constant"
+          ConstantQuery.from_json(hash)
+        when "method"
+          MethodQuery.from_json(hash)
+        when "type_name"
+          TypeNameQuery.from_json(hash)
+        else
+          raise "Unknown query kind: #{kind}"
+        end
       end
 
       attr_reader :type_check, :assignment
@@ -199,6 +236,56 @@ module Steep
         # Drop un-assigned paths here.
         # The path assignment makes sense only for `.rbs` files, because un-assigned `.rb` files are already skipped since they are not type checked.
         #
+        locations.filter_map do |target, loc|
+          case loc
+          when RBS::Location
+            if assignment =~ [target, loc.name]
+              loc
+            end
+          else
+            loc
+          end
+        end.uniq
+      end
+
+      def references(path:, line:, column:, include_declaration:)
+        queries = resolve_references_queries(path: path, line: line, column: column)
+        find_references(queries: queries, include_declaration: include_declaration)
+      end
+
+      def resolve_references_queries(path:, line:, column:)
+        queries = query_at(path: path, line: line, column: column)
+        queries.uniq!
+        queries
+      end
+
+      def find_references(queries:, include_declaration:)
+        locations = [] #: Array[target_loc]
+
+        queries.each do |query|
+          case query
+          when ConstantQuery
+            constant_references_in_ruby(query.name, locations: locations)
+            type_name_references_in_rbs(query.name, locations: locations)
+            if include_declaration
+              constant_definition_in_ruby(query.name, locations: locations)
+              constant_definition_in_rbs(query.name, locations: locations)
+            end
+          when MethodQuery
+            method_references_in_ruby(query.name, locations: locations)
+            if include_declaration
+              method_locations(query.name, locations: locations, in_ruby: true, in_rbs: true)
+            end
+          when TypeNameQuery
+            constant_references_in_ruby(query.name, locations: locations)
+            type_name_references_in_rbs(query.name, locations: locations)
+            if include_declaration
+              type_name_locations(query.name, locations: locations)
+              constant_definition_in_ruby(query.name, locations: locations)
+            end
+          end
+        end
+
         locations.filter_map do |target, loc|
           case loc
           when RBS::Location
@@ -633,6 +720,86 @@ module Steep
               locations << [target, decl.name_location]
             else
               raise
+            end
+          end
+        end
+
+        locations
+      end
+
+      def constant_references_in_ruby(name, locations:)
+        type_check.source_files.each do |path, source|
+          if typing = source.typing
+            target = project.target_for_source_path(path) or next
+            entry = typing.source_index.entry(constant: name)
+            entry.references.each do |node|
+              case node.type
+              when :const
+                locations << [target, node.location.expression]
+              end
+            end
+          end
+        end
+
+        locations
+      end
+
+      def method_references_in_ruby(name, locations:)
+        type_check.source_files.each do |path, source|
+          if typing = source.typing
+            target = project.target_for_source_path(path) or next
+            typing.method_calls.each_value do |call|
+              case call
+              when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+                if call.method_decls.any? { |decl| decl.method_name == name }
+                  node = call.node
+                  case node.type
+                  when :send
+                    locations << [target, (_ = node.location).selector]
+                  when :block
+                    send_node = node.children[0]
+                    if send_node.type == :send
+                      locations << [target, (_ = send_node.location).selector]
+                    end
+                  end
+                end
+              end
+            end
+          end
+        end
+
+        locations
+      end
+
+      def type_name_references_in_rbs(name, locations:)
+        project.targets.each do |target|
+          signature = type_check.signature_services.fetch(target.name)
+          index = signature.latest_rbs_index
+
+          index.each_reference(type_name: name) do |ref|
+            case ref
+            when RBS::AST::Members::Include, RBS::AST::Members::Extend
+              if ref.location
+                locations << [target, ref.location[:name]]
+              end
+            when RBS::AST::Declarations::Class
+              if ref.super_class && ref.super_class.name == name && ref.super_class.location
+                locations << [target, ref.super_class.location]
+              end
+            when RBS::AST::Declarations::Module
+              ref.self_types.each do |self_type|
+                if self_type.name == name && self_type.location
+                  locations << [target, self_type.location]
+                end
+              end
+            when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
+              if ref.location
+                locations << [target, ref.location[:old_name]]
+              end
+            else
+              if ref.respond_to?(:location) && ref.location
+                locations << [target, _ = ref.location]
+              end
             end
           end
         end
