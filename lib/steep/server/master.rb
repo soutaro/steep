@@ -347,6 +347,24 @@ module Steep
         initialize_params.dig(:capabilities, :workspace, :didChangeWatchedFiles, :dynamicRegistration) || false
       end
 
+      # Whether the client declared `linkSupport` for the given goto-style LSP method.
+      #
+      # When `true`, the server emits `LocationLink` (with `targetRange` and
+      # `targetSelectionRange`) for the response. When `false`, we downgrade to plain
+      # `Location` and populate `range` with the name range for backwards compatibility.
+      #
+      def link_support?(lsp_method)
+        initialize_params or raise "`initialize` request is not receiged yet"
+        capability_key =
+          case lsp_method
+          when "textDocument/definition" then :definition
+          when "textDocument/implementation" then :implementation
+          when "textDocument/typeDefinition" then :typeDefinition
+          else return false
+          end
+        initialize_params.dig(:capabilities, :textDocument, capability_key, :linkSupport) ? true : false
+      end
+
       def process_message_from_client(message)
         Steep.logger.info "Processing message from client: method=#{message[:method]}, id=#{message[:id]}"
         id = message[:id]
@@ -607,18 +625,33 @@ module Steep
 
         when "textDocument/definition", "textDocument/implementation", "textDocument/typeDefinition"
           if path = pathname(message[:params][:textDocument][:uri])
+            method = message[:method]
             result_controller << group_request do |group|
               typecheck_workers.each do |worker|
-                group << send_request(method: message[:method], params: message[:params], worker: worker)
+                group << send_request(method: method, params: message[:params], worker: worker)
               end
 
               group.on_completion do |handlers|
                 links = handlers.flat_map(&:result)
                 links.uniq!
+                # Workers always return `LocationLink` shape. Downgrade to plain
+                # `Location` (with the name range) when the client did not declare
+                # `linkSupport` capability, per LSP spec.
+                result =
+                  if link_support?(method)
+                    links
+                  else
+                    links.map do |link|
+                      {
+                        uri: link[:targetUri],
+                        range: link[:targetSelectionRange]
+                      }
+                    end
+                  end
                 enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: message[:id],
-                    result: links
+                    result: result
                   }
                 )
               end

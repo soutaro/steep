@@ -894,14 +894,16 @@ RUBY
         }
       ).tap do |job|
         worker.goto(job).tap do |locations|
+          # Worker always emits `LocationLink`; the master downgrades to `Location` based on client capability.
           assert_any!(locations, size: 1) do |loc|
-            assert_equal "#{file_scheme}#{current_dir}/sig/customer.rbs", loc[:uri]
+            assert_equal "#{file_scheme}#{current_dir}/sig/customer.rbs", loc[:targetUri]
             assert_equal(
-              {
-                start: { line: 0, character: 6 },
-                end: { line: 0, character: 14 }
-              },
-              loc[:range]
+              { start: { line: 0, character: 0 }, end: { line: 2, character: 3 } },
+              loc[:targetRange]
+            )
+            assert_equal(
+              { start: { line: 0, character: 6 }, end: { line: 0, character: 14 } },
+              loc[:targetSelectionRange]
             )
           end
         end

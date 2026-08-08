@@ -377,29 +377,30 @@ module Steep
 
         if name
           goto_service = Services::GotoService.new(type_check: service, assignment: assignment)
-          goto_service.query_definition(name).each do |loc|
-            case loc
+          goto_service.query_definition(name).each do |def_loc|
+            target_range = def_loc.target_range
+            selection_range = def_loc.target_selection_range
+
+            case target_range
             when RBS::Location
-              path = Pathname(loc.buffer.name)
+              path = Pathname(target_range.buffer.name)
               source = "rbs" #: CustomMethods::Query__Definition::source
               if path.extname == ".rb"
                 source = "ruby" #: CustomMethods::Query__Definition::source
               end
               path = project.absolute_path(path)
-              locations << {
-                uri: Steep::PathHelper.to_uri(path).to_s,
-                range: loc.as_lsp_range,
-                source: source
-              }
             else
-              path = Pathname(loc.source_buffer.name)
+              path = Pathname(target_range.source_buffer.name)
+              source = "ruby" #: CustomMethods::Query__Definition::source
               path = project.absolute_path(path)
-              locations << {
-                uri: Steep::PathHelper.to_uri(path).to_s,
-                range: loc.as_lsp_range,
-                source: "ruby"
-              }
             end
+
+            locations << {
+              uri: Steep::PathHelper.to_uri(path).to_s,
+              targetRange: target_range.as_lsp_range,
+              targetSelectionRange: selection_range.as_lsp_range,
+              source: source
+            }
           end
         end
 
@@ -416,7 +417,7 @@ module Steep
         column = job.params[:position][:character]
 
         goto_service = Services::GotoService.new(type_check: service, assignment: assignment)
-        locations =
+        def_locations =
           case
           when job.definition?
             goto_service.definition(path: path, line: line, column: column)
@@ -428,20 +429,26 @@ module Steep
             raise
           end
 
-        locations.map do |loc|
+        def_locations.map do |def_loc|
+          target_range = def_loc.target_range
+          selection_range = def_loc.target_selection_range
+
           path =
-            case loc
+            case target_range
             when RBS::Location
-              Pathname(loc.buffer.name)
+              Pathname(target_range.buffer.name)
             else
-              Pathname(loc.source_buffer.name)
+              Pathname(target_range.source_buffer.name)
             end
 
           path = project.absolute_path(path)
 
+          # Always emit `LocationLink` shape from the worker; the master downgrades to
+          # `Location` for clients that did not declare `linkSupport` capability.
           {
-            uri: Steep::PathHelper.to_uri(path).to_s,
-            range: loc.as_lsp_range
+            targetUri: Steep::PathHelper.to_uri(path).to_s,
+            targetRange: target_range.as_lsp_range,
+            targetSelectionRange: selection_range.as_lsp_range
           }
         end
       end
