@@ -30,11 +30,24 @@ module Steep
 
       def stringify: (path) -> String
 
+      def self.stringify: (path) -> String
+
       # An internal API to assign the index to a path
       def assign!: (path, Integer index) -> self
 
       # Internal method to calculate the index from of a string
       def self.index_for: (key: String, max_index: Integer) -> Integer
+
+      # Distributes the given target-paths over `max_index` workers, balancing the total
+      # file size assigned to each worker (Longest Processing Time greedy).
+      #
+      # Returns a PathAssignment whose cache maps every path to its assigned worker index.
+      #
+      def self.by_size: (Enumerable[path] target_paths, index: Integer, max_index: Integer) -> PathAssignment
+
+      def self.min_load_index: (Array[Integer] loads) -> Integer
+
+      def self.file_weight: (Pathname path) -> Integer
     end
   end
 end

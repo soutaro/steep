@@ -854,11 +854,21 @@ module Steep
           end
 
           Steep.logger.info "Sending $/typecheck/start notifications"
+
+          # Balance the files across workers by total file size (instead of MD5 hashing),
+          # computed once and shared so every worker gets a consistent slice of the partition.
+          assignment_cache = Services::PathAssignment.by_size(
+            request.each_target_path,
+            index: 0,
+            max_index: typecheck_workers.size
+          ).cache
+
           typecheck_workers.each do |worker|
             assignment = Services::PathAssignment.new(
               max_index: typecheck_workers.size,
               index: worker.index || raise
             )
+            assignment.cache.replace(assignment_cache)
 
             enqueue_write_job SendMessageJob.to_worker(
               worker,

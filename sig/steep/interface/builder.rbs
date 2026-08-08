@@ -51,6 +51,9 @@ module Steep
 
       attr_reader singleton_shape_cache: Hash[TypeName, Shape?]
 
+      # Cache of shapes for types without free variables, keyed by the type
+      attr_reader ground_shape_cache: Hash[AST::Types::t, Shape?]
+
       attr_reader implicitly_returns_nil: bool
 
       def initialize: (AST::Types::Factory, implicitly_returns_nil: bool) -> void
@@ -61,6 +64,8 @@ module Steep
       # * If `self` doesn't occur in the given type, it returns type without `self`, that is resolved to `config.self_type`
       #
       def shape: (AST::Types::t, Config) -> Shape?
+
+      def compute_shape: (AST::Types::t, Config) -> Shape?
 
       private
 

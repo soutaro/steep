@@ -17,6 +17,13 @@ module Steep
       current_tags << "Steep #{VERSION}"
     end
 
+    # The tag may be a String, a Proc that returns a String, or any object that
+    # responds to `#to_s`.
+    #
+    # Procs and non-String objects are rendered lazily, only when a message is
+    # actually logged.  Hot paths should pass a Proc (or an object with a
+    # suitable `#to_s`) instead of an interpolated String, so that no String is
+    # constructed when the log level filters the output.
     def tagged(tag)
       current_tags << tag
       yield
@@ -33,7 +40,7 @@ module Steep
     end
 
     def formatted_tags
-      current_tags.map { |tag| "[#{tag}]" }.join(" ")
+      current_tags.map { |tag| "[#{tag.is_a?(Proc) ? tag.call : tag}]" }.join(" ")
     end
   end
 end

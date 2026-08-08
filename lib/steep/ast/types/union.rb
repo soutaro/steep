@@ -8,6 +8,25 @@ module Steep
           @types = types
         end
 
+        # Returns a shared instance for the given types
+        #
+        # Only unions of types without free variables are shared.
+        # Note that the sharing is best-effort -- types constructed with `.new` are still
+        # equal to the shared instances by the structural comparison.
+        #
+        def self.intern(types:)
+          table = (@table ||= {}) #: Hash[Array[t], Union]
+          if type = table[types]
+            type
+          else
+            type = new(types: types)
+            if types.all? {|ty| ty.free_variables.empty? }
+              table[types] = type
+            end
+            type
+          end
+        end
+
         def self.build(types:)
           return AST::Types::Bot.instance if types.empty?
           if types.size == 1
@@ -38,14 +57,17 @@ module Steep
             when 1
               tys.first || raise
             else
-              new(types: tys)
+              intern(types: tys)
             end
           end
         end
 
         def ==(other)
+          return true if equal?(other)
+
           other.is_a?(Union) &&
-            Set.new(other.types) == Set.new(types)
+            other.types.size == types.size &&
+            (other.types == types || Set.new(other.types) == Set.new(types))
         end
 
         def hash

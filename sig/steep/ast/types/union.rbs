@@ -6,6 +6,16 @@ module Steep
 
         def initialize: (types: Array[t]) -> void
 
+        self.@table: Hash[Array[t], Union]?
+
+        # Returns a shared instance for the given types
+        #
+        # Only unions of types without free variables are shared.
+        # Note that the sharing is best-effort -- types constructed with `.new` are still
+        # equal to the shared instances by the structural comparison.
+        #
+        def self.intern: (types: Array[t]) -> Union
+
         def self.build: (types: Array[t]) -> t
 
         def ==: (untyped other) -> bool

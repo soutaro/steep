@@ -47,8 +47,8 @@ module Steep
         end
       end
 
-      TRUE = AST::Types::Literal.new(value: true)
-      FALSE = AST::Types::Literal.new(value: false)
+      TRUE = AST::Types::Literal.intern(value: true)
+      FALSE = AST::Types::Literal.intern(value: false)
       BOOL = AST::Types::Boolean.instance
       BOT = AST::Types::Bot.instance
       UNTYPED = AST::Types::Any.instance
@@ -566,7 +566,7 @@ module Steep
               else
                 # For `==`, narrow only when the literal can be a value of `type`.
                 # e.g. `Symbol == :fatal` can be true, but `SomeClass == :fatal` cannot.
-                literal_type = AST::Types::Literal.new(value: value_node.children[0])
+                literal_type = AST::Types::Literal.intern(value: value_node.children[0])
                 if !for_receiver || subtyping?(sub_type: literal_type, super_type: type)
                   true_types << literal_type
                 end

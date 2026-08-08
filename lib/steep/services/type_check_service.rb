@@ -358,7 +358,7 @@ module Steep
         case annotations.self_type
         when AST::Types::Name::Instance
           module_name = annotations.self_type.name
-          module_type = AST::Types::Name::Singleton.new(name: module_name)
+          module_type = AST::Types::Name::Singleton.intern(name: module_name)
           instance_type = annotations.self_type
         when AST::Types::Name::Singleton
           module_name = annotations.self_type.name
