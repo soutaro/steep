@@ -4358,7 +4358,9 @@ module Steep
             when arg.compatible?
               if arg.node
                 # Block pass (&block) is given
-                node_type, constr = constr.synthesize(arg.node, hint: arg.node_type)
+                # Passing `proc_type` instead of `node_type` because a block-pass argument is a proc, not `nil`.
+                # `nil` is still allowed by the `node_type` check below.
+                node_type, constr = constr.synthesize(arg.node, hint: arg.proc_type)
 
                 nil_given =
                   constr.check_relation(sub_type: node_type, super_type: AST::Builtin.nil_type).success? &&
