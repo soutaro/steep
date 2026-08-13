@@ -4580,4 +4580,83 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_block_pass_optional_block
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Object
+            def stringify: (Integer value) -> String
+          end
+
+          class OptionalBlockTest
+            def sum: (?untyped init) ?{ (Integer e) -> untyped } -> untyped
+
+            def map: () ?{ (Integer element) -> String } -> Array[String]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          def stringify(value)
+            value.to_s
+          end
+
+          test = OptionalBlockTest.new
+
+          test.sum(&:to_r)
+          test.sum(0, &:to_r)
+          test.map(&:to_s)
+          test.map(&method(:stringify))
+
+          test.map
+          test.map {|element| element.to_s }
+          test.map(&(-> (element) { element.to_s }))
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_block_pass_optional_block_mismatch
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class OptionalBlockTest
+            def map: () ?{ (Integer element) -> Integer } -> Array[Integer]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          OptionalBlockTest.new.map(&:to_s)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 26
+              end:
+                line: 1
+                character: 32
+            severity: ERROR
+            message: |-
+              Cannot pass a value of type `^(::Integer) -> ::String` as a block-pass-argument of type `(^(::Integer) -> ::Integer | nil)`
+                ^(::Integer) -> ::String <: (^(::Integer) -> ::Integer | nil)
+                  ^(::Integer) -> ::String <: ^(::Integer) -> ::Integer
+                    ::String <: ::Integer
+                      ::Object <: ::Integer
+                        ::BasicObject <: ::Integer
+            code: Ruby::BlockTypeMismatch
+      YAML
+    )
+  end
 end

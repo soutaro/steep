@@ -199,6 +199,14 @@ module Steep
 
         def pair: () -> [Parser::AST::Node, Interface::Function]?
 
+        # The type of the block, as a proc type
+        #
+        %a{pure} def proc_type: () -> AST::Types::Proc
+
+        # The type a block-pass argument node is allowed to have
+        #
+        # Same as `proc_type`, but `nil` is allowed too if the block is optional, because passing `nil` means passing no block.
+        #
         %a{pure} def node_type: () -> AST::Types::t
       end
 
