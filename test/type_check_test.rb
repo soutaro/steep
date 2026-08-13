@@ -4659,4 +4659,77 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_lambda_block_param_type_alias
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type callback = ^(Integer) -> void
+
+          type optional_callback = ^(Integer) -> void | nil
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          required = -> (&blk) {
+            # @type var blk: callback
+            blk.call(1)
+          }
+
+          optional = -> (&blk) {
+            # @type var blk: callback?
+            blk&.call(1)
+          }
+
+          expanded = -> (&blk) {
+            # @type var blk: optional_callback
+            blk&.call(1)
+          }
+
+          inline = -> (&blk) {
+            # @type var blk: ^(Integer) -> void
+            blk.call(1)
+          }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_lambda_block_param_type_alias_not_proc
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type not_proc = Integer
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          lambda = -> (&blk) {
+            # @type var blk: not_proc
+            blk
+          }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 13
+              end:
+                line: 1
+                character: 17
+            severity: ERROR
+            message: Proc type is expected but `::not_proc` is specified
+            code: Ruby::ProcTypeExpected
+      YAML
+    )
+  end
 end

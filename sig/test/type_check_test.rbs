@@ -299,4 +299,8 @@ class TypeCheckTest < Minitest::Test
   def test_block_pass_optional_block: () -> untyped
 
   def test_block_pass_optional_block_mismatch: () -> untyped
+
+  def test_lambda_block_param_type_alias: () -> untyped
+
+  def test_lambda_block_param_type_alias_not_proc: () -> untyped
 end
