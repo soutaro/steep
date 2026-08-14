@@ -307,7 +307,7 @@ module Steep
 
         def possible_key_type
           # @type var key_types: Array[AST::Types::t]
-          key_types = all_keys.map {|key| AST::Types::Literal.new(value: key) }
+          key_types = all_keys.map {|key| AST::Types::Literal.intern(value: key) }
           key_types << AST::Builtin::Symbol.instance_type if rest_type
 
           AST::Types::Union.build(types: key_types)
@@ -336,7 +336,7 @@ module Steep
                   [
                     ArgTypePairs.new(
                       pairs: [
-                        [key_node, AST::Types::Literal.new(value: key)],
+                        [key_node, AST::Types::Literal.intern(value: key)],
                         [value_node, value_type]
                       ]
                     ),

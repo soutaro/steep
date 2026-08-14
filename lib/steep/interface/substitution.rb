@@ -72,21 +72,22 @@ module Steep
         dictionary.key?(var)
       end
 
-      def apply?(type)
-        case type
-        when AST::Types::Var
-          key?(type.name)
+      # Returns true if the given free variable is substituted by this substitution
+      def domain?(var)
+        case var
+        when Symbol
+          key?(var)
         when AST::Types::Self
           !self_type.is_a?(AST::Types::Self)
         when AST::Types::Instance
           !instance_type.is_a?(AST::Types::Instance)
-        when AST::Types::Class
-          !module_type.is_a?(AST::Types::Class)
-        when AST::Types::Name::Applying
-          type.args.any? {|ty| apply?(ty) }
         else
-          type.each_child.any? {|t| apply?(t) }
+          !module_type.is_a?(AST::Types::Class)
         end
+      end
+
+      def apply?(type)
+        type.free_variables.any? {|var| domain?(var) }
       end
 
       def self.build(vars, types = nil, instance_type: nil, module_type: nil, self_type: nil)

@@ -88,19 +88,19 @@ module Steep
               Var.new(name: type.name)
             when RBS::Types::ClassSingleton
               type_name = type.name
-              Name::Singleton.new(name: type_name)
+              Name::Singleton.intern(name: type_name)
             when RBS::Types::ClassInstance
               type_name = type.name
               args = normalize_args(type_name, type.args).map {|arg| type(arg) }
-              Name::Instance.new(name: type_name, args: args)
+              Name::Instance.intern(name: type_name, args: args)
             when RBS::Types::Interface
               type_name = type.name
               args = normalize_args(type_name, type.args).map {|arg| type(arg) }
-              Name::Interface.new(name: type_name, args: args)
+              Name::Interface.intern(name: type_name, args: args)
             when RBS::Types::Alias
               type_name = type.name
               args = normalize_args(type_name, type.args).map {|arg| type(arg) }
-              Name::Alias.new(name: type_name, args: args)
+              Name::Alias.intern(name: type_name, args: args)
             when RBS::Types::Union
               Union.build(types: type.types.map {|ty| type(ty) })
             when RBS::Types::Intersection
@@ -108,7 +108,7 @@ module Steep
             when RBS::Types::Optional
               Union.build(types: [type(type.type), Nil.instance()])
             when RBS::Types::Literal
-              Literal.new(value: type.literal)
+              Literal.intern(value: type.literal)
             when RBS::Types::Tuple
               Tuple.new(types: type.types.map {|ty| type(ty) })
             when RBS::Types::Record
@@ -486,7 +486,7 @@ module Steep
             args = def_args
           end
 
-          AST::Types::Name::Instance.new(name: type_name, args: args)
+          AST::Types::Name::Instance.intern(name: type_name, args: args)
         end
 
         def try_instance_type(type)
@@ -503,7 +503,7 @@ module Steep
         def try_singleton_type(type)
           case type
           when AST::Types::Name::Instance, AST::Types::Name::Singleton
-            AST::Types::Name::Singleton.new(name:type.name)
+            AST::Types::Name::Singleton.intern(name: type.name)
           else
             nil
           end
@@ -512,12 +512,12 @@ module Steep
         def normalize_type(type)
           case type
           when AST::Types::Name::Instance
-            AST::Types::Name::Instance.new(
+            AST::Types::Name::Instance.intern(
               name: env.normalize_module_name(type.name),
               args: type.args.map {|ty| normalize_type(ty) }
             )
           when AST::Types::Name::Singleton
-            AST::Types::Name::Singleton.new(
+            AST::Types::Name::Singleton.intern(
               name: env.normalize_module_name(type.name)
             )
           when AST::Types::Any, AST::Types::Boolean, AST::Types::Bot, AST::Types::Nil,
@@ -541,12 +541,12 @@ module Steep
           when AST::Types::Proc
             type.map_type {|type| normalize_type(type) }
           when AST::Types::Name::Alias
-            AST::Types::Name::Alias.new(
+            AST::Types::Name::Alias.intern(
               name: type.name,
               args: type.args.map {|ty| normalize_type(ty) }
             )
           when AST::Types::Name::Interface
-            AST::Types::Name::Interface.new(
+            AST::Types::Name::Interface.intern(
               name: type.name,
               args: type.args.map {|ty| normalize_type(ty) }
             )

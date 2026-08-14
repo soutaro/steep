@@ -4,6 +4,8 @@ module Steep
   module Interface
     class Shape
       class MethodOverload
+        SORT_KEY_NO_LOCATION: [String, Integer]
+
         attr_reader method_type: MethodType
 
         attr_reader method_defs: Array[RBS::Definition::Method::TypeDef]
@@ -11,6 +13,11 @@ module Steep
         def initialize: (MethodType, Array[RBS::Definition::Method::TypeDef]) -> void
 
         def subst: (Substitution) -> MethodOverload
+
+        @method_decls_set: Hash[Symbol, Set[TypeInference::MethodCall::MethodDecl]]?
+
+        # Memoized version of `method_decls(name).to_set`
+        def method_decls_set: (Symbol name) -> Set[TypeInference::MethodCall::MethodDecl]
 
         def method_decls: (Symbol) -> Array[MethodDecl]
       end
