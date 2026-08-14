@@ -469,6 +469,10 @@ module Steep
       send_node, _ = deconstruct_sendish_and_block_nodes(node)
       return false unless send_node
 
+      data_struct_definition_send?(send_node)
+    end
+
+    def self.data_struct_definition_send?(send_node)
       if send_node.type == :send
         receiver, method, args = deconstruct_send_node!(send_node)
 
