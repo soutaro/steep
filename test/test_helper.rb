@@ -2,7 +2,14 @@ $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
 
 # @rbs use Steep::*
 
-Encoding.default_external = Encoding::UTF_8
+# Setting Encoding.default_external prints a warning under `ruby -w`. Silence it because
+# the setting is intentional here.
+begin
+  verbose, $VERBOSE = $VERBOSE, nil
+  Encoding.default_external = Encoding::UTF_8
+ensure
+  $VERBOSE = verbose
+end
 
 require "bundler/setup"
 require 'steep'
