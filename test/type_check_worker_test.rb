@@ -676,7 +676,7 @@ class TypeCheckWorkerTest < Minitest::Test
     end
   end
 
-    def test_handle_job_typecheck_inline__implementation_error
+  def test_handle_job_typecheck_inline__implementation_error
     in_tmpdir do
       with_master_read_queue do |master_read_queue|
         project = Project.new(steepfile_path: current_dir + "Steepfile")

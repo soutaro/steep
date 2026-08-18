@@ -56,7 +56,7 @@ module Steep
 
           def class_or_module?
             (class_decl || class_alias) ?  true : false
-        end
+          end
       end
 
       TypeAliasContent = _ = Struct.new(:location, :decl, keyword_init: true)
