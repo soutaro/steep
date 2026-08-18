@@ -462,6 +462,7 @@ class TypeCheckWorkerTest < Minitest::Test
           guid: "guid",
           path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"
         )
+        worker.handle_job(job)
 
         # handle_job doesn't write anything because the #current_type_check_guid is different.
         worker.writer.write({ method: "sentinel"})
@@ -617,6 +618,7 @@ class TypeCheckWorkerTest < Minitest::Test
         end
 
         job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+        worker.handle_job(job)
 
         # handle_job doesn't write anything because the #current_type_check_guid is different.
         worker.writer.write({ method: "sentinel"})
