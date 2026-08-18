@@ -125,22 +125,6 @@ end
 
       node = source.node.children[1]
 
-      call = TypeInference::MethodCall::Typed.new(
-        node: node,
-        context: TypeInference::MethodCall::TopLevelContext.new,
-        method_name: :is_a?,
-        receiver_type: parse_type("::String?"),
-        actual_method_type: parse_method_type("(::Class) -> void").yield_self do |method_type|
-          method_type.with(
-            type: method_type.type.with(
-              return_type: AST::Types::Logic::ReceiverIsArg.new()
-            )
-          )
-        end,
-        method_decls: [],
-        return_type: AST::Types::Logic::ReceiverIsArg.new()
-      )
-
       typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ReceiverIsArg.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("::String?"), nil)
@@ -166,22 +150,6 @@ end
 
       node = source.node.children[1]
 
-      call = TypeInference::MethodCall::Typed.new(
-        node: node,
-        context: TypeInference::MethodCall::TopLevelContext.new,
-        method_name: :is_a?,
-        receiver_type: parse_type("::String?"),
-        actual_method_type: parse_method_type("() -> bool").yield_self do |method_type|
-          method_type.with(
-            type: method_type.type.with(
-              return_type: AST::Types::Logic::ReceiverIsNil.new()
-            )
-          )
-        end,
-        method_decls: [],
-        return_type: AST::Types::Logic::ReceiverIsNil.new()
-      )
-
       typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ReceiverIsNil.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("::String?"), nil)
@@ -205,22 +173,6 @@ end
       source = parse_ruby("email = foo; String === email")
 
       node = source.node.children[1]
-
-      call = TypeInference::MethodCall::Typed.new(
-        node: node,
-        context: TypeInference::MethodCall::TopLevelContext.new,
-        method_name: :is_a?,
-        receiver_type: parse_type("singleton(::String)"),
-        actual_method_type: parse_method_type("(untyped) -> bool").yield_self do |method_type|
-          method_type.with(
-            type: method_type.type.with(
-              return_type: AST::Types::Logic::ArgIsReceiver.new()
-            )
-          )
-        end,
-        method_decls: [],
-        return_type: AST::Types::Logic::ArgIsReceiver.new()
-      )
 
       typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ArgIsReceiver.new(), nil)
@@ -247,22 +199,6 @@ end
 
       node = source.node.children[1]
 
-      call = TypeInference::MethodCall::Typed.new(
-        node: node,
-        context: TypeInference::MethodCall::TopLevelContext.new,
-        method_name: :is_a?,
-        receiver_type: parse_type("::String"),
-        actual_method_type: parse_method_type("(untyped) -> bool").yield_self do |method_type|
-          method_type.with(
-            type: method_type.type.with(
-              return_type: AST::Types::Logic::ArgEqualsReceiver.new()
-            )
-          )
-        end,
-        method_decls: [],
-        return_type: AST::Types::Logic::ArgEqualsReceiver.new()
-      )
-
       typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ArgEqualsReceiver.new(), nil)
       typing.add_typing(dig(node, 0), parse_type("::String"), nil)
@@ -286,22 +222,6 @@ end
       source = parse_ruby("klass = Foo; klass < String")
 
       node = source.node.children[1]
-
-      call = TypeInference::MethodCall::Typed.new(
-        node: node,
-        context: TypeInference::MethodCall::TopLevelContext.new,
-        method_name: :<,
-        receiver_type: parse_type("singleton(::Object)"),
-        actual_method_type: parse_method_type("(::Module) -> bool?").yield_self do |method_type|
-          method_type.with(
-            type: method_type.type.with(
-              return_type: AST::Types::Logic::ArgIsAncestor.new()
-            )
-          )
-        end,
-        method_decls: [],
-        return_type: AST::Types::Logic::ArgIsAncestor.new()
-      )
 
       typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::ArgIsAncestor.new(), nil)
@@ -328,22 +248,6 @@ end
       source = parse_ruby("email = foo; !email")
 
       node = source.node.children[1]
-
-      call = TypeInference::MethodCall::Typed.new(
-        node: node,
-        context: TypeInference::MethodCall::TopLevelContext.new,
-        method_name: :is_a?,
-        receiver_type: parse_type("::String?"),
-        actual_method_type: parse_method_type("() -> bool").yield_self do |method_type|
-          method_type.with(
-            type: method_type.type.with(
-              return_type: AST::Types::Logic::Not.new()
-            )
-          )
-        end,
-        method_decls: [],
-        return_type: AST::Types::Logic::Not.new()
-      )
 
       typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Logic::Not.new(), nil)
@@ -383,16 +287,6 @@ end
       source = parse_ruby("email = foo; email.void!")
 
       node = source.node.children[1]
-
-      call = TypeInference::MethodCall::Typed.new(
-        node: node,
-        context: TypeInference::MethodCall::TopLevelContext.new,
-        method_name: :void!,
-        receiver_type: parse_type("::String"),
-        actual_method_type: parse_method_type("() -> void"),
-        method_decls: [],
-        return_type: AST::Types::Void.new()
-      )
 
       typing = Typing.new(source: source, root_context: nil, cursor: nil)
       typing.add_typing(dig(node), AST::Types::Void.new(), nil)

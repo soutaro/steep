@@ -68,31 +68,31 @@ class SignatureHelpProviderTest < Minitest::Test
       RUBY
 
       SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
-        items, index = provider.run(line: 1, column: 14)
+        items, _ = provider.run(line: 1, column: 14)
         assert_equal 0, items.first.active_parameter
 
-        items, index = provider.run(line: 1, column: 18)
+        items, _ = provider.run(line: 1, column: 18)
         assert_equal 1, items.first.active_parameter
 
-        items, index = provider.run(line: 1, column: 23)
+        items, _ = provider.run(line: 1, column: 23)
         assert_equal 2, items.first.active_parameter
 
-        items, index = provider.run(line: 1, column: 27)
+        items, _ = provider.run(line: 1, column: 27)
         assert_equal 2, items.first.active_parameter
 
-        items, index = provider.run(line: 1, column: 31)
+        items, _ = provider.run(line: 1, column: 31)
         assert_equal 3, items.first.active_parameter
 
-        items, index = provider.run(line: 1, column: 40)
+        items, _ = provider.run(line: 1, column: 40)
         assert_equal 4, items.first.active_parameter
 
-        items, index = provider.run(line: 1, column: 50)
+        items, _ = provider.run(line: 1, column: 50)
         assert_equal 5, items.first.active_parameter
 
-        items, index = provider.run(line: 1, column: 59)
+        items, _ = provider.run(line: 1, column: 59)
         assert_equal 5, items.first.active_parameter
 
-        items, index = provider.run(line: 1, column: 68)
+        items, _ = provider.run(line: 1, column: 68)
         assert_equal 5, items.first.active_parameter
       end
     end
@@ -119,34 +119,34 @@ class SignatureHelpProviderTest < Minitest::Test
       RUBY
 
       SignatureHelpProvider.new(source: source, subtyping: checker).tap do |provider|
-        items, index = provider.run(line: 1, column: 14)
+        items, _ = provider.run(line: 1, column: 14)
         assert_equal 0, items.first.active_parameter
 
-        items, index = provider.run(line: 2, column: 17)
+        items, _ = provider.run(line: 2, column: 17)
         assert_equal 1, items.first.active_parameter
 
-        items, index = provider.run(line: 3, column: 21)
+        items, _ = provider.run(line: 3, column: 21)
         assert_equal 2, items.first.active_parameter
 
-        items, index = provider.run(line: 4, column: 25)
+        items, _ = provider.run(line: 4, column: 25)
         assert_equal 2, items.first.active_parameter
 
-        items, index = provider.run(line: 5, column: 29)
+        items, _ = provider.run(line: 5, column: 29)
         assert_equal 2, items.first.active_parameter
 
-        items, index = provider.run(line: 6, column: 36)
+        items, _ = provider.run(line: 6, column: 36)
         assert_equal 3, items.first.active_parameter
 
-        items, index = provider.run(line: 7, column: 47)
+        items, _ = provider.run(line: 7, column: 47)
         assert_equal 4, items.first.active_parameter
 
-        items, index = provider.run(line: 8, column: 47)
+        items, _ = provider.run(line: 8, column: 47)
         assert_equal 5, items.first.active_parameter
 
-        items, index = provider.run(line: 9, column: 47)
+        items, _ = provider.run(line: 9, column: 47)
         assert_equal 5, items.first.active_parameter
 
-        items, index = provider.run(line: 10, column: 57)
+        items, _ = provider.run(line: 10, column: 57)
         assert_equal 5, items.first.active_parameter
       end
     end

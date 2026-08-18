@@ -696,7 +696,7 @@ class ArgsTest < Minitest::Test
       SendArgs.new(node: node, arguments: args, type: parse_method_type("(a: String, ?b: Symbol, **bool) -> void")).tap do |args|
         pairs = {}
 
-        errors = args.each() do |value|
+        args.each() do |value|
           case value
           when SendArgs::KeywordArgs::ArgTypePairs
             value.pairs.each do |node, type|

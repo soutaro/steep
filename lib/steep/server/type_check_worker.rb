@@ -1,7 +1,7 @@
 module Steep
   module Server
     class TypeCheckWorker < BaseWorker
-      attr_reader :project, :assignment, :service
+      attr_reader :project, :assignment
       attr_reader :commandline_args
       attr_reader :current_type_check_guid
 

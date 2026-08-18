@@ -231,7 +231,7 @@ module Steep
         end
 
       when :rescue
-        body, resbodies, else_node, loc = deconstruct_rescue_node!(node)
+        body, _, else_node, loc = deconstruct_rescue_node!(node)
 
         if else_node
           loc.else or raise
@@ -356,7 +356,6 @@ module Steep
 
     def find_heredoc_nodes(line, column, position)
       each_heredoc_node() do |nodes, location|
-        node = nodes[0]
         loc = location.heredoc_body #: Parser::Source::Range
 
         if range = loc.to_range
@@ -470,7 +469,7 @@ module Steep
       return false unless send_node
 
       if send_node.type == :send
-        receiver, method, args = deconstruct_send_node!(send_node)
+        receiver, method, _ = deconstruct_send_node!(send_node)
 
         return false unless receiver
 
@@ -657,7 +656,7 @@ module Steep
         end
 
       if send_node
-        receiver_node, name, _, location = deconstruct_send_node!(send_node)
+        receiver_node, _, _, location = deconstruct_send_node!(send_node)
 
         if receiver_node
           if location.dot && location.selector

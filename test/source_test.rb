@@ -355,7 +355,7 @@ end
 
   def test_empty_clauses
     with_factory do |factory|
-      source = Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
+      Steep::Source.parse(<<-EOF, path: Pathname("foo.rb"), factory: factory)
 case
 when bar
 else

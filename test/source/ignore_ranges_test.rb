@@ -53,7 +53,7 @@ class SourceIgnoreRangesTest < Minitest::Test
   end
 
   def test_ignore?
-    ranges, buf = parse(<<~RUBY)
+    ranges, _ = parse(<<~RUBY)
       # steep:ignore:start
 
 

@@ -462,6 +462,7 @@ class TypeCheckWorkerTest < Minitest::Test
           guid: "guid",
           path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"
         )
+        worker.handle_job(job)
 
         # handle_job doesn't write anything because the #current_type_check_guid is different.
         worker.writer.write({ method: "sentinel"})
@@ -617,6 +618,7 @@ class TypeCheckWorkerTest < Minitest::Test
         end
 
         job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb")
+        worker.handle_job(job)
 
         # handle_job doesn't write anything because the #current_type_check_guid is different.
         worker.writer.write({ method: "sentinel"})
@@ -674,7 +676,7 @@ class TypeCheckWorkerTest < Minitest::Test
     end
   end
 
-    def test_handle_job_typecheck_inline__implementation_error
+  def test_handle_job_typecheck_inline__implementation_error
     in_tmpdir do
       with_master_read_queue do |master_read_queue|
         project = Project.new(steepfile_path: current_dir + "Steepfile")
