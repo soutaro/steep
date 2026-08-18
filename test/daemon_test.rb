@@ -127,7 +127,7 @@ target :app do
 end
       EOF
 
-      output, status = sh(*steep, "server", "stop", err: [:child, :out])
+      output, _ = sh(*steep, "server", "stop", err: [:child, :out])
       assert_match(/not running|cleaned up stale files/, output)
     end
   end
@@ -224,7 +224,7 @@ x = "string"
 
       sleep 0.5
 
-      stdout2, status2 = sh(*steep, "check")
+      stdout2, _ = sh(*steep, "check")
       assert_match(/server mode/, stdout2)
 
       sh!(*steep, "server", "stop", err: [:child, :out])

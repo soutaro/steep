@@ -163,7 +163,7 @@ end
 1 + "2"
       EOF
 
-      stdout, status = sh(*steep, "check", "--group=app")
+      stdout, _ = sh(*steep, "check", "--group=app")
 
       assert_match(/^foo.rb:1:0/, stdout)
       refute_match(/^test.rb/, stdout)
@@ -710,7 +710,7 @@ end
 1 + 2
       EOF
 
-      stdout, stderr, status = sh3(*steep, "stats", "--format=table")
+      stdout, _, status = sh3(*steep, "stats", "--format=table")
 
       assert_predicate status, :success?, stdout
       assert_equal <<CSV, stdout

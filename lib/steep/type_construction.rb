@@ -653,7 +653,6 @@ module Steep
         instance_definition: instance_definition
       )
 
-      singleton_definition = checker.factory.definition_builder.build_singleton(module_context.class_name)
       type_env =
         TypeInference::TypeEnvBuilder.new(
           TypeInference::TypeEnvBuilder::Command::ImportGlobalDeclarations.new(checker.factory),
@@ -781,7 +780,7 @@ module Steep
               end
 
               if rhs
-                rhs_type, rhs_constr, rhs_context = synthesize(rhs, hint: hint).to_ary
+                rhs_type, rhs_constr, _ = synthesize(rhs, hint: hint).to_ary
 
                 constr = rhs_constr.update_type_env do |type_env|
                   var_type = rhs_type
@@ -1913,7 +1912,7 @@ module Steep
           yield_self do
             cond, true_clause, false_clause = node.children
 
-            cond_type, constr = synthesize(cond, condition: true).to_ary
+            _, constr = synthesize(cond, condition: true).to_ary
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: constr.typing, config: builder_config)
             truthy, falsy = interpreter.eval(env: constr.context.type_env, node: cond)
 
@@ -2045,7 +2044,7 @@ module Steep
                 branch_reachable = false
 
                 tests.each do |test|
-                  test_type, condition_constr = condition_constr.synthesize(test, condition: true)
+                  _, condition_constr = condition_constr.synthesize(test, condition: true)
                   truthy, falsy = interpreter.eval(env: condition_constr.context.type_env, node: test)
                   truthy_env = truthy.env
                   falsy_env = falsy.env
@@ -2295,7 +2294,7 @@ module Steep
         when :while, :until
           yield_self do
             cond, body = node.children
-            cond_type, constr = synthesize(cond, condition: true).to_ary
+            _, constr = synthesize(cond, condition: true).to_ary
 
             interpreter = TypeInference::LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: builder_config)
             truthy, falsy = interpreter.eval(env: constr.context.type_env, node: cond)
@@ -2347,7 +2346,7 @@ module Steep
                   .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: hint || AST::Builtin.nil_type, next_type: nil))
 
               typing.cursor_context.set_node_context(body, for_loop.context)
-              _, body_constr, body_context = for_loop.synthesize(body)
+              _, _, body_context = for_loop.synthesize(body)
 
               constr = cond_constr.update_type_env {|env| env.join(env, body_context.type_env) }
 
@@ -2886,10 +2885,8 @@ module Steep
           if node.type == :splat
             asgn_node = node.children[0]
             next unless asgn_node
-            var_type = asgn_node.type
           else
             asgn_node = node
-            var_type = type
           end
 
           case asgn_node.type

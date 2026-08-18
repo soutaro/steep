@@ -681,7 +681,6 @@ module TypeConstructionHelper
       instance_type = AST::Builtin::Object.instance_type
     end
 
-    rbs_env = checker.factory.env
     type_env = Steep::TypeInference::TypeEnvBuilder.new(
       Steep::TypeInference::TypeEnvBuilder::Command::ImportGlobalDeclarations.new(checker.factory),
       Steep::TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableAnnotations.new(annotations),

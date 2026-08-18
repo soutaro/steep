@@ -26,7 +26,7 @@ class MultipleAssignmentTest < Minitest::Test
   def test_tuple_assignment
     with_checker do
       source = parse_ruby("a, *b, c = _")
-      mlhs, rhs = source.node.children
+      mlhs, _ = source.node.children
 
       masgn = MultipleAssignment.new()
       asgns = masgn.expand(mlhs, parse_type("[::Integer, ::String, ::Symbol]"), false)
@@ -47,7 +47,7 @@ class MultipleAssignmentTest < Minitest::Test
   def test_tuple_assignment_optional
     with_checker do
       source = parse_ruby("a, *b, c = _")
-      mlhs, rhs = source.node.children
+      mlhs, _ = source.node.children
 
       masgn = MultipleAssignment.new()
       asgns = masgn.expand(mlhs, parse_type("[::Integer, ::String, ::Symbol]"), true)
@@ -68,7 +68,7 @@ class MultipleAssignmentTest < Minitest::Test
   def test_array_assignment
     with_checker do
       source = parse_ruby("a, *b, c = _")
-      mlhs, rhs = source.node.children
+      mlhs, _ = source.node.children
 
       masgn = MultipleAssignment.new()
       asgns = masgn.expand(mlhs, parse_type("::Array[::Integer]"), false)
@@ -89,7 +89,7 @@ class MultipleAssignmentTest < Minitest::Test
   def test_array_assignment_optional
     with_checker do
       source = parse_ruby("a, *b, c = _")
-      mlhs, rhs = source.node.children
+      mlhs, _ = source.node.children
 
       masgn = MultipleAssignment.new()
       asgns = masgn.expand(mlhs, parse_type("::Array[::Integer]"), true)
@@ -109,8 +109,6 @@ class MultipleAssignmentTest < Minitest::Test
 
   def test_hint_for_mlhs
     with_checker do
-      env =
-
       masgn = MultipleAssignment.new()
 
       masgn.hint_for_mlhs(

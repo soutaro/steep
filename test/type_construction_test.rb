@@ -114,7 +114,7 @@ z = x
       EOF
 
       with_standard_construction(checker, source, cursor: [1, 0]) do |construction, typing|
-        pair = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal parse_type("::Integer"), typing.type_of(node: source.node)
 
@@ -1760,7 +1760,7 @@ a, @b = _ = nil
       EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, constr, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_all!(typing.errors) do |error|
           assert_instance_of Diagnostic::Ruby::UnknownInstanceVariable, error
@@ -2049,7 +2049,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -2065,7 +2065,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
 
@@ -2359,7 +2359,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_all!(typing.errors) do |error|
           assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, error
@@ -3211,7 +3211,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        pair = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -4304,7 +4304,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -5470,7 +5470,7 @@ q
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -5508,7 +5508,7 @@ x = A::B::C
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -6808,7 +6808,7 @@ y = test.bar("foo")      # With a constraint: String <: A
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, constr = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal 2, typing.errors.size
 
@@ -6856,7 +6856,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, constr = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error typing, size: 3 do |errors|
           assert_any!(errors) do |error|
@@ -6893,7 +6893,7 @@ test.foo(&->(x) { "" })
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, constr = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
 
@@ -6928,7 +6928,7 @@ test.foo(&p)
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, constr = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal 1, typing.errors.size
 
@@ -7249,7 +7249,7 @@ x = "foo"
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -7267,7 +7267,7 @@ x = "foo"
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -7301,7 +7301,7 @@ x = { }
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -7391,7 +7391,7 @@ x = 30.is_a?(String) || false
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -7439,7 +7439,7 @@ x.is_a?(String) && y && x + y
 EOF
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -7461,7 +7461,7 @@ x.is_a?(Float) || y || (z = x; z = y)
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -7771,7 +7771,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error typing, size: 2 do |errors|
           assert_all!(errors) do |error|
@@ -7807,7 +7807,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_no_error typing
       end
     end
@@ -7832,7 +7832,7 @@ a = case x
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_no_error typing
       end
     end
@@ -7859,7 +7859,7 @@ a = case x
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_no_error typing
       end
     end
@@ -7878,7 +7878,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_no_error typing
       end
     end
@@ -8018,7 +8018,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8042,7 +8042,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do | error|
@@ -8078,7 +8078,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8116,7 +8116,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8137,7 +8137,7 @@ TestNilBlock.new.bar(&nil)
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error typing, size: 1 do |errors|
           assert_any!(errors) do |error|
@@ -8173,7 +8173,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -8207,7 +8207,7 @@ Issue328::Foo.new.to_h { [1, ""] }
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8225,7 +8225,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8252,7 +8252,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8277,7 +8277,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8317,7 +8317,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8341,7 +8341,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -8365,7 +8365,7 @@ Ruby3::Foo.new().bar { _1 }
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
@@ -8415,7 +8415,7 @@ Ruby3::Foo.new().bar { it }
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
@@ -8449,7 +8449,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_typing_error(typing, size: 1) do |errors|
           assert_all!(errors) do |error|
             assert_instance_of Diagnostic::Ruby::UndeclaredMethodDefinition, error
@@ -8550,7 +8550,7 @@ MissingArgs::Foo.new&.csendkw
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
@@ -8580,7 +8580,7 @@ EachNoParam.new.each(*a)
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -8603,7 +8603,7 @@ ints = ["1", ["2", nil]]
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do
           assert_any!(typing.errors) do |error|
@@ -8730,7 +8730,7 @@ cdr = A.new.cdr(a)
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_no_error(typing)
 
@@ -8757,7 +8757,7 @@ end
       RUBY
 
       with_standard_construction(checker, source, cursor: [4, 5]) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal parse_type("[X, untyped]", variables: [:X]), typing.cursor_context.context.type_env[:z]
       end
@@ -8784,7 +8784,7 @@ end
       RUBY
 
       with_standard_construction(checker, source, cursor: [7, 5]) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal parse_type("[X, untyped]", variables: [:X]), typing.cursor_context.context.type_env[:z]
       end
@@ -8808,7 +8808,7 @@ end
       RUBY
 
       with_standard_construction(checker, source, cursor: [4, 5]) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_equal parse_type("[X, untyped]", variables: [:X]), typing.cursor_context.context.type_env[:z]
       end
@@ -8979,7 +8979,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9006,7 +9006,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9032,7 +9032,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9050,7 +9050,7 @@ foo = -> (&block) { block[80]; 123 }
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9069,7 +9069,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
@@ -9198,7 +9198,7 @@ result = b.compact
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9228,7 +9228,7 @@ result = b.compact
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9302,7 +9302,7 @@ c = _ = nil
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        _, constr = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9461,7 +9461,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           errors[0].tap do |error|
@@ -9487,7 +9487,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error(typing)
       end
@@ -9508,7 +9508,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 2) do |errors|
           assert_any!(errors) do |error|
@@ -9544,7 +9544,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error(typing)
       end
@@ -9578,7 +9578,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9600,7 +9600,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error(typing)
       end
@@ -9623,7 +9623,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           errors[0].tap do |error|
@@ -9650,7 +9650,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9672,7 +9672,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9695,7 +9695,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9718,7 +9718,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9740,7 +9740,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9759,7 +9759,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9778,7 +9778,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9801,7 +9801,7 @@ ref.value + ""
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9825,7 +9825,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9844,7 +9844,7 @@ reader.read("123", -> () { 123 })
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        type, _, _ = construction.synthesize(source.node)
 
         assert_no_error typing
         assert_equal parse_type("::Integer | ::String"), type
@@ -9867,7 +9867,7 @@ ng = Issue610::Foo.new.ng(123) do -> (x) { x + 1 } end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_equal parse_type("::Integer"), context.type_env[:ok]
         assert_equal parse_type("::Integer"), context.type_env[:ng]
@@ -9888,7 +9888,7 @@ ng = Issue610::Foo.new.ng(123) do -> (x) { x + 1 } end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_no_error typing
 
@@ -9920,7 +9920,7 @@ end
 -> (_) { 123 }
 RUBY
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -9943,7 +9943,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        type, _, _ = construction.synthesize(source.node)
 
         assert_no_error typing
 
@@ -9964,7 +9964,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        type, _, _ = construction.synthesize(source.node)
 
         assert_no_error typing
 
@@ -9986,7 +9986,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        type, _, _ = construction.synthesize(source.node)
 
         assert_no_error typing
 
@@ -10053,7 +10053,7 @@ x = x.itself
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_no_error typing
       end
     end
@@ -10074,7 +10074,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_typing_error(typing, size: 1) do |errors|
           errors[0].tap do |error|
             assert_instance_of Diagnostic::Ruby::InsufficientPositionalArguments, error
@@ -10225,7 +10225,7 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _ = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10253,7 +10253,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -10276,7 +10276,7 @@ end
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_no_error typing
         assert_equal parse_type("::Integer | nil"), context.type_env[:bar]
@@ -10294,7 +10294,7 @@ hash = array #: Hash[Symbol, String]
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10319,7 +10319,7 @@ name = 3 #: String?
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10348,7 +10348,7 @@ z = [1].map { _1.to_s } #$ Object
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_no_error typing
 
@@ -10374,7 +10374,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 3) do |errors|
           assert_any!(errors) do |error|
@@ -10429,7 +10429,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_any!(typing.errors) do |error|
           assert_instance_of Diagnostic::Ruby::UnknownConstant, error
@@ -10481,7 +10481,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10516,7 +10516,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10550,7 +10550,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error(typing)
       end
@@ -10574,7 +10574,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error(typing)
       end
@@ -10592,7 +10592,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error(typing)
       end
@@ -10608,7 +10608,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        type, _, _ = construction.synthesize(source.node)
 
         assert_no_error(typing)
         assert_equal parse_type("::String"), type
@@ -10626,7 +10626,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        type, _, _ = construction.synthesize(source.node)
 
         assert_no_error(typing)
         assert_equal parse_type("::String"), type
@@ -10644,7 +10644,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_all!(typing.errors) do |error|
           assert_operator error, :is_a?, Diagnostic::Ruby::NoMethod
@@ -10669,7 +10669,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_no_error(typing)
       end
     end
@@ -10686,7 +10686,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
         assert_no_error(typing)
         assert_equal parse_type("::Integer"), context.type_env[:a]
         assert_equal parse_type("::String"), context.type_env[:b]
@@ -10703,7 +10703,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
         assert_no_error(typing)
         assert_equal parse_type("::Integer"), context.type_env[:a]
         assert_equal parse_type("nil"), context.type_env[:b]
@@ -10722,7 +10722,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        _, _, context = construction.synthesize(source.node)
         assert_no_error(typing)
         assert_equal parse_type("::Integer?"), context.type_env[:a]
         assert_equal parse_type("::Integer?"), context.type_env[:b]
@@ -10749,7 +10749,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_no_error(typing)
       end
     end
@@ -10773,7 +10773,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10805,7 +10805,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        type, _, _ = construction.synthesize(source.node)
 
         assert_no_error typing
 
@@ -10829,7 +10829,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -10847,7 +10847,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -10869,7 +10869,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_no_error typing
       end
@@ -10891,7 +10891,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10916,7 +10916,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10938,7 +10938,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10961,7 +10961,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
 
         assert_typing_error(typing, size: 1) do |errors|
           assert_any!(errors) do |error|
@@ -10984,7 +10984,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
       RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        type, _, context = construction.synthesize(source.node)
+        construction.synthesize(source.node)
         assert_no_error typing
       end
     end

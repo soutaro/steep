@@ -256,8 +256,6 @@ class TypeFactoryTest < Minitest::Test
 
   def test_method_type
     with_factory() do |factory|
-      self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
-
       factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void")).yield_self do |type|
         assert_equal "[A] (A) { (A, B) -> nil } -> void", type.to_s
       end
@@ -281,8 +279,6 @@ class TypeFactoryTest < Minitest::Test
 
   def test_bounded_method_type
     with_factory() do |factory|
-      self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
-
       factory.method_type(parse_method_type("[A < Integer] (A) -> void")).yield_self do |type|
         assert_equal "[A < Integer] (A) -> void", type.to_s
       end
@@ -305,8 +301,6 @@ class TypeFactoryTest < Minitest::Test
 
   def test_method_type_1
     with_factory() do |factory|
-      self_type = factory.type(parse_type("::Array[X]", variables: [:X]))
-
       parse_method_type("[A] (A) { (A, B) -> nil } -> void").tap do |original|
         type = factory.method_type_1(factory.method_type(original))
         assert_equal original, type

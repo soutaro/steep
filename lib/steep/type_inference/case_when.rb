@@ -20,14 +20,14 @@ module Steep
 
           latest_constr, unreachable_pattern = latest_result
 
-          type, constr = yield(test_node, latest_constr, unreachable_pattern)
+          yield(test_node, latest_constr, unreachable_pattern)
           truthy_result, falsy_result = logic.eval(env: latest_constr.context.type_env, node: test_node)
 
           pattern_results << [pat, truthy_result, falsy_result]
         end
 
         def latest_result
-          if (_, truthy, falsy = pattern_results.last)
+          if (_, _, falsy = pattern_results.last)
             [
               initial_constr.update_type_env { falsy.env },
               falsy.unreachable
