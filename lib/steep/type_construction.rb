@@ -1760,6 +1760,11 @@ module Steep
             else
               if hint
                 tuples = select_flatten_types(hint) {|type| type.is_a?(AST::Types::Tuple) } #: Array[AST::Types::Tuple]
+                if tuples.empty?
+                  if converted = try_convert(hint, :to_ary)
+                    tuples = select_flatten_types(converted) {|type| type.is_a?(AST::Types::Tuple) } #: Array[AST::Types::Tuple]
+                  end
+                end
                 unless tuples.empty?
                   fallback_pair = nil #: Pair?
                   tuples.each do |tuple|
