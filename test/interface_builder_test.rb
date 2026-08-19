@@ -341,7 +341,7 @@ end
 
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name) -> ::String"))
-        assert_includes(shape.methods[:[]].method_types, parse_method_type("(::Symbol) -> (::String | ::Integer | nil)"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(::Hash::_Key) -> (::String | ::Integer | nil)"))
 
         assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:id, ::Integer) -> ::Integer"))
         assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:name, ::String) -> ::String"))
@@ -359,7 +359,7 @@ end
 
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:id) -> ::Integer"))
         assert_includes(shape.methods[:[]].method_types, parse_method_type("(:name) -> self"))
-        assert_includes(shape.methods[:[]].method_types, parse_method_type("(::Symbol) -> (self | ::Integer | nil)"))
+        assert_includes(shape.methods[:[]].method_types, parse_method_type("(::Hash::_Key) -> (self | ::Integer | nil)"))
 
         assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:id, ::Integer) -> ::Integer"))
         assert_includes(shape.methods[:[]=].method_types, parse_method_type("(:name, self) -> self"))

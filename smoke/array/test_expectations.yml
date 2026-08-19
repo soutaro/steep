@@ -13,12 +13,10 @@
       Cannot find compatible overloading of method `[]=` of type `::Array[::Integer]`
       Method types:
         def []=: (::int, ::Integer) -> ::Integer
+               | [T < ::_ToAry[E]] (::range[(::int | nil)], T) -> T
+               | (::range[(::int | nil)], ::Integer) -> ::Integer
+               | [T < ::_ToAry[E]] (::int, ::int, T) -> T
                | (::int, ::int, ::Integer) -> ::Integer
-               | (::int, ::int, ::Array[::Integer]) -> ::Array[::Integer]
-               | (::int, ::int, nil) -> nil
-               | (::Range[(::Integer | nil)], ::Integer) -> ::Integer
-               | (::Range[(::Integer | nil)], ::Array[::Integer]) -> ::Array[::Integer]
-               | (::Range[(::Integer | nil)], nil) -> nil
     code: Ruby::UnresolvedOverloading
   - range:
       start:
