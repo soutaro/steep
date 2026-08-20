@@ -592,11 +592,31 @@ module Steep
           )
         end
 
+        to_ary_entry = Shape::Entry.new(
+          method_name: :to_ary,
+          private_method: false,
+          overloads: [
+            Shape::MethodOverload.new(
+              MethodType.new(
+                type_params: [],
+                type: Function.new(
+                  params: Function::Params.empty,
+                  return_type: tuple,
+                  location: nil
+                ),
+                block: nil
+              ),
+              []
+            )
+          ]
+        )
+
         shape.methods[:[]] = aref_entry
         shape.methods[:[]=] = aref_update_entry
         shape.methods[:fetch] = fetch_entry
         shape.methods[:first] = first_entry
         shape.methods[:last] = last_entry
+        shape.methods[:to_ary] = to_ary_entry
 
         shape
       end
