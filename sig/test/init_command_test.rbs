@@ -13,6 +13,8 @@ class InitCommandTest < Minitest::Test
 
   def test_init: () -> untyped
 
+  def test_init_mentions_rbs_collection: () -> untyped
+
   def test_init_with_option: () -> untyped
 
   def test_existing_file: () -> untyped
