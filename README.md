@@ -29,10 +29,10 @@ Edit the `Steepfile`:
 target :app do
   check "lib"
   signature "sig"
-
-  library "pathname"
 end
 ```
+
+RBSs for the gems in `Gemfile.lock` are loaded via [rbs collection](https://github.com/ruby/rbs/blob/master/docs/collection.md), which you set up with `rbs collection init` and `rbs collection install`. Add a `library` call only for an RBS that rbs collection doesn't manage.
 
 ### 1. Declare Types
 

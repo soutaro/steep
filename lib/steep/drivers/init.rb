@@ -19,8 +19,9 @@ module Steep
       #   check "app/models/**/*.rb"        # Glob
       #   # ignore "lib/templates/*.rb"
       #
-      #   # library "pathname"              # Standard libraries
-      #   # library "strong_json"           # Gems
+      #   # RBSs for the gems in Gemfile.lock are loaded via rbs collection automatically.
+      #   # Set it up with `rbs collection init` and `rbs collection install`.
+      #   # library "monitor"               # Load an RBS that rbs collection doesn't manage
       #
       #   # configure_code_diagnostics(D::Ruby.default)      # `default` diagnostics setting (applies by default)
       #   # configure_code_diagnostics(D::Ruby.strict)       # `strict` diagnostics setting
@@ -38,7 +39,7 @@ module Steep
       #
       #   configure_code_diagnostics(D::Ruby.lenient)      # Weak type checking for test code
       #
-      #   # library "pathname"              # Standard libraries
+      #   # library "monitor"               # Load an RBS that rbs collection doesn't manage
       # end
       EOF
 

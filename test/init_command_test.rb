@@ -27,6 +27,18 @@ class InitCommandTest < Minitest::Test
     end
   end
 
+  def test_init_mentions_rbs_collection
+    in_tmpdir do
+      Dir.chdir current_dir.to_s do
+        assert_equal 0, Steep::Drivers::Init.new(stdout: stdout, stderr: stderr).run
+      end
+
+      content = (current_dir + "Steepfile").read
+      assert_match(/rbs collection init/, content)
+      assert_match(/rbs collection install/, content)
+    end
+  end
+
   def test_init_with_option
     in_tmpdir do
       Dir.chdir current_dir.to_s do
