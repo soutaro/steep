@@ -189,7 +189,7 @@ module Steep
 
         relation.type!
 
-        Steep.logger.tagged "#{relation.sub_type} <: #{relation.super_type}" do
+        Steep.logger.tagged -> { "#{relation.sub_type} <: #{relation.super_type}" } do
           bounds = cache_bounds(relation)
           fvs = relation.sub_type.free_variables + relation.super_type.free_variables
           cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
@@ -201,7 +201,7 @@ module Steep
             else
               push_assumption(relation) do
                 check_type0(relation).tap do |result|
-                  Steep.logger.debug "result=#{result.class}"
+                  Steep.logger.debug { "result=#{result.class}" }
                   cache[relation, @self_type, @instance_type, @class_type, bounds] = result
                 end
               end
@@ -854,7 +854,7 @@ module Steep
       end
 
       def check_method_type(name, relation)
-        Steep.logger.tagged "#{name} : #{relation.sub_type} <: #{relation.super_type}" do
+        Steep.logger.tagged -> { "#{name} : #{relation.sub_type} <: #{relation.super_type}" } do
           relation.method!
 
           sub_type, super_type = relation
