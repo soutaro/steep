@@ -1,12 +1,19 @@
 module Steep
   class TaggedLogging < ::Logger
+    type tag = String | ^() -> String
+
     @thread_key: String
 
-    def tagged: [T] (String tag) { () -> T } -> T
+    # Pushes `tag` while the block runs.
+    #
+    # A tag that is expensive to render can be given as a proc, which is called only if a message
+    # is actually written while it is on the stack.
+    #
+    def tagged: [T] (tag) { () -> T } -> T
 
-    def current_tags: () -> Array[String]
+    def current_tags: () -> Array[tag]
 
-    def push_tags: (*String tags) -> Array[String]
+    def push_tags: (*tag tags) -> Array[tag]
 
     def formatted_tags: () -> String
   end

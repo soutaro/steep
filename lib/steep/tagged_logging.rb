@@ -33,7 +33,10 @@ module Steep
     end
 
     def formatted_tags
-      current_tags.map { |tag| "[#{tag}]" }.join(" ")
+      current_tags.map do |tag|
+        tag = tag.call if tag.is_a?(Proc)
+        "[#{tag}]"
+      end.join(" ")
     end
   end
 end
