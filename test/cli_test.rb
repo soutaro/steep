@@ -1069,6 +1069,59 @@ end
     end
   end
 
+  def test_query_diagnostics_returns_result
+    skip "fork() is not available on this platform" unless Steep.can_fork?
+
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "foo.rb"
+  signature "foo.rbs"
+end
+      EOF
+
+      (current_dir + "foo.rbs").write(<<~RBS)
+        class Foo
+          def name: () -> String
+        end
+      RBS
+
+      (current_dir + "foo.rb").write(<<~RUBY)
+        class Foo
+          def name
+            42
+          end
+        end
+      RUBY
+
+      sh!(*steep, "server", "start", err: [:child, :out])
+
+      begin
+        # The first response has to wait for the warm-up of the server, which takes long on a loaded machine
+        finally_holds(timeout: 60) do
+          stdout, status = sh(*steep, "query", "diagnostics", "foo.rb")
+          assert_predicate status, :success?
+
+          result = JSON.parse(stdout.lines.first, symbolize_names: true)
+          assert_equal "foo.rb", result[:path]
+          refute_nil result[:diagnostics]
+          assert result[:diagnostics].any? {|d| d[:code] == "Ruby::MethodBodyTypeMismatch" }, result[:diagnostics].inspect
+        end
+
+        # Without arguments, every file the server has diagnostics for is printed
+        finally_holds(timeout: 30) do
+          stdout, status = sh(*steep, "query", "diagnostics")
+          assert_predicate status, :success?
+
+          paths = stdout.lines.map {|line| JSON.parse(line, symbolize_names: true).fetch(:path) }
+          assert_includes paths, "foo.rb"
+        end
+      ensure
+        sh(*steep, "server", "stop", err: [:child, :out])
+      end
+    end
+  end
+
   def test_query_definition_missing_argument
     in_tmpdir do
       _, stderr, status = sh3(*steep, "query", "definition")

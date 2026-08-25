@@ -96,6 +96,18 @@ module Steep
           { id: id, result: result }
         end
       end
+
+      module Query__Diagnostics
+        METHOD = "$/steep/query/diagnostics"
+
+        def self.request(id, params)
+          { method: METHOD, id: id, params: params }
+        end
+
+        def self.response(id, result)
+          { id: id, result: result }
+        end
+      end
     end
   end
 end
