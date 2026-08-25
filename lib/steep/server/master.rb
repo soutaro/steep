@@ -955,6 +955,17 @@ module Steep
               refork_finished.pop
             end
           end
+
+          # The reforked workers started from a copy of the primary's state, which has the
+          # results of the primary's assigned paths only, and the results the replaced workers
+          # had computed are gone with them. Type check everything again so that queries
+          # reading the stored results, like `$/steep/query/diagnostics`, see all files.
+          job_queue << -> do
+            guid = SecureRandom.uuid
+            request = controller.make_all_request(guid: guid, progress: work_done_progress(guid))
+            request.needs_response = false
+            start_type_check(request: request, last_request: current_type_check_request, report_progress_threshold: 0)
+          end
         end
       end
 
