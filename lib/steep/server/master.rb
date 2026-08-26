@@ -186,6 +186,9 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
+      # Callbacks to be called when no type check is running anymore
+      attr_reader :typecheck_quiescent_callbacks
+
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new, refork: false)
         @project = project
         @reader = reader
@@ -199,6 +202,7 @@ module Steep
         @write_queue = SizedQueue.new(100)
         @refork_mutex = Mutex.new
         @need_to_refork = refork
+        @typecheck_quiescent_callbacks = []
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -703,6 +707,15 @@ module Steep
           request.needs_response = false
           start_type_check(request: request, last_request: current_type_check_request, report_progress_threshold: 0)
 
+        when CustomMethods::Query__Diagnostics::METHOD
+          id = message[:id]
+          params = message[:params] #: CustomMethods::Query__Diagnostics::params
+          paths = params[:paths]
+
+          run_when_typecheck_quiescent do
+            collect_query_diagnostics(id, paths)
+          end
+
         when "$/ping"
           enqueue_write_job SendMessageJob.to_client(
             message: {
@@ -884,6 +897,7 @@ module Steep
               finish_type_check(current)
               @current_type_check_request = nil
               refork_workers
+              flush_typecheck_quiescent_callbacks()
             end
           end
         end
@@ -955,6 +969,17 @@ module Steep
               refork_finished.pop
             end
           end
+
+          # The reforked workers started from a copy of the primary's state, which has the
+          # results of the primary's assigned paths only, and the results the replaced workers
+          # had computed are gone with them. Type check everything again so that queries
+          # reading the stored results, like `$/steep/query/diagnostics`, see all files.
+          job_queue << -> do
+            guid = SecureRandom.uuid
+            request = controller.make_all_request(guid: guid, progress: work_done_progress(guid))
+            request.needs_response = false
+            start_type_check(request: request, last_request: current_type_check_request, report_progress_threshold: 0)
+          end
         end
       end
 
@@ -1019,6 +1044,89 @@ module Steep
       def enqueue_write_job(job)
         Steep.logger.info { "Write_queue has #{write_queue.size} items"}
         write_queue.push(job)
+      end
+
+      # Calls the block once no type check is running
+      #
+      # Starts a type check for dirty paths first, so that the block observes up-to-date results.
+      #
+      def run_when_typecheck_quiescent(&block)
+        unless current_type_check_request
+          guid = SecureRandom.uuid
+          if request = controller.make_request(guid: guid, progress: work_done_progress(guid))
+            request.needs_response = false
+            start_type_check(request: request, last_request: nil)
+          end
+        end
+
+        if current_type_check_request
+          typecheck_quiescent_callbacks << block
+        else
+          yield
+        end
+      end
+
+      # Calls the waiting quiescent callbacks, once a type check for the paths that went dirty
+      # in the meantime finishes
+      #
+      def flush_typecheck_quiescent_callbacks
+        return if typecheck_quiescent_callbacks.empty?
+        return if current_type_check_request
+
+        guid = SecureRandom.uuid
+        if request = controller.make_request(guid: guid, progress: work_done_progress(guid))
+          request.needs_response = false
+          start_type_check(request: request, last_request: nil)
+          return if current_type_check_request
+        end
+
+        callbacks = typecheck_quiescent_callbacks.dup
+        typecheck_quiescent_callbacks.clear
+        callbacks.each(&:call)
+      end
+
+      # Collects the stored diagnostics from all typecheck workers and sends the response
+      #
+      # `paths` is an array of absolute path strings to filter the result, or `nil` to return everything.
+      #
+      def collect_query_diagnostics(id, paths)
+        uris = paths&.map {|path| PathHelper.to_uri(Pathname(path)).to_s }
+
+        result_controller << group_request do |group|
+          typecheck_workers.each do |worker|
+            group << send_request(method: CustomMethods::Query__Diagnostics::METHOD, params: nil, worker: worker)
+          end
+
+          group.on_completion do |handlers|
+            diagnostics = {} #: Hash[String, Array[untyped]]
+
+            handlers.each do |handler|
+              result = handler.result or next
+              result.each do |entry|
+                array = diagnostics[entry[:uri]] ||= []
+                array.concat(entry[:diagnostics] || [])
+                array.uniq!
+              end
+            end
+
+            # @type var result: CustomMethods::Query__Diagnostics::result
+            result =
+              if uris
+                # Files the server has not type checked yet are reported with `diagnostics: nil`
+                uris.sort.map do |uri|
+                  { uri: uri, diagnostics: diagnostics[uri] }
+                end
+              else
+                diagnostics.keys.sort.map do |uri|
+                  { uri: uri, diagnostics: diagnostics.fetch(uri) }
+                end
+              end
+
+            enqueue_write_job SendMessageJob.to_client(
+              message: CustomMethods::Query__Diagnostics.response(id, result)
+            )
+          end
+        end
       end
 
       def work_done_progress(guid)

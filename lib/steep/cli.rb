@@ -618,8 +618,9 @@ BANNER
               The user interface and output format may change without deprecation.
 
           Available subcommands:
-              hover      Get hover information (type, documentation) for a position
-              definition Get the definition(s) of a class, type alias, constant, or method name
+              hover       Get hover information (type, documentation) for a position
+              definition  Get the definition(s) of a class, type alias, constant, or method name
+              diagnostics Get the type check diagnostics the server has computed
 
           Options:
               --help    Show this help message
@@ -628,6 +629,7 @@ BANNER
               steep query hover lib/foo.rb:10:5
               steep query definition RBS::Location
               steep query definition RBS::Parser.parse_signature
+              steep query diagnostics lib/foo.rb sig/foo.rbs
         HELP
         return 0
       end
@@ -714,9 +716,32 @@ BANNER
         end
 
         Drivers::Query.new(stdout: stdout, stderr: stderr).run_definition(names: argv.dup)
+      when "diagnostics"
+        OptionParser.new do |opts|
+          opts.banner = <<BANNER
+Usage: steep query diagnostics [options] [FILE ...]
+
+Description:
+    Get the type check diagnostics the server has computed.
+    Connects to the running Steep server, waits for the type checking to finish, and
+    prints the diagnostics as JSONL (one JSON object per line for each file).
+
+    When FILEs are given, only the diagnostics of those files are printed.
+    `"diagnostics": null` means the server has not type checked the file yet.
+
+Note:
+    This is an experimental command.
+    The user interface and output format may change without deprecation.
+
+Options:
+BANNER
+          handle_logging_options opts
+        end.parse!(argv)
+
+        Drivers::Query.new(stdout: stdout, stderr: stderr).run_diagnostics(paths: argv.dup)
       else
         stderr.puts "Unknown query subcommand: #{subcommand}"
-        stderr.puts "  available subcommands: hover, definition"
+        stderr.puts "  available subcommands: hover, definition, diagnostics"
         1
       end
     end

@@ -101,6 +101,8 @@ class CLITest < Minitest::Test
 
   def test_query_hover_multiple_locations: () -> untyped
 
+  def test_query_diagnostics_returns_result: () -> untyped
+
   def test_query_definition_missing_argument: () -> untyped
 
   def test_query_definition_help: () -> untyped
