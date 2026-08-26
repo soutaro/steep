@@ -9,7 +9,29 @@ class CommandSocketTest < Minitest::Test
   end
 
   def langserver_command(steepfile)
-    "#{RUBY_PATH} #{__dir__}/../exe/steep langserver --log-level=error --steepfile=#{steepfile}"
+    "#{RUBY_PATH} #{__dir__}/../exe/steep langserver --log-level=info --steepfile=#{steepfile}"
+  end
+
+  # Where the language server's stderr goes, to be dumped when something goes wrong
+  def langserver_log
+    current_dir + "langserver.log"
+  end
+
+  # Prints the language server log once, so that a failure of the subprocess is diagnosable
+  # from the test output
+  #
+  # `force:` prints it again -- the teardown uses it to show the lines the server wrote
+  # after the first dump, like the shutdown handshake or a kill.
+  #
+  def dump_langserver_log(force: false)
+    return if @langserver_log_dumped && !force
+    @langserver_log_dumped = true
+
+    return unless langserver_log.file?
+
+    STDERR.puts "==== language server log: #{langserver_log} ===="
+    STDERR.puts langserver_log.read
+    STDERR.puts "==== end of language server log ===="
   end
 
   def socket_path
@@ -40,7 +62,7 @@ class CommandSocketTest < Minitest::Test
   end
 
   def start_langserver(command)
-    Open3.popen2(command) do |stdin, stdout|
+    Open3.popen2(command, pgroup: true, err: [langserver_log.to_s, "w"]) do |stdin, stdout, wait_thr|
       reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
       writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
 
@@ -67,15 +89,43 @@ class CommandSocketTest < Minitest::Test
 
       begin
         yield writer, responses
+      rescue Exception
+        dump_langserver_log
+        raise
       ensure
-        writer.write(id: 999, method: "shutdown", params: nil)
-        Timeout.timeout(TestHelper.timeout) do
-          loop do
-            break if responses.pop[:id] == 999
+        # Shut the server down gracefully, but never wait for it without a bound: a wedged
+        # server would otherwise hang the whole test suite on `Process.wait`
+        begin
+          writer.write(id: 999, method: "shutdown", params: nil)
+          Timeout.timeout(TestHelper.timeout) do
+            loop do
+              break if responses.pop[:id] == 999
+            end
+          end
+          writer.write(method: "exit")
+        rescue Timeout::Error, Errno::EPIPE, IOError
+          dump_langserver_log
+        end
+
+        unless wait_thr.join(TestHelper.timeout)
+          dump_langserver_log
+          begin
+            Process.kill(:TERM, -wait_thr.pid)
+            unless wait_thr.join(5)
+              Process.kill(:KILL, -wait_thr.pid)
+            end
+          rescue Errno::ESRCH, Errno::EPERM
+            # Already gone
           end
         end
-        writer.write(method: "exit")
-        reader_thread.join
+
+        reader_thread.join(TestHelper.timeout)
+
+        # A dump before this point misses what the server wrote afterwards -- dump the
+        # complete log once the server is down
+        if @langserver_log_dumped
+          dump_langserver_log(force: true)
+        end
       end
     end
   end
@@ -89,12 +139,11 @@ class CommandSocketTest < Minitest::Test
 
       Timeout.timeout(TestHelper.timeout) do
         socket_reader.read do |response|
-          return response
+          return response if response[:id] == message[:id]
         end
       end
     end
   end
-
 
   # Writes the file and bumps its mtime so that the server detects the change reliably
   def write_file(path, content)
@@ -220,7 +269,6 @@ class CommandSocketTest < Minitest::Test
       end
     end
   end
-
 
   # Document synchronization belongs to the LSP client. A `didOpen` through the socket
   # must not make the server treat the file as open, or the disk syncing would skip the

@@ -9,6 +9,16 @@ class CommandSocketTest < Minitest::Test
 
   def langserver_command: (untyped steepfile) -> untyped
 
+  # Where the language server's stderr goes, to be dumped when something goes wrong
+  def langserver_log: () -> untyped
+
+  # Prints the language server log once, so that a failure of the subprocess is diagnosable
+  # from the test output
+  #
+  # `force:` prints it again -- the teardown uses it to show the lines the server wrote
+  # after the first dump, like the shutdown handshake or a kill.
+  def dump_langserver_log: (?force: untyped) -> untyped
+
   def socket_path: () -> untyped
 
   def prepare_project: () -> untyped
