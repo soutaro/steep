@@ -1,0 +1,23 @@
+# Generated from test/command_socket_test.rb with RBS::Inline
+
+class CommandSocketTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  def dirs: () -> untyped
+
+  def langserver_command: (untyped steepfile) -> untyped
+
+  def socket_path: () -> untyped
+
+  def prepare_project: () -> untyped
+
+  def start_langserver: (untyped command) -> untyped
+
+  def request_via_socket: (untyped message) -> untyped
+
+  def test_langserver_serves_requests_through_command_socket: () -> untyped
+
+  def test_langserver_with_no_command_socket_option: () -> untyped
+end
