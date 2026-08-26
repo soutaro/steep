@@ -43,17 +43,21 @@ module Steep
         false
       end
 
+      # Returns true when something is serving the socket, whether it is a daemon or a language server
+      #
+      # The socket is the only reliable signal: a language server records its pid elsewhere, so
+      # requiring `pid_path` here would hide it from `steep check` and `steep query`.
+      #
       def running?
-        return false unless File.exist?(pid_path) && File.exist?(socket_path)
+        return false unless File.exist?(socket_path)
 
-        pid = File.read(pid_path).to_i
-        Process.kill(0, pid)
         socket = UNIXSocket.new(socket_path)
         socket.close
         true
-      rescue Errno::ESRCH, Errno::ENOENT, Errno::ECONNREFUSED, Errno::ENOTSOCK
+      rescue Errno::ENOENT, Errno::ECONNREFUSED, Errno::ENOTSOCK
         false
       end
+
 
       def cleanup
         [socket_path, pid_path].each do |path|
@@ -64,8 +68,13 @@ module Steep
       end
 
       def start(stderr:)
+        if pid = live_pid(pid_path)
+          stderr.puts "Steep server already running (PID: #{pid})"
+          return true
+        end
+
         if running?
-          stderr.puts "Steep server already running (PID: #{File.read(pid_path).strip})"
+          stderr.puts "Another process is already serving this project (e.g. `steep langserver`)"
           return true
         end
 
@@ -106,7 +115,12 @@ module Steep
 
       def stop(stderr:)
         unless File.exist?(pid_path)
-          stderr.puts "Steep server is not running"
+          if running?
+            stderr.puts "Steep server is not running. This project is served by another process"
+            stderr.puts "(e.g. `steep langserver`), which this command does not stop."
+          else
+            stderr.puts "Steep server is not running"
+          end
           return
         end
 
@@ -129,13 +143,29 @@ module Steep
         end
         cleanup
       rescue Errno::ESRCH
-        cleanup
-        stderr.puts "Steep server was not running (cleaned up stale files)"
+        # The pid file was stale. The socket may still belong to another live server,
+        # which `cleanup` would break by deleting it.
+        if running?
+          begin
+            File.delete(pid_path)
+          rescue Errno::ENOENT
+            # Already deleted
+          end
+          stderr.puts "Removed a stale pid file. This project is served by another process."
+        else
+          cleanup
+          stderr.puts "Steep server was not running (cleaned up stale files)"
+        end
       end
 
       def status(stderr:)
         if running?
-          pid = File.read(pid_path).to_i
+          unless pid = live_pid(pid_path)
+            stderr.puts "This project is served by another process (e.g. `steep langserver`)"
+            stderr.puts "  Socket: #{socket_path}"
+            return
+          end
+
           stderr.puts "Steep server running (PID: #{pid})"
           stderr.puts "  Socket: #{socket_path}"
           stderr.puts "  Log:    #{log_path}"
@@ -166,6 +196,16 @@ module Steep
       end
 
       private
+
+      # The pid recorded in `path`, when the file exists and that process is alive
+      def live_pid(path)
+        pid = File.read(path).to_i
+        return nil unless pid > 0
+        Process.kill(0, pid)
+        pid
+      rescue Errno::ESRCH, Errno::ENOENT
+        nil
+      end
 
       def run_server(stderr:)
         project = load_project

@@ -95,6 +95,26 @@ class CommandSocketTest < Minitest::Test
     end
   end
 
+
+  def wait_for_socket
+    Timeout.timeout(TestHelper.timeout) do
+      sleep 0.1 until File.socket?(socket_path)
+    end
+  end
+
+  def daemon_pid_path
+    socket_path.sub(".sock", ".pid")
+  end
+
+  # `Steep::Daemon` memoizes its configuration from `Dir.pwd`, which the tests do not change
+  def with_daemon_config(base_dir)
+    saved = Steep::Daemon.instance_variable_get(:@config)
+    Steep::Daemon.instance_variable_set(:@config, Steep::Daemon::Configuration.new(base_dir: base_dir.to_s))
+    yield
+  ensure
+    Steep::Daemon.instance_variable_set(:@config, saved)
+  end
+
   def test_langserver_serves_requests_through_command_socket
     skip "UNIX socket is not supported on this platform" if Gem.win_platform?
 
@@ -133,6 +153,28 @@ class CommandSocketTest < Minitest::Test
       end
 
       refute File.exist?(socket_path), "The socket file should be cleaned up on exit"
+    end
+  end
+
+  # `steep server stop` signals the pid recorded in the daemon's pid file, so a language server
+  # serving the same socket must not write one.
+  def test_langserver_writes_no_pid_file
+    skip "UNIX socket is not supported on this platform" if Gem.win_platform?
+
+    in_tmpdir do
+      prepare_project
+
+      start_langserver(langserver_command(current_dir + "Steepfile")) do |_writer, _responses|
+        wait_for_socket
+
+        refute File.exist?(daemon_pid_path), "`steep server stop` would signal the language server"
+
+        # `ShellHelper#chdir` does not change the working directory, so point the memoized
+        # configuration at the project of this test.
+        with_daemon_config(current_dir) do
+          assert Steep::Daemon.running?, "`steep check` and `steep query` must find the language server"
+        end
+      end
     end
   end
 

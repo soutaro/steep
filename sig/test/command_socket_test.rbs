@@ -17,7 +17,18 @@ class CommandSocketTest < Minitest::Test
 
   def request_via_socket: (untyped message) -> untyped
 
+  def wait_for_socket: () -> untyped
+
+  def daemon_pid_path: () -> untyped
+
+  # `Steep::Daemon` memoizes its configuration from `Dir.pwd`, which the tests do not change
+  def with_daemon_config: (untyped base_dir) -> untyped
+
   def test_langserver_serves_requests_through_command_socket: () -> untyped
+
+  # `steep server stop` signals the pid recorded in the daemon's pid file, so a language server
+  # serving the same socket must not write one.
+  def test_langserver_writes_no_pid_file: () -> untyped
 
   def test_langserver_with_no_command_socket_option: () -> untyped
 end
