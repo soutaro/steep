@@ -162,6 +162,13 @@ module Steep
 
       # Callbacks to be called when no type check is running anymore
       attr_reader typecheck_quiescent_callbacks: Array[^() -> void]
+
+      # The mtimes of the project files when they were loaded or reloaded
+      #
+      # `nil` until the initial project load finishes.
+      # Touched only from the main loop thread.
+      #
+      @project_file_mtimes: Hash[Pathname, Time?]?
       # Pending requests received through the command socket
       #
       # A map from the id assigned by the master to the session, the original request id, and
@@ -252,6 +259,22 @@ module Steep
       # `paths` is an array of absolute path strings to filter the result, or `nil` to return everything.
       #
       def collect_query_diagnostics: (String id, Array[String]? paths) -> void
+
+      # Records the mtimes of all project files, as the baseline of `#sync_project_files_from_disk`
+      def reset_project_file_mtimes: () -> void
+
+      def record_project_file_mtime: (Pathname path) -> void
+
+      def file_mtime: (Pathname path) -> Time?
+
+      def each_project_file_path: () { (Pathname) -> void } -> void
+
+      # Detects files changed on disk since the last load/sync, and reloads them
+      #
+      # Skips files open in the editor because the client owns their contents.
+      # Does nothing until the initial project load finishes.
+      #
+      def sync_project_files_from_disk: () -> void
       # The only methods a command socket client may send: what `steep check` and `steep query` use
       COMMAND_SOCKET_ALLOWED_METHODS: Array[String]
 

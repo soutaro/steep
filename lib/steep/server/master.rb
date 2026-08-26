@@ -203,6 +203,7 @@ module Steep
         @refork_mutex = Mutex.new
         @need_to_refork = refork
         @typecheck_quiescent_callbacks = []
+        @project_file_mtimes = nil
         @command_socket_requests = {}
         @command_socket_mutex = Mutex.new
 
@@ -426,6 +427,8 @@ module Steep
                 progress.end()
               end
 
+              reset_project_file_mtimes()
+
               if file_system_watcher_supported?
                 setup_file_system_watcher()
               end
@@ -451,6 +454,7 @@ module Steep
 
             unless controller.open_paths.include?(path)
               updated_watched_files << path
+              record_project_file_mtime(path)
 
               case type
               when LSP::Constant::FileChangeType::CREATED, LSP::Constant::FileChangeType::CHANGED
@@ -1197,7 +1201,12 @@ module Steep
           return
         end
 
-        job_queue << ReceiveMessageJob.new(source: :client, message: message)
+        # Reload files changed on disk before processing, because command socket clients
+        # modify files without sending `didChange` notifications
+        job_queue << -> do
+          sync_project_files_from_disk()
+          process_message_from_client(message)
+        end
       rescue ClosedQueueError
         Steep.logger.warn { "Command socket: server is shutting down" }
       end
@@ -1238,6 +1247,116 @@ module Steep
 
         sessions.uniq!
         sessions.each {|session| session.write(message) }
+      end
+
+      # Records the mtimes of all project files, as the baseline of `#sync_project_files_from_disk`
+      def reset_project_file_mtimes
+        mtimes = {} #: Hash[Pathname, Time?]
+        each_project_file_path do |path|
+          mtimes[path] = file_mtime(path)
+        end
+        @project_file_mtimes = mtimes
+      end
+
+      def record_project_file_mtime(path)
+        if mtimes = @project_file_mtimes
+          mtimes[path] = file_mtime(path)
+        end
+      end
+
+      def file_mtime(path)
+        File.mtime(path)
+      rescue SystemCallError
+        nil
+      end
+
+      def each_project_file_path(&block)
+        loader = Services::FileLoader.new(base_dir: project.base_dir)
+        project.targets.each do |target|
+          loader.each_path_in_target(target) do |relative_path|
+            yield project.absolute_path(relative_path)
+          end
+        end
+      end
+
+      # Detects files changed on disk since the last load/sync, and reloads them
+      #
+      # Skips files open in the editor because the client owns their contents.
+      # Does nothing until the initial project load finishes.
+      #
+      def sync_project_files_from_disk
+        mtimes = @project_file_mtimes or return
+
+        changes = {} #: Hash[Pathname, Symbol]
+        seen = Set[] #: Set[Pathname]
+
+        each_project_file_path do |path|
+          next if seen.include?(path)
+          seen << path
+
+          mtime = file_mtime(path)
+          recorded = mtimes[path]
+
+          case
+          when recorded.nil? && mtime
+            changes[path] = mtimes.key?(path) ? :changed : :created
+          when recorded && mtime.nil?
+            changes[path] = :deleted
+          when recorded != mtime
+            changes[path] = :changed
+          end
+
+          mtimes[path] = mtime
+        end
+
+        deleted_paths = mtimes.keys.select {|path| !seen.include?(path) && mtimes[path] && file_mtime(path).nil? }
+        deleted_paths.each do |path|
+          changes[path] = :deleted
+          mtimes[path] = nil
+        end
+
+        changes.delete_if {|path, _| controller.open_paths.include?(path) }
+        return if changes.empty?
+
+        Steep.logger.info { "Command socket: reloading #{changes.size} file(s) changed on disk" }
+
+        changes.each do |path, type|
+          content =
+            if type == :deleted
+              ""
+            else
+              begin
+                path.read
+              rescue SystemCallError
+                next
+              end
+            end
+
+          case
+          when controller.code_path?(path)
+            controller.add_dirty_code_path(path)
+          when controller.signature_path?(path)
+            controller.add_dirty_signature_path(path)
+          when controller.inline_path?(path)
+            controller.add_dirty_inline_path(path, content)
+          end
+
+          broadcast_notification(CustomMethods::FileReset.notification({ uri: PathHelper.to_uri(path).to_s, content: content }))
+        end
+
+        if typecheck_automatically
+          start_type_checking_queue.execute do
+            job_queue.push(
+              -> do
+                start_type_check(
+                  last_request: current_type_check_request,
+                  progress: work_done_progress(SecureRandom.uuid),
+                  needs_response: false
+                )
+              end
+            )
+          end
+        end
       end
 
       def work_done_progress(guid)
