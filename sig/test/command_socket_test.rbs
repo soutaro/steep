@@ -36,6 +36,8 @@ class CommandSocketTest < Minitest::Test
   # file forever.
   def test_command_socket_ignores_document_synchronization: () -> untyped
 
+  def test_typecheck_requests_are_serialized: () -> untyped
+
   # `steep server stop` signals the pid recorded in the daemon's pid file, so a language server
   # serving the same socket must not write one.
   def test_langserver_writes_no_pid_file: () -> untyped

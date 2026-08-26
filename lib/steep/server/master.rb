@@ -186,6 +186,9 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
+      # Type check requests waiting for the current type check to finish
+      attr_reader :pending_typecheck_requests
+
       # Callbacks to be called when no type check is running anymore
       attr_reader :typecheck_quiescent_callbacks
 
@@ -203,6 +206,7 @@ module Steep
         @refork_mutex = Mutex.new
         @need_to_refork = refork
         @typecheck_quiescent_callbacks = []
+        @pending_typecheck_requests = []
         @project_file_mtimes = nil
         @command_socket_requests = {}
         @command_socket_mutex = Mutex.new
@@ -694,7 +698,7 @@ module Steep
             request.inline_paths << [target_name.to_sym, Pathname(path)]
           end
 
-          start_type_check(request: request, last_request: nil)
+          start_type_check(request: request, last_request: current_type_check_request)
 
         when CustomMethods::TypeCheckGroups::METHOD
           params = message[:params] #: CustomMethods::TypeCheckGroups::params
@@ -824,6 +828,17 @@ module Steep
 
       def start_type_check(request: nil, last_request:, progress: nil, include_unchanged: false, report_progress_threshold: 10, needs_response: nil)
         Steep.logger.tagged "#start_type_check(#{progress&.guid || request&.guid}, #{last_request&.guid}" do
+          if (current = current_type_check_request) && typecheck_request_from_command_socket?(current)
+            # Never supersede a type check that a command socket client is waiting for
+            if request
+              Steep.logger.info { "Queueing type check request #{request.guid} until the command socket request finishes" }
+              pending_typecheck_requests << request
+            else
+              Steep.logger.info { "Deferring automatic type checking until the command socket request finishes" }
+            end
+            return
+          end
+
           if last_request
             finish_type_check(last_request)
           end
@@ -903,7 +918,7 @@ module Steep
               finish_type_check(current)
               @current_type_check_request = nil
               refork_workers
-              flush_typecheck_quiescent_callbacks()
+              start_pending_typecheck()
             end
           end
         end
@@ -1065,11 +1080,33 @@ module Steep
           end
         end
 
-        if current_type_check_request
+        if current_type_check_request || !pending_typecheck_requests.empty?
           typecheck_quiescent_callbacks << block
         else
           yield
         end
+      end
+
+      # Starts the next queued type check request if any, or the automatic type check for dirty paths
+      #
+      # Calls the quiescent callbacks when nothing is left to type check.
+      #
+      def start_pending_typecheck
+        while request = pending_typecheck_requests.shift
+          start_type_check(request: request, last_request: nil)
+          return if current_type_check_request
+        end
+
+        if typecheck_automatically && initialize_params
+          guid = SecureRandom.uuid
+          if request = controller.make_request(guid: guid, progress: work_done_progress(guid))
+            request.needs_response = false
+            start_type_check(request: request, last_request: nil)
+            return if current_type_check_request
+          end
+        end
+
+        flush_typecheck_quiescent_callbacks()
       end
 
       # Calls the waiting quiescent callbacks, once a type check for the paths that went dirty
@@ -1247,6 +1284,12 @@ module Steep
 
         sessions.uniq!
         sessions.each {|session| session.write(message) }
+      end
+
+      def typecheck_request_from_command_socket?(request)
+        @command_socket_mutex.synchronize do
+          @command_socket_requests.key?(request.guid)
+        end
       end
 
       # Records the mtimes of all project files, as the baseline of `#sync_project_files_from_disk`

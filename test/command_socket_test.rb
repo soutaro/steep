@@ -292,6 +292,53 @@ class CommandSocketTest < Minitest::Test
     end
   end
 
+  def test_typecheck_requests_are_serialized
+    skip "UNIX socket is not supported on this platform" if Gem.win_platform?
+
+    in_tmpdir do
+      prepare_project
+
+      start_langserver(langserver_command(current_dir + "Steepfile")) do |writer, responses|
+        wait_for_socket
+
+        params = {
+          library_paths: [],
+          signature_paths: [["app", (current_dir + "sig/hello.rbs").to_s]],
+          code_paths: [["app", (current_dir + "lib/hello.rb").to_s]],
+          inline_paths: []
+        }
+
+        # Both concurrent typecheck requests must be responded, one after another
+        sockets = ["tc-1", "tc-2"].map do |id|
+          socket = UNIXSocket.new(socket_path)
+          connected_at = Time.now
+          LanguageServer::Protocol::Transport::Io::Writer.new(socket).write(
+            id: id, method: "$/steep/typecheck", params: params
+          )
+          # Timestamps to correlate with the server log when a request goes missing
+          STDERR.puts "#{id}: connected at #{connected_at.strftime("%H:%M:%S.%L")}, request written at #{Time.now.strftime("%H:%M:%S.%L")}"
+          [id, socket]
+        end
+
+        sockets.each do |id, socket|
+          reader = LanguageServer::Protocol::Transport::Io::Reader.new(socket)
+          response = nil
+          Timeout.timeout(TestHelper.timeout) do
+            reader.read do |message|
+              if message[:id] == id
+                response = message
+                break
+              end
+            end
+          end
+          assert_equal true, response.dig(:result, :completed), "request #{id} should complete: #{response.inspect}"
+        ensure
+          socket.close
+        end
+      end
+    end
+  end
+
   # `steep server stop` signals the pid recorded in the daemon's pid file, so a language server
   # serving the same socket must not write one.
   def test_langserver_writes_no_pid_file

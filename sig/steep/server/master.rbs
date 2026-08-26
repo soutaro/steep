@@ -160,6 +160,9 @@ module Steep
 
       @need_to_refork: boolish
 
+      # Type check requests waiting for the current type check to finish
+      attr_reader pending_typecheck_requests: Array[TypeCheckController::Request]
+
       # Callbacks to be called when no type check is running anymore
       attr_reader typecheck_quiescent_callbacks: Array[^() -> void]
 
@@ -259,6 +262,14 @@ module Steep
       # `paths` is an array of absolute path strings to filter the result, or `nil` to return everything.
       #
       def collect_query_diagnostics: (String id, Array[String]? paths) -> void
+
+      def typecheck_request_from_command_socket?: (TypeCheckController::Request request) -> bool
+
+      # Starts the next queued type check request if any, or the automatic type check for dirty paths
+      #
+      # Calls the quiescent callbacks when nothing is left to type check.
+      #
+      def start_pending_typecheck: () -> void
 
       # Records the mtimes of all project files, as the baseline of `#sync_project_files_from_disk`
       def reset_project_file_mtimes: () -> void
