@@ -67,6 +67,7 @@ require "steep/interface/shape"
 require "steep/interface/builder"
 
 require "steep/subtyping/result"
+require "steep/subtyping/stats"
 require "steep/subtyping/check"
 require "steep/subtyping/cache"
 require "steep/subtyping/relation"

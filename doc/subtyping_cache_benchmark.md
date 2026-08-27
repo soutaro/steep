@@ -104,6 +104,55 @@ Composition of the 80,286 entries:
 
 The full `app` run reports 1007 diagnostics with the cache on and 1009 with it off — with the cache disabled, two additional `UnsatisfiableConstraint` diagnostics appear (in `lib/steep/annotations_helper.rb` and `lib/steep/type_construction.rb`). The cache key does not include the `Constraints` context, and a cached result is reused whenever the relation's free variables have no *unknown* constraint variables — so constraint side effects recorded on the first computation are not replayed on later hits.
 
+## Measuring your own codebase with a normal `steep check`
+
+The stats collection is built into Steep itself (`Steep::Subtyping::Stats`) and is activated by environment variables, so it works with a plain `steep check` — each worker process reports its own statistics when it exits. To use it on another codebase, point your Gemfile at this branch:
+
+```ruby
+gem "steep", github: "soutaro/steep", branch: "claude/subtyping-cache-performance-034hwm", require: false
+```
+
+Then:
+
+```sh
+# Summary to stderr, per worker process.
+# Contains only counts and type KINDS (`Instance <: Union`, ...) — no type names
+# from your codebase — so it is safe to share as-is.
+STEEP_SUBTYPING_STATS=1 bundle exec steep check
+
+# Additionally append one JSON object per worker process to a file.
+# NOTE: the JSON includes the 25 most frequent relations as strings
+# (`::Foo::Bar <: ::Baz`), i.e. type names from your codebase. Keep it local,
+# or strip the "top_relations" key before sharing.
+STEEP_SUBTYPING_STATS=1 STEEP_SUBTYPING_STATS_FILE=steep-stats.jsonl bundle exec steep check
+
+# Additionally measure the memory exclusively retained by the cache
+# (clears the cache on exit and compares ObjectSpace.memsize_of_all;
+# makes process exit a few seconds slower).
+STEEP_SUBTYPING_STATS=1 STEEP_SUBTYPING_STATS_MEMORY=1 bundle exec steep check
+```
+
+Notes for interpreting the numbers:
+
+- One report per worker process (`-j`): files are partitioned across workers, each with its own cache, so per-worker hit rates are the real-world behavior (a single process would hit more). `-j1` gives one aggregate report.
+- A worker checking several targets reports them combined.
+- Overhead of the collection is a few percent; with the variables unset it is a nil check per `check_type` call.
+
+Example output (per worker):
+
+```
+[steep 2.1.0] subtyping cache stats (pid 1692)
+  check_type calls: 129629 (reflexive: 34334, distinct relations: 20149)
+  cache hits: 84081 (64.9%; top-level: 58179, reflexive: 28960)
+  computed: 45548 (top-level: 15883, taking 4.94s; cached but unusable: 220)
+  assumption successes: 0
+  cache entries: 45328 (contexts: 697, reflexive: 5373, successes: 19471)
+  top kinds by calls:
+    Instance <: Instance                        64272 calls  62.5% hit    24117 computes     0.89s top-level compute
+    Literal <: Literal                          12218 calls  87.6% hit     1518 computes     0.04s top-level compute
+    ...
+```
+
 ## Reproducing
 
 ```sh
