@@ -3166,11 +3166,14 @@ module Steep
       block =
         if block_param = params.block_param
           if block_param_type = block_param.type
-            case block_param_type
+            # Expanding aliases because the cases below test the structure of the type
+            expanded_type = deep_expand_alias(block_param_type) || block_param_type
+
+            case expanded_type
             when AST::Types::Proc
-              Interface::Block.new(type: block_param_type.type, optional: false, self_type: block_param_type.self_type)
+              Interface::Block.new(type: expanded_type.type, optional: false, self_type: expanded_type.self_type)
             else
-              if proc_type = optional_proc?(block_param_type)
+              if proc_type = optional_proc?(expanded_type)
                 Interface::Block.new(type: proc_type.type, optional: true, self_type: proc_type.self_type)
               else
                 block_constr.typing.add_error(
