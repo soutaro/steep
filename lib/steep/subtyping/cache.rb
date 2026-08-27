@@ -5,6 +5,7 @@ module Steep
 
       def initialize
         @subtypes = {}
+        Stats.active&.register_cache(self)
       end
 
       def subtype(relation, self_type, instance_type, class_type, bounds)
