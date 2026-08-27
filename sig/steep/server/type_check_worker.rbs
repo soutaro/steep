@@ -134,7 +134,7 @@ module Steep
 
       attr_reader child_pids: Array[Integer]
 
-      attr_reader need_to_warmup: boolish
+      attr_reader need_to_warmup: bool
 
       include ChangeBuffer
 

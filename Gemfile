@@ -17,4 +17,3 @@ group :development, optional: true do
 end
 
 # gem "rbs", path: "../rbs"
-gem "rbs", "4.2.0.pre.1"

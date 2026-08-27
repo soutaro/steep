@@ -29,14 +29,14 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.required_ruby_version = '>= 3.2.0'
+  spec.required_ruby_version = '>= 3.3.0'
 
   spec.add_runtime_dependency "parser", ">= 3.2"
   spec.add_runtime_dependency "prism", ">= 0.25.0"
   spec.add_runtime_dependency "rainbow", ">= 2.2.2", "< 4.0"
   spec.add_runtime_dependency "listen", "~> 3.0"
   spec.add_runtime_dependency "language_server-protocol", ">= 3.17.0.4", "< 4.0"
-  spec.add_runtime_dependency "rbs", "~> 4.0"
+  spec.add_runtime_dependency "rbs", "~> 4.2"
   spec.add_runtime_dependency "concurrent-ruby", ">= 1.1.10"
   spec.add_runtime_dependency "terminal-table", ">= 2", "< 5"
   spec.add_runtime_dependency "securerandom", ">= 0.1"
