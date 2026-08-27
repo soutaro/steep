@@ -162,6 +162,7 @@ module LanguageServer
       module ErrorCodes
         INVALID_REQUEST: -32600
         SERVER_NOT_INITIALIZED: -32002
+        INTERNAL_ERROR: -32603
 
         type t = Integer
       end

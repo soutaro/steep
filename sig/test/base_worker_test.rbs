@@ -1,0 +1,55 @@
+# Generated from test/base_worker_test.rb with RBS::Inline
+
+use Steep::*
+
+class BaseWorkerTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include LSPTestHelper
+
+  include Steep
+
+  # A worker whose jobs always raise, to exercise `BaseWorker`'s error handling.
+  class RaisingWorker < Server::BaseWorker
+    class RequestJob < Struct[untyped]
+      attr_accessor id(): untyped
+
+      def self.new: (?id: untyped) -> instance
+                  | ({ ?id: untyped }) -> instance
+    end
+
+    class NotificationJob < Struct[untyped]
+      attr_accessor guid(): untyped
+
+      def self.new: (?guid: untyped) -> instance
+                  | ({ ?guid: untyped }) -> instance
+    end
+
+    attr_reader queue: untyped
+
+    def initialize: (project: untyped, reader: untyped, writer: untyped) -> untyped
+
+    def handle_request: (untyped request) -> untyped
+
+    def handle_job: (untyped job) -> untyped
+  end
+
+  def dirs: () -> untyped
+
+  def project: () -> untyped
+
+  # Runs a worker, and shuts it down after the block returns -- even when an assertion fails,
+  # so that a regression fails the test instead of hanging it.
+  #
+  # @rbs (Queue) { () -> void } -> void
+  def run_worker: (Queue) { () -> void } -> void
+
+  # @rbs (Queue) { (untyped) -> boolish } -> untyped
+  def pop_until: (Queue) { (untyped) -> boolish } -> untyped
+
+  def test_failed_request_job_returns_error_response: () -> untyped
+
+  def test_failed_notification_job_reports_message_only: () -> untyped
+end

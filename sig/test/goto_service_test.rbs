@@ -89,4 +89,8 @@ class GotoServiceTest < Minitest::Test
   def test_query_definition_method: () -> untyped
 
   def test_query_definition_constant: () -> untyped
+
+  def test_query_definition_method__inline: () -> untyped
+
+  def test_query_definition_constant__inline: () -> untyped
 end
