@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 2.1.0 (2026-08-27)
+
+Steep 2.1 opens the running server to commands other than the editor's. `steep langserver` now binds
+the per-project UNIX socket that `steep server` serves, so `steep check` and `steep query` reach the
+language server the editor is already running instead of needing a daemon of their own, and the new
+`steep query diagnostics` reads the diagnostics that server has already computed rather than starting
+a type check of its own. Both are aimed at tools that edit files on disk and want fast feedback,
+coding agents in particular.
+
+The type checker gains support for Ruby 3.4's `it` block parameter, and RBS is updated to 4.2.0.
+
+### Type checker core
+
+* Infer tuple types for array literals against pair interface hints like `Hash::_Pair` ([#2253](https://github.com/soutaro/steep/pull/2253))
+* Accept a type alias as the type of a lambda's block parameter ([#2263](https://github.com/soutaro/steep/pull/2263))
+* Build expensive log tags only when something is logged ([#2271](https://github.com/soutaro/steep/pull/2271))
+* Accept block-pass arguments for optional blocks ([#2261](https://github.com/soutaro/steep/pull/2261))
+* feat: support the `it` block parameter ([#2238](https://github.com/soutaro/steep/pull/2238))
+* Fix `UnreachableBranch` on `==` against literal supertype (`Symbol` / `Integer` / `String`) ([#2223](https://github.com/soutaro/steep/pull/2223))
+
+### Commandline tool
+
+* Stop `steep query definition` from hanging on inline sources ([#2276](https://github.com/soutaro/steep/pull/2276))
+* Serve steep query/check through the language server's UNIX socket ([#2273](https://github.com/soutaro/steep/pull/2273))
+* Add `steep query diagnostics` ([#2274](https://github.com/soutaro/steep/pull/2274))
+* Point the Steepfile template, README and CLAUDE.md at rbs collection ([#2269](https://github.com/soutaro/steep/pull/2269))
+
+### Miscellaneous
+
+* Update RBS to 4.2.0 ([#2277](https://github.com/soutaro/steep/pull/2277))
+* Fix `bin/steep-check.rb` for the current API ([#2270](https://github.com/soutaro/steep/pull/2270))
+* Update RBS to 4.2.0.pre.1 ([#2267](https://github.com/soutaro/steep/pull/2267))
+* Fix Ruby warnings printed while running tests ([#2266](https://github.com/soutaro/steep/pull/2266))
+* Run test subprocesses outside the parent Bundler env ([#2225](https://github.com/soutaro/steep/pull/2225))
+
 ## 2.0.0 (2026-04-14)
 
 ### Summary
