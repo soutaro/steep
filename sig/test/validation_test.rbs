@@ -41,6 +41,8 @@ class ValidationTest < Minitest::Test
 
   def test_validate_mixin_class: () -> untyped
 
+  def test_validate_mixin_with_renamed_type_params: () -> untyped
+
   def test_validate_mixin_module: () -> untyped
 
   def test_validate_instance_variables: () -> untyped
