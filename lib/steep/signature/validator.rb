@@ -7,10 +7,16 @@ module Steep
       attr_reader :checker
       attr_reader :context
 
+      # Type names referenced while validating (member types, ancestors and
+      # self-type constraints), used to decide whether a signature file's
+      # validation could be affected by a type change.
+      attr_reader :referenced_type_names
+
       def initialize(checker:)
         @checker = checker
         @errors = []
         @context = []
+        @referenced_type_names = Set[]
       end
 
       def push_context(self_type: latest_context[0], class_type: latest_context[1], instance_type: latest_context[2])
@@ -159,6 +165,7 @@ module Steep
         case type
         when RBS::Types::ClassInstance, RBS::Types::Interface, RBS::Types::ClassSingleton, RBS::Types::Alias
           type_name = type.name
+          referenced_type_names << type_name
           if type.location
             location = type.location[:name]
           end
@@ -182,6 +189,9 @@ module Steep
       def ancestor_to_type(ancestor)
         case ancestor
         when RBS::Definition::Ancestor::Instance
+          # Mixins and self-type constraints reach here, not through #validate_type.
+          referenced_type_names << ancestor.name
+
           args = ancestor.args.map {|type| checker.factory.type(type) }
 
           case

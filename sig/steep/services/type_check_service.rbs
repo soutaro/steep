@@ -3,7 +3,7 @@ module Steep
     class TypeCheckService
       attr_reader project: Project
 
-      attr_reader signature_validation_diagnostics: Hash[Symbol, Hash[Pathname, Array[Diagnostic::Signature::Base]]]
+      attr_reader signature_files: Hash[Symbol, Hash[Pathname, SignatureFile]]
 
       attr_reader source_files: Hash[Pathname, SourceFile]
 
@@ -24,26 +24,55 @@ module Steep
 
         attr_reader errors: Array[Diagnostic::Ruby::Base]?
 
+        attr_reader referenced_type_names: Set[RBS::TypeName]
+
+        attr_reader outdated: bool
+
+        attr_reader has_unresolved_references: bool
+
         def initialize: (
           path: Pathname,
           node: Parser::AST::Node | nil | false,
           content: String,
           typing: Typing?,
           ignores: Source::IgnoreRanges?,
-          errors: Array[Diagnostic::Ruby::Base]?
+          errors: Array[Diagnostic::Ruby::Base]?,
+          ?referenced_type_names: Set[RBS::TypeName],
+          ?outdated: bool,
+          ?has_unresolved_references: bool
         ) -> void
 
         def self.with_syntax_error: (path: Pathname, content: String, error: Diagnostic::Ruby::SyntaxError | Diagnostic::Ruby::AnnotationSyntaxError) -> SourceFile
 
-        def self.with_typing: (path: Pathname, content: String, typing: Typing, ignores: Source::IgnoreRanges, node: Parser::AST::Node?) -> SourceFile
+        def self.with_typing: (path: Pathname, content: String, typing: Typing, ignores: Source::IgnoreRanges, node: Parser::AST::Node?, ?referenced_type_names: Set[RBS::TypeName], ?has_unresolved_references: bool) -> SourceFile
 
         def self.no_data: (path: Pathname, content: String) -> SourceFile
+
+        def mark_outdated!: () -> self
 
         def update_content: (String content) -> SourceFile
 
         # Diagnostics filtered by `ignores`
         #
         def diagnostics: () -> Array[Diagnostic::Ruby::Base]
+      end
+
+      # The validation result of a single signature file within one target
+      #
+      class SignatureFile
+        attr_reader diagnostics: Array[Diagnostic::Signature::Base]
+
+        attr_reader referenced_type_names: Set[RBS::TypeName]
+
+        attr_reader outdated: bool
+
+        def initialize: (
+          diagnostics: Array[Diagnostic::Signature::Base],
+          referenced_type_names: Set[RBS::TypeName],
+          ?outdated: bool
+        ) -> void
+
+        def mark_outdated!: () -> self
       end
 
       def initialize: (project: Project) -> void
@@ -69,9 +98,17 @@ module Steep
       #
       def update: (changes: Server::ChangeBuffer::changes) -> void
 
+      def invalidate_outdated_source_files: () -> void
+
+      def invalidate_outdated_signature_files: () -> void
+
+      def signature_validation_needed?: (path: Pathname, target: Project::Target) -> bool
+
+      def type_check_needed?: (path: Pathname, target: Project::Target) -> bool
+
       # Validates RBS signature included in the path
       #
-      # Updates `#signature_validation_diagnostics` of the file and returns the diagnostics of the target-path pair.
+      # Updates the `SignatureFile` cached in `#signature_files` and returns the diagnostics of the target-path pair.
       #
       def validate_signature: (path: Pathname, target: Project::Target) -> Array[Diagnostic::Signature::Base]
 

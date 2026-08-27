@@ -2,7 +2,7 @@ module Steep
   module Services
     class TypeCheckService
       attr_reader :project
-      attr_reader :signature_validation_diagnostics
+      attr_reader :signature_files
       attr_reader :source_files
       attr_reader :signature_services
 
@@ -15,21 +15,38 @@ module Steep
         attr_reader :errors
         attr_reader :ignores
 
-        def initialize(path:, node:, content:, typing:, ignores:, errors:)
+        # RBS type names referenced while type-checking this file (see TypeNameReferences).
+        attr_reader :referenced_type_names
+
+        # True when the cached `typing`/`referenced_type_names` predate the
+        # current `content` and must be recomputed before being reused.
+        attr_reader :outdated
+
+        # True when the last check left a reference unresolved (e.g. an unknown
+        # constant). Such a reference is absent from `referenced_type_names`, so a
+        # type added later would not intersect it; while set, the file is
+        # re-checked on every type change until the reference resolves. This keeps
+        # rbs-inline sound, where a `.rb` is checked before its generated `.rbs`.
+        attr_reader :has_unresolved_references
+
+        def initialize(path:, node:, content:, typing:, ignores:, errors:, referenced_type_names: Set[], outdated: false, has_unresolved_references: false)
           @path = path
           @node = node
           @content = content
           @typing = typing
           @ignores = ignores
           @errors = errors
+          @referenced_type_names = referenced_type_names
+          @outdated = outdated
+          @has_unresolved_references = has_unresolved_references
         end
 
         def self.with_syntax_error(path:, content:, error:)
           new(path: path, node: false, content: content, errors: [error], typing: nil, ignores: nil)
         end
 
-        def self.with_typing(path:, content:, typing:, node:, ignores:)
-          new(path: path, node: node, content: content, errors: nil, typing: typing, ignores: ignores)
+        def self.with_typing(path:, content:, typing:, node:, ignores:, referenced_type_names: Set[], has_unresolved_references: false)
+          new(path: path, node: node, content: content, errors: nil, typing: typing, ignores: ignores, referenced_type_names: referenced_type_names, has_unresolved_references: has_unresolved_references)
         end
 
         def self.no_data(path:, content:)
@@ -43,8 +60,18 @@ module Steep
             node: node,
             errors: errors,
             typing: typing,
-            ignores: ignores
+            ignores: ignores,
+            referenced_type_names: referenced_type_names,
+            has_unresolved_references: has_unresolved_references,
+            outdated: true
           )
+        end
+
+        # Flags the cached result as stale (a referenced type changed). Sticky
+        # until the file is re-checked, so a deferred re-check is never lost.
+        def mark_outdated!
+          @outdated = true
+          self
         end
 
         def diagnostics
@@ -99,6 +126,32 @@ module Steep
         end
       end
 
+      # Per-file validation state for a signature file (`.rbs`, or `.rb` with
+      # inline RBS) in one target: the signature-side analogue of `SourceFile`
+      # for incremental skipping. Stores diagnostics directly, since validation
+      # has no `Typing`-like result to derive them from on demand.
+      class SignatureFile
+        attr_reader :diagnostics
+
+        # Type names touched while validating this file (cf. SourceFile#referenced_type_names).
+        attr_reader :referenced_type_names
+
+        # True when a referenced type changed after validation; sticky until the
+        # file is re-validated, so a deferred re-validation is never lost.
+        attr_reader :outdated
+
+        def initialize(diagnostics:, referenced_type_names:, outdated: false)
+          @diagnostics = diagnostics
+          @referenced_type_names = referenced_type_names
+          @outdated = outdated
+        end
+
+        def mark_outdated!
+          @outdated = true
+          self
+        end
+      end
+
       def initialize(project:)
         @project = project
 
@@ -107,7 +160,8 @@ module Steep
           loader = Project::Target.construct_env_loader(options: target.options, project: project)
           hash[target.name] = SignatureService.load_from(loader, implicitly_returns_nil: target.implicitly_returns_nil)
         end
-        @signature_validation_diagnostics = project.targets.each.with_object({}) do |target, hash| #$ Hash[Symbol, Hash[Pathname, Array[Diagnostic::Signature::Base]]]
+        # Cached SignatureFile per target then path (a signature is validated per target).
+        @signature_files = project.targets.each.with_object({}) do |target, hash| #$ Hash[Symbol, Hash[Pathname, SignatureFile]]
           hash[target.name] = {}
         end
       end
@@ -132,9 +186,9 @@ module Steep
               end
             end
           when SignatureService::LoadedStatus
-            validation_diagnostics = signature_validation_diagnostics[target.name] || {}
-            validation_diagnostics.each do |path, diagnostics|
-              signature_diagnostics.fetch(path).push(*diagnostics)
+            files = signature_files[target.name] || {}
+            files.each do |path, file|
+              signature_diagnostics.fetch(path).push(*file.diagnostics)
             end
           end
         end
@@ -161,6 +215,9 @@ module Steep
       end
 
       def update(changes:)
+        # Each target's changed-name set describes only this update; clear stale ones.
+        signature_services.each_value(&:reset_last_changed_type_names)
+
         Steep.measure "#update_signature" do
           update_signature(changes: changes)
         end
@@ -168,9 +225,66 @@ module Steep
         Steep.measure "#update_sources" do
           update_sources(changes: changes)
         end
+
+        invalidate_outdated_source_files()
+        invalidate_outdated_signature_files()
       end
 
+      # Marks each cached source file whose referenced types intersect this
+      # update's changed names as outdated. Recorded on the file (not per job) so
+      # a re-check deferred to a later cycle is not lost when changed_names moves on.
+      def invalidate_outdated_source_files
+        source_files.each_value do |file|
+          next if file.outdated
+          next unless file.typing
+
+          target = project.target_for_source_path(file.path) || project.target_for_inline_source_path(file.path)
+          next unless target
+
+          # target is a project target, so the service always exists.
+          signature_service = signature_services.fetch(target.name)
+
+          changed_names = signature_service.last_changed_type_names
+          next if changed_names.empty?
+
+          if file.referenced_type_names.intersect?(changed_names)
+            file.mark_outdated!
+          end
+        end
+      end
+
+      # Signature-side counterpart of #invalidate_outdated_source_files. A file's
+      # own edit is covered too: its defined names are part of both sets.
+      def invalidate_outdated_signature_files
+        signature_files.each do |target_name, files_by_path|
+          # signature_files and signature_services share their target-name keys.
+          signature_service = signature_services.fetch(target_name)
+          changed_names = signature_service.last_changed_type_names
+          next if changed_names.empty?
+
+          files_by_path.each_value do |file|
+            next if file.outdated
+            file.mark_outdated! if file.referenced_type_names.intersect?(changed_names)
+          end
+        end
+      end
+
+      def signature_validation_needed?(path:, target:)
+        service = signature_services.fetch(target.name)
+        return true unless service.status.is_a?(SignatureService::LoadedStatus)
+        file = signature_files.fetch(target.name)[path]
+        return true unless file
+        file.outdated
+      end
+
+      # Validates the signature file, reusing the cached diagnostics when nothing
+      # it references changed (see #signature_validation_needed?).
       def validate_signature(path:, target:)
+        unless signature_validation_needed?(path: path, target: target)
+          Steep.logger.debug { "Skipping signature validation for #{path} (no referenced type changed)" }
+          return signature_files.fetch(target.name).fetch(path).diagnostics
+        end
+
         Steep.logger.tagged "#validate_signature(path=#{path})" do
           Steep.measure "validation" do
             service = signature_services.fetch(target.name)
@@ -178,6 +292,9 @@ module Steep
             unless target.possible_signature_file?(path) || target.possible_inline_source_file?(path) || service.env_rbs_paths.include?(path)
               raise "#{path} is not library nor signature of #{target.name}"
             end
+
+            # Refs only matter for a healthy env; an error status always re-validates.
+            referenced_type_names = Set[] #: Set[RBS::TypeName]
 
             case service.status
             when SignatureService::SyntaxErrorStatus
@@ -240,6 +357,11 @@ module Steep
                 error.location or raise
                 Pathname(error.location.buffer.name) == path
               end
+
+              # Own defined types plus what the validator referenced; defined names
+              # let ancestor changes reach us via the descendant closure.
+              referenced_type_names = Set.new(type_names)
+              referenced_type_names.merge(validator.referenced_type_names)
             end
 
             source = service.status.files[path]
@@ -250,13 +372,37 @@ module Steep
               end
             end
 
-            signature_validation_diagnostics.fetch(target.name)[path] = diagnostics
+            signature_files.fetch(target.name)[path] =
+              SignatureFile.new(diagnostics: diagnostics, referenced_type_names: referenced_type_names)
+            diagnostics
           end
         end
       end
 
+      def type_check_needed?(path:, target:)
+        file = source_files[path]
+        return true unless file&.typing
+        return true if file.outdated
+        # Incomplete refs (an unresolved reference): can't trust the intersection.
+        return true if file.has_unresolved_references
+
+        # target is a project target, so the service always exists.
+        signature_service = signature_services.fetch(target.name)
+        return true unless signature_service.current_subtyping
+
+        false
+      end
+
+      # Type checks the source file and returns its diagnostics (nil if it can't
+      # run), reusing the cached result when nothing it references changed (see
+      # #type_check_needed?).
       def typecheck_source(path:, target:)
         return unless target
+
+        unless type_check_needed?(path: path, target: target)
+          Steep.logger.debug { "Skipping type check for #{path} (no referenced type changed)" }
+          return source_files.fetch(path).diagnostics
+        end
 
         Steep.logger.tagged "#typecheck_source(path=#{path})" do
           Steep.measure "typecheck" do
@@ -337,7 +483,11 @@ module Steep
           source = Source.parse(text, path: path, factory: subtyping.factory)
           typing = TypeCheckService.type_check(source: source, subtyping: subtyping, constant_resolver: yield, cursor: nil)
           ignores = Source::IgnoreRanges.new(ignores: source.ignores)
-          SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing, ignores: ignores)
+          referenced_type_names = TypeNameReferences.from_source_file(typing: typing, source: source)
+          # An unknown constant leaves no entry in referenced_type_names; flag the
+          # set as incomplete (see SourceFile#has_unresolved_references).
+          has_unresolved_references = typing.errors.any? { |error| error.is_a?(Diagnostic::Ruby::UnknownConstant) }
+          SourceFile.with_typing(path: path, content: text, node: source.node, typing: typing, ignores: ignores, referenced_type_names: referenced_type_names, has_unresolved_references: has_unresolved_references)
         end
       rescue AnnotationParser::SyntaxError => exn
         error = Diagnostic::Ruby::AnnotationSyntaxError.new(message: exn.message, location: exn.location)
