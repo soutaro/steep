@@ -78,7 +78,33 @@ The cache key includes the `(self_type, instance_type, class_type, bounds)` cont
 
 Measured on Steep itself (`steep check -j2`): **55–70% of all computes per worker are ground relations that were already computed under another context** (the `context-fragmented misses` line in the stats report). The effect grows with the number of classes in the project, because more classes means more distinct contexts — a Rails-scale codebase fragments harder than Steep does. It also duplicates entries: the app-target run stores 80,286 entries for 25,303 distinct relations, roughly 3 copies per relation.
 
-The fix is to key ground relations by the relation alone (one flat `relation → result` table, no context), keeping the context key only for relations with free variables. This would convert the majority of misses into hits on both time and memory: fewer computes, and one entry per ground relation instead of one per context.
+The fix is to key ground relations by the relation alone (one flat `relation → result` table, no context), keeping the context key only for relations with free variables. This converts the majority of misses into hits on both time and memory: fewer computes, and one entry per ground relation instead of one per context.
+
+## Implemented: Phase 1 optimizations
+
+Three changes, now implemented in `Check#check_type` and `Cache`:
+
+1. **Ground relations are cached without the context** (`Cache#ground_subtypes`): relations without free variables — `cacheable?` — go to a flat `relation → result` table. The ground path also skips `cache_bounds` (a fresh, almost always empty `Hash` per call), the `free_variables` set union, and the unknown-constraint check.
+2. **Trivially successful relations are not cached**: `T <: T` (by `==`), `untyped` on either side, `top`/`void` as super type, `bot` as sub type — resolved by the first branches of `check_type0` — return success immediately without touching the cache.
+3. **Successful results are stored without their derivation tree** (`Check#cache_value`): the tree is only read through `#failure_path` to explain failures.
+
+Measured on Steep itself (app target, single process):
+
+| metric | before | after |
+|---|---|---|
+| `check_type` calls | 194,984 | 121,781 (avoided computes also drop their nested calls) |
+| computed | 82,688 | **23,784 (−71%)** |
+| hit rate (of cache lookups) | 57.6% | **71.3%** (plus 38,906 uncached trivial shortcuts) |
+| context-fragmented misses | ~55–70% of computes | 1,155 |
+| cache entries | 80,286 | **21,450 (−73%)** (18,961 ground + 2,489 context-keyed) |
+| memory exclusively retained | 70.2 MB | **24.1 MB (−66%)** |
+| peak RSS of the run | ~800 MB | ~676 MB |
+| top-level compute time | 6.95 s | 4.62 s |
+| source type check wall-clock | 37–41 s | 39–43 s (unchanged within noise) |
+
+Wall-clock on Steep itself is unchanged because subtyping was already only ~20% of the source-check phase here; the compute reduction matters most on codebases where fragmented misses hit expensive kinds (`Instance <: Interface`, Union/Alias expansion). Diagnostics are identical on all pre-existing code (the only diff is hints on the newly added code itself and line-number shifts).
+
+The remaining 1,155 repeated ground computes come from a second `Subtyping::Check` instance created by `Interface::Builder` for shape building, which has its own cache — sharing the ground table between them is a possible follow-up.
 
 ## Memory usage (`app` target, `MEM=1`)
 
@@ -91,24 +117,14 @@ Composition of the 80,286 entries:
 - Memory reachable from the cache: 160 MB / 1.93M objects (shared with the environment and typings).
 - Memory *exclusively* retained by the cache (freed by `subtypes.clear`, measured via `ObjectSpace.memsize_of_all`): **70.2 MB** (945k object slots).
 
-## Improvement candidates (all measured, all with identical diagnostics)
+## Remaining candidates
 
-| configuration | exclusive cache memory | source check time |
-|---|---|---|
-| current | 70.2 MB | 37.0–40.6 s |
-| 1. collapse successes | 59.7 MB (−15%) | 36.5 s |
-| 1+2. + context-keyed storage | 40.6 MB (−42%) | 36.2 s |
-| 1+2+3. + skip reflexive entries | 38.8 MB (−45%) | 34.1–36.4 s |
-| 4. clear cache per file | bounded by one file's working set | 37.4 s |
+1. **Membership test for literals against unions/aliases of literals**: `"foo" <: enum_alias` currently expands the union and tries every branch (building a failure tree per miss). On literal-heavy codebases these checks average ~0.3–0.5 ms with hit rates around 10% (each literal is a distinct relation), so caching cannot save them — the compute itself needs a fast path.
+2. **For the long-lived LSP process: evict the context-keyed table per file** (`CLEAR_PER_FILE=1` in the benchmark): 79% of hits are produced and consumed while checking the same file, and context-keyed entries are bound to the file's classes anyway. Keeping the ground table (now the vast majority of entries, valid forever until a signature reload) and clearing the context-keyed table per file bounds memory with almost no hit-rate cost.
+3. **Share the ground table between the `Subtyping::Check` instances** created per target and by `Interface::Builder` (see above).
+4. **Skip storing relations whose free variables include unknown constraint variables**: stored today but almost never usable (cf. `Instance <: Var` at 2.4% hits), and related to the known constraints-replay bug below.
 
-1. **Collapse successful results before storing** (`PROTO=collapse`): store `Success.new(relation)` instead of the full `Expand`/`All`/`Any` tree. Derivation trees are only consumed via `#failure_path` on failures (nothing outside `result.rb` reads `#child`/`#branches`), so this is behavior-preserving. Peak RSS also drops ≈20 MB.
-2. **Two-level storage keyed by context then relation** (`PROTO=ctxkey`): `subtypes[context][relation]` instead of one 5-element array key per entry. Stores each of the 873 contexts once instead of 80k times, hashes only the relation on the hot path (the 5-element key array was built and hashed twice per call), and makes the shared empty `bounds` problem irrelevant. This is also consistently the fastest configuration.
-3. **Do not cache reflexive relations** (`PROTO=noreflex`): `T <: T` succeeds immediately in `check_type0`; skipping lookup and store removes 8.5k entries with no time cost. (A variant worth trying: also skip storing relations whose free variables include unknown constraint variables — those entries are stored today but almost never usable, cf. `Instance <: Var` at 2.4% hits.)
-4. **For the long-lived LSP process: evict per file** (`CLEAR_PER_FILE=1`): 79% of hits (89,184 / 112,296) are produced and consumed while checking the same file; clearing the whole cache after every file costs ≈0–6% time on this codebase while bounding cache memory by a single file's working set instead of growing monotonically with every file checked in the session. (In `steep check` the cache dies with the process; in `steep langserver` it lives until the next signature reload, so this matters most there.)
-
-1–3 combined change no diagnostics (1007, byte-identical) and are, if anything, slightly faster than the current cache.
-
-5. **Cache ground relations without the context key** (not prototyped yet; see "Context keying fragments the cache" above): the largest available win for the hit rate — on Steep itself 55–70% of computes are context-fragmented misses of ground relations — and it also removes the ~3x entry duplication across contexts, which compounds with 1–3.
+Historical note: prototype measurements of earlier candidates (collapse-only −15%, context-two-level −42%, plus reflexive-skip −45% memory) led to the Phase 1 design above, which supersedes them.
 
 ## Cache changes results (known bug)
 

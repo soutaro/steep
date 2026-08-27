@@ -13,21 +13,16 @@
 #                       "off" disables the cache (lookups always miss, stores are
 #                       dropped, but check_type still pays the cache bookkeeping);
 #                       "none" removes the caching logic from check_type entirely
-#   CACHE_STATS=1       count cache hits/misses in Check#check_type (adds overhead;
-#                       do not trust timing from a stats run)
-#   KIND=1              (with CACHE_STATS=1) collect per-relation-kind statistics
+#   CACHE_STATS=1       collect Steep::Subtyping::Stats and include it in the JSON
+#                       (adds overhead; do not trust timing from a stats run)
+#   KIND=1              (with CACHE_STATS=1) include per-relation-kind statistics
 #                       and the most frequent relations
-#   LOCALITY=1          (with CACHE_STATS=1) split hits into same-file/cross-file
 #   TIME_SHARE=1        measure wall-clock time spent inside top-level check_type
 #                       calls, to see the share of subtyping in type checking
 #   MEM=1               analyze cache memory: entry composition, reachable size,
 #                       and memory freed by clearing the cache
-#   PROTO=collapse,ctxkey,noreflex
-#                       prototype cache changes: store successes without their
-#                       derivation tree / key by context then relation / skip
-#                       caching reflexive relations
-#   CLEAR_PER_FILE=1    clear the cache after each file, to evaluate bounding
-#                       memory by per-file eviction
+#   CLEAR_PER_FILE=1    clear the context-keyed cache table after each file, to
+#                       evaluate bounding memory by per-file eviction
 #   TARGETS=app,test    Steepfile targets to check (default: app)
 #   FILES=n             limit the number of source files (for quick runs)
 #   DIAG_DUMP=path      write all diagnostics to a file, for comparing modes
@@ -55,6 +50,14 @@ when "off"
     def []=(relation, self_type, instance_type, class_type, bounds, value)
       value
     end
+
+    def ground(relation)
+      nil
+    end
+
+    def store_ground(relation, value)
+      value
+    end
   end
   Steep::Subtyping::Cache.prepend(CacheOff)
 when "none"
@@ -80,63 +83,6 @@ when "none"
     end
   end
   Steep::Subtyping::Check.prepend(NoCacheCheckType)
-end
-
-PROTO = (ENV["PROTO"] || "").split(",")
-
-if PROTO.include?("collapse")
-  # Store a plain Success instead of the full derivation tree for successful
-  # results. Derivation trees are only consumed via #failure_path on failures.
-  module CollapseSuccess
-    def []=(relation, self_type, instance_type, class_type, bounds, value)
-      if value.success? && !value.is_a?(Steep::Subtyping::Result::Success)
-        value = Steep::Subtyping::Result::Success.new(relation)
-      end
-      super
-    end
-  end
-  Steep::Subtyping::Cache.prepend(CollapseSuccess)
-end
-
-if PROTO.include?("ctxkey")
-  # Two-level storage: one hash per (self_type, instance_type, class_type, bounds)
-  # context, keyed by relation. Stores the context tuple once per context instead
-  # of once per entry, and hashes only the relation on lookups within a context.
-  module ContextKeyedCache
-    def [](relation, self_type, instance_type, class_type, bounds)
-      context = [self_type, instance_type, class_type, bounds]
-      if inner = subtypes[context]
-        inner[relation]
-      end
-    end
-
-    def []=(relation, self_type, instance_type, class_type, bounds, value)
-      if PROTO.include?("collapse") && value.success? && !value.is_a?(Steep::Subtyping::Result::Success)
-        value = Steep::Subtyping::Result::Success.new(relation)
-      end
-      context = [self_type, instance_type, class_type, bounds]
-      (subtypes[context] ||= {})[relation] = value
-    end
-  end
-  Steep::Subtyping::Cache.prepend(ContextKeyedCache)
-end
-
-if PROTO.include?("noreflex")
-  # Do not cache reflexive relations (T <: T): check_type0 resolves them via
-  # same_type? immediately, so caching them only costs memory and lookups.
-  # Prepended last so it is the outermost layer.
-  module NoReflexiveCache
-    def [](relation, self_type, instance_type, class_type, bounds)
-      return nil if relation.sub_type == relation.super_type
-      super
-    end
-
-    def []=(relation, self_type, instance_type, class_type, bounds, value)
-      return value if relation.sub_type == relation.super_type
-      super
-    end
-  end
-  Steep::Subtyping::Cache.prepend(NoReflexiveCache)
 end
 
 if ENV["TIME_SHARE"] == "1"
@@ -199,95 +145,8 @@ def relation_kind(relation)
 end
 
 if STATS
-  # Mirrors the branch logic at the top of Check#check_type to classify each
-  # call, then delegates to the original implementation.
-  module CacheStatsCounter
-    COUNTS = Hash.new(0)
-    ORIGIN = {}
-    LOCALITY = ENV["LOCALITY"] == "1"
-    KIND = ENV["KIND"] == "1"
-    # kind => [calls, hits, computes, toplevel_computes, toplevel_compute_time]
-    KINDS = Hash.new {|h, k| h[k] = [0, 0, 0, 0, 0.0] }
-    # relation => [calls, hits]
-    REL_COUNTS = Hash.new {|h, k| h[k] = [0, 0] }
-
-    def check_type(relation)
-      counts = COUNTS
-      counts[:calls] += 1
-      outcome = nil
-      reflexive = relation.sub_type == relation.super_type
-      counts[:reflexive_calls] += 1 if reflexive
-
-      begin
-        if assumptions.size > Steep::Subtyping::Check::ABORT_LIMIT
-          counts[:loop_abort] += 1
-        else
-          bounds = cache_bounds(relation)
-          cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
-          if cached
-            fvs = relation.sub_type.free_variables + relation.super_type.free_variables
-            if fvs.none? {|var| var.is_a?(Symbol) && constraints.unknown?(var) }
-              outcome = :hit
-              counts[:hit] += 1
-              counts[:hit_toplevel] += 1 if assumptions.empty?
-              if LOCALITY
-                origin = ORIGIN[[relation, @self_type, @instance_type, @class_type, bounds]]
-                if origin == FILE_IDX[0]
-                  counts[:hit_same_file] += 1
-                else
-                  counts[:hit_cross_file] += 1
-                end
-              end
-            elsif assumptions.member?(relation)
-              counts[:assumption] += 1
-            else
-              outcome = :compute
-              counts[:compute_after_discarded_hit] += 1
-            end
-          elsif assumptions.member?(relation)
-            counts[:assumption] += 1
-          else
-            outcome = :compute
-            counts[:compute_miss] += 1
-            counts[:miss_toplevel] += 1 if assumptions.empty?
-            if LOCALITY
-              ORIGIN[[relation, @self_type, @instance_type, @class_type, bounds]] = FILE_IDX[0]
-            end
-          end
-        end
-      rescue => _
-        counts[:classify_error] += 1
-      end
-
-      counts[:reflexive_hits] += 1 if reflexive && outcome == :hit
-
-      if KIND
-        kind = relation_kind(relation)
-        ks = KINDS[kind]
-        ks[0] += 1
-        ks[1] += 1 if outcome == :hit
-        rc = REL_COUNTS[relation]
-        rc[0] += 1
-        rc[1] += 1 if outcome == :hit
-
-        if outcome == :compute
-          ks[2] += 1
-          if assumptions.empty?
-            ks[3] += 1
-            started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-            begin
-              return super
-            ensure
-              ks[4] += Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-            end
-          end
-        end
-      end
-
-      super
-    end
-  end
-  Steep::Subtyping::Check.prepend(CacheStatsCounter)
+  # Use the collector built into Steep (see Steep::Subtyping::Stats)
+  Steep::Subtyping::Stats.active = Steep::Subtyping::Stats.new()
 end
 
 steepfile = Pathname.pwd + "Steepfile"
@@ -329,6 +188,8 @@ targets.each do |target|
   src_paths = loader.each_path_in_patterns(target.source_pattern).to_a
   src_paths = src_paths.first(FILE_LIMIT) if FILE_LIMIT
 
+  # Clears only the context-keyed table: ground entries stay valid across files,
+  # while context-keyed entries are bound to the file's classes.
   clear_per_file = ENV["CLEAR_PER_FILE"] == "1"
   clear_cache = -> do
     check = service.signature_services.fetch(target.name).current_subtyping
@@ -357,7 +218,7 @@ targets.each do |target|
     sig_time: sig_time.round(2),
     src_files: src_paths.size,
     src_time: src_time.round(2),
-    cache_entries: check && check.cache.subtypes.size,
+    cache_entries: check && (check.cache.subtypes.size + check.cache.ground_subtypes.size),
   }
 end
 
@@ -371,16 +232,15 @@ if ENV["MEM"] == "1"
 
   checks = targets.filter_map {|t| service.signature_services.fetch(t.name).current_subtyping }
 
-  # Flatten entries as [context, relation, value] triples
+  # Flatten entries as [context, relation, value] triples; ground entries have no context
   entries = []
   checks.each do |check|
     check.cache.subtypes.each do |key, val|
-      if PROTO.include?("ctxkey")
-        val.each {|rel, v| entries << [key, rel, v] }
-      else
-        rel, self_type, instance_type, class_type, bounds = key
-        entries << [[self_type, instance_type, class_type, bounds], rel, val]
-      end
+      rel, self_type, instance_type, class_type, bounds = key
+      entries << [[self_type, instance_type, class_type, bounds], rel, val]
+    end
+    check.cache.ground_subtypes.each do |rel, val|
+      entries << [nil, rel, val]
     end
   end
 
@@ -390,10 +250,15 @@ if ENV["MEM"] == "1"
   empty_bounds = 0
   success_values = 0
   reflexive_entries = 0
+  ground_entries = 0
   entries.each do |context, rel, value|
-    contexts[context] += 1
+    if context
+      contexts[context] += 1
+      empty_bounds += 1 if context[3].empty?
+    else
+      ground_entries += 1
+    end
     value_classes[value.class.name.sub("Steep::Subtyping::Result::", "")] += 1
-    empty_bounds += 1 if context[3].empty?
     success_values += 1 if value.success?
     reflexive_entries += 1 if rel.sub_type == rel.super_type
   end
@@ -440,7 +305,7 @@ if ENV["MEM"] == "1"
   reachable_bytes = 0
   reachable_count = 0
   seen = {}
-  stack = checks.map {|c| c.cache.subtypes }
+  stack = checks.map {|c| c.cache.subtypes } + checks.map {|c| c.cache.ground_subtypes }
   while obj = stack.pop
     next if seen[obj.object_id]
     seen[obj.object_id] = true
@@ -464,7 +329,8 @@ if ENV["MEM"] == "1"
   end
 
   mem_summary = {
-    entries_total: contexts.values.sum,
+    entries_total: contexts.values.sum + ground_entries,
+    ground_entries: ground_entries,
     distinct_contexts: contexts.size,
     top_context_entries: contexts.values.max,
     empty_bounds_entries: empty_bounds,
@@ -492,7 +358,10 @@ if ENV["MEM"] == "1"
   live_before = GC.stat(:heap_live_slots)
   memsize_before = ObjectSpace.memsize_of_all
 
-  checks.each {|c| c.cache.subtypes.clear }
+  checks.each do |c|
+    c.cache.subtypes.clear
+    c.cache.ground_subtypes.clear
+  end
   3.times { GC.start }
   rss_after = rss_kb.()
   live_after = GC.stat(:heap_live_slots)
@@ -521,11 +390,21 @@ if dump_path = ENV["DIAG_DUMP"]
 end
 
 if STATS
-  counts = CacheStatsCounter::COUNTS
-  result[:counts] = counts
-  computes = counts[:compute_miss] + counts[:compute_after_discarded_hit]
-  lookups = counts[:hit] + counts[:assumption] + computes
-  result[:hit_rate] = (counts[:hit].to_f / lookups).round(4) if lookups > 0
+  stats = Steep::Subtyping::Stats.active or raise
+  result[:counts] = {
+    calls: stats.calls,
+    reflexive_calls: stats.reflexive_calls,
+    hits: stats.hits,
+    toplevel_hits: stats.toplevel_hits,
+    computes: stats.computes,
+    toplevel_computes: stats.toplevel_computes,
+    shortcuts: stats.shortcuts,
+    context_misses: stats.context_misses,
+    assumption_successes: stats.assumption_successes,
+    toplevel_compute_time: stats.toplevel_compute_time.round(2),
+  }
+  cached_lookups = stats.calls - stats.shortcuts
+  result[:hit_rate] = (stats.hits.to_f / cached_lookups).round(4) if cached_lookups > 0
 end
 
 if ENV["TIME_SHARE"] == "1"
@@ -533,24 +412,25 @@ if ENV["TIME_SHARE"] == "1"
   result[:subtyping_time] = SubtypingTimeShare::STATE[:time].round(2)
 end
 
-if STATS && CacheStatsCounter::KIND
-  result[:kinds] = CacheStatsCounter::KINDS.sort_by {|_, v| -v[0] }.first(30).map do |kind, (calls, hits, computes, tl_computes, tl_time)|
+if STATS && ENV["KIND"] == "1"
+  stats = Steep::Subtyping::Stats.active or raise
+  result[:kinds] = stats.kinds.sort_by {|_, k| -k.calls }.first(30).map do |kind, k|
     {
       kind: kind,
-      calls: calls,
-      hits: hits,
-      hit_rate: (hits.to_f / calls).round(3),
-      computes: computes,
-      tl_computes: tl_computes,
-      tl_compute_time: tl_time.round(3),
+      calls: k.calls,
+      hits: k.hits,
+      hit_rate: (k.hits.to_f / k.calls).round(3),
+      computes: k.computes,
+      tl_computes: k.toplevel_computes,
+      tl_compute_time: k.toplevel_compute_time.round(3),
     }
   end
 
-  result[:top_relations_by_calls] = CacheStatsCounter::REL_COUNTS.sort_by {|_, v| -v[0] }.first(25).map do |rel, (calls, hits)|
-    { relation: rel.to_s, calls: calls, hits: hits }
+  result[:top_relations_by_calls] = stats.relations.sort_by {|_, r| -r.calls }.first(25).map do |rel, r|
+    { relation: rel.to_s, calls: r.calls, hits: r.hits }
   end
 
-  result[:distinct_relations] = CacheStatsCounter::REL_COUNTS.size
+  result[:distinct_relations] = stats.relations.size
 end
 
 puts JSON.pretty_generate(result)

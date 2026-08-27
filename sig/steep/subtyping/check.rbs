@@ -56,6 +56,13 @@ module Steep
 
       def check_type: (Relation[AST::Types::t] relation) -> Result::t
 
+      # Returns the result to store in the cache
+      #
+      # A successful result is stored without its derivation tree, which is only read
+      # through `Result::Base#failure_path` to explain a failure.
+      #
+      def cache_value: (Relation[AST::Types::t] relation, Result::t result) -> Result::t
+
       def cache_bounds: (Relation[AST::Types::t] relation) -> Hash[Symbol, AST::Types::t?]
 
       def alias?: (AST::Types::t `type`) -> bool
