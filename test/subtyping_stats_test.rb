@@ -58,11 +58,11 @@ end
       assert_operator kind.calls, :>, 0
       assert_operator kind.hits, :>, 0
 
-      assert_equal stats.calls, stats.hits + stats.computes + stats.assumption_successes
+      assert_equal stats.calls, stats.hits + stats.computes + stats.assumption_successes + stats.shortcuts
 
       entry_stats = stats.entry_stats
       assert_operator entry_stats[:entries], :>, 0
-      assert_operator entry_stats[:distinct_contexts], :>, 0
+      assert_operator entry_stats[:ground_entries], :>, 0
 
       json = stats.as_json(entry_stats, nil)
       assert_equal stats.calls, json[:calls]
@@ -79,7 +79,7 @@ end
     Stats.active = nil
   end
 
-  def test_stats_context_fragmentation
+  def test_ground_relations_cached_across_contexts
     Stats.active = Stats.new()
 
     with_checker do |checker|
@@ -90,8 +90,8 @@ end
         super_type: parse_type("::Object", checker: checker)
       )
 
-      # The same ground relation in two different contexts: the second check
-      # misses the cache only because of the context in the cache key.
+      # The same ground relation in two different contexts: the context is not part
+      # of the cache key for ground relations, so the second check hits.
       [parse_type("::Foo", checker: checker), parse_type("::Object", checker: checker)].each do |self_type|
         checker.check(
           relation,
@@ -102,10 +102,65 @@ end
         )
       end
 
-      assert_operator stats.context_misses, :>, 0
+      assert_operator stats.hits, :>, 0
+      assert_equal 0, stats.context_misses
+      assert_operator checker.cache.ground_subtypes, :key?, relation
     end
   ensure
     Stats.active = nil
+  end
+
+  def test_trivial_relations_not_cached
+    Stats.active = Stats.new()
+
+    with_checker do |checker|
+      stats = Stats.active or raise
+
+      foo = parse_type("::Foo", checker: checker)
+
+      [
+        Relation.new(sub_type: foo, super_type: foo),
+        Relation.new(sub_type: foo, super_type: parse_type("untyped", checker: checker)),
+        Relation.new(sub_type: foo, super_type: parse_type("void", checker: checker)),
+        Relation.new(sub_type: foo, super_type: parse_type("top", checker: checker)),
+        Relation.new(sub_type: parse_type("bot", checker: checker), super_type: foo),
+      ].each do |relation|
+        result = checker.check(
+          relation,
+          self_type: parse_type("self", checker: checker),
+          instance_type: AST::Types::Instance.new,
+          class_type: AST::Types::Class.new,
+          constraints: Constraints.empty
+        )
+        assert_predicate result, :success?
+      end
+
+      assert_equal 5, stats.shortcuts
+      assert_equal 0, stats.computes
+      assert_predicate checker.cache, :no_subtype_cache?
+    end
+  ensure
+    Stats.active = nil
+  end
+
+  def test_cached_success_has_no_derivation_tree
+    with_checker do |checker|
+      relation = Relation.new(
+        sub_type: parse_type("::Foo", checker: checker),
+        super_type: parse_type("::Object", checker: checker)
+      )
+
+      result = checker.check(
+        relation,
+        self_type: parse_type("self", checker: checker),
+        instance_type: AST::Types::Instance.new,
+        class_type: AST::Types::Class.new,
+        constraints: Constraints.empty
+      )
+
+      assert_predicate result, :success?
+      assert_instance_of Subtyping::Result::Success, checker.cache.ground(relation)
+    end
   end
 
   def test_stats_measure_shape

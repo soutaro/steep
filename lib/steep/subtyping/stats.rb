@@ -26,7 +26,7 @@ module Steep
       attr_reader :kinds, :relations, :caches
       attr_reader :calls, :reflexive_calls, :hits, :toplevel_hits, :reflexive_hits,
                   :computes, :toplevel_computes, :computes_with_unusable_cache,
-                  :assumption_successes, :context_misses
+                  :assumption_successes, :context_misses, :shortcuts
       attr_reader :toplevel_compute_time
       attr_reader :shapes, :shape_calls
       attr_reader :shape_time
@@ -47,6 +47,7 @@ module Steep
         @computes_with_unusable_cache = 0
         @assumption_successes = 0
         @context_misses = 0
+        @shortcuts = 0
         @toplevel_compute_time = 0.0
 
         @shapes = {}
@@ -83,6 +84,11 @@ module Steep
       def assumption(relation)
         count_call(relation, hit: false)
         @assumption_successes += 1
+      end
+
+      def shortcut(relation)
+        count_call(relation, hit: false)
+        @shortcuts += 1
       end
 
       def measure_shape(type)
@@ -187,6 +193,7 @@ module Steep
 
       def entry_stats
         entries = 0
+        ground_entries = 0
         contexts = Set[]
         reflexive = 0
         successes = 0
@@ -199,10 +206,18 @@ module Steep
             reflexive += 1 if relation.sub_type == relation.super_type
             successes += 1 if value.success?
           end
+
+          cache.ground_subtypes.each do |relation, value|
+            entries += 1
+            ground_entries += 1
+            reflexive += 1 if relation.sub_type == relation.super_type
+            successes += 1 if value.success?
+          end
         end
 
         {
           entries: entries,
+          ground_entries: ground_entries,
           distinct_contexts: contexts.size,
           reflexive_entries: reflexive,
           success_values: successes,
@@ -214,7 +229,10 @@ module Steep
 
         2.times { GC.start }
         before = ObjectSpace.memsize_of_all
-        caches.each {|cache| cache.subtypes.clear }
+        caches.each do |cache|
+          cache.subtypes.clear
+          cache.ground_subtypes.clear
+        end
         2.times { GC.start }
         after = ObjectSpace.memsize_of_all
 
@@ -249,9 +267,10 @@ module Steep
         io.puts "  check_type calls: #{calls} (reflexive: #{reflexive_calls}, distinct relations: #{relations.size})"
         io.puts "  cache hits: #{hits} (#{percent(hits, calls)}; top-level: #{toplevel_hits}, reflexive: #{reflexive_hits})"
         io.puts "  computed: #{computes} (top-level: #{toplevel_computes}, taking #{toplevel_compute_time.round(2)}s; cached but unusable: #{computes_with_unusable_cache})"
+        io.puts "  trivial shortcuts (uncached): #{shortcuts}"
         io.puts "  context-fragmented misses: #{context_misses} (#{percent(context_misses, computes)} of computes are ground relations already computed in another context)"
         io.puts "  assumption successes: #{assumption_successes}"
-        io.puts "  cache entries: #{entry_stats[:entries]} (contexts: #{entry_stats[:distinct_contexts]}, reflexive: #{entry_stats[:reflexive_entries]}, successes: #{entry_stats[:success_values]})"
+        io.puts "  cache entries: #{entry_stats[:entries]} (ground: #{entry_stats[:ground_entries]}, contexts: #{entry_stats[:distinct_contexts]}, reflexive: #{entry_stats[:reflexive_entries]}, successes: #{entry_stats[:success_values]})"
         if exclusive_memory
           io.puts "  memory exclusively retained by cache: #{(exclusive_memory / 1024.0 / 1024).round(1)}MB"
         end
@@ -292,6 +311,7 @@ module Steep
           toplevel_compute_time: toplevel_compute_time.round(4),
           computes_with_unusable_cache: computes_with_unusable_cache,
           context_misses: context_misses,
+          shortcuts: shortcuts,
           assumption_successes: assumption_successes,
           cache: entry_stats,
           exclusive_memory_bytes: exclusive_memory,
