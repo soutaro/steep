@@ -1,0 +1,35 @@
+# Generated from test/server/type_check_database_test.rb with RBS::Inline
+
+class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
+  include TestHelper
+
+  include Steep
+
+  class TypeCheckDatabase = Steep::Server::TypeCheckDatabase
+
+  def entry: (untyped name, kind: untyped, role: untyped, at: untyped, ?source: untyped) -> TypeCheckDatabase::Entry
+
+  def diagnostic: (untyped message, ?line: untyped) -> untyped
+
+  def test_diagnostics_of_merges_targets: () -> untyped
+
+  def test_diagnostics_of_unchecked_file: () -> untyped
+
+  def test_diagnostics_of_skipped_type_check: () -> untyped
+
+  def test_each_diagnostics: () -> untyped
+
+  def test_definitions_and_references: () -> untyped
+
+  def test_update_replaces_previous_result: () -> untyped
+
+  def test_remove_releases_everything: () -> untyped
+
+  def test_name_shared_between_files_survives_removal_of_one: () -> untyped
+
+  def test_entries_at_returns_narrowest_first: () -> untyped
+
+  def test_entries_at_deduplicates_targets: () -> untyped
+
+  def test_entry_lsp_range: () -> untyped
+end

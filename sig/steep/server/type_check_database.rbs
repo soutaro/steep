@@ -1,0 +1,189 @@
+module Steep
+  module Server
+    # TypeCheckDatabase stores the results of type checking that the master process keeps
+    #
+    # The typecheck workers report the results of each file through `$/steep/typecheck/progress` notifications,
+    # and the master process saves them in this database, so that it can answer queries without
+    # the workers keeping the `Typing` objects in memory.
+    #
+    # It stores two kinds of data per file and target:
+    #
+    # 1. LSP formatted diagnostics
+    # 2. Definitions and references of methods and constants, with their locations
+    #
+    # ```rb
+    # database = TypeCheckDatabase.new()
+    #
+    # database.update(path: path, target: :app, diagnostics: diagnostics, entries: entries)
+    #
+    # database.diagnostics_of(path)                        # Merged diagnostics of the file
+    # database.definitions(name: "::Foo#bar")              # Definitions of `Foo#bar` in the project
+    # database.references(name: "::Foo")                   # References of `Foo` in the project
+    # database.entries_at(path, line: 1, character: 2)     # Entries that contain the given position
+    # ```
+    #
+    # Updating a `path`/`target` pair replaces the results of the last type checking of the pair.
+    #
+    # The entries are stored in a flat `Array[Integer]` per file/target pair, with names interned
+    # in a `NamePool`, to minimize the memory footprint of the master process.
+    #
+    # The implementation is not thread safe, assuming every call is from the master's event loop.
+    #
+    class TypeCheckDatabase
+      # Definition or reference of a method or constant
+      #
+      # * `name` is the fully qualified name of a constant (`::Foo::Bar`), an instance method (`::Foo#bar`),
+      #   or a singleton method (`::Foo.bar`)
+      # * The location is in LSP convention -- 0-origin lines and characters, end-exclusive
+      #
+      class Entry
+        # Kind of the named entity
+        type kind = :constant | :method
+
+        # Whether the entry defines the name or references it
+        type role = :definition | :reference
+
+        # Whether the entry is in a Ruby code file or an RBS file
+        type source = :ruby | :rbs
+
+        type lsp_range = { start: { line: Integer, character: Integer }, end: { line: Integer, character: Integer } }
+
+        attr_reader name: String
+
+        attr_reader kind: kind
+
+        attr_reader role: role
+
+        attr_reader source: source
+
+        attr_reader start_line: Integer
+
+        attr_reader start_character: Integer
+
+        attr_reader end_line: Integer
+
+        attr_reader end_character: Integer
+
+        def initialize: (name: String, kind: kind, role: role, source: source, start_line: Integer, start_character: Integer, end_line: Integer, end_character: Integer) -> void
+
+        def lsp_range: () -> lsp_range
+      end
+
+      # Interned strings with reference counting
+      #
+      # Each unique string is stored once and identified by an `Integer` id.
+      # `#intern` increments the reference count of the string, and `#release` decrements it,
+      # releasing the string when the count drops to zero.
+      #
+      class NamePool
+        @ids: Hash[String, Integer]
+
+        @names: Hash[Integer, String]
+
+        @counts: Hash[Integer, Integer]
+
+        @next_id: Integer
+
+        def initialize: () -> void
+
+        # Returns the id of the string, incrementing its reference count
+        def intern: (String name) -> Integer
+
+        # Decrements the reference count of the id, releasing the string when it drops to zero
+        def release: (Integer id) -> void
+
+        # Returns the string of the id, or `nil` if the id is not in the pool
+        def []: (Integer id) -> String?
+
+        # Returns the id of the string without changing its reference count, or `nil` if the string is not in the pool
+        def id_of: (String name) -> Integer?
+
+        # Number of the strings in the pool
+        def size: () -> Integer
+      end
+
+      # Diagnostics and packed entries of one file/target pair
+      #
+      # `diagnostics` is `nil` when the file is loaded but the type checking was skipped.
+      #
+      class FileData
+        attr_reader diagnostics: Array[untyped]?
+
+        attr_reader entries: Array[Integer]
+
+        def initialize: (diagnostics: Array[untyped]?, entries: Array[Integer]) -> void
+      end
+
+      KIND_CODES: Hash[Entry::kind, Integer]
+
+      ROLE_CODES: Hash[Entry::role, Integer]
+
+      SOURCE_CODES: Hash[Entry::source, Integer]
+
+      KINDS: Hash[Integer, Entry::kind]
+
+      ROLES: Hash[Integer, Entry::role]
+
+      SOURCES: Hash[Integer, Entry::source]
+
+      # Number of `Integer`s that represent one entry
+      ENTRY_SIZE: Integer
+
+      @files: Hash[Pathname, Hash[Symbol, FileData]]
+
+      # Reference counts of names per path -- `name id => (path => count)`
+      @name_paths: Hash[Integer, Hash[Pathname, Integer]]
+
+      attr_reader pool: NamePool
+
+      def initialize: () -> void
+
+      # Replaces the results of the last type checking of the `path`/`target` pair
+      def update: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]) -> void
+
+      # Deletes everything stored for the `path`
+      def remove: (Pathname path) -> void
+
+      # Returns `true` if any result of the `path` is stored
+      def checked?: (Pathname path) -> bool
+
+      # Returns the diagnostics of the file, merged over the targets
+      #
+      # Returns `nil` when no diagnostics of the file is stored -- because the file is not
+      # type checked yet, or the type checking was skipped.
+      #
+      def diagnostics_of: (Pathname path) -> Array[untyped]?
+
+      # Yields each path with stored diagnostics
+      def each_diagnostics: () { ([Pathname, Array[untyped]]) -> void } -> void
+                          | () -> Enumerator[[Pathname, Array[untyped]], void]
+
+      # Returns the definitions of the name in the project
+      def definitions: (name: String, ?kind: Entry::kind?) -> Array[[Pathname, Entry]]
+
+      # Returns the references of the name in the project
+      def references: (name: String, ?kind: Entry::kind?) -> Array[[Pathname, Entry]]
+
+      # Returns the entries that contain the given position in the file, narrowest first
+      #
+      # The position is in LSP convention -- 0-origin line and character.
+      #
+      def entries_at: (Pathname path, line: Integer, character: Integer) -> Array[Entry]
+
+      # Number of entries stored in the database
+      def entry_count: () -> Integer
+
+      private
+
+      def matching_entries: (name: String, role: Entry::role, kind: Entry::kind?) -> Array[[Pathname, Entry]]
+
+      def unpack_entry: (Array[Integer] array, Integer index) -> Entry
+
+      def release_entries: (Pathname path, Array[Integer] array) -> void
+
+      def track_name: (Integer id, Pathname path) -> void
+
+      def untrack_name: (Integer id, Pathname path) -> void
+    end
+  end
+end
