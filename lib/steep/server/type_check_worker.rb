@@ -69,7 +69,7 @@ module Steep
         @io_socket = io_socket
         @service = service if service
         @child_pids = []
-        @need_to_warmup = defined?(Process.warmup)
+        @need_to_warmup = true
 
         if io_socket
           Signal.trap "SIGCHLD" do
