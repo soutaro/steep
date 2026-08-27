@@ -21,7 +21,7 @@ jobs:
           - build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}
@@ -41,7 +41,7 @@ jobs:
   type_check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: "4.0"
@@ -60,7 +60,7 @@ jobs:
   diagnostics:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: "4.0"
@@ -80,7 +80,7 @@ jobs:
   test_rbs_check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: "4.0"
