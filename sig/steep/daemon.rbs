@@ -17,7 +17,9 @@ module Steep
 
     def self.log_path: () -> String
 
+    # Returns true when something is serving the socket, whether it is a daemon or a language server
     def self.running?: () -> bool
+
 
     def self.starting?: () -> bool
 
@@ -30,6 +32,9 @@ module Steep
     def self.status: (stderr: IO) -> void
 
     private
+
+    # The pid recorded in `path`, when the file exists and that process is alive
+    def self.live_pid: (String path) -> Integer?
 
     def self.run_server: (stderr: IO) -> void
 

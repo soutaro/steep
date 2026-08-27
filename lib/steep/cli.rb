@@ -355,6 +355,9 @@ Options:
 BANNER
           handle_steepfile_option(opts, command)
           opts.on("--refork") { command.refork = true }
+          opts.on("--[no-]command-socket", "Accept `steep query`/`steep check` connections on a UNIX socket (default: true)") do |v|
+            command.command_socket = v ? true : false
+          end
           handle_jobs_option command.jobs_option, opts
           handle_logging_options opts
         end.parse!(argv)
@@ -723,8 +726,9 @@ Usage: steep query diagnostics [options] [FILE ...]
 
 Description:
     Get the type check diagnostics the server has computed.
-    Connects to the running Steep server, waits for the type checking to finish, and
-    prints the diagnostics as JSONL (one JSON object per line for each file).
+    Connects to the running Steep server, reloads files changed on disk, waits for the
+    type checking to finish, and prints the diagnostics as JSONL (one JSON object per
+    line for each file).
 
     When FILEs are given, only the diagnostics of those files are printed.
     `"diagnostics": null` means the server has not type checked the file yet.

@@ -186,6 +186,9 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
+      # Type check requests waiting for the current type check to finish
+      attr_reader :pending_typecheck_requests
+
       # Callbacks to be called when no type check is running anymore
       attr_reader :typecheck_quiescent_callbacks
 
@@ -203,6 +206,10 @@ module Steep
         @refork_mutex = Mutex.new
         @need_to_refork = refork
         @typecheck_quiescent_callbacks = []
+        @pending_typecheck_requests = []
+        @project_file_mtimes = nil
+        @command_socket_requests = {}
+        @command_socket_mutex = Mutex.new
 
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
@@ -249,7 +256,7 @@ module Steep
                 case job.dest
                 when :client
                   Steep.logger.info { "Processing SendMessageJob: dest=client, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
-                  writer.write job.message
+                  write_message_to_client(job.message)
                 when WorkerProcess
                   refork_mutex.synchronize do
                     Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
@@ -424,6 +431,8 @@ module Steep
                 progress.end()
               end
 
+              reset_project_file_mtimes()
+
               if file_system_watcher_supported?
                 setup_file_system_watcher()
               end
@@ -449,6 +458,7 @@ module Steep
 
             unless controller.open_paths.include?(path)
               updated_watched_files << path
+              record_project_file_mtime(path)
 
               case type
               when LSP::Constant::FileChangeType::CREATED, LSP::Constant::FileChangeType::CHANGED
@@ -688,7 +698,7 @@ module Steep
             request.inline_paths << [target_name.to_sym, Pathname(path)]
           end
 
-          start_type_check(request: request, last_request: nil)
+          start_type_check(request: request, last_request: current_type_check_request)
 
         when CustomMethods::TypeCheckGroups::METHOD
           params = message[:params] #: CustomMethods::TypeCheckGroups::params
@@ -818,6 +828,17 @@ module Steep
 
       def start_type_check(request: nil, last_request:, progress: nil, include_unchanged: false, report_progress_threshold: 10, needs_response: nil)
         Steep.logger.tagged "#start_type_check(#{progress&.guid || request&.guid}, #{last_request&.guid}" do
+          if (current = current_type_check_request) && typecheck_request_from_command_socket?(current)
+            # Never supersede a type check that a command socket client is waiting for
+            if request
+              Steep.logger.info { "Queueing type check request #{request.guid} until the command socket request finishes" }
+              pending_typecheck_requests << request
+            else
+              Steep.logger.info { "Deferring automatic type checking until the command socket request finishes" }
+            end
+            return
+          end
+
           if last_request
             finish_type_check(last_request)
           end
@@ -897,7 +918,7 @@ module Steep
               finish_type_check(current)
               @current_type_check_request = nil
               refork_workers
-              flush_typecheck_quiescent_callbacks()
+              start_pending_typecheck()
             end
           end
         end
@@ -1059,11 +1080,33 @@ module Steep
           end
         end
 
-        if current_type_check_request
+        if current_type_check_request || !pending_typecheck_requests.empty?
           typecheck_quiescent_callbacks << block
         else
           yield
         end
+      end
+
+      # Starts the next queued type check request if any, or the automatic type check for dirty paths
+      #
+      # Calls the quiescent callbacks when nothing is left to type check.
+      #
+      def start_pending_typecheck
+        while request = pending_typecheck_requests.shift
+          start_type_check(request: request, last_request: nil)
+          return if current_type_check_request
+        end
+
+        if typecheck_automatically && initialize_params
+          guid = SecureRandom.uuid
+          if request = controller.make_request(guid: guid, progress: work_done_progress(guid))
+            request.needs_response = false
+            start_type_check(request: request, last_request: nil)
+            return if current_type_check_request
+          end
+        end
+
+        flush_typecheck_quiescent_callbacks()
       end
 
       # Calls the waiting quiescent callbacks, once a type check for the paths that went dirty
@@ -1124,6 +1167,236 @@ module Steep
 
             enqueue_write_job SendMessageJob.to_client(
               message: CustomMethods::Query__Diagnostics.response(id, result)
+            )
+          end
+        end
+      end
+
+      # Methods that command socket clients cannot send because they control the server lifecycle
+      # The only methods a command socket client may send: what `steep check` and
+      # `steep query` use. Everything else is rejected -- lifecycle methods because the
+      # server belongs to whoever started it, and document synchronization because the
+      # LSP client owns the content of the files it opens.
+      COMMAND_SOCKET_ALLOWED_METHODS = [
+        CustomMethods::TypeCheck::METHOD,
+        CustomMethods::Query__Diagnostics::METHOD,
+        CustomMethods::Query__Definition::METHOD,
+        "textDocument/hover",
+        "$/ping"
+      ].freeze
+
+      # Notifications that are copied to command socket sessions with a pending `$/steep/typecheck` request
+      COMMAND_SOCKET_FORWARDED_NOTIFICATIONS = ["textDocument/publishDiagnostics", "window/showMessage"].freeze
+
+      # Processes a message received from a command socket client
+      #
+      # Requests are assigned a fresh id and enqueued as if they came from the LSP client,
+      # and the responses are routed back to the session through `#write_message_to_client`.
+      #
+      # May be called from any thread.
+      #
+      def process_command_socket_message(message, session)
+        method = message[:method]
+        id = message[:id]
+
+        if method && !COMMAND_SOCKET_ALLOWED_METHODS.include?(method.to_s)
+          Steep.logger.warn { "Command socket: rejected `#{method}`" }
+          if id
+            session.write({
+              id: id,
+              error: {
+                code: LSP::Constant::ErrorCodes::INVALID_REQUEST,
+                message: "`#{method}` is not allowed through the command socket"
+              }
+            })
+          end
+          return
+        end
+
+        unless initialize_params
+          if id
+            session.write({
+              id: id,
+              error: {
+                code: LSP::Constant::ErrorCodes::SERVER_NOT_INITIALIZED,
+                message: "The language server is not initialized yet"
+              }
+            })
+          end
+          return
+        end
+
+        case
+        when method && id
+          guid = SecureRandom.uuid
+          @command_socket_mutex.synchronize do
+            @command_socket_requests[guid] = [session, id, method.to_s == CustomMethods::TypeCheck::METHOD]
+          end
+          message = message.merge({ id: guid })
+        when id
+          # A response from the client, but nothing is waiting for it
+          return
+        end
+
+        # Reload files changed on disk before processing, because command socket clients
+        # modify files without sending `didChange` notifications
+        job_queue << -> do
+          sync_project_files_from_disk()
+          process_message_from_client(message)
+        end
+      rescue ClosedQueueError
+        Steep.logger.warn { "Command socket: server is shutting down" }
+      end
+
+      # Deregisters the pending requests of a disconnected command socket session
+      def finish_command_socket_session(session)
+        @command_socket_mutex.synchronize do
+          @command_socket_requests.delete_if {|_, entry| entry[0] == session }
+        end
+      end
+
+      def write_message_to_client(message)
+        unless message.key?(:method)
+          entry = @command_socket_mutex.synchronize { @command_socket_requests.delete(message[:id]) }
+          if entry
+            session, original_id, _ = entry
+            session.write(message.merge({ id: original_id }))
+            return
+          end
+        end
+
+        writer.write(message)
+
+        if message.key?(:method) && !message.key?(:id)
+          forward_notification_to_command_sessions(message)
+        end
+      end
+
+      def forward_notification_to_command_sessions(message)
+        return unless COMMAND_SOCKET_FORWARDED_NOTIFICATIONS.include?(message[:method].to_s)
+
+        sessions = @command_socket_mutex.synchronize do
+          @command_socket_requests.each_value.with_object([]) do |entry, array|
+            session, _, typecheck = entry
+            array << session if typecheck
+          end
+        end
+
+        sessions.uniq!
+        sessions.each {|session| session.write(message) }
+      end
+
+      def typecheck_request_from_command_socket?(request)
+        @command_socket_mutex.synchronize do
+          @command_socket_requests.key?(request.guid)
+        end
+      end
+
+      # Records the mtimes of all project files, as the baseline of `#sync_project_files_from_disk`
+      def reset_project_file_mtimes
+        mtimes = {} #: Hash[Pathname, Time?]
+        each_project_file_path do |path|
+          mtimes[path] = file_mtime(path)
+        end
+        @project_file_mtimes = mtimes
+      end
+
+      def record_project_file_mtime(path)
+        if mtimes = @project_file_mtimes
+          mtimes[path] = file_mtime(path)
+        end
+      end
+
+      def file_mtime(path)
+        File.mtime(path)
+      rescue SystemCallError
+        nil
+      end
+
+      def each_project_file_path(&block)
+        loader = Services::FileLoader.new(base_dir: project.base_dir)
+        project.targets.each do |target|
+          loader.each_path_in_target(target) do |relative_path|
+            yield project.absolute_path(relative_path)
+          end
+        end
+      end
+
+      # Detects files changed on disk since the last load/sync, and reloads them
+      #
+      # Skips files open in the editor because the client owns their contents.
+      # Does nothing until the initial project load finishes.
+      #
+      def sync_project_files_from_disk
+        mtimes = @project_file_mtimes or return
+
+        changes = {} #: Hash[Pathname, Symbol]
+        seen = Set[] #: Set[Pathname]
+
+        each_project_file_path do |path|
+          next if seen.include?(path)
+          seen << path
+
+          mtime = file_mtime(path)
+          recorded = mtimes[path]
+
+          case
+          when recorded.nil? && mtime
+            changes[path] = mtimes.key?(path) ? :changed : :created
+          when recorded && mtime.nil?
+            changes[path] = :deleted
+          when recorded != mtime
+            changes[path] = :changed
+          end
+
+          mtimes[path] = mtime
+        end
+
+        deleted_paths = mtimes.keys.select {|path| !seen.include?(path) && mtimes[path] && file_mtime(path).nil? }
+        deleted_paths.each do |path|
+          changes[path] = :deleted
+          mtimes[path] = nil
+        end
+
+        changes.delete_if {|path, _| controller.open_paths.include?(path) }
+        return if changes.empty?
+
+        Steep.logger.info { "Command socket: reloading #{changes.size} file(s) changed on disk" }
+
+        changes.each do |path, type|
+          content =
+            if type == :deleted
+              ""
+            else
+              begin
+                path.read
+              rescue SystemCallError
+                next
+              end
+            end
+
+          case
+          when controller.code_path?(path)
+            controller.add_dirty_code_path(path)
+          when controller.signature_path?(path)
+            controller.add_dirty_signature_path(path)
+          when controller.inline_path?(path)
+            controller.add_dirty_inline_path(path, content)
+          end
+
+          broadcast_notification(CustomMethods::FileReset.notification({ uri: PathHelper.to_uri(path).to_s, content: content }))
+        end
+
+        if typecheck_automatically
+          start_type_checking_queue.execute do
+            job_queue.push(
+              -> do
+                start_type_check(
+                  last_request: current_type_check_request,
+                  progress: work_done_progress(SecureRandom.uuid),
+                  needs_response: false
+                )
+              end
             )
           end
         end

@@ -1,0 +1,56 @@
+# Generated from test/command_socket_test.rb with RBS::Inline
+
+class CommandSocketTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  def dirs: () -> untyped
+
+  def langserver_command: (untyped steepfile) -> untyped
+
+  # Where the language server's stderr goes, to be dumped when something goes wrong
+  def langserver_log: () -> untyped
+
+  # Prints the language server log once, so that a failure of the subprocess is diagnosable
+  # from the test output
+  #
+  # `force:` prints it again -- the teardown uses it to show the lines the server wrote
+  # after the first dump, like the shutdown handshake or a kill.
+  def dump_langserver_log: (?force: untyped) -> untyped
+
+  def socket_path: () -> untyped
+
+  def prepare_project: () -> untyped
+
+  def start_langserver: (untyped command) -> untyped
+
+  def request_via_socket: (untyped message) -> untyped
+
+  # Writes the file and bumps its mtime so that the server detects the change reliably
+  def write_file: (untyped path, untyped content) -> untyped
+
+  def wait_for_socket: () -> untyped
+
+  def daemon_pid_path: () -> untyped
+
+  # `Steep::Daemon` memoizes its configuration from `Dir.pwd`, which the tests do not change
+  def with_daemon_config: (untyped base_dir) -> untyped
+
+  def test_langserver_serves_requests_through_command_socket: () -> untyped
+
+  def test_query_diagnostics_syncs_files_changed_on_disk: () -> untyped
+
+  # Document synchronization belongs to the LSP client. A `didOpen` through the socket
+  # must not make the server treat the file as open, or the disk syncing would skip the
+  # file forever.
+  def test_command_socket_ignores_document_synchronization: () -> untyped
+
+  def test_typecheck_requests_are_serialized: () -> untyped
+
+  # `steep server stop` signals the pid recorded in the daemon's pid file, so a language server
+  # serving the same socket must not write one.
+  def test_langserver_writes_no_pid_file: () -> untyped
+
+  def test_langserver_with_no_command_socket_option: () -> untyped
+end
