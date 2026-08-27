@@ -64,7 +64,11 @@ module Steep
 
       attr_reader assumption_successes: Integer
 
+      attr_reader context_misses: Integer
+
       attr_reader toplevel_compute_time: Float
+
+      @ground_relations: Set[Relation[untyped]]
 
       self.@active: Stats?
 
@@ -82,7 +86,10 @@ module Steep
 
       def assumption: (Relation[untyped] relation) -> void
 
-      def compute: (Relation[untyped] relation, cached: bool, toplevel: bool) -> void
+      # `ground` is whether the relation has no free variables, including the
+      # `self`/`instance`/`class` placeholder types. Computing a ground relation
+      # that was already computed before is a miss caused by context keying.
+      def compute: (Relation[untyped] relation, cached: bool, toplevel: bool, ground: bool) -> void
 
       def compute_time: (Relation[untyped] relation, Float time) -> void
 

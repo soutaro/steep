@@ -40,13 +40,14 @@ module Steep
       attr_reader :kinds, :relations, :caches
       attr_reader :calls, :reflexive_calls, :hits, :toplevel_hits, :reflexive_hits,
                   :computes, :toplevel_computes, :computes_with_unusable_cache,
-                  :assumption_successes
+                  :assumption_successes, :context_misses
       attr_reader :toplevel_compute_time
 
       def initialize
         @kinds = {}
         @relations = {}
         @caches = []
+        @ground_relations = Set[]
 
         @calls = 0
         @reflexive_calls = 0
@@ -57,6 +58,7 @@ module Steep
         @toplevel_computes = 0
         @computes_with_unusable_cache = 0
         @assumption_successes = 0
+        @context_misses = 0
         @toplevel_compute_time = 0.0
       end
 
@@ -92,11 +94,24 @@ module Steep
         @assumption_successes += 1
       end
 
-      def compute(relation, cached:, toplevel:)
+      # `ground` is whether the relation has no free variables, including the
+      # `self`/`instance`/`class` placeholder types: the result of such a relation
+      # does not depend on the (self_type, instance_type, class_type, bounds)
+      # context in the cache key. Computing a ground relation that was already
+      # computed before is a miss caused by context keying.
+      def compute(relation, cached:, toplevel:, ground:)
         count_call(relation, hit: false)
         @computes += 1
         @toplevel_computes += 1 if toplevel
         @computes_with_unusable_cache += 1 if cached
+
+        if ground
+          if @ground_relations.include?(relation)
+            @context_misses += 1
+          else
+            @ground_relations << relation
+          end
+        end
 
         kind = kind_stats(relation)
         kind.computes += 1
@@ -227,6 +242,7 @@ module Steep
         io.puts "  check_type calls: #{calls} (reflexive: #{reflexive_calls}, distinct relations: #{relations.size})"
         io.puts "  cache hits: #{hits} (#{percent(hits, calls)}; top-level: #{toplevel_hits}, reflexive: #{reflexive_hits})"
         io.puts "  computed: #{computes} (top-level: #{toplevel_computes}, taking #{toplevel_compute_time.round(2)}s; cached but unusable: #{computes_with_unusable_cache})"
+        io.puts "  context-fragmented misses: #{context_misses} (#{percent(context_misses, computes)} of computes are ground relations already computed in another context)"
         io.puts "  assumption successes: #{assumption_successes}"
         io.puts "  cache entries: #{entry_stats[:entries]} (contexts: #{entry_stats[:distinct_contexts]}, reflexive: #{entry_stats[:reflexive_entries]}, successes: #{entry_stats[:success_values]})"
         if exclusive_memory
@@ -254,6 +270,7 @@ module Steep
           toplevel_computes: toplevel_computes,
           toplevel_compute_time: toplevel_compute_time.round(4),
           computes_with_unusable_cache: computes_with_unusable_cache,
+          context_misses: context_misses,
           assumption_successes: assumption_successes,
           cache: entry_stats,
           exclusive_memory_bytes: exclusive_memory,

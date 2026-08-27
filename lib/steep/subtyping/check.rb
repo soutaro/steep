@@ -204,7 +204,7 @@ module Steep
               success(relation)
             else
               toplevel = assumptions.empty?
-              stats&.compute(relation, cached: cached ? true : false, toplevel: toplevel)
+              stats&.compute(relation, cached: cached ? true : false, toplevel: toplevel, ground: fvs.empty?)
               started = stats && toplevel ? Process.clock_gettime(Process::CLOCK_MONOTONIC) : nil
               push_assumption(relation) do
                 check_type0(relation).tap do |result|
