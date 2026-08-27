@@ -167,18 +167,20 @@ Notes for interpreting the numbers:
 Example output (per worker):
 
 ```
-[steep 2.1.0] subtyping cache stats (pid 1692)
-  check_type calls: 129629 (reflexive: 34334, distinct relations: 20149)
-  cache hits: 84081 (64.9%; top-level: 58179, reflexive: 28960)
-  computed: 45548 (top-level: 15883, taking 4.94s; cached but unusable: 220)
-  context-fragmented misses: 25136 (55.2% of computes are ground relations already computed in another context)
+[steep 2.1.0] subtyping cache stats (pid 8406)
+  check_type calls: 73837 (reflexive: 19875, distinct relations: 14420)
+  cache hits: 32525 (44.0%; top-level: 15326, reflexive: 0)
+  computed: 14864 (top-level: 5994, taking 2.18s; cached but unusable: 235)
+  trivial shortcuts (uncached): 26448
+  context-fragmented misses: 2319 (15.6% of computes are ground relations already computed in another context)
   assumption successes: 0
-  cache entries: 45328 (contexts: 697, reflexive: 5373, successes: 19471)
+  cache entries: 14629 (ground: 13242, contexts: 100, reflexive: 0, successes: 6006)
   top kinds by calls:
-    Instance <: Instance                        64272 calls  62.5% hit    24117 computes     0.89s top-level compute
-    Literal <: Literal                          12218 calls  87.6% hit     1518 computes     0.04s top-level compute
+    Instance <: Instance                        37015 calls  61.0% hit     6793 computes     0.30s top-level compute
     ...
 ```
+
+The remaining `context-fragmented misses` after Phase 1 come from the second `Subtyping::Check` instance `Interface::Builder` creates for shape building — the counter treats a relation computed in either cache as "already computed".
 
 ## Reproducing
 
