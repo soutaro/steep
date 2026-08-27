@@ -56,6 +56,21 @@ module Steep
                     handle_job(job)
                   rescue => exn
                     Steep.log_error exn
+
+                    # Jobs that carry an `id` answer a request. Reply with an error response, or the
+                    # client would wait for a response that never arrives.
+                    if job.respond_to?(:id) && (id = job.id)
+                      writer.write(
+                        {
+                          id: id,
+                          error: {
+                            code: LSP::Constant::ErrorCodes::INTERNAL_ERROR,
+                            message: "Unexpected error: #{exn.message} (#{exn.class})"
+                          }
+                        }
+                      )
+                    end
+
                     writer.write(
                       {
                         method: "window/showMessage",
