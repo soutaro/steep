@@ -29,6 +29,10 @@ module Steep
 
       UNTYPED: AST::Types::Any
 
+      # The fixnum range of 32 bit platforms, the conservative bound for integers
+      # that are guaranteed to be interned on any platform
+      FIXNUM_RANGE: Range[Integer]
+
       attr_reader subtyping: Subtyping::Check
 
       attr_reader typing: Typing
@@ -98,7 +102,12 @@ module Steep
       # end
       # ```
       #
-      def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type, ?for_receiver: bool) -> [Array[AST::Types::t], Array[AST::Types::t]]?
+      def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type, ?for_receiver: bool, ?identity: bool) -> [Array[AST::Types::t], Array[AST::Types::t]]?
+
+      # Whether the literal node denotes a value for which Ruby guarantees that
+      # value equality implies object identity: Symbols, fixnum Integers, `true`,
+      # `false`, and `nil` are interned; Strings and non-fixnum Integers are not.
+      def interned_literal?: (Parser::AST::Node value_node) -> bool
 
       def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t?, AST::Types::t?]
 

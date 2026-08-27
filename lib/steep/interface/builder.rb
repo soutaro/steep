@@ -829,21 +829,30 @@ module Steep
                 )
               )
             end
-          when :==
+          when :==, :eql?, :equal?
             case defined_in
             when RBS::BuiltinNames::BasicObject.name,
               RBS::BuiltinNames::Object.name,
               RBS::BuiltinNames::Kernel.name,
+              RBS::BuiltinNames::Numeric.name,
               RBS::BuiltinNames::String.name,
               RBS::BuiltinNames::Integer.name,
               RBS::BuiltinNames::Symbol.name,
               RBS::BuiltinNames::TrueClass.name,
               RBS::BuiltinNames::FalseClass.name,
               RBS::TypeName.parse("::NilClass")
-              # For ==, we use ReceiverIsArg to narrow the receiver based on the argument
+              # For ==, eql?, and equal?, we narrow the receiver based on the argument.
+              # `equal?` is identity comparison, so a falsy result doesn't rule out value
+              # equality, and the else branch is narrowed more conservatively.
+              logic_type =
+                if method_name.method_name == :equal?
+                  AST::Types::Logic::ReceiverIdenticalToArg.instance()
+                else
+                  AST::Types::Logic::ReceiverIsArg.instance()
+                end
               return method_type.with(
                 type: method_type.type.with(
-                  return_type: AST::Types::Logic::ReceiverIsArg.instance()
+                  return_type: logic_type
                 )
               )
             end

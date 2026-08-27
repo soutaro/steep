@@ -44,6 +44,13 @@ module Steep
         class ReceiverIsArg < Base
         end
 
+        # Same as `ReceiverIsArg`, but for identity comparison (`equal?`): a
+        # falsy result doesn't imply the receiver is not the argument value,
+        # because equal values may be distinct objects (String, non-fixnum
+        # Integer literals).
+        class ReceiverIdenticalToArg < Base
+        end
+
         class ArgIsReceiver < Base
         end
 
