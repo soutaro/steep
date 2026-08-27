@@ -64,7 +64,7 @@ module Steep
 
       private
 
-      def fetch_cache: [KEY] (Hash[KEY, Shape?], KEY) { () -> Shape? } -> Shape?
+      def fetch_cache: [KEY < ::Hash::_Key] (Hash[KEY, Shape?], KEY) { () -> Shape? } -> Shape?
 
       # Returns a shape of given type with respect to Config
       #

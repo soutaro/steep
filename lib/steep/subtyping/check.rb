@@ -644,6 +644,9 @@ module Steep
 
         All(relation) do |result|
           sub_args.zip(sup_args, sup_params.each).each do |sub_arg, sup_arg, sup_param|
+            sup_arg or raise
+            sup_param or raise
+
             case sup_param.variance
             when :covariant
               result.add(Relation.new(sub_type: sub_arg, super_type: sup_arg)) do |rel|
