@@ -72,6 +72,14 @@ Observations:
 
 Most frequent individual relations: `::Symbol <: ::Symbol` (1,931 calls), `::String <: ::String` (1,920), `::Integer <: ::Integer` (1,356), `(::Symbol | ::string) <: ::interned` (1,075), `::Parser::AST::Node <: ::Parser::AST::Node` (1,005), symbol-literal reflexive checks (`:type <: :type`, …), and `::Object <: ::Steep::AST::Types::*` from case analysis in Steep's own code — i.e., mostly reflexive or near-trivial checks, plus repeated alias expansions.
 
+## Context keying fragments the cache
+
+The cache key includes the `(self_type, instance_type, class_type, bounds)` context, which changes with the class being type checked — so every cached result becomes unreachable as soon as checking moves to a class with a different `self`. That context only affects the result when the relation's types contain the `self`/`instance`/`class` placeholder types or type variables; for *ground* relations (no free variables — `Check#cacheable?` is exactly this predicate, currently unused) the result is context-independent, yet they are cached per context.
+
+Measured on Steep itself (`steep check -j2`): **55–70% of all computes per worker are ground relations that were already computed under another context** (the `context-fragmented misses` line in the stats report). The effect grows with the number of classes in the project, because more classes means more distinct contexts — a Rails-scale codebase fragments harder than Steep does. It also duplicates entries: the app-target run stores 80,286 entries for 25,303 distinct relations, roughly 3 copies per relation.
+
+The fix is to key ground relations by the relation alone (one flat `relation → result` table, no context), keeping the context key only for relations with free variables. This would convert the majority of misses into hits on both time and memory: fewer computes, and one entry per ground relation instead of one per context.
+
 ## Memory usage (`app` target, `MEM=1`)
 
 Composition of the 80,286 entries:
@@ -99,6 +107,8 @@ Composition of the 80,286 entries:
 4. **For the long-lived LSP process: evict per file** (`CLEAR_PER_FILE=1`): 79% of hits (89,184 / 112,296) are produced and consumed while checking the same file; clearing the whole cache after every file costs ≈0–6% time on this codebase while bounding cache memory by a single file's working set instead of growing monotonically with every file checked in the session. (In `steep check` the cache dies with the process; in `steep langserver` it lives until the next signature reload, so this matters most there.)
 
 1–3 combined change no diagnostics (1007, byte-identical) and are, if anything, slightly faster than the current cache.
+
+5. **Cache ground relations without the context key** (not prototyped yet; see "Context keying fragments the cache" above): the largest available win for the hit rate — on Steep itself 55–70% of computes are context-fragmented misses of ground relations — and it also removes the ~3x entry duplication across contexts, which compounds with 1–3.
 
 ## Cache changes results (known bug)
 
@@ -145,6 +155,7 @@ Example output (per worker):
   check_type calls: 129629 (reflexive: 34334, distinct relations: 20149)
   cache hits: 84081 (64.9%; top-level: 58179, reflexive: 28960)
   computed: 45548 (top-level: 15883, taking 4.94s; cached but unusable: 220)
+  context-fragmented misses: 25136 (55.2% of computes are ground relations already computed in another context)
   assumption successes: 0
   cache entries: 45328 (contexts: 697, reflexive: 5373, successes: 19471)
   top kinds by calls:

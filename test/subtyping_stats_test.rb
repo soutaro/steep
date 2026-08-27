@@ -78,6 +78,35 @@ end
     Stats.active = nil
   end
 
+  def test_stats_context_fragmentation
+    Stats.active = Stats.new()
+
+    with_checker do |checker|
+      stats = Stats.active or raise
+
+      relation = Relation.new(
+        sub_type: parse_type("::Foo", checker: checker),
+        super_type: parse_type("::Object", checker: checker)
+      )
+
+      # The same ground relation in two different contexts: the second check
+      # misses the cache only because of the context in the cache key.
+      [parse_type("::Foo", checker: checker), parse_type("::Object", checker: checker)].each do |self_type|
+        checker.check(
+          relation,
+          self_type: self_type,
+          instance_type: AST::Types::Instance.new,
+          class_type: AST::Types::Class.new,
+          constraints: Constraints.empty
+        )
+      end
+
+      assert_operator stats.context_misses, :>, 0
+    end
+  ensure
+    Stats.active = nil
+  end
+
   def test_stats_inactive_by_default
     Stats.active = nil
 
