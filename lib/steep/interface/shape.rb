@@ -8,18 +8,18 @@ module Steep
 
         def initialize(method_type, defs)
           @method_type = method_type
-          @method_defs = defs.sort_by do |defn|
-            buf = +""
-
-            if loc = defn.type.location
-              buf << loc.buffer.name.to_s
-              buf << ":"
-              buf << loc.start_pos.to_s
+          if defs.size > 1
+            @method_defs = defs.sort_by do |defn|
+              if loc = defn.type.location
+                [loc.buffer.name.to_s, loc.start_pos]
+              else
+                ["", -1]
+              end
             end
-
-            buf
+            @method_defs.uniq!
+          else
+            @method_defs = defs.dup
           end
-          @method_defs.uniq!
         end
 
         def subst(s)
