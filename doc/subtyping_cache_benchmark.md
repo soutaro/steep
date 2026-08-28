@@ -204,4 +204,8 @@ CLEAR_PER_FILE=1 bundle exec ruby bin/subtyping_cache_bench.rb
 
 # subtyping share of type checking
 TIME_SHARE=1 bundle exec ruby bin/subtyping_cache_bench.rb
+
+# boot cost of pre-building all shapes (zygote sizing); works on any project:
+#   bundle exec ruby "$(bundle info steep --path)/bin/shape_warmup_bench.rb"
+bundle exec ruby bin/shape_warmup_bench.rb
 ```
