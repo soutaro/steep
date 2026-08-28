@@ -73,6 +73,15 @@ module Steep
 
       attr_reader toplevel_compute_time: Float
 
+      # shape target type => [calls, time] of Interface::Builder#shape
+      attr_reader shapes: Hash[AST::Types::t, [Integer, Float]]
+
+      attr_reader shape_calls: Integer
+
+      attr_reader shape_time: Float
+
+      @shape_depth: Integer
+
       @ground_relations: Set[Relation[untyped]]
 
       self.@active: Stats?
@@ -93,6 +102,10 @@ module Steep
 
       # A trivially successful relation resolved in check_type without consulting the cache
       def shortcut: (Relation[untyped] relation) -> void
+
+      # Measures Interface::Builder#shape: total wall-clock time of outermost
+      # calls, and the time per shape target.
+      def measure_shape: [A] (AST::Types::t `type`) { () -> A } -> A
 
       # `ground` is whether the relation has no free variables, including the
       # `self`/`instance`/`class` placeholder types. Computing a ground relation

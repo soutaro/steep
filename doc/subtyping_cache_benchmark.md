@@ -147,11 +147,11 @@ Then:
 STEEP_SUBTYPING_STATS=1 bundle exec steep check
 
 # Additionally append one JSON object per worker process to a file.
-# NOTE: the JSON includes the most frequent relations (top_relations) and the
+# NOTE: the JSON includes the most frequent relations (top_relations), the
 # relations with the highest top-level compute time
-# (top_relations_by_compute_time) as strings (`::Foo::Bar <: ::Baz`), i.e.
-# type names from your codebase. Keep it local, or strip those keys before
-# sharing.
+# (top_relations_by_compute_time), and the most expensive shape targets
+# (top_shapes_by_time) as strings, i.e. type names from your codebase. Keep it
+# local, or strip those keys before sharing.
 STEEP_SUBTYPING_STATS=1 STEEP_SUBTYPING_STATS_FILE=steep-stats.jsonl bundle exec steep check
 
 # Additionally measure the memory exclusively retained by the cache
