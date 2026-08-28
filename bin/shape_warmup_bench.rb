@@ -22,7 +22,8 @@
 #                       sampling interval, STACKPROF_OUT saves the raw dump to a file
 #
 # Phases per target:
-#   1. project types    types declared in the target's own signature files
+#   1. project types    types declared in the signature files and inline sources of the
+#                       target and its groups
 #   2. library types    everything else in the environment (gems, stdlib, core)
 #
 # The report contains no type names, so it is safe to share -- except with
@@ -96,7 +97,18 @@ targets.each do |target|
   builder = subtyping.builder
   env = signature_service.latest_env
 
-  sig_paths = loader.each_path_in_patterns(target.signature_pattern).to_a
+  # Signature and inline-source patterns of the groups don't appear in the target's own
+  # patterns, so both levels have to be enumerated, like FileLoader#each_path_in_target
+  sig_paths = [] #: Array[Pathname]
+  collect_paths = ->(pattern) { loader.each_path_in_patterns(pattern) {|path| sig_paths << path } }
+  target.groups.each do |group|
+    collect_paths.(group.signature_pattern)
+    collect_paths.(group.inline_source_pattern)
+  end
+  collect_paths.(target.signature_pattern)
+  collect_paths.(target.inline_source_pattern)
+  sig_paths.uniq!
+
   project_names = signature_service.type_names(paths: Set.new(sig_paths), env: env).to_set
 
   all_names = env.class_decls.keys + env.interface_decls.keys
