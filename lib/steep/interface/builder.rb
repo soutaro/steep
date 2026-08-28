@@ -342,9 +342,10 @@ module Steep
           end
 
           # Methods rebuilt for each definition convert to the same overloads when their type
-          # defs are shared, and share one entry through this index.
-          index = (@method_entry_index[name] ||= {})
-          index[[private_method, overloads]] ||= Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads)
+          # defs are shared, and share one entry through this index. The overloads are hashed
+          # by their identities.
+          index = (@method_entry_index[name] ||= {})[private_method] ||= {}
+          index[overloads] ||= Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads)
         end
       end
 
@@ -356,9 +357,11 @@ module Steep
         cache[type_def] ||= begin
           # Value-equal type defs may be different objects between definitions.
           # They are indexed here by the identities of their components, which the definition
-          # builder preserves while flattening ancestor methods into definitions.
-          index = (@method_overload_index[name] ||= {})
-          key = [type_def.member.object_id, type_def.type.object_id, type_def.defined_in, type_def.implemented_in] #: [Integer, Integer, RBS::TypeName, RBS::TypeName?]
+          # builder preserves while flattening ancestor methods into definitions. The nesting
+          # keeps the hot lookups on cheap Integer keys.
+          by_type = (@method_overload_index[name] ||= {})[type_def.member.object_id] ||= {}
+          index = by_type[type_def.type.object_id] ||= {}
+          key = [type_def.defined_in, type_def.implemented_in] #: [RBS::TypeName, RBS::TypeName?]
           index[key] ||= build_method_overload(name, type_def, nil)
         end
       end

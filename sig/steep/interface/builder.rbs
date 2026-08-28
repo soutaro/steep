@@ -112,7 +112,7 @@ module Steep
       @method_entry_cache: Hash[Symbol, Hash[RBS::Definition::Method, Shape::Entry]]
 
       # Index of shared method entries, keyed by the method name, the visibility, and the identities of the overloads
-      @method_entry_index: Hash[Symbol, Hash[[bool, Array[Shape::MethodOverload]], Shape::Entry]]
+      @method_entry_index: Hash[Symbol, Hash[bool, Hash[Array[Shape::MethodOverload], Shape::Entry]]]
 
       # Returns a `Shape::Entry` of the method, shared with the shapes of other types
       #
@@ -130,7 +130,7 @@ module Steep
       @method_overload_cache: Hash[Symbol, Hash[RBS::Definition::Method::TypeDef, Shape::MethodOverload]]
 
       # Index of shared method overloads, keyed by the method name and the identities of the type def components
-      @method_overload_index: Hash[Symbol, Hash[[Integer, Integer, TypeName, TypeName?], Shape::MethodOverload]]
+      @method_overload_index: Hash[Symbol, Hash[Integer, Hash[Integer, Hash[[TypeName, TypeName?], Shape::MethodOverload]]]]
 
       # Returns a `Shape::MethodOverload` of the `type_def`, shared with the shapes of other types
       #
