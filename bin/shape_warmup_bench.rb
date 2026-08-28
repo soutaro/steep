@@ -50,7 +50,8 @@ if stackprof_mode
 end
 
 GC.measure_total_time = true
-gc_ms = -> { GC.stat(:time) }
+gc_snap = -> { [GC.stat(:time), GC.stat(:major_gc_count), GC.stat(:minor_gc_count)] }
+gc_delta = ->(snap) { gc_snap.().zip(snap).map {|now, was| now - was } }
 
 steepfile = Pathname.pwd + "Steepfile"
 project = Steep::Project.new(steepfile_path: steepfile)
@@ -160,19 +161,19 @@ targets.each do |target|
 
   if split_phases
     before_definitions = gc_memsize.()
-    gc0 = gc_ms.()
+    gc0 = gc_snap.()
     definitions_time, definitions_errors = profile_phase.(-> { warm_definitions.(all_names) })
-    definitions_gc_ms = gc_ms.() - gc0
+    definitions_gc = gc_delta.(gc0)
   end
 
   before = gc_memsize.()
-  gc0 = gc_ms.()
+  gc0 = gc_snap.()
   project_time, project_errors, project_error_tally = profile_phase.(-> { warm.(project_set) })
-  project_gc_ms = gc_ms.() - gc0
+  project_gc = gc_delta.(gc0)
   after_project = gc_memsize.()
-  gc0 = gc_ms.()
+  gc0 = gc_snap.()
   library_time, library_errors, library_error_tally = profile_phase.(-> { warm.(library_set) })
-  library_gc_ms = gc_ms.() - gc0
+  library_gc = gc_delta.(gc0)
   after_library = gc_memsize.()
 
   compact_time = Benchmark.realtime { GC.compact }
@@ -193,13 +194,17 @@ targets.each do |target|
   }
 
   if split_phases
+    gc_report = ->(prefix, (ms, major, minor)) do
+      { :"#{prefix}_gc_ms" => ms, :"#{prefix}_major_gc" => major, :"#{prefix}_minor_gc" => minor }
+    end
+
     result[:targets][target.name].merge!(
       definitions_time: definitions_time.round(2),
       definitions_mb: ((before - before_definitions) / 1024.0 / 1024).round(1),
       definitions_errors: definitions_errors,
-      definitions_gc_ms: definitions_gc_ms,
-      project_gc_ms: project_gc_ms,
-      library_gc_ms: library_gc_ms,
+      **gc_report.(:definitions, definitions_gc),
+      **gc_report.(:project, project_gc),
+      **gc_report.(:library, library_gc),
     )
   end
 
