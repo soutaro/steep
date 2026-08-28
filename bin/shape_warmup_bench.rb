@@ -13,13 +13,21 @@
 #   TARGETS=app,test    Steepfile targets to measure (default: app)
 #   VERBOSE_ERRORS=1    Include the messages of shape building errors and the number of
 #                       project signature files in the report
+#   PHASES=1            Build all RBS definitions before the shapes, reporting the
+#                       definition phase separately with time, memory, and GC time per
+#                       phase -- the project/library times then measure the shape
+#                       construction alone
+#   STACKPROF=cpu       Profile the phases with stackprof (cpu, wall, or object) and
+#                       print the report to stderr; STACKPROF_INTERVAL overrides the
+#                       sampling interval, STACKPROF_OUT saves the raw dump to a file
 #
 # Phases per target:
 #   1. project types    types declared in the target's own signature files
 #   2. library types    everything else in the environment (gems, stdlib, core)
 #
 # The report contains no type names, so it is safe to share -- except with
-# VERBOSE_ERRORS, whose error messages usually name the failing types.
+# VERBOSE_ERRORS, whose error messages usually name the failing types. The stackprof
+# report contains only Steep/RBS method names.
 
 Encoding.default_external = Encoding::UTF_8
 
@@ -30,6 +38,19 @@ require "objspace"
 
 TARGET_NAMES = (ENV["TARGETS"] || "app").split(",").map(&:to_sym)
 verbose_errors = ENV["VERBOSE_ERRORS"] == "1"
+split_phases = ENV["PHASES"] == "1"
+stackprof_mode = ENV["STACKPROF"]&.to_sym
+
+if stackprof_mode
+  begin
+    require "stackprof"
+  rescue LoadError
+    abort "STACKPROF needs the stackprof gem in the bundle"
+  end
+end
+
+GC.measure_total_time = true
+gc_ms = -> { GC.stat(:time) }
 
 steepfile = Pathname.pwd + "Steepfile"
 project = Steep::Project.new(steepfile_path: steepfile)
@@ -101,10 +122,57 @@ targets.each do |target|
     [time, errors, error_tally]
   end
 
+  warm_definitions = ->(names) do
+    definition_builder = builder.factory.definition_builder
+    errors = 0
+    time = Benchmark.realtime do
+      names.each do |name|
+        begin
+          if name.class?
+            definition_builder.build_instance(name)
+            definition_builder.build_singleton(name)
+          elsif name.interface?
+            definition_builder.build_interface(name)
+          end
+        rescue => _
+          errors += 1
+        end
+      end
+    end
+    [time, errors]
+  end
+
+  # Samples accumulate across the start/stop pairs, so the forced GCs of the memory
+  # measurements between the phases stay out of the profile
+  profile_phase = ->(callable) do
+    if stackprof_mode
+      interval = (ENV["STACKPROF_INTERVAL"] || (stackprof_mode == :object ? 100 : 1000)).to_i
+      StackProf.start(mode: stackprof_mode, raw: false, interval: interval)
+      begin
+        callable.call
+      ensure
+        StackProf.stop
+      end
+    else
+      callable.call
+    end
+  end
+
+  if split_phases
+    before_definitions = gc_memsize.()
+    gc0 = gc_ms.()
+    definitions_time, definitions_errors = profile_phase.(-> { warm_definitions.(all_names) })
+    definitions_gc_ms = gc_ms.() - gc0
+  end
+
   before = gc_memsize.()
-  project_time, project_errors, project_error_tally = warm.(project_set)
+  gc0 = gc_ms.()
+  project_time, project_errors, project_error_tally = profile_phase.(-> { warm.(project_set) })
+  project_gc_ms = gc_ms.() - gc0
   after_project = gc_memsize.()
-  library_time, library_errors, library_error_tally = warm.(library_set)
+  gc0 = gc_ms.()
+  library_time, library_errors, library_error_tally = profile_phase.(-> { warm.(library_set) })
+  library_gc_ms = gc_ms.() - gc0
   after_library = gc_memsize.()
 
   compact_time = Benchmark.realtime { GC.compact }
@@ -124,11 +192,30 @@ targets.each do |target|
     rss_mb: rss_mb.().round(0),
   }
 
+  if split_phases
+    result[:targets][target.name].merge!(
+      definitions_time: definitions_time.round(2),
+      definitions_mb: ((before - before_definitions) / 1024.0 / 1024).round(1),
+      definitions_errors: definitions_errors,
+      definitions_gc_ms: definitions_gc_ms,
+      project_gc_ms: project_gc_ms,
+      library_gc_ms: library_gc_ms,
+    )
+  end
+
   if verbose_errors
     result[:targets][target.name][:project_sig_paths] = sig_paths.size
     top_errors = ->(tally) { tally.sort_by {|_, count| -count }.first(20).to_h }
     result[:targets][target.name][:project_error_details] = top_errors.(project_error_tally)
     result[:targets][target.name][:library_error_details] = top_errors.(library_error_tally)
+  end
+end
+
+if stackprof_mode
+  profile = StackProf.results
+  if profile
+    File.binwrite(ENV["STACKPROF_OUT"], Marshal.dump(profile)) if ENV["STACKPROF_OUT"]
+    StackProf::Report.new(profile).print_text(false, 30, nil, nil, nil, nil, $stderr)
   end
 end
 
