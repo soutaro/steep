@@ -11,12 +11,15 @@
 #
 # Env vars:
 #   TARGETS=app,test    Steepfile targets to measure (default: app)
+#   VERBOSE_ERRORS=1    Include the messages of shape building errors and the number of
+#                       project signature files in the report
 #
 # Phases per target:
 #   1. project types    types declared in the target's own signature files
 #   2. library types    everything else in the environment (gems, stdlib, core)
 #
-# The report contains no type names, so it is safe to share.
+# The report contains no type names, so it is safe to share -- except with
+# VERBOSE_ERRORS, whose error messages usually name the failing types.
 
 Encoding.default_external = Encoding::UTF_8
 
@@ -26,6 +29,7 @@ require "json"
 require "objspace"
 
 TARGET_NAMES = (ENV["TARGETS"] || "app").split(",").map(&:to_sym)
+verbose_errors = ENV["VERBOSE_ERRORS"] == "1"
 
 steepfile = Pathname.pwd + "Steepfile"
 project = Steep::Project.new(steepfile_path: steepfile)
@@ -78,6 +82,7 @@ targets.each do |target|
 
   warm = ->(names) do
     errors = 0
+    error_tally = Hash.new(0)
     time = Benchmark.realtime do
       names.each do |name|
         begin
@@ -87,18 +92,19 @@ targets.each do |target|
           elsif name.interface?
             builder.object_shape(name)
           end
-        rescue => _
+        rescue => exn
           errors += 1
+          error_tally["#{exn.class}: #{exn.message}"[0, 200]] += 1 if verbose_errors
         end
       end
     end
-    [time, errors]
+    [time, errors, error_tally]
   end
 
   before = gc_memsize.()
-  project_time, project_errors = warm.(project_set)
+  project_time, project_errors, project_error_tally = warm.(project_set)
   after_project = gc_memsize.()
-  library_time, library_errors = warm.(library_set)
+  library_time, library_errors, library_error_tally = warm.(library_set)
   after_library = gc_memsize.()
 
   compact_time = Benchmark.realtime { GC.compact }
@@ -117,6 +123,13 @@ targets.each do |target|
     gc_compact_time: compact_time.round(2),
     rss_mb: rss_mb.().round(0),
   }
+
+  if verbose_errors
+    result[:targets][target.name][:project_sig_paths] = sig_paths.size
+    top_errors = ->(tally) { tally.sort_by {|_, count| -count }.first(20).to_h }
+    result[:targets][target.name][:project_error_details] = top_errors.(project_error_tally)
+    result[:targets][target.name][:library_error_details] = top_errors.(library_error_tally)
+  end
 end
 
 puts JSON.pretty_generate(result)
