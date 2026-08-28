@@ -68,6 +68,7 @@ end
       assert_equal stats.calls, json[:calls]
       refute_empty json[:kinds]
       refute_empty json[:top_relations]
+      refute_empty json[:top_relations_by_compute_time]
 
       io = StringIO.new
       stats.report_text(io, entry_stats, nil)

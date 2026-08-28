@@ -29,11 +29,12 @@ module Steep
       end
 
       class RelationStats
-        attr_accessor :calls, :hits
+        attr_accessor :calls, :hits, :toplevel_compute_time
 
         def initialize
           @calls = 0
           @hits = 0
+          @toplevel_compute_time = 0.0
         end
       end
 
@@ -128,6 +129,7 @@ module Steep
       def compute_time(relation, time)
         @toplevel_compute_time += time
         kind_stats(relation).toplevel_compute_time += time
+        (relations[relation] ||= RelationStats.new).toplevel_compute_time += time
       end
 
       def count_call(relation, hit:)
@@ -310,6 +312,14 @@ module Steep
               relation: relation.to_s,
               calls: stats.calls,
               hits: stats.hits,
+            }
+          end,
+          top_relations_by_compute_time: relations.each.select {|_, stats| stats.toplevel_compute_time > 0 }.sort_by {|_, stats| -stats.toplevel_compute_time }.take(15).map do |relation, stats|
+            {
+              relation: relation.to_s,
+              calls: stats.calls,
+              hits: stats.hits,
+              toplevel_compute_time: stats.toplevel_compute_time.round(4),
             }
           end,
         }

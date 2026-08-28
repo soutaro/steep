@@ -30,6 +30,8 @@ module Steep
 
         attr_accessor hits: Integer
 
+        attr_accessor toplevel_compute_time: Float
+
         def initialize: () -> void
       end
 
