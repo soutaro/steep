@@ -20,6 +20,10 @@
 #   STACKPROF=cpu       Profile the phases with stackprof (cpu, wall, or object) and
 #                       print the report to stderr; STACKPROF_INTERVAL overrides the
 #                       sampling interval, STACKPROF_OUT saves the raw dump to a file
+#   NO_MAJOR_GC=1       Disable major GCs for the whole run with
+#                       `GC.config(rgengc_allow_full_mark: false)` (Ruby 3.4+); the
+#                       memory numbers then overestimate, because dead old objects
+#                       are never collected
 #
 # Phases per target:
 #   1. project types    types declared in the signature files and inline sources of the
@@ -48,6 +52,13 @@ if stackprof_mode
   rescue LoadError
     abort "STACKPROF needs the stackprof gem in the bundle"
   end
+end
+
+if ENV["NO_MAJOR_GC"] == "1"
+  # Prototypes a boot that skips the major GCs while retaining almost everything --
+  # minor GCs keep collecting the young garbage
+  GC.respond_to?(:config) or abort "NO_MAJOR_GC needs Ruby 3.4+ (GC.config)"
+  GC.config(rgengc_allow_full_mark: false)
 end
 
 GC.measure_total_time = true
