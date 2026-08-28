@@ -108,6 +108,26 @@ end
     Stats.active = nil
   end
 
+  def test_stats_measure_shape
+    Stats.active = Stats.new()
+
+    with_checker do |checker|
+      stats = Stats.active or raise
+
+      type = parse_type("::Foo", checker: checker)
+      config = Interface::Builder::Config.new(self_type: type, variable_bounds: {})
+      checker.builder.shape(type, config)
+
+      assert_operator stats.shape_calls, :>, 0
+      assert_operator stats.shape_time, :>, 0.0
+
+      json = stats.as_json(stats.entry_stats, nil)
+      refute_empty json[:top_shapes_by_time]
+    end
+  ensure
+    Stats.active = nil
+  end
+
   def test_stats_inactive_by_default
     Stats.active = nil
 

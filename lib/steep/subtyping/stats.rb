@@ -43,6 +43,8 @@ module Steep
                   :computes, :toplevel_computes, :computes_with_unusable_cache,
                   :assumption_successes, :context_misses
       attr_reader :toplevel_compute_time
+      attr_reader :shapes, :shape_calls
+      attr_reader :shape_time
 
       def initialize
         @kinds = {}
@@ -61,6 +63,12 @@ module Steep
         @assumption_successes = 0
         @context_misses = 0
         @toplevel_compute_time = 0.0
+
+        # shape target type => [calls, time] of Interface::Builder#shape
+        @shapes = {}
+        @shape_calls = 0
+        @shape_time = 0.0
+        @shape_depth = 0
       end
 
       # Returns the process-wide collector, or `nil` unless enabled via environment
@@ -93,6 +101,33 @@ module Steep
       def assumption(relation)
         count_call(relation, hit: false)
         @assumption_successes += 1
+      end
+
+      # Measures Interface::Builder#shape: total wall-clock time of outermost
+      # calls (shape building recurses into itself), and the time per shape
+      # target. Includes time served from the shape caches.
+      def measure_shape(type)
+        @shape_depth += 1
+        if @shape_depth == 1
+          @shape_calls += 1
+          started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          begin
+            yield
+          ensure
+            @shape_depth -= 1
+            time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+            @shape_time += time
+            counts = (shapes[type] ||= [0, 0.0])
+            counts[0] += 1
+            counts[1] += time
+          end
+        else
+          begin
+            yield
+          ensure
+            @shape_depth -= 1
+          end
+        end
       end
 
       # `ground` is whether the relation has no free variables, including the
@@ -256,6 +291,20 @@ module Steep
             kind, stats.calls, percent(stats.hits, stats.calls), stats.computes, stats.toplevel_compute_time
           ]
         end
+
+        if shape_calls > 0
+          io.puts "  shape calls: #{shape_calls} taking #{shape_time.round(2)}s (distinct targets: #{shapes.size}; overlaps with compute time above)"
+          by_kind = {} #: Hash[String, [Integer, Float]]
+          shapes.each do |type, (calls, time)|
+            entry = (by_kind[type_kind(type)] ||= [0, 0.0])
+            entry[0] += calls
+            entry[1] += time
+          end
+          io.puts "  shape time by target kind:"
+          by_kind.sort_by {|_, (_, time)| -time }.take(8).each do |kind, (calls, time)|
+            io.puts "    %-40s %8d calls %8.2fs" % [kind, calls, time]
+          end
+        end
       end
 
       def as_json(entry_stats, exclusive_memory)
@@ -299,6 +348,15 @@ module Steep
               calls: stats.calls,
               hits: stats.hits,
               toplevel_compute_time: stats.toplevel_compute_time.round(4),
+            }
+          end,
+          shape_calls: shape_calls,
+          shape_time: shape_time.round(4),
+          top_shapes_by_time: shapes.sort_by {|_, (_, time)| -time }.take(20).map do |type, (calls, time)|
+            {
+              type: type.to_s,
+              calls: calls,
+              time: time.round(4),
             }
           end,
         }
