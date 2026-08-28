@@ -20,6 +20,11 @@
 #   STACKPROF=cpu       Profile the phases with stackprof (cpu, wall, or object) and
 #                       print the report to stderr; STACKPROF_INTERVAL overrides the
 #                       sampling interval, STACKPROF_OUT saves the raw dump to a file
+#   WORKING_SET_OUT=p   Type check the target's source files instead of warming everything,
+#                       and write the names of the types whose shapes were actually built to
+#                       the file `p`; WORKING_SET_FILES=N checks only the first N files
+#   WORKING_SET_IN=p    Warm only the types listed in the file `p`, instead of everything, to
+#                       measure what a warmup limited to the working set costs
 #   NO_MAJOR_GC=1       Disable major GCs for the whole run with
 #                       `GC.config(rgengc_allow_full_mark: false)` (Ruby 3.4+); the
 #                       memory numbers then overestimate, because dead old objects
@@ -44,6 +49,8 @@ require "objspace"
 TARGET_NAMES = (ENV["TARGETS"] || "app").split(",").map(&:to_sym)
 verbose_errors = ENV["VERBOSE_ERRORS"] == "1"
 split_phases = ENV["PHASES"] == "1"
+working_set_out = ENV["WORKING_SET_OUT"]
+working_set_in = ENV["WORKING_SET_IN"]
 stackprof_mode = ENV["STACKPROF"]&.to_sym
 
 if stackprof_mode
@@ -64,6 +71,24 @@ end
 GC.measure_total_time = true
 gc_snap = -> { [GC.stat(:time), GC.stat(:major_gc_count), GC.stat(:minor_gc_count)] }
 gc_delta = ->(snap) { gc_snap.().zip(snap).map {|now, was| now - was } }
+
+if working_set_out
+  # The shapes built during a type check are the ones a warmup actually has to provide
+  TOUCHED = {} #: Hash[untyped, bool]
+  Steep::Interface::Builder.class_eval do
+    alias_method :object_shape_without_record, :object_shape
+    def object_shape(type_name)
+      TOUCHED[type_name] = true
+      object_shape_without_record(type_name)
+    end
+
+    alias_method :singleton_shape_without_record, :singleton_shape
+    def singleton_shape(type_name)
+      TOUCHED[type_name] = true
+      singleton_shape_without_record(type_name)
+    end
+  end
+end
 
 steepfile = Pathname.pwd + "Steepfile"
 project = Steep::Project.new(steepfile_path: steepfile)
@@ -123,6 +148,12 @@ targets.each do |target|
   project_names = signature_service.type_names(paths: Set.new(sig_paths), env: env).to_set
 
   all_names = env.class_decls.keys + env.interface_decls.keys
+
+  if working_set_in
+    working_set = Set.new(File.readlines(working_set_in, chomp: true))
+    all_names = all_names.select {|name| working_set.include?(name.to_s) }
+  end
+
   project_set, library_set = all_names.partition {|name| project_names.include?(name) }
 
   warm = ->(names) do
@@ -180,6 +211,37 @@ targets.each do |target|
     else
       callable.call
     end
+  end
+
+  if working_set_out
+    source_paths = [] #: Array[Pathname]
+    loader.each_path_in_target(target) do |path|
+      source_paths << path if target.possible_source_file?(path)
+    end
+    if limit = ENV["WORKING_SET_FILES"]
+      source_paths = source_paths.first(limit.to_i)
+    end
+
+    check_time = Benchmark.realtime do
+      source_paths.each do |path|
+        begin
+          service.typecheck_source(path: path, target: target)
+        rescue => _
+        end
+      end
+    end
+
+    File.write(working_set_out, TOUCHED.each_key.map(&:to_s).sort.join("\n"))
+
+    result[:targets][target.name] = {
+      checked_files: source_paths.size,
+      check_time: check_time.round(2),
+      environment_types: all_names.size,
+      types_touched: TOUCHED.size,
+      touched_ratio: (TOUCHED.size * 100.0 / all_names.size).round(1),
+      rss_mb: rss_mb.().round(0),
+    }
+    next
   end
 
   if split_phases
