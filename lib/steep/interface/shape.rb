@@ -180,7 +180,16 @@ module Steep
         end
 
         def merge!(other, &block)
-          other.each do |name, entry|
+          other.methods.each_key do |name|
+            # `key?` skips the entries without method types, like `each` did, but doesn't
+            # resolve the others -- applying the substitutions of `other` is deferred to a
+            # lazy entry, and the visibility is copied from the unresolved entry
+            next unless other.key?(name)
+
+            entry = Entry.new(method_name: name, private_method: other.methods.fetch(name).private_method?) do
+              other[name]&.overloads
+            end
+
             if block && (old_entry = methods[name])
               methods[name] = yield(name, old_entry, entry)
             else
