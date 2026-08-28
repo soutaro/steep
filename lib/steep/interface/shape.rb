@@ -157,8 +157,10 @@ module Steep
 
         def each_name(&block)
           if block
-            each do |name, _|
-              yield name
+            # `key?` decides if the method exists without applying the substitutions,
+            # unlike `each` that resolves every entry
+            methods.each_key do |name|
+              yield name if key?(name)
             end
           else
             enum_for :each_name

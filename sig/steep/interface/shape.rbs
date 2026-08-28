@@ -52,6 +52,8 @@ module Steep
         def each: () { ([Symbol, Entry]) -> void } -> void
                 | () -> Enumerator[[Symbol, Entry], void]
 
+        # Yields the name of each method that has an entry, without resolving the entries
+        #
         def each_name: () { (Symbol) -> void } -> void
                      | () -> Enumerator[Symbol, void]
 
