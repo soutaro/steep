@@ -108,6 +108,48 @@ module Steep
       # Substitution for type application of class instance, type alias, or interface types
       def app_subst: (AST::Types::Name::Instance | AST::Types::Name::Alias | AST::Types::Name::Interface) -> Substitution
 
+      # Cache of shared method entries, keyed by the method name and the identity of the method
+      @method_entry_cache: Hash[Symbol, Hash[RBS::Definition::Method, Shape::Entry]]
+
+      # Index of shared method entries, keyed by the method name, the visibility, and the identities of the overloads
+      @method_entry_index: Hash[Symbol, Hash[[bool, Array[Shape::MethodOverload]], Shape::Entry]]
+
+      # Returns a `Shape::Entry` of the method, shared with the shapes of other types
+      #
+      # RBS definitions are flat, and inherited/mixed-in methods appear in the definition of
+      # every type. The entry of a method is a pure function of the method name and the method,
+      # so one shared, immutable entry works for all of them.
+      #
+      # The only exception is `Kernel#class`, whose return type is replaced with the type being
+      # built -- the callers must build an entry with `build_method_overload` directly for
+      # methods named `class` of classes and modules.
+      #
+      def shared_method_entry: (Symbol name, RBS::Definition::Method) -> Shape::Entry
+
+      # Cache of shared method overloads, keyed by the method name and the identity of the type def
+      @method_overload_cache: Hash[Symbol, Hash[RBS::Definition::Method::TypeDef, Shape::MethodOverload]]
+
+      # Index of shared method overloads, keyed by the method name and the identities of the type def components
+      @method_overload_index: Hash[Symbol, Hash[[Integer, Integer, TypeName, TypeName?], Shape::MethodOverload]]
+
+      # Returns a `Shape::MethodOverload` of the `type_def`, shared with the shapes of other types
+      #
+      # RBS definitions are flat, and the type defs of inherited/mixed-in methods are converted
+      # to equivalent overloads in the shape of every type. The conversion is a pure function of
+      # the method name and the type def, so one shared, immutable overload works for all of them.
+      #
+      # The only exception is `Kernel#class`, whose return type is replaced with the type being
+      # built -- the callers must use `build_method_overload` directly for methods named `class`
+      # of classes and modules.
+      #
+      def shared_method_overload: (Symbol name, RBS::Definition::Method::TypeDef) -> Shape::MethodOverload
+
+      # Converts a type def to a fresh `Shape::MethodOverload`
+      #
+      # `kernel_class_type` replaces the return type of `Kernel#class` when given.
+      #
+      def build_method_overload: (Symbol name, RBS::Definition::Method::TypeDef, AST::Types::t? kernel_class_type) -> Shape::MethodOverload
+
       def method_name_for: (RBS::Definition::Method::TypeDef, Symbol name) -> method_name
 
       def replace_primitive_method: (method_name, RBS::Definition::Method::TypeDef, MethodType) -> MethodType
