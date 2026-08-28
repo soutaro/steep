@@ -25,6 +25,12 @@
 #                       the file `p`; WORKING_SET_FILES=N checks only the first N files
 #   WORKING_SET_IN=p    Warm only the types listed in the file `p`, instead of everything, to
 #                       measure what a warmup limited to the working set costs
+#   DEFINITIONS_ONLY=1  Warm the RBS definitions but not the shapes, to compare how much a
+#                       partial warmup shares (implies PHASES=1)
+#   FORK=N              After warming, fork N children that type check their share of the
+#                       source files, like the type check workers do, and report the memory
+#                       each one ends up owning privately -- the number that decides how many
+#                       workers fit in memory. FORK_FILES=N limits the files checked.
 #   NO_MAJOR_GC=1       Disable major GCs for the whole run with
 #                       `GC.config(rgengc_allow_full_mark: false)` (Ruby 3.4+); the
 #                       memory numbers then overestimate, because dead old objects
@@ -48,7 +54,9 @@ require "objspace"
 
 TARGET_NAMES = (ENV["TARGETS"] || "app").split(",").map(&:to_sym)
 verbose_errors = ENV["VERBOSE_ERRORS"] == "1"
-split_phases = ENV["PHASES"] == "1"
+definitions_only = ENV["DEFINITIONS_ONLY"] == "1"
+split_phases = ENV["PHASES"] == "1" || definitions_only
+fork_count = ENV["FORK"]&.to_i
 working_set_out = ENV["WORKING_SET_OUT"]
 working_set_in = ENV["WORKING_SET_IN"]
 stackprof_mode = ENV["STACKPROF"]&.to_sym
@@ -110,6 +118,18 @@ end
 update_time = Benchmark.realtime { service.update(changes: changes) }
 
 rss_mb = -> { File.read("/proc/self/status")[/VmRSS:\s+(\d+)/, 1].to_i / 1024.0 }
+
+# `Private_Dirty` is the memory a forked child does not share with its parent any more,
+# so it is what each additional worker really costs
+smaps_mb = ->(key) do
+  if line = File.read("/proc/self/smaps_rollup")[/^#{key}:\s+(\d+) kB/]
+    $1.to_i / 1024.0
+  else
+    0.0
+  end
+rescue Errno::ENOENT
+  0.0
+end
 gc_memsize = -> { 2.times { GC.start }; ObjectSpace.memsize_of_all }
 
 result = {
@@ -252,14 +272,22 @@ targets.each do |target|
   end
 
   before = gc_memsize.()
-  gc0 = gc_snap.()
-  project_time, project_errors, project_error_tally = profile_phase.(-> { warm.(project_set) })
-  project_gc = gc_delta.(gc0)
-  after_project = gc_memsize.()
-  gc0 = gc_snap.()
-  library_time, library_errors, library_error_tally = profile_phase.(-> { warm.(library_set) })
-  library_gc = gc_delta.(gc0)
-  after_library = gc_memsize.()
+
+  if definitions_only
+    project_time, project_errors, project_error_tally = 0.0, 0, {}
+    library_time, library_errors, library_error_tally = 0.0, 0, {}
+    project_gc = library_gc = [0, 0, 0]
+    after_project = after_library = before
+  else
+    gc0 = gc_snap.()
+    project_time, project_errors, project_error_tally = profile_phase.(-> { warm.(project_set) })
+    project_gc = gc_delta.(gc0)
+    after_project = gc_memsize.()
+    gc0 = gc_snap.()
+    library_time, library_errors, library_error_tally = profile_phase.(-> { warm.(library_set) })
+    library_gc = gc_delta.(gc0)
+    after_library = gc_memsize.()
+  end
 
   compact_time = Benchmark.realtime { GC.compact }
 
@@ -290,6 +318,68 @@ targets.each do |target|
       **gc_report.(:definitions, definitions_gc),
       **gc_report.(:project, project_gc),
       **gc_report.(:library, library_gc),
+    )
+  end
+
+  if fork_count
+    # `Process.warmup` promotes everything to the old generation and compacts, so the pages
+    # the children inherit are as stable as they get
+    warmup_time = Benchmark.realtime { Process.warmup if Process.respond_to?(:warmup) }
+
+    source_paths = [] #: Array[Pathname]
+    loader.each_path_in_target(target) do |path|
+      source_paths << path if target.possible_source_file?(path)
+    end
+    if limit = ENV["FORK_FILES"]
+      source_paths = source_paths.first(limit.to_i)
+    end
+
+    parent_rss = rss_mb.()
+    readers = source_paths.each_slice((source_paths.size.to_f / fork_count).ceil).map do |paths|
+      reader, writer = IO.pipe
+
+      fork do
+        reader.close
+        time = Benchmark.realtime do
+          paths.each do |path|
+            begin
+              service.typecheck_source(path: path, target: target)
+            rescue => _
+            end
+          end
+        end
+        writer.write(
+          JSON.generate(
+            files: paths.size,
+            check_time: time.round(2),
+            private_mb: smaps_mb.("Private_Dirty").round(1),
+            shared_mb: smaps_mb.("Shared_Clean").round(1),
+            rss_mb: rss_mb.().round(0)
+          )
+        )
+        writer.close
+        exit!(0)
+      end
+
+      writer.close
+      reader
+    end
+
+    children = readers.map do |reader|
+      json = reader.read
+      reader.close
+      JSON.parse(json, symbolize_names: true)
+    end
+    Process.waitall
+
+    result[:targets][target.name].merge!(
+      warmup_call_time: warmup_time.round(2),
+      parent_rss_mb: parent_rss.round(0),
+      workers: children.size,
+      worker_check_time_max: children.map {|c| c[:check_time] }.max,
+      worker_private_mb_avg: (children.sum {|c| c[:private_mb] } / children.size).round(1),
+      worker_private_mb_max: children.map {|c| c[:private_mb] }.max,
+      worker_rss_mb_avg: (children.sum {|c| c[:rss_mb] } / children.size).round(0)
     )
   end
 
