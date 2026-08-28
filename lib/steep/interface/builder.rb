@@ -341,11 +341,41 @@ module Steep
             shared_method_overload(name, type_def)
           end
 
-          # Methods rebuilt for each definition convert to the same overloads when their type
-          # defs are shared, and share one entry through this index.
-          index = (@method_entry_index[name] ||= {})
-          index[[private_method, overloads]] ||= Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads)
+          indexed_method_entry(name, private_method, overloads)
         end
+      end
+
+      def indexed_method_entry(name, private_method, overloads)
+        # Methods rebuilt for each definition convert to the same overloads when their type defs
+        # are shared, and share one entry through this index. The overloads are shared objects,
+        # so the identity of the first one discriminates almost all of the entries.
+        index = @method_entry_index[name] ||= {}
+        key = overloads[0]&.object_id || 0
+
+        case bucket = index[key]
+        when nil
+          index[key] = Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads)
+        when Array
+          bucket.find {|entry| same_overloads?(entry, private_method, overloads) } ||
+            Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads).tap {|entry| bucket << entry }
+        else
+          if same_overloads?(bucket, private_method, overloads)
+            bucket
+          else
+            Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads).tap do |entry|
+              index[key] = [bucket, entry]
+            end
+          end
+        end
+      end
+
+      def same_overloads?(entry, private_method, overloads)
+        return false unless entry.private_method? == private_method
+
+        entry_overloads = entry.overloads
+        return false unless entry_overloads.size == overloads.size
+
+        entry_overloads.each_with_index.all? {|overload, index| overload.equal?(overloads[index]) }
       end
 
       def shared_method_overload(name, type_def)
@@ -353,14 +383,38 @@ module Steep
           hash = {} #: Hash[RBS::Definition::Method::TypeDef, Shape::MethodOverload]
           hash.compare_by_identity
         end
-        cache[type_def] ||= begin
-          # Value-equal type defs may be different objects between definitions.
-          # They are indexed here by the identities of their components, which the definition
-          # builder preserves while flattening ancestor methods into definitions.
-          index = (@method_overload_index[name] ||= {})
-          key = [type_def.member.object_id, type_def.type.object_id, type_def.defined_in, type_def.implemented_in] #: [Integer, Integer, RBS::TypeName, RBS::TypeName?]
-          index[key] ||= build_method_overload(name, type_def, nil)
+        cache[type_def] ||= indexed_method_overload(name, type_def)
+      end
+
+      def indexed_method_overload(name, type_def)
+        # Value-equal type defs may be different objects between definitions. They are indexed
+        # here by the identity of their type, which discriminates almost all of them, and the
+        # remaining components are compared in the bucket.
+        index = @method_overload_index[name] ||= {}
+        key = type_def.type.object_id
+
+        case bucket = index[key]
+        when nil
+          index[key] = build_method_overload(name, type_def, nil)
+        when Array
+          bucket.find {|overload| same_type_def?(overload, type_def) } ||
+            build_method_overload(name, type_def, nil).tap {|overload| bucket << overload }
+        else
+          if same_type_def?(bucket, type_def)
+            bucket
+          else
+            build_method_overload(name, type_def, nil).tap do |overload|
+              index[key] = [bucket, overload]
+            end
+          end
         end
+      end
+
+      def same_type_def?(overload, type_def)
+        defn = overload.method_defs[0] or return false
+        defn.member.equal?(type_def.member) &&
+          defn.defined_in == type_def.defined_in &&
+          defn.implemented_in == type_def.implemented_in
       end
 
       def build_method_overload(name, type_def, kernel_class_type)

@@ -111,8 +111,17 @@ module Steep
       # Cache of shared method entries, keyed by the method name and the identity of the method
       @method_entry_cache: Hash[Symbol, Hash[RBS::Definition::Method, Shape::Entry]]
 
-      # Index of shared method entries, keyed by the method name, the visibility, and the identities of the overloads
-      @method_entry_index: Hash[Symbol, Hash[[bool, Array[Shape::MethodOverload]], Shape::Entry]]
+      # Index of shared method entries, keyed by the method name and the identity of the first overload
+      #
+      # The buckets hold an array only when different entries start with one overload.
+      #
+      @method_entry_index: Hash[Symbol, Hash[Integer, Shape::Entry | Array[Shape::Entry]]]
+
+      # Returns a shared `Shape::Entry` through the index, building one if it is new
+      def indexed_method_entry: (Symbol name, bool private_method, Array[Shape::MethodOverload]) -> Shape::Entry
+
+      # Returns `true` if the entry has the given visibility and exactly the given overloads
+      def same_overloads?: (Shape::Entry, bool private_method, Array[Shape::MethodOverload]) -> bool
 
       # Returns a `Shape::Entry` of the method, shared with the shapes of other types
       #
@@ -129,8 +138,20 @@ module Steep
       # Cache of shared method overloads, keyed by the method name and the identity of the type def
       @method_overload_cache: Hash[Symbol, Hash[RBS::Definition::Method::TypeDef, Shape::MethodOverload]]
 
-      # Index of shared method overloads, keyed by the method name and the identities of the type def components
-      @method_overload_index: Hash[Symbol, Hash[[Integer, Integer, TypeName, TypeName?], Shape::MethodOverload]]
+      # Index of shared method overloads, keyed by the method name and the identity of the type
+      #
+      # The buckets hold an array only when different type defs share one type object.
+      #
+      @method_overload_index: Hash[Symbol, Hash[Integer, Shape::MethodOverload | Array[Shape::MethodOverload]]]
+
+      # Returns a shared `Shape::MethodOverload` through the index, building one if it is new
+      def indexed_method_overload: (Symbol name, RBS::Definition::Method::TypeDef) -> Shape::MethodOverload
+
+      # Returns `true` if the overload was built from a type def equal to the given one
+      #
+      # The type is not compared, because it is the key of the bucket the overload is in.
+      #
+      def same_type_def?: (Shape::MethodOverload, RBS::Definition::Method::TypeDef) -> bool
 
       # Returns a `Shape::MethodOverload` of the `type_def`, shared with the shapes of other types
       #
