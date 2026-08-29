@@ -395,6 +395,7 @@ module Steep
           loader = Services::FileLoader.new(base_dir: project.base_dir)
           all_files = project.targets.each.with_object(Set[]) do |target, set|
             set.merge(loader.load_changes(target.source_pattern, command_line_patterns, changes: {}).each_key)
+            set.merge(loader.load_changes(target.inline_source_pattern, command_line_patterns, changes: {}).each_key)
             set.merge(loader.load_changes(target.signature_pattern, changes: {}).each_key)
           end.to_a
 
