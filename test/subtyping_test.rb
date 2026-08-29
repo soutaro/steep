@@ -951,6 +951,44 @@ type c = a | b
     end
   end
 
+  def test_literal_union_membership
+    with_checker <<-EOF do |checker|
+type enum_t = 1 | 2 | 3 | "a" | "b" | :c
+    EOF
+      assert_success_check checker, "1", "::enum_t"
+      assert_success_check checker, '"b"', "::enum_t"
+      assert_success_check checker, ":c", "::enum_t"
+
+      assert_fail_check checker, "4", "::enum_t"
+      assert_fail_check checker, '"c"', "::enum_t"
+      assert_fail_check checker, ":a", "::enum_t"
+    end
+  end
+
+  def test_literal_union_with_unknown_variable
+    with_checker do |checker|
+      constraints = Constraints.new(unknowns: [:X])
+
+      # The literal-membership fast path must not apply to unions with unknown
+      # type variables: the constraint has to be recorded.
+      assert_success_check(
+        checker,
+        "1",
+        parse_type("X | 2", checker: checker, variables: [:X]),
+        constraints: constraints
+      )
+
+      assert_operator constraints, :unknown?, :X
+      assert_equal parse_type("1", checker: checker), constraints.lower_bound(:X)
+    end
+  end
+
+  def test_literal_hash
+    assert_equal AST::Types::Literal.new(value: 1).hash, AST::Types::Literal.new(value: 1).hash
+    refute_equal AST::Types::Literal.new(value: 1).hash, AST::Types::Literal.new(value: 2).hash
+    refute_equal AST::Types::Literal.new(value: "a").hash, AST::Types::Literal.new(value: "b").hash
+  end
+
   def test_logic_type
     with_checker do |checker|
       type = AST::Types::Logic::ReceiverIsNil.new()
