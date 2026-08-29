@@ -48,7 +48,7 @@ You also need to run rbs-collection-update when the RBS files in the source repo
 
 ## Using rbs-collection with Steep
 
-Steep automatically reads `rb_collection.yaml`. You can use Steep immediately without any modifications.
+Steep automatically reads `rbs_collection.yaml`. You can use Steep immediately without any modifications.
 
 ```
 $ bin/steep project    # Show dependencies detected by Steep
