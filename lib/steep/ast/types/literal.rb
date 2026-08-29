@@ -14,7 +14,7 @@ module Steep
         end
 
         def hash
-          self.class.hash
+          self.class.hash ^ value.hash
         end
 
         alias eql? ==
