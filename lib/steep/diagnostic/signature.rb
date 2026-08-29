@@ -515,6 +515,26 @@ module Steep
         end
       end
 
+      class WarningTypeName < Base
+        attr_reader :type_name
+        attr_reader :message
+
+        def initialize(type_name, message, location:)
+          super(location: location)
+          @type_name = type_name
+          @message = message
+        end
+
+        def header_line
+          buffer = "Type `#{type_name}` has a warning"
+          if message
+            buffer = +buffer
+            buffer << ": " << message
+          end
+          buffer
+        end
+      end
+
       class InlineDiagnostic < Base
         attr_reader :diagnostic
 
