@@ -117,14 +117,36 @@ Composition of the 80,286 entries:
 - Memory reachable from the cache: 160 MB / 1.93M objects (shared with the environment and typings).
 - Memory *exclusively* retained by the cache (freed by `subtypes.clear`, measured via `ObjectSpace.memsize_of_all`): **70.2 MB** (945k object slots).
 
+## Literal types: hash collisions and union membership
+
+Two changes target literal-heavy codebases (enum-like aliases such as `type status = :draft | :published | ...`), where every literal is a distinct relation and caching alone cannot help.
+
+**`Literal#hash` ignored the value.** It returned `self.class.hash` for every literal while `#==` compares values, so every literal type landed in the same bucket of any type-keyed `Hash` — the subtyping cache above all. Lookups and stores of literal relations degraded into linear scans of the colliding chain, and the cost grows with the number of distinct literal relations accumulated in the cache. A synthetic benchmark (4,000 checks of 200 distinct literals against a 200-literal union alias, so ~400 distinct literal relations) improves from 152 ms to 121 ms (−20%); codebases holding thousands of distinct literal relations per worker see a much larger effect, because the chain is that much longer.
+
+**Membership fast path.** `Literal <: Union` used to expand the union and test the branches one by one, building an `Any` result with a failure branch for every literal that did not match. When the union has no free variables and contains an equal literal, `check_type0` now returns a plain `Success` instead — success derivations are never inspected, so the result is indistinguishable. Unions with unknown type variables keep the branching path so that constraint recording is not skipped, and failures keep it so that diagnostics do not change. Enum-like aliases reach this path after alias expansion.
+
+The fast path only makes *computes* cheaper, so a benchmark dominated by cache hits (like the synthetic one above) barely registers it; it shows up in the `top-level compute` time of the `Literal <: Union` and `Literal <: Alias` rows of the stats report.
+
 ## Remaining candidates
 
-1. **Membership test for literals against unions/aliases of literals**: `"foo" <: enum_alias` currently expands the union and tries every branch (building a failure tree per miss). On literal-heavy codebases these checks average ~0.3–0.5 ms with hit rates around 10% (each literal is a distinct relation), so caching cannot save them — the compute itself needs a fast path.
-2. **For the long-lived LSP process: evict the context-keyed table per file** (`CLEAR_PER_FILE=1` in the benchmark): 79% of hits are produced and consumed while checking the same file, and context-keyed entries are bound to the file's classes anyway. Keeping the ground table (now the vast majority of entries, valid forever until a signature reload) and clearing the context-keyed table per file bounds memory with almost no hit-rate cost.
-3. **Share the ground table between the `Subtyping::Check` instances** created per target and by `Interface::Builder` (see above).
-4. **Skip storing relations whose free variables include unknown constraint variables**: stored today but almost never usable (cf. `Instance <: Var` at 2.4% hits), and related to the known constraints-replay bug below.
+1. **For the long-lived LSP process: evict the context-keyed table per file** (`CLEAR_PER_FILE=1` in the benchmark): 79% of hits are produced and consumed while checking the same file, and context-keyed entries are bound to the file's classes anyway. Keeping the ground table (now the vast majority of entries, valid forever until a signature reload) and clearing the context-keyed table per file bounds memory with almost no hit-rate cost.
+2. **Share the ground table between the `Subtyping::Check` instances** created per target and by `Interface::Builder` (see above).
+3. **Skip storing relations whose free variables include unknown constraint variables**: stored today but almost never usable (cf. `Instance <: Var` at 2.4% hits), and related to the known constraints-replay bug below.
+4. **Shape building, not subtyping, is now the larger cost** — see below.
 
 Historical note: prototype measurements of earlier candidates (collapse-only −15%, context-two-level −42%, plus reflexive-skip −45% memory) led to the Phase 1 design above, which supersedes them.
+
+## Shape building is now the larger cost
+
+With the subtyping compute reduced, `Interface::Builder#shape` dominates. Measured with `STEEP_SUBTYPING_STATS=1` on Steep itself (`-j2`): 18,768–34,206 shape calls taking **9.7–15.4 s per worker**, against 2.2–2.8 s of subtyping compute — 4–5x. The report breaks the time down by the kind of the shape target; on Steep the largest are `Instance`, `Singleton`, `self` and `Union`.
+
+Three observations for that work:
+
+- Warming every type up front (`bin/shape_warmup_bench.rb`) costs 16.7 s and 270 MB for all 1,809 types of Steep's own environment (5.0 s / 86 MB for the 583 project types alone), split as 3.1 s of RBS `Definition` building and 12.5 s of Steep-side shape assembly. So the cost to attack is the assembly, not RBS.
+- The assembly converts **858,957 `type_def`s of which only 23,550 are unique** by `(method name, type)` — RBS definitions are flattened, so the methods of `Object`, `Kernel` and every mixin are re-converted for each of the 1,809 types. The conversion is a pure function of `(method name, type_def)` (`method_name_for` uses `implemented_in || defined_in`); the sole type-name-dependent step is `replace_kernel_class`, which only rewrites `Kernel#class`. Memoizing the conversion is therefore the single largest available win, and it applies to lazy building just as much as to warming.
+- `self_shape` has no cache of its own. `object_shape`/`singleton_shape` results are cached, but each `self` shape wraps them in a fresh `Shape`, whose lazily resolved methods (`Methods#resolved_methods`) are rebuilt per call. On Steep that is 6,450 calls and 1.2 s per worker; the substituted result depends only on the self type in the common branches, so it looks memoizable.
+
+`GC` accounts for ~37% of samples during warming, but `GC.disable` makes it *worse* (12.5 s → 19.3 s): the GC time is a symptom of allocation volume, so the fix is to allocate less (i.e. the memoization above), not to tune the GC.
 
 ## Cache changes results (known bug)
 
