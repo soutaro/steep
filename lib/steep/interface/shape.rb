@@ -8,18 +8,18 @@ module Steep
 
         def initialize(method_type, defs)
           @method_type = method_type
-          @method_defs = defs.sort_by do |defn|
-            buf = +""
-
-            if loc = defn.type.location
-              buf << loc.buffer.name.to_s
-              buf << ":"
-              buf << loc.start_pos.to_s
+          if defs.size > 1
+            @method_defs = defs.sort_by do |defn|
+              if loc = defn.type.location
+                [loc.buffer.name.to_s, loc.start_pos]
+              else
+                ["", -1]
+              end
             end
-
-            buf
+            @method_defs.uniq!
+          else
+            @method_defs = defs.dup
           end
-          @method_defs.uniq!
         end
 
         def subst(s)
@@ -157,8 +157,10 @@ module Steep
 
         def each_name(&block)
           if block
-            each do |name, _|
-              yield name
+            # `key?` decides if the method exists without applying the substitutions,
+            # unlike `each` that resolves every entry
+            methods.each_key do |name|
+              yield name if key?(name)
             end
           else
             enum_for :each_name
@@ -178,7 +180,16 @@ module Steep
         end
 
         def merge!(other, &block)
-          other.each do |name, entry|
+          other.methods.each_key do |name|
+            # `key?` skips the entries without method types, like `each` did, but doesn't
+            # resolve the others -- applying the substitutions of `other` is deferred to a
+            # lazy entry, and the visibility is copied from the unresolved entry
+            next unless other.key?(name)
+
+            entry = Entry.new(method_name: name, private_method: other.methods.fetch(name).private_method?) do
+              other[name]&.overloads
+            end
+
             if block && (old_entry = methods[name])
               methods[name] = yield(name, old_entry, entry)
             else

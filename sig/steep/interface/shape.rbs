@@ -52,6 +52,8 @@ module Steep
         def each: () { ([Symbol, Entry]) -> void } -> void
                 | () -> Enumerator[[Symbol, Entry], void]
 
+        # Yields the name of each method that has an entry, without resolving the entries
+        #
         def each_name: () { (Symbol) -> void } -> void
                      | () -> Enumerator[Symbol, void]
 
@@ -69,6 +71,12 @@ module Steep
 
         def push_substitution: (Substitution) -> Methods
 
+        # Copies the entries of `other` into `self`
+        #
+        # The copied entries are lazy -- the substitutions of `other` are applied when the
+        # entry is used. The block, if given, decides which entry survives when `self`
+        # already has an entry of the method, and receives the new entry unresolved.
+        #
         def merge!: (Methods other) ?{ (Symbol name, Entry old_entry, Entry new_entry) -> Entry } -> void
 
         def public_methods: () -> Methods

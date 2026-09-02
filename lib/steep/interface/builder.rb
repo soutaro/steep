@@ -61,6 +61,10 @@ module Steep
         @object_shape_cache = {}
         @union_shape_cache = {}
         @singleton_shape_cache = {}
+        @method_overload_cache = {}
+        @method_overload_index = {}
+        @method_entry_cache = {}
+        @method_entry_index = {}
         @implicitly_returns_nil = implicitly_returns_nil
       end
 
@@ -287,17 +291,16 @@ module Steep
           definition = factory.definition_builder.build_singleton(type_name)
 
           definition.methods.each do |name, method|
-            Steep.logger.tagged(-> { "method = #{type_name}.#{name}" }) do
-              overloads = method.defs.map do |type_def|
-                method_name = method_name_for(type_def, name)
-                method_type = factory.method_type(type_def.type)
-                method_type = replace_primitive_method(method_name, type_def, method_type)
-                method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Builtin::Class.instance_type }
-                method_type = add_implicitly_returns_nil(type_def.each_annotation, method_type)
-                Shape::MethodOverload.new(method_type, [type_def])
-              end
+            if name == :class
+              Steep.logger.tagged(-> { "method = #{type_name}.#{name}" }) do
+                overloads = method.defs.map do |type_def|
+                  build_method_overload(name, type_def, AST::Builtin::Class.instance_type)
+                end
 
-              shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
+                shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
+              end
+            else
+              shape.methods[name] = shared_method_entry(name, method)
             end
           end
 
@@ -319,24 +322,120 @@ module Steep
           definition or raise
 
           definition.methods.each do |name, method|
-            Steep.logger.tagged(-> { "method = #{type_name}##{name}" }) do
-              overloads = method.defs.map do |type_def|
-                method_name = method_name_for(type_def, name)
-                method_type = factory.method_type(type_def.type)
-                method_type = replace_primitive_method(method_name, type_def, method_type)
-                if type_name.class?
-                  method_type = replace_kernel_class(method_name, type_def, method_type) { AST::Types::Name::Singleton.new(name: type_name) }
+            if name == :class && type_name.class?
+              Steep.logger.tagged(-> { "method = #{type_name}##{name}" }) do
+                singleton_type = AST::Types::Name::Singleton.new(name: type_name)
+                overloads = method.defs.map do |type_def|
+                  build_method_overload(name, type_def, singleton_type)
                 end
-                method_type = add_implicitly_returns_nil(type_def.each_annotation, method_type)
-                Shape::MethodOverload.new(method_type, [type_def])
-              end
 
-              shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
+                shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
+              end
+            else
+              shape.methods[name] = shared_method_entry(name, method)
             end
           end
 
           shape
         end
+      end
+
+      def shared_method_entry(name, method)
+        cache = @method_entry_cache[name] ||= begin
+          hash = {} #: Hash[RBS::Definition::Method, Shape::Entry]
+          hash.compare_by_identity
+        end
+        cache[method] ||= begin
+          private_method = method.private?
+          overloads = method.defs.map do |type_def|
+            shared_method_overload(name, type_def)
+          end
+
+          indexed_method_entry(name, private_method, overloads)
+        end
+      end
+
+      def indexed_method_entry(name, private_method, overloads)
+        # Methods rebuilt for each definition convert to the same overloads when their type defs
+        # are shared, and share one entry through this index. The overloads are shared objects,
+        # so the identity of the first one discriminates almost all of the entries.
+        index = @method_entry_index[name] ||= {}
+        key = overloads[0]&.object_id || 0
+
+        case bucket = index[key]
+        when nil
+          index[key] = Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads)
+        when Array
+          bucket.find {|entry| same_overloads?(entry, private_method, overloads) } ||
+            Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads).tap {|entry| bucket << entry }
+        else
+          if same_overloads?(bucket, private_method, overloads)
+            bucket
+          else
+            Interface::Shape::Entry.new(method_name: name, private_method: private_method, overloads: overloads).tap do |entry|
+              index[key] = [bucket, entry]
+            end
+          end
+        end
+      end
+
+      def same_overloads?(entry, private_method, overloads)
+        return false unless entry.private_method? == private_method
+
+        entry_overloads = entry.overloads
+        return false unless entry_overloads.size == overloads.size
+
+        entry_overloads.each_with_index.all? {|overload, index| overload.equal?(overloads[index]) }
+      end
+
+      def shared_method_overload(name, type_def)
+        cache = @method_overload_cache[name] ||= begin
+          hash = {} #: Hash[RBS::Definition::Method::TypeDef, Shape::MethodOverload]
+          hash.compare_by_identity
+        end
+        cache[type_def] ||= indexed_method_overload(name, type_def)
+      end
+
+      def indexed_method_overload(name, type_def)
+        # Value-equal type defs may be different objects between definitions. They are indexed
+        # here by the identity of their type, which discriminates almost all of them, and the
+        # remaining components are compared in the bucket.
+        index = @method_overload_index[name] ||= {}
+        key = type_def.type.object_id
+
+        case bucket = index[key]
+        when nil
+          index[key] = build_method_overload(name, type_def, nil)
+        when Array
+          bucket.find {|overload| same_type_def?(overload, type_def) } ||
+            build_method_overload(name, type_def, nil).tap {|overload| bucket << overload }
+        else
+          if same_type_def?(bucket, type_def)
+            bucket
+          else
+            build_method_overload(name, type_def, nil).tap do |overload|
+              index[key] = [bucket, overload]
+            end
+          end
+        end
+      end
+
+      def same_type_def?(overload, type_def)
+        defn = overload.method_defs[0] or return false
+        defn.member.equal?(type_def.member) &&
+          defn.defined_in == type_def.defined_in &&
+          defn.implemented_in == type_def.implemented_in
+      end
+
+      def build_method_overload(name, type_def, kernel_class_type)
+        method_name = method_name_for(type_def, name)
+        method_type = factory.method_type(type_def.type)
+        method_type = replace_primitive_method(method_name, type_def, method_type)
+        if kernel_class_type
+          method_type = replace_kernel_class(method_name, type_def, method_type) { kernel_class_type }
+        end
+        method_type = add_implicitly_returns_nil(type_def.each_annotation, method_type)
+        Shape::MethodOverload.new(method_type, [type_def])
       end
 
       def union_shape(shape_type, shapes)
