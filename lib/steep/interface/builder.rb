@@ -54,13 +54,14 @@ module Steep
         end
       end
 
-      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :implicitly_returns_nil
+      attr_reader :factory, :object_shape_cache, :union_shape_cache, :singleton_shape_cache, :closed_shape_cache, :implicitly_returns_nil
 
       def initialize(factory, implicitly_returns_nil:)
         @factory = factory
         @object_shape_cache = {}
         @union_shape_cache = {}
         @singleton_shape_cache = {}
+        @closed_shape_cache = {}
         @method_overload_cache = {}
         @method_overload_index = {}
         @method_entry_cache = {}
@@ -70,7 +71,9 @@ module Steep
 
       def shape(type, config)
         Steep.logger.tagged(-> { "shape(#{type})" }) do
-          if shape = raw_shape(type, config)
+          if closed_shape?(type)
+            closed_shape(type, config)
+          elsif shape = raw_shape(type, config)
             # Optimization that skips unnecessary substitution
             if type.free_variables.include?(AST::Types::Self.instance)
               shape
@@ -91,6 +94,40 @@ module Steep
         end
 
         cache[key] = yield
+      end
+
+      def closed_shape?(type)
+        type.free_variables.empty? && (closed_shape_cache.key?(type) || config_free_shape?(type))
+      end
+
+      def closed_shape(type, config)
+        closed_shape_cache.fetch(type) do
+          closed_shape_cache[type] = raw_shape(type, config)
+        end
+      end
+
+      def cached_raw_shape(type, config)
+        if closed_shape?(type)
+          closed_shape(type, config)
+        else
+          raw_shape(type, config)
+        end
+      end
+
+      def config_free_shape?(type)
+        case type
+        when AST::Types::Name::Instance, AST::Types::Name::Singleton, AST::Types::Literal, AST::Types::Nil,
+             AST::Types::Boolean, AST::Types::Logic::Base, AST::Types::Proc, AST::Types::Tuple, AST::Types::Record
+          true
+        when AST::Types::Union, AST::Types::Intersection
+          type.types.all? {|ty| config_free_shape?(ty) }
+        when AST::Types::Name::Alias
+          # The free variables of an alias type do not include the ones in its expansion
+          expanded = factory.expand_alias(type)
+          expanded.free_variables.empty? && config_free_shape?(expanded)
+        else
+          false
+        end
       end
 
       def raw_shape(type, config)
@@ -129,7 +166,7 @@ module Steep
               subst = class_subst(name).update(self_type: union)
               shapes << object_shape(name.name).subst(subst, type: union)
             else
-              shapes.concat(types.map {|ty| raw_shape(ty, config) or return })
+              shapes.concat(types.map {|ty| cached_raw_shape(ty, config) or return })
             end
           end
 
@@ -138,12 +175,12 @@ module Steep
           end
         when AST::Types::Intersection
           shapes = type.types.map do |type|
-            raw_shape(type, config) or return
+            cached_raw_shape(type, config) or return
           end
           intersection_shape(type, shapes)
         when AST::Types::Name::Alias
           expanded = factory.expand_alias(type)
-          if shape = raw_shape(expanded, config)
+          if shape = cached_raw_shape(expanded, config)
             shape.update(type: type)
           end
         when AST::Types::Literal
