@@ -1,20 +1,5 @@
 module Steep
   module Subtyping
-    # Collects statistics of the subtyping cache in `Subtyping::Check#check_type`.
-    #
-    # Activated by environment variables, so that it works with a normal `steep check`
-    # (each worker process reports its own stats on exit):
-    #
-    # * `STEEP_SUBTYPING_STATS=1` prints a summary to stderr on exit.
-    #   The summary contains only counts and type *kinds* -- no type names from the
-    #   code base --, so it can be shared safely.
-    # * `STEEP_SUBTYPING_STATS_FILE=path` appends one JSON object per process to the
-    #   file. The JSON includes the most frequent relations, which contain type names
-    #   from the code base.
-    # * `STEEP_SUBTYPING_STATS_MEMORY=1` additionally measures the memory exclusively
-    #   retained by the cache, by clearing it on exit and comparing
-    #   `ObjectSpace.memsize_of_all`. This makes the process exit slower.
-    #
     class Stats
       class KindStats
         attr_accessor :calls, :hits, :computes, :toplevel_computes, :toplevel_compute_time
@@ -64,15 +49,12 @@ module Steep
         @context_misses = 0
         @toplevel_compute_time = 0.0
 
-        # shape target type => [calls, time] of Interface::Builder#shape
         @shapes = {}
         @shape_calls = 0
         @shape_time = 0.0
         @shape_depth = 0
       end
 
-      # Returns the process-wide collector, or `nil` unless enabled via environment
-      # variables. The decision is made once per process.
       def self.active
         return @active if defined?(@active)
 
@@ -103,9 +85,6 @@ module Steep
         @assumption_successes += 1
       end
 
-      # Measures Interface::Builder#shape: total wall-clock time of outermost
-      # calls (shape building recurses into itself), and the time per shape
-      # target. Includes time served from the shape caches.
       def measure_shape(type)
         @shape_depth += 1
         if @shape_depth == 1
@@ -130,11 +109,6 @@ module Steep
         end
       end
 
-      # `ground` is whether the relation has no free variables, including the
-      # `self`/`instance`/`class` placeholder types: the result of such a relation
-      # does not depend on the (self_type, instance_type, class_type, bounds)
-      # context in the cache key. Computing a ground relation that was already
-      # computed before is a miss caused by context keying.
       def compute(relation, cached:, toplevel:, ground:)
         count_call(relation, hit: false)
         @computes += 1
@@ -211,8 +185,6 @@ module Steep
         "#{type_kind(relation.sub_type)} <: #{type_kind(relation.super_type)}"
       end
 
-      # Composition of the current cache entries: total count, distinct contexts,
-      # reflexive relations, and successful results.
       def entry_stats
         entries = 0
         contexts = Set[]
@@ -237,8 +209,6 @@ module Steep
         }
       end
 
-      # Memory exclusively retained by the caches, in bytes, measured by clearing
-      # them. Destructive -- only use when the caches are no longer needed.
       def measure_exclusive_memory!
         require "objspace"
 
