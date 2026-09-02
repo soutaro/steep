@@ -1,9 +1,16 @@
 module Steep
   module Subtyping
     class Cache
-      # Key of `subtypes`: the relation and the context the check ran in -- the
-      # `self`, `instance`, and `class` types given to `Check#check`, and the upper
-      # bounds of the free type variables of the relation
+      # Key of `subtypes`: the relation and the context the check ran in
+      #
+      # 1. The relation that was checked
+      # 2. The `self_type` given to `Check#check`, the type that `self` resolves to
+      # 3. The `instance_type` given to `Check#check`, the type that `instance` resolves to
+      # 4. The `class_type` given to `Check#check`, the type that `class` resolves to
+      # 5. The upper bounds of the type variables free in the relation, taken from the
+      #    enclosing `Check#push_variable_bounds` calls
+      #
+      # The result of a relation with free variables depends on all of them.
       type context_key = [Relation[AST::Types::t], AST::Types::t?, AST::Types::t?, AST::Types::t?, Hash[Symbol, AST::Types::t?]]
 
       # Results of relations that have free variables, keyed by the relation and the
