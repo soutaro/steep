@@ -256,11 +256,6 @@ module Steep
         end
       end
 
-      # Returns the result to store in the cache
-      #
-      # A successful result is stored without its derivation tree, which is only read
-      # through `Result::Base#failure_path` to explain a failure.
-      #
       def cache_value(relation, result)
         if result.success? && !result.is_a?(Result::Success)
           Success(relation)

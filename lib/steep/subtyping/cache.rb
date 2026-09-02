@@ -1,15 +1,8 @@
 module Steep
   module Subtyping
     class Cache
-      # Results of relations that have free variables, keyed by the relation and the
-      # context the check ran in
       attr_reader :subtypes
 
-      # Results of relations without free variables, keyed by the relation alone
-      #
-      # The `self`/`instance`/`class` types count as free variables, so the result of
-      # such a relation doesn't depend on the context of the check.
-      #
       attr_reader :ground_subtypes
 
       def initialize
@@ -19,17 +12,17 @@ module Steep
       end
 
       def subtype(relation, self_type, instance_type, class_type, bounds)
-        key = [relation, self_type, instance_type, class_type, bounds]
+        key = [relation, self_type, instance_type, class_type, bounds] #: context_key
         subtypes[key]
       end
 
       def [](relation, self_type, instance_type, class_type, bounds)
-        key = [relation, self_type, instance_type, class_type, bounds]
+        key = [relation, self_type, instance_type, class_type, bounds] #: context_key
         subtypes[key]
       end
 
       def []=(relation, self_type, instance_type, class_type, bounds, value)
-        key = [relation, self_type, instance_type, class_type, bounds]
+        key = [relation, self_type, instance_type, class_type, bounds] #: context_key
         subtypes[key] = value
       end
 
