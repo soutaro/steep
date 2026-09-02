@@ -37,6 +37,7 @@ module Steep
 
       type entry_stats = {
         entries: Integer,
+        ground_entries: Integer,
         distinct_contexts: Integer,
         reflexive_entries: Integer,
         success_values: Integer
@@ -68,6 +69,8 @@ module Steep
 
       attr_reader context_misses: Integer
 
+      attr_reader shortcuts: Integer
+
       attr_reader toplevel_compute_time: Float
 
       # shape target type => [calls, time] of Interface::Builder#shape
@@ -96,6 +99,9 @@ module Steep
       def hit: (Relation[untyped] relation, toplevel: bool) -> void
 
       def assumption: (Relation[untyped] relation) -> void
+
+      # A trivially successful relation resolved in check_type without consulting the cache
+      def shortcut: (Relation[untyped] relation) -> void
 
       # Measures Interface::Builder#shape: total wall-clock time of outermost
       # calls, and the time per shape target.

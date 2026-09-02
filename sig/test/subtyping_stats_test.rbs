@@ -19,7 +19,11 @@ class SubtypingStatsTest < Minitest::Test
 
   def test_stats_counts_hits_and_computes: () -> untyped
 
-  def test_stats_context_fragmentation: () -> untyped
+  def test_ground_relations_cached_across_contexts: () -> untyped
+
+  def test_trivial_relations_not_cached: () -> untyped
+
+  def test_cached_success_has_no_derivation_tree: () -> untyped
 
   def test_stats_measure_shape: () -> untyped
 
