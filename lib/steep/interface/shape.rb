@@ -23,7 +23,10 @@ module Steep
         end
 
         def subst(s)
-          overload = MethodOverload.new(method_type.subst(s), [])
+          method_type_ = method_type.subst(s)
+          return self if method_type_.equal?(method_type)
+
+          overload = MethodOverload.new(method_type_, [])
           overload.method_defs.replace(method_defs)
           overload
         end
