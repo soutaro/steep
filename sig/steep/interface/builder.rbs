@@ -51,6 +51,16 @@ module Steep
 
       attr_reader singleton_shape_cache: Hash[TypeName, Shape?]
 
+      # Cache of the shapes of _closed_ types, whose shapes are independent of `Config`
+      #
+      # A closed type has no free variables -- no `self`, `instance`, `class`, or type variables --
+      # and its raw shape is a function of the type. The cache is limited to the types that resolve
+      # `self`/`instance`/`class` types by themselves (see `config_free_shape?`), so that the
+      # shape is used without `Config#subst`, and the entries resolved in the shape are reused
+      # across `#shape` calls.
+      #
+      attr_reader closed_shape_cache: Hash[AST::Types::t, Shape?]
+
       attr_reader implicitly_returns_nil: bool
 
       def initialize: (AST::Types::Factory, implicitly_returns_nil: bool) -> void
@@ -65,6 +75,36 @@ module Steep
       private
 
       def fetch_cache: [KEY < ::Hash::_Key] (Hash[KEY, Shape?], KEY) { () -> Shape? } -> Shape?
+
+      # Returns `true` if the shape of the type is cached in `closed_shape_cache`
+      #
+      # The `config_free_shape?` test is skipped for the types already in the cache.
+      #
+      def closed_shape?: (AST::Types::t) -> bool
+
+      # Returns the cached shape of the type, building it if not cached yet
+      #
+      # `closed_shape?(type)` must hold.
+      #
+      def closed_shape: (AST::Types::t, Config) -> Shape?
+
+      # Returns `raw_shape` of the type, through `closed_shape_cache` if `closed_shape?`
+      #
+      # This is for the components of union, intersection, and alias types, whose shapes are built
+      # from the shapes of the components.
+      #
+      def cached_raw_shape: (AST::Types::t, Config) -> Shape?
+
+      # Returns `true` if the shape of the given closed type doesn't depend on `Config`
+      #
+      # The raw shapes of the class instance types, singleton types, and the types backed by them
+      # (literal, `nil`, `bool`, proc, tuple, and record types) resolve `self`, `instance`, and
+      # `class` types with the types themselves, and the `Config#subst` applied by `#shape` is a
+      # no-op. Union, intersection, and alias types are config free when their components are.
+      #
+      # Interface types resolve only `self` type, so their shapes depend on `Config`.
+      #
+      def config_free_shape?: (AST::Types::t) -> bool
 
       # Returns a shape of given type with respect to Config
       #
