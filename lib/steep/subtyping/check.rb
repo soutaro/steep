@@ -459,11 +459,21 @@ module Steep
           end
 
         when relation.super_type.is_a?(AST::Types::Union)
-          Any(relation) do |result|
-            relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |super_type|
-              rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
-              result.add(rel) do
-                check_type(rel)
+          sub_type = relation.sub_type
+          if sub_type.is_a?(AST::Types::Literal) &&
+              relation.super_type.free_variables.empty? &&
+              relation.super_type.types.any? {|ty| ty.is_a?(AST::Types::Literal) && ty == sub_type }
+            # A literal type is a member of a union of literals: no need to test the
+            # branches one by one. Only for unions without free variables, so that no
+            # constraint recording can be skipped.
+            success(relation)
+          else
+            Any(relation) do |result|
+              relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |super_type|
+                rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
+                result.add(rel) do
+                  check_type(rel)
+                end
               end
             end
           end

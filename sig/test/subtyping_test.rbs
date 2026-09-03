@@ -107,6 +107,12 @@ class SubtypingTest < Minitest::Test
 
   def test_literal_alias_union: () -> untyped
 
+  def test_literal_union_membership: () -> untyped
+
+  def test_literal_union_with_unknown_variable: () -> untyped
+
+  def test_literal_hash: () -> untyped
+
   def test_logic_type: () -> untyped
 
   def test_proc_type: () -> untyped
