@@ -27,9 +27,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
   def test_name_shared_between_files_survives_removal_of_one: () -> untyped
 
-  def test_entries_at_returns_narrowest_first: () -> untyped
-
-  def test_entries_at_deduplicates_targets: () -> untyped
+  def test_references_deduplicates_targets: () -> untyped
 
   def test_entry_lsp_range: () -> untyped
 end

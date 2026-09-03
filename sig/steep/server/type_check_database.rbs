@@ -19,7 +19,6 @@ module Steep
     # database.diagnostics_of(path)                        # Merged diagnostics of the file
     # database.definitions(name: "::Foo#bar")              # Definitions of `Foo#bar` in the project
     # database.references(name: "::Foo")                   # References of `Foo` in the project
-    # database.entries_at(path, line: 1, character: 2)     # Entries that contain the given position
     # ```
     #
     # Updating a `path`/`target` pair replaces the results of the last type checking of the pair.
@@ -163,12 +162,6 @@ module Steep
 
       # Returns the references of the name in the project
       def references: (name: String, ?kind: Entry::kind?) -> Array[[Pathname, Entry]]
-
-      # Returns the entries that contain the given position in the file, narrowest first
-      #
-      # The position is in LSP convention -- 0-origin line and character.
-      #
-      def entries_at: (Pathname path, line: Integer, character: Integer) -> Array[Entry]
 
       # Number of entries stored in the database
       def entry_count: () -> Integer

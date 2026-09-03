@@ -19,7 +19,6 @@ module Steep
     # database.diagnostics_of(path)                        # Merged diagnostics of the file
     # database.definitions(name: "::Foo#bar")              # Definitions of `Foo#bar` in the project
     # database.references(name: "::Foo")                   # References of `Foo` in the project
-    # database.entries_at(path, line: 1, character: 2)     # Entries that contain the given position
     # ```
     #
     # Updating a `path`/`target` pair replaces the results of the last type checking of the pair.
@@ -202,45 +201,6 @@ module Steep
       # Returns the references of the name in the project
       def references(name:, kind: nil)
         matching_entries(name: name, role: :reference, kind: kind)
-      end
-
-      # Returns the entries that contain the given position in the file, narrowest first
-      #
-      # The position is in LSP convention -- 0-origin line and character.
-      #
-      def entries_at(path, line:, character:)
-        targets = @files.fetch(path, nil) or return []
-
-        found = [] #: Array[Entry]
-        seen = Set[] #: Set[Array[Integer]]
-
-        targets.each_value do |data|
-          array = data.entries
-          index = 0
-          while index < array.size
-            start_line = array.fetch(index + 4)
-            start_character = array.fetch(index + 5)
-            end_line = array.fetch(index + 6)
-            end_character = array.fetch(index + 7)
-
-            after_start = start_line < line || (start_line == line && start_character <= character)
-            before_end = line < end_line || (line == end_line && character < end_character)
-
-            if after_start && before_end
-              key = array[index, ENTRY_SIZE] or raise
-              unless seen.include?(key)
-                seen << key
-                found << unpack_entry(array, index)
-              end
-            end
-
-            index += ENTRY_SIZE
-          end
-        end
-
-        found.sort_by do |entry|
-          [entry.end_line - entry.start_line, entry.end_character - entry.start_character]
-        end
       end
 
       # Number of entries stored in the database

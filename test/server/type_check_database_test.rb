@@ -189,32 +189,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal 1, database.pool.size
   end
 
-  def test_entries_at_returns_narrowest_first
-    database = TypeCheckDatabase.new()
-
-    path = Pathname("lib/a.rb")
-    database.update(
-      path: path,
-      target: :app,
-      diagnostics: [],
-      entries: [
-        entry("::Foo::Bar", kind: :constant, role: :reference, at: [0, 0, 0, 10]),
-        entry("::Foo", kind: :constant, role: :reference, at: [0, 0, 0, 3])
-      ]
-    )
-
-    entries = database.entries_at(path, line: 0, character: 1)
-    assert_equal ["::Foo", "::Foo::Bar"], entries.map(&:name)
-
-    # The end position is exclusive
-    entries = database.entries_at(path, line: 0, character: 3)
-    assert_equal ["::Foo::Bar"], entries.map(&:name)
-
-    assert_equal [], database.entries_at(path, line: 0, character: 10)
-    assert_equal [], database.entries_at(Pathname("lib/unknown.rb"), line: 0, character: 0)
-  end
-
-  def test_entries_at_deduplicates_targets
+  def test_references_deduplicates_targets
     database = TypeCheckDatabase.new()
 
     path = Pathname("lib/a.rb")
@@ -227,7 +202,6 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
       )
     end
 
-    assert_equal 1, database.entries_at(path, line: 0, character: 0).size
     assert_equal 1, database.references(name: "::Foo").size
   end
 
