@@ -278,7 +278,8 @@ module Steep
                          method_name: InstanceMethodName.new(type_name: module_context.class_name, method_name: method_name)
                        )
                      else
-                       raise "Unexpected self_type: #{self_type}"
+                       # `def obj.foo` where the type of `obj` doesn't name a class or module, `untyped` included
+                       TypeInference::MethodCall::UnknownContext.new()
                      end
 
       self.class.new(

@@ -311,4 +311,6 @@ class TypeCheckTest < Minitest::Test
   def test_array_literal_with_pair_interface_hint_two_params_block: () -> untyped
 
   def test_array_literal_with_pair_interface_hint_mismatch: () -> untyped
+
+  def test_defs_on_untyped_receiver: () -> untyped
 end
