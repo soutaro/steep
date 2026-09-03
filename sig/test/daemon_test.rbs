@@ -15,6 +15,14 @@ class DaemonTest < Minitest::Test
 
   def teardown: () -> untyped
 
+  def subprocess_timeout: () -> untyped
+
+  # Bounds the subprocesses: `steep check` waits for the response of the daemon without a
+  # timeout, so a daemon that stops responding used to block the test, and the CI job, forever
+  def sh: (*untyped command, **untyped opts) -> untyped
+
+  def daemon_log: () -> untyped
+
   def test_daemon_socket_path: () -> untyped
 
   def test_daemon_not_running_initially: () -> untyped

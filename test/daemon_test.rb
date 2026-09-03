@@ -23,11 +23,56 @@ class DaemonTest < Minitest::Test
   end
 
   def setup
+    super
     system(*steep, "server", "stop", out: File::NULL, err: File::NULL)
   end
 
   def teardown
     system(*steep, "server", "stop", out: File::NULL, err: File::NULL)
+    # The daemon log is the only record of what the server did
+    warn daemon_log unless passed?
+    super
+  end
+
+  def subprocess_timeout
+    120
+  end
+
+  # Bounds the subprocesses: `steep check` waits for the response of the daemon without a
+  # timeout, so a daemon that stops responding used to block the test, and the CI job, forever
+  def sh(*command, **opts)
+    # `teardown` runs outside `in_tmpdir`, so the project directory is remembered here
+    @project_dir = current_dir&.to_s || Dir.pwd
+
+    Bundler.with_unbundled_env do
+      Open3.popen2(env_vars, *command, chdir: @project_dir, **opts) do |stdin, stdout, wait_thr|
+        stdin.close
+        output = Thread.new { stdout.read }
+
+        unless wait_thr.join(subprocess_timeout)
+          # The daemon may keep the pipe open, so the reader is stopped rather than waited for
+          output.kill
+          begin
+            Process.kill("KILL", wait_thr.pid)
+          rescue Errno::ESRCH
+            # Exited between the timeout and the kill
+          end
+          flunk "`#{command.join(" ")}` did not finish in #{subprocess_timeout}s\n#{daemon_log}"
+        end
+
+        [output.value, wait_thr.value]
+      end
+    end
+  end
+
+  def daemon_log
+    log_path = Steep::Daemon::Configuration.new(base_dir: @project_dir || Dir.pwd).log_path
+
+    if File.exist?(log_path)
+      "Daemon log (#{log_path}):\n#{File.read(log_path)}"
+    else
+      "No daemon log at #{log_path}"
+    end
   end
 
   def test_daemon_socket_path
