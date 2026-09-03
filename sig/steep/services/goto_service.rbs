@@ -66,7 +66,20 @@ module Steep
 
       type loc = Location[bot, bot] | Parser::Source::Range
 
-      type target_loc = [Project::Target, loc]
+      # A pair of locations describing a definition, mirroring LSP's `LocationLink`:
+      #
+      # * `target_range` -- the full declaration range
+      # * `target_selection_range` -- the identifier (name) range
+      #
+      class DefinitionLocation
+        attr_reader target_range: loc
+
+        attr_reader target_selection_range: loc
+
+        def initialize: (target_range: loc, target_selection_range: loc) -> void
+      end
+
+      type target_loc = [Project::Target, DefinitionLocation]
 
       attr_reader type_check: TypeCheckService
 
@@ -76,13 +89,13 @@ module Steep
 
       def project: () -> Project
 
-      # Returns array of locations that is a response to a *Go to implementation* request
+      # Returns array of definition locations that is a response to a *Go to implementation* request
       #
-      def implementation: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
+      def implementation: (path: Pathname, line: Integer, column: Integer) -> Array[DefinitionLocation]
 
-      # Returns array of locations that is a response to a *Go to definition* request
+      # Returns array of definition locations that is a response to a *Go to definition* request
       #
-      def definition: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
+      def definition: (path: Pathname, line: Integer, column: Integer) -> Array[DefinitionLocation]
 
       # Parses a name string (like `RBS::Location` or `RBS::Parser.parse_signature`) into a query value.
       #
@@ -96,17 +109,22 @@ module Steep
       # Parses a type name string into a `RBS::TypeName`. Returns `nil` on parse failure.
       def self.parse_type_name: (String) -> TypeName?
 
-      # Returns array of locations for the given name.
+      # Returns array of definition locations for the given name.
       #
       # Used by `steep query definition NAME`.
       #
-      def query_definition: (name) -> Array[loc]
+      def query_definition: (name) -> Array[DefinitionLocation]
 
-      # Returns array of locations that is a response to a *Go to type-definition* request
+      # Returns array of definition locations that is a response to a *Go to type-definition* request
       #
-      def type_definition: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
+      def type_definition: (path: Pathname, line: Integer, column: Integer) -> Array[DefinitionLocation]
 
       private
+
+      # Drops un-assigned entries (those whose RBS target files are not bound to the querying
+      # target) and strips the target component.
+      #
+      def filter_assigned_locations: (Array[target_loc]) -> Array[DefinitionLocation]
 
       # Returns a set of queries
       def query_at: (path: Pathname, line: Integer, column: Integer) -> Array[query]

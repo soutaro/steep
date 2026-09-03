@@ -418,9 +418,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of Parser::Source::Range, loc
-        assert_equal "Customer", loc.source
-        assert_equal 1, loc.line
+        assert_instance_of Parser::Source::Range, loc.target_selection_range
+        assert_equal "Customer", loc.target_selection_range.source
+        assert_equal 1, loc.target_selection_range.line
       end
     end
 
@@ -430,9 +430,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "Customer", loc.source
-        assert_equal 1, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "Customer", loc.target_selection_range.source
+        assert_equal 1, loc.target_selection_range.start_line
       end
     end
 
@@ -442,9 +442,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of Parser::Source::Range, loc
-        assert_equal "::Customer2", loc.source
-        assert_equal 2, loc.line
+        assert_instance_of Parser::Source::Range, loc.target_selection_range
+        assert_equal "::Customer2", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.line
       end
     end
 
@@ -454,9 +454,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "::Customer2", loc.source
-        assert_equal 2, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "::Customer2", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.start_line
       end
     end
 
@@ -466,9 +466,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of Parser::Source::Range, loc
-        assert_equal "NAME", loc.source
-        assert_equal 5, loc.line
+        assert_instance_of Parser::Source::Range, loc.target_selection_range
+        assert_equal "NAME", loc.target_selection_range.source
+        assert_equal 5, loc.target_selection_range.line
       end
     end
 
@@ -478,9 +478,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "Customer::NAME", loc.source
-        assert_equal 6, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "Customer::NAME", loc.target_selection_range.source
+        assert_equal 6, loc.target_selection_range.start_line
       end
     end
   end
@@ -524,16 +524,16 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "foo", loc.source
-        assert_equal 2, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "foo", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.start_line
       end
 
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
-        assert_instance_of Parser::Source::Range, loc
-        assert_equal "foo", loc.source
-        assert_equal 2, loc.line
+        assert_instance_of Parser::Source::Range, loc.target_selection_range
+        assert_equal "foo", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.line
       end
     end
 
@@ -543,9 +543,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "bar", loc.source
-        assert_equal 4, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "bar", loc.target_selection_range.source
+        assert_equal 4, loc.target_selection_range.start_line
       end
     end
 
@@ -555,9 +555,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "baz", loc.source
-        assert_equal 6, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "baz", loc.target_selection_range.source
+        assert_equal 6, loc.target_selection_range.start_line
       end
     end
 
@@ -567,9 +567,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of Parser::Source::Range, loc
-        assert_equal "find", loc.source
-        assert_equal 5, loc.line
+        assert_instance_of Parser::Source::Range, loc.target_selection_range
+        assert_equal "find", loc.target_selection_range.source
+        assert_equal 5, loc.target_selection_range.line
       end
     end
 
@@ -579,9 +579,9 @@ RUBY
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "find", loc.source
-        assert_equal 12, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "find", loc.target_selection_range.source
+        assert_equal 12, loc.target_selection_range.start_line
       end
     end
   end
@@ -634,17 +634,17 @@ RBS
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "Customer", loc.source
-        assert_equal 1, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "Customer", loc.target_selection_range.source
+        assert_equal 1, loc.target_selection_range.start_line
       end
 
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "Customer", loc.source
-        assert_equal 5, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "Customer", loc.target_selection_range.source
+        assert_equal 5, loc.target_selection_range.start_line
       end
     end
 
@@ -654,9 +654,9 @@ RBS
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "loc", loc.source
-        assert_equal 2, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "loc", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.start_line
       end
     end
 
@@ -666,9 +666,9 @@ RBS
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "_Base", loc.source
-        assert_equal 6, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "_Base", loc.target_selection_range.source
+        assert_equal 6, loc.target_selection_range.start_line
       end
     end
   end
@@ -689,9 +689,9 @@ RBS
       assert_any!(locs) do |target, loc|
         assert_equal :lib, target.name
 
-        assert_instance_of RBS::Location, loc
-        assert_equal "Hello", loc.source
-        assert_equal 1, loc.start_line
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "Hello", loc.target_selection_range.source
+        assert_equal 1, loc.target_selection_range.start_line
       end
     end
   end
@@ -722,27 +722,27 @@ RBS
 
     service.definition(path: dir + "lib/test.rb", line: 1, column: 6).tap do |locs|
       assert_any!(locs) do |loc|
-        assert_instance_of RBS::Location, loc
-        assert_equal "initialize", loc.source
-        assert_equal 2, loc.start_line
-        assert_equal Pathname("sig/a.rbs"), loc.buffer.name
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "initialize", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.start_line
+        assert_equal Pathname("sig/a.rbs"), loc.target_selection_range.buffer.name
       end
     end
 
     service.definition(path: dir + "lib/test.rb", line: 2, column: 6).tap do |locs|
       assert_any!(locs) do |loc|
-        assert_instance_of RBS::Location, loc
-        assert_equal "initialize", loc.source
-        assert_equal Pathname("basic_object.rbs"), Pathname(loc.buffer.name).basename
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "initialize", loc.target_selection_range.source
+        assert_equal Pathname("basic_object.rbs"), Pathname(loc.target_selection_range.buffer.name).basename
       end
     end
 
     service.definition(path: dir + "lib/test.rb", line: 3, column: 6).tap do |locs|
       assert_any!(locs) do |loc|
-        assert_instance_of RBS::Location, loc
-        assert_equal "new", loc.source
-        assert_equal 9, loc.start_line
-        assert_equal Pathname("sig/a.rbs"), loc.buffer.name
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "new", loc.target_selection_range.source
+        assert_equal 9, loc.target_selection_range.start_line
+        assert_equal Pathname("sig/a.rbs"), loc.target_selection_range.buffer.name
       end
     end
   end
@@ -761,10 +761,10 @@ RBS
 
     service.method_locations(MethodName("::Foo#hello"), in_ruby: false, in_rbs: true, locations: []).tap do |result|
       assert_any!(result) do |_target, loc|
-        assert_instance_of RBS::Location, loc
-        assert_equal "hello", loc.source
-        assert_equal 2, loc.start_line
-        assert_equal Pathname("inline/a.rb"), loc.buffer.name
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "hello", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.start_line
+        assert_equal Pathname("inline/a.rb"), loc.target_selection_range.buffer.name
       end
     end
   end
@@ -785,10 +785,10 @@ RBS
 
     service.definition(path: dir + "inline/a.rb", line: 6, column: 6).tap do |locs|
       assert_any!(locs) do |loc|
-        assert_instance_of RBS::Location, loc
-        assert_equal "initialize", loc.source
-        assert_equal 2, loc.start_line
-        assert_equal Pathname("inline/a.rb"), loc.buffer.name
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "initialize", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.start_line
+        assert_equal Pathname("inline/a.rb"), loc.target_selection_range.buffer.name
       end
     end
   end
@@ -809,10 +809,10 @@ RBS
 
     service.definition(path: dir + "inline/a.rb", line: 6, column: 1).tap do |locs|
       assert_any!(locs) do |loc|
-        assert_instance_of RBS::Location, loc
-        assert_equal "Foo", loc.source
-        assert_equal 1, loc.start_line
-        assert_equal Pathname("inline/a.rb"), loc.buffer.name
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "Foo", loc.target_selection_range.source
+        assert_equal 1, loc.target_selection_range.start_line
+        assert_equal Pathname("inline/a.rb"), loc.target_selection_range.buffer.name
       end
     end
   end
@@ -843,9 +843,9 @@ RUBY
     # Cursor on `foo` call inside `bar` method (line 13, column 4)
     service.definition(path: dir + "inline/a.rb", line: 13, column: 6).tap do |locs|
       assert_any!(locs) do |loc|
-        assert_instance_of RBS::Location, loc
-        assert_equal "foo", loc.source
-        assert_equal Pathname("inline/a.rb"), loc.buffer.name
+        assert_instance_of RBS::Location, loc.target_selection_range
+        assert_equal "foo", loc.target_selection_range.source
+        assert_equal Pathname("inline/a.rb"), loc.target_selection_range.buffer.name
       end
     end
   end
@@ -883,17 +883,17 @@ RBS
 
     service.implementation(path: dir + "lib/test.rb", line: 12, column: 6).tap do |locs|
       assert_any!(locs, size: 1) do |loc|
-        assert_instance_of Parser::Source::Range, loc
-        assert_equal "initialize", loc.source
-        assert_equal 2, loc.line
+        assert_instance_of Parser::Source::Range, loc.target_selection_range
+        assert_equal "initialize", loc.target_selection_range.source
+        assert_equal 2, loc.target_selection_range.line
       end
     end
 
     service.implementation(path: dir + "lib/test.rb", line: 13, column: 6).tap do |locs|
       assert_any!(locs, size: 1) do |loc|
-        assert_instance_of Parser::Source::Range, loc
-        assert_equal "new", loc.source
-        assert_equal 7, loc.line
+        assert_instance_of Parser::Source::Range, loc.target_selection_range
+        assert_equal "new", loc.target_selection_range.source
+        assert_equal 7, loc.target_selection_range.line
       end
     end
   end
@@ -910,7 +910,7 @@ RBS
 
     service.definition(path: dir + "lib/test.rb", line: 1, column: 4).tap do |locs|
       assert_any!(locs, size: 1) do |loc|
-        assert_equal Pathname("array.rbs"), Pathname(loc.buffer.name).basename
+        assert_equal Pathname("array.rbs"), Pathname(loc.target_selection_range.buffer.name).basename
       end
     end
   end
@@ -928,7 +928,7 @@ RBS
 
     service.definition(path: dir + "lib/test.rb", line: 2, column: 8).tap do |locs|
       assert_any!(locs, size: 1) do |loc|
-        assert_equal Pathname("nil_class.rbs"), Pathname(loc.buffer.name).basename
+        assert_equal Pathname("nil_class.rbs"), Pathname(loc.target_selection_range.buffer.name).basename
       end
     end
   end
@@ -954,7 +954,7 @@ RUBY
     a.assign!([:lib, Pathname("sig/b.rbs")], 1)
     Services::GotoService.new(type_check: type_check, assignment: a).tap do |service|
       service.definition(path: dir + "lib/customer.rb", line: 1, column: 10).tap do |locs|
-        assert_equal [Pathname("sig/a.rbs")], locs.map(&:name)
+        assert_equal [Pathname("sig/a.rbs")], locs.map { _1.target_range.name }
       end
     end
 
@@ -963,7 +963,7 @@ RUBY
     b.assign!([:lib, Pathname("sig/b.rbs")], 0)
     Services::GotoService.new(type_check: type_check, assignment: b).tap do |service|
       service.definition(path: dir + "lib/customer.rb", line: 1, column: 10).tap do |locs|
-        assert_equal [Pathname("sig/b.rbs")], locs.map(&:name)
+        assert_equal [Pathname("sig/b.rbs")], locs.map { _1.target_range.name }
       end
     end
   end
@@ -983,7 +983,7 @@ RUBY
 
     service.type_definition(path: dir + "lib/test.rb", line: 1, column: 5).tap do |locs|
       assert_equal 1, locs.size
-      assert_equal "Foo", locs[0].source
+      assert_equal "Foo", locs[0].target_selection_range.source
     end
   end
 
@@ -1000,19 +1000,19 @@ RUBY
 
     service.type_definition(path: dir + "lib/test.rb", line: 1, column: 3).tap do |locs|
       assert_equal 2, locs.size
-      assert locs.find {|loc| loc.source == "TrueClass" }
-      assert locs.find {|loc| loc.source == "FalseClass" }
+      assert locs.find {|loc| loc.target_selection_range.source == "TrueClass" }
+      assert locs.find {|loc| loc.target_selection_range.source == "FalseClass" }
     end
 
     service.type_definition(path: dir + "lib/test.rb", line: 2, column: 3).tap do |locs|
       assert_equal 1, locs.size
-      assert locs.find {|loc| loc.source == "Integer" }
+      assert locs.find {|loc| loc.target_selection_range.source == "Integer" }
     end
 
     service.type_definition(path: dir + "lib/test.rb", line: 3, column: 3).tap do |locs|
       assert_equal 2, locs.size
-      assert locs.find {|loc| loc.source == "Integer" }
-      assert locs.find {|loc| loc.source == "Array" }
+      assert locs.find {|loc| loc.target_selection_range.source == "Integer" }
+      assert locs.find {|loc| loc.target_selection_range.source == "Array" }
     end
   end
 
@@ -1036,8 +1036,8 @@ x = nil #: MyString?
 
     service.type_definition(path: dir + "inline/test.rb", line: 3, column: 15).tap do |locs|
       assert_equal 2, locs.size
-      assert locs.find {|loc| loc.source == "MyString" }
-      assert locs.find {|loc| loc.source == "NilClass" }
+      assert locs.find {|loc| loc.target_selection_range.source == "MyString" }
+      assert locs.find {|loc| loc.target_selection_range.source == "NilClass" }
     end
   end
 
@@ -1097,11 +1097,23 @@ x = nil #: MyString?
 
     name = Services::GotoService.parse_name("Customer") or raise
     service.query_definition(name).tap do |locs|
-      refute_empty locs
+      assert_equal 2, locs.size
       # One location from the RBS file
-      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("customer.rbs") }
+      assert_any!(locs) do |loc|
+        assert loc.target_range.is_a?(RBS::Location)
+        assert_equal Pathname("sig/customer.rbs"), Pathname(loc.target_selection_range.buffer.name)
+        # Selection range is just the class name
+        assert_equal "Customer", loc.target_selection_range.source
+        # Target range covers the full class declaration (class...end)
+        assert_equal "class Customer\n  VERSION: String\nend", loc.target_range.source
+      end
       # One location from the Ruby file
-      assert locs.any? {|loc| !loc.is_a?(RBS::Location) && loc.source_buffer.name.to_s.end_with?("customer.rb") }
+      assert_any!(locs) do |loc|
+        refute loc.target_range.is_a?(RBS::Location)
+        assert_equal Pathname("lib/customer.rb"), Pathname(loc.target_selection_range.source_buffer.name)
+        assert_equal "Customer", loc.target_selection_range.source
+        assert_equal "class Customer\n  VERSION = \"0.1.0\"\nend", loc.target_range.source
+      end
     end
   end
 
@@ -1116,8 +1128,12 @@ x = nil #: MyString?
 
     name = Services::GotoService.parse_name("name_or_id") or raise
     service.query_definition(name).tap do |locs|
-      refute_empty locs
-      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("types.rbs") }
+      assert_any!(locs, size: 1) do |loc|
+        assert loc.target_range.is_a?(RBS::Location)
+        assert_equal Pathname("sig/types.rbs"), Pathname(loc.target_selection_range.buffer.name)
+        assert_equal "name_or_id", loc.target_selection_range.source
+        assert_equal "type name_or_id = String | Integer", loc.target_range.source
+      end
     end
   end
 
@@ -1134,8 +1150,12 @@ x = nil #: MyString?
 
     name = Services::GotoService.parse_name("_MyInterface") or raise
     service.query_definition(name).tap do |locs|
-      refute_empty locs
-      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("interface.rbs") }
+      assert_any!(locs, size: 1) do |loc|
+        assert loc.target_range.is_a?(RBS::Location)
+        assert_equal Pathname("sig/interface.rbs"), Pathname(loc.target_selection_range.buffer.name)
+        assert_equal "_MyInterface", loc.target_selection_range.source
+        assert_equal "interface _MyInterface\n  def foo: () -> void\nend", loc.target_range.source
+      end
     end
   end
 
@@ -1159,9 +1179,21 @@ x = nil #: MyString?
 
     name = Services::GotoService.parse_name("Customer#greet") or raise
     service.query_definition(name).tap do |locs|
-      refute_empty locs
-      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("customer.rbs") }
-      assert locs.any? {|loc| !loc.is_a?(RBS::Location) && loc.source_buffer.name.to_s.end_with?("customer.rb") }
+      assert_equal 2, locs.size
+      # RBS definition: `def greet: () -> String`
+      assert_any!(locs) do |loc|
+        assert loc.target_range.is_a?(RBS::Location)
+        assert_equal Pathname("sig/customer.rbs"), Pathname(loc.target_selection_range.buffer.name)
+        assert_equal "greet", loc.target_selection_range.source
+        assert_equal "def greet: () -> String", loc.target_range.source
+      end
+      # Ruby definition: full `def greet ... end` block
+      assert_any!(locs) do |loc|
+        refute loc.target_range.is_a?(RBS::Location)
+        assert_equal Pathname("lib/customer.rb"), Pathname(loc.target_selection_range.source_buffer.name)
+        assert_equal "greet", loc.target_selection_range.source
+        assert_equal "def greet\n    \"hi\"\n  end", loc.target_range.source
+      end
     end
   end
 
@@ -1183,9 +1215,19 @@ x = nil #: MyString?
 
     name = Services::GotoService.parse_name("Customer::VERSION") or raise
     service.query_definition(name).tap do |locs|
-      refute_empty locs
-      assert locs.any? {|loc| loc.is_a?(RBS::Location) && loc.buffer.name.to_s.end_with?("customer.rbs") }
-      assert locs.any? {|loc| !loc.is_a?(RBS::Location) && loc.source_buffer.name.to_s.end_with?("customer.rb") }
+      assert_equal 2, locs.size
+      # RBS: `VERSION: String`
+      assert_any!(locs) do |loc|
+        assert loc.target_range.is_a?(RBS::Location)
+        assert_equal Pathname("sig/customer.rbs"), Pathname(loc.target_selection_range.buffer.name)
+        assert_equal "VERSION: String", loc.target_range.source
+      end
+      # Ruby: whole `VERSION = "0.1.0"` assignment
+      assert_any!(locs) do |loc|
+        refute loc.target_range.is_a?(RBS::Location)
+        assert_equal Pathname("lib/customer.rb"), Pathname(loc.target_selection_range.source_buffer.name)
+        assert_equal "VERSION = \"0.1.0\"", loc.target_range.source
+      end
     end
   end
 
