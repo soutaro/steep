@@ -166,7 +166,10 @@ module Steep
 
       def handle_job: (job) -> void
 
-      def typecheck_progress: (guid: String, path: Pathname, target: Project::Target, diagnostics: Array[LSPDiagnostic::json]?) -> void
+      def typecheck_progress: (guid: String, path: Pathname, target: Project::Target, diagnostics: Array[LSPDiagnostic::json]?, ?entries: Array[TypeCheckDatabase::Entry]?) -> void
+
+      # Returns the entries extracted from the last type checking of the file, or `nil` if no `Typing` is available
+      def source_file_entries: (Pathname relative_path) -> Array[TypeCheckDatabase::Entry]?
 
       def workspace_symbol_result: (untyped query) -> untyped
 

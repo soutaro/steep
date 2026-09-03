@@ -32,4 +32,6 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
   def test_rbs_declarations: () -> untyped
 
   def test_entry_lsp_range: () -> untyped
+
+  def test_entry_wire_round_trip: () -> untyped
 end

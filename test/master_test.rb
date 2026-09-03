@@ -281,6 +281,69 @@ end
     end
   end
 
+  def test_on_type_check_update_stores_results_in_database
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
+
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+
+      progress = master.work_done_progress("guid")
+      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
+
+      flush_queue(master.write_queue)
+
+      master.on_type_check_update(
+        guid: "guid",
+        path: current_dir + "lib/customer.rb",
+        target: project.targets[0],
+        diagnostics: [],
+        entries: [
+          ["::Customer", 0, 0, 0, 0, 6, 0, 14],
+          ["::Customer#name", 1, 0, 0, 1, 6, 1, 10]
+        ]
+      )
+
+      database = master.type_check_database
+
+      assert_operator database, :checked?, current_dir + "lib/customer.rb"
+      assert_equal [], database.diagnostics_of(current_dir + "lib/customer.rb")
+
+      definitions = database.definitions(name: "::Customer#name")
+      assert_equal [current_dir + "lib/customer.rb"], definitions.map(&:first)
+      assert_equal [1], definitions.map {|_, entry| entry.start_line }
+
+      # Results of unknown guids are not stored
+      master.on_type_check_update(
+        guid: "different-guid",
+        path: current_dir + "lib/customer.rb",
+        target: project.targets[0],
+        diagnostics: nil,
+        entries: [["::Other", 0, 0, 0, 0, 0, 0, 5]]
+      )
+      assert_equal [], database.definitions(name: "::Other")
+    end
+  end
+
   def test_on_type_check_update_without_progress
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

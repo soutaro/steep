@@ -269,7 +269,7 @@ module Steep
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
             diagnostics = service.typecheck_source(path: relative_path, target: job.target)
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) }, entries: source_file_entries(relative_path))
           end
 
         when TypeCheckInlineCodeJob
@@ -288,7 +288,7 @@ module Steep
               end
             end
 
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) }, entries: source_file_entries(relative_path))
           end
 
         when WorkspaceSymbolJob
@@ -317,8 +317,24 @@ module Steep
         end
       end
 
-      def typecheck_progress(guid:, path:, target:, diagnostics:)
-        writer.write(CustomMethods::TypeCheck__Progress.notification({ guid: guid, path: path.to_s, target: target.name.to_s, diagnostics: diagnostics }))
+      def typecheck_progress(guid:, path:, target:, diagnostics:, entries: nil)
+        writer.write(
+          CustomMethods::TypeCheck__Progress.notification({
+            guid: guid,
+            path: path.to_s,
+            target: target.name.to_s,
+            diagnostics: diagnostics,
+            entries: entries&.map { _1.to_wire }
+          })
+        )
+      end
+
+      def source_file_entries(relative_path)
+        if file = service.source_files[relative_path]
+          if typing = file.typing
+            TypeCheckDatabase.entries_from(typing)
+          end
+        end
       end
 
       def workspace_symbol_result(query)

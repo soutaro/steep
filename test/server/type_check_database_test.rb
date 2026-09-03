@@ -235,4 +235,11 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
     assert_equal({ start: { line: 1, character: 2 }, end: { line: 3, character: 4 } }, e.lsp_range)
   end
+
+  def test_entry_wire_round_trip
+    e = entry("::Foo#bar", kind: :method, role: :reference, at: [1, 2, 3, 4])
+
+    assert_equal ["::Foo#bar", 1, 1, 0, 1, 2, 3, 4], e.to_wire
+    assert_equal e, TypeCheckDatabase::Entry.from_wire(e.to_wire)
+  end
 end

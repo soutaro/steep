@@ -519,6 +519,67 @@ class TypeCheckWorkerTest < Minitest::Test
     end
   end
 
+  def test_handle_job_typecheck_code_entries
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+        {}.tap do |changes|
+          changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<~RUBY)]
+            class Hello
+              def world
+              end
+            end
+
+            Hello.new.world()
+          RUBY
+          changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<~RUBY)]
+            class Hello
+              def world: () -> void
+            end
+          RUBY
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+        end
+
+        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+
+          entries = message[:params][:entries]
+
+          # Constant definition and reference of ::Hello
+          assert_includes entries, ["::Hello", 0, 0, 0, 0, 6, 0, 11]
+          assert_includes entries, ["::Hello", 0, 1, 0, 5, 0, 5, 5]
+
+          # Method definition and reference of ::Hello#world
+          assert_includes entries, ["::Hello#world", 1, 0, 0, 1, 6, 1, 11]
+          assert_includes entries, ["::Hello#world", 1, 1, 0, 5, 10, 5, 15]
+
+          # The reference of `.new` points at the selector
+          assert(entries.any? {|_, kind, role, _, line, character, _, _| kind == 1 && role == 1 && line == 5 && character == 6 })
+        end
+      end
+    end
+  end
+
   def test_handle_job_typecheck_code_diagnostics
     in_tmpdir do
       with_master_read_queue do |master_read_queue|

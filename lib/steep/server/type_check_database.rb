@@ -11,6 +11,23 @@ module Steep
               end: { line: end_line, character: end_character }
             }
           end
+
+          def to_wire
+            [name, KIND_CODES.fetch(kind), ROLE_CODES.fetch(role), SOURCE_CODES.fetch(source), start_line, start_character, end_line, end_character]
+          end
+
+          def self.from_wire(array)
+            Entry.new(
+              name: array[0],
+              kind: KINDS.fetch(array[1]),
+              role: ROLES.fetch(array[2]),
+              source: SOURCES.fetch(array[3]),
+              start_line: array[4],
+              start_character: array[5],
+              end_line: array[6],
+              end_character: array[7]
+            )
+          end
         end
 
       class NamePool
@@ -70,6 +87,90 @@ module Steep
       SOURCES = SOURCE_CODES.invert #: Hash[Integer, Entry::source]
 
       ENTRY_SIZE = 8
+
+      def self.entries_from(typing)
+        entries = [] #: Array[Entry]
+        seen = Set[] #: Set[Array[untyped]]
+
+        index = typing.source_index
+
+        index.constant_index.each do |name, entry|
+          entry.definitions.each do |node|
+            if location = constant_definition_location(node)
+              push_entry(entries, seen, name: name.to_s, kind: :constant, role: :definition, location: location)
+            end
+          end
+          entry.references.each do |node|
+            push_entry(entries, seen, name: name.to_s, kind: :constant, role: :reference, location: node.location.expression)
+          end
+        end
+
+        index.method_index.each do |name, entry|
+          entry.definitions.each do |node|
+            location = (_ = node.location).name #: Parser::Source::Range
+            push_entry(entries, seen, name: name.to_s, kind: :method, role: :definition, location: location)
+          end
+        end
+
+        typing.method_calls.each do |node, call|
+          decls =
+            case call
+            when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+              call.method_decls
+            end
+          next unless decls
+
+          location = method_call_location(node) or next
+          decls.each do |decl|
+            push_entry(entries, seen, name: decl.method_name.to_s, kind: :method, role: :reference, location: location)
+          end
+        end
+
+        entries
+      end
+
+      def self.constant_definition_location(node)
+        case node.type
+        when :const
+          node.location.expression #: Parser::Source::Range
+        when :casgn
+          name_location = (_ = node.location).name #: Parser::Source::Range
+          if parent = node.children[0]
+            parent_location = parent.location.expression #: Parser::Source::Range
+            parent_location.join(name_location)
+          else
+            name_location
+          end
+        end
+      end
+
+      def self.method_call_location(node)
+        case node.type
+        when :block, :numblock, :itblock
+          method_call_location(node.children.fetch(0))
+        else
+          location = node.location
+          selector = location.respond_to?(:selector) ? (_ = location).selector : nil #: Parser::Source::Range?
+          selector || location.expression
+        end
+      end
+
+      def self.push_entry(entries, seen, name:, kind:, role:, location:)
+        key = [name, kind, role, location.line, location.column, location.last_line, location.last_column] #: Array[untyped]
+        return if seen.include?(key)
+        seen << key
+
+        entries << Entry.new(
+          name: name,
+          kind: kind,
+          role: role,
+          source: :ruby,
+          start_line: location.line - 1,
+          start_character: location.column,
+          end_line: location.last_line - 1,
+          end_character: location.last_column
+        )
+      end
 
       attr_reader :pool
 

@@ -48,6 +48,8 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_handle_job_typecheck_code: () -> untyped
 
+  def test_handle_job_typecheck_code_entries: () -> untyped
+
   def test_handle_job_typecheck_code_diagnostics: () -> untyped
 
   def test_handle_job_typecheck_skip: () -> untyped
