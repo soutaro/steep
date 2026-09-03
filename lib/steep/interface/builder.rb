@@ -70,6 +70,16 @@ module Steep
       end
 
       def shape(type, config)
+        if stats = Subtyping::Stats.active
+          stats.measure_shape(type) do
+            shape0(type, config)
+          end
+        else
+          shape0(type, config)
+        end
+      end
+
+      def shape0(type, config)
         Steep.logger.tagged(-> { "shape(#{type})" }) do
           if closed_shape?(type)
             closed_shape(type, config)

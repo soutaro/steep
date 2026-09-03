@@ -1,0 +1,141 @@
+module Steep
+  module Subtyping
+    # Collects statistics of the subtyping cache in `Subtyping::Check#check_type`.
+    #
+    # Activated by environment variables, so that it works with a normal `steep check`
+    # (each worker process reports its own stats on exit):
+    #
+    # * `STEEP_SUBTYPING_STATS=1` prints a summary to stderr on exit.
+    # * `STEEP_SUBTYPING_STATS_FILE=path` appends one JSON object per process to the file.
+    # * `STEEP_SUBTYPING_STATS_MEMORY=1` additionally measures the memory exclusively
+    #   retained by the cache.
+    #
+    class Stats
+      class KindStats
+        attr_accessor calls: Integer
+
+        attr_accessor hits: Integer
+
+        attr_accessor computes: Integer
+
+        attr_accessor toplevel_computes: Integer
+
+        attr_accessor toplevel_compute_time: Float
+
+        def initialize: () -> void
+      end
+
+      class RelationStats
+        attr_accessor calls: Integer
+
+        attr_accessor hits: Integer
+
+        attr_accessor toplevel_compute_time: Float
+
+        def initialize: () -> void
+      end
+
+      type entry_stats = {
+        entries: Integer,
+        ground_entries: Integer,
+        distinct_contexts: Integer,
+        reflexive_entries: Integer,
+        success_values: Integer
+      }
+
+      attr_reader kinds: Hash[String, KindStats]
+
+      attr_reader relations: Hash[Relation[untyped], RelationStats]
+
+      attr_reader caches: Array[Cache]
+
+      attr_reader calls: Integer
+
+      attr_reader reflexive_calls: Integer
+
+      attr_reader hits: Integer
+
+      attr_reader toplevel_hits: Integer
+
+      attr_reader reflexive_hits: Integer
+
+      attr_reader computes: Integer
+
+      attr_reader toplevel_computes: Integer
+
+      attr_reader computes_with_unusable_cache: Integer
+
+      attr_reader assumption_successes: Integer
+
+      attr_reader context_misses: Integer
+
+      attr_reader shortcuts: Integer
+
+      attr_reader toplevel_compute_time: Float
+
+      # shape target type => [calls, time] of Interface::Builder#shape
+      attr_reader shapes: Hash[AST::Types::t, [Integer, Float]]
+
+      attr_reader shape_calls: Integer
+
+      attr_reader shape_time: Float
+
+      @shape_depth: Integer
+
+      @ground_relations: Set[Relation[untyped]]
+
+      self.@active: Stats?
+
+      def initialize: () -> void
+
+      # Returns the process-wide collector, or `nil` unless enabled via environment
+      # variables. The decision is made once per process.
+      def self.active: () -> Stats?
+
+      def self.active=: (Stats?) -> Stats?
+
+      def register_cache: (Cache) -> void
+
+      def hit: (Relation[untyped] relation, toplevel: bool) -> void
+
+      def assumption: (Relation[untyped] relation) -> void
+
+      # A trivially successful relation resolved in check_type without consulting the cache
+      def shortcut: (Relation[untyped] relation) -> void
+
+      # Measures Interface::Builder#shape: total wall-clock time of outermost
+      # calls, and the time per shape target.
+      def measure_shape: [A] (AST::Types::t `type`) { () -> A } -> A
+
+      # `ground` is whether the relation has no free variables, including the
+      # `self`/`instance`/`class` placeholder types. Computing a ground relation
+      # that was already computed before is a miss caused by context keying.
+      def compute: (Relation[untyped] relation, cached: bool, toplevel: bool, ground: bool) -> void
+
+      def compute_time: (Relation[untyped] relation, Float time) -> void
+
+      def count_call: (Relation[untyped] relation, hit: bool) -> void
+
+      def kind_stats: (Relation[untyped] relation) -> KindStats
+
+      def type_kind: (untyped `type`) -> String
+
+      def relation_kind: (Relation[untyped] relation) -> String
+
+      # Composition of the current cache entries.
+      def entry_stats: () -> entry_stats
+
+      # Memory exclusively retained by the caches, in bytes, measured by clearing
+      # them. Destructive -- only use when the caches are no longer needed.
+      def measure_exclusive_memory!: () -> Integer
+
+      def percent: (Integer count, Integer total) -> String
+
+      def report: () -> void
+
+      def report_text: (IO io, entry_stats stats, Integer? exclusive_memory) -> void
+
+      def as_json: (entry_stats stats, Integer? exclusive_memory) -> Hash[Symbol, untyped]
+    end
+  end
+end

@@ -1,17 +1,42 @@
 module Steep
   module Subtyping
     class Cache
-      attr_reader subtypes: untyped
+      # Key of `subtypes`: the relation and the context the check ran in
+      #
+      # 1. The relation that was checked
+      # 2. The `self_type` given to `Check#check`, the type that `self` resolves to
+      # 3. The `instance_type` given to `Check#check`, the type that `instance` resolves to
+      # 4. The `class_type` given to `Check#check`, the type that `class` resolves to
+      # 5. The upper bounds of the type variables free in the relation, taken from the
+      #    enclosing `Check#push_variable_bounds` calls
+      #
+      # The result of a relation with free variables depends on all of them.
+      type context_key = [Relation[AST::Types::t], AST::Types::t?, AST::Types::t?, AST::Types::t?, Hash[Symbol, AST::Types::t?]]
+
+      # Results of relations that have free variables, keyed by the relation and the
+      # context the check ran in
+      attr_reader subtypes: Hash[context_key, Result::t]
+
+      # Results of relations without free variables, keyed by the relation alone
+      #
+      # The `self`/`instance`/`class` types count as free variables, so the result of
+      # such a relation doesn't depend on the context of the check.
+      #
+      attr_reader ground_subtypes: Hash[Relation[AST::Types::t], Result::t]
 
       def initialize: () -> void
 
-      def subtype: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds) -> untyped
+      def subtype: (Relation[AST::Types::t] relation, AST::Types::t? self_type, AST::Types::t? instance_type, AST::Types::t? class_type, Hash[Symbol, AST::Types::t?] bounds) -> Result::t?
 
-      def []: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds) -> untyped
+      def []: (Relation[AST::Types::t] relation, AST::Types::t? self_type, AST::Types::t? instance_type, AST::Types::t? class_type, Hash[Symbol, AST::Types::t?] bounds) -> Result::t?
 
-      def []=: (untyped relation, untyped self_type, untyped instance_type, untyped class_type, untyped bounds, untyped value) -> untyped
+      def []=: (Relation[AST::Types::t] relation, AST::Types::t? self_type, AST::Types::t? instance_type, AST::Types::t? class_type, Hash[Symbol, AST::Types::t?] bounds, Result::t value) -> Result::t
 
-      def no_subtype_cache?: () -> untyped
+      def ground: (Relation[AST::Types::t] relation) -> Result::t?
+
+      def store_ground: (Relation[AST::Types::t] relation, Result::t value) -> Result::t
+
+      def no_subtype_cache?: () -> bool
     end
   end
 end

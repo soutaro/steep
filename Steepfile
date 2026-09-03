@@ -26,6 +26,8 @@ target :app do
   signature "sig"
   ignore_signature "sig/test"
 
+  library "objspace"
+
   implicitly_returns_nil!
 
   configure_code_diagnostics(D::Ruby.strict) do |hash|

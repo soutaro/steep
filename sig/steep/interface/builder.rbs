@@ -72,6 +72,8 @@ module Steep
       #
       def shape: (AST::Types::t, Config) -> Shape?
 
+      def shape0: (AST::Types::t, Config) -> Shape?
+
       private
 
       def fetch_cache: [KEY < ::Hash::_Key] (Hash[KEY, Shape?], KEY) { () -> Shape? } -> Shape?

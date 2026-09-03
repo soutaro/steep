@@ -1,0 +1,31 @@
+# Generated from test/subtyping_stats_test.rb with RBS::Inline
+
+class SubtypingStatsTest < Minitest::Test
+  include TestHelper
+
+  include Steep
+
+  include FactoryHelper
+
+  Relation: untyped
+
+  Constraints: untyped
+
+  Stats: untyped
+
+  def with_checker: () ?{ (?) -> untyped } -> untyped
+
+  def parse_type: (untyped string, checker: untyped) -> untyped
+
+  def test_stats_counts_hits_and_computes: () -> untyped
+
+  def test_ground_relations_cached_across_contexts: () -> untyped
+
+  def test_trivial_relations_not_cached: () -> untyped
+
+  def test_cached_success_has_no_derivation_tree: () -> untyped
+
+  def test_stats_measure_shape: () -> untyped
+
+  def test_stats_inactive_by_default: () -> untyped
+end

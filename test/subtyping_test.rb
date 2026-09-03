@@ -600,17 +600,11 @@ end
         constraints: Subtyping::Constraints.empty
       )
 
-      # Cached because the relation does not have free variables
+      # Cached without the context because the relation does not have free variables
       assert_operator(
-        checker.cache.subtypes,
+        checker.cache.ground_subtypes,
         :key?,
-        [
-          parse_relation("::Integer", "::Object", checker: checker),
-          AST::Types::Self.new,
-          AST::Types::Instance.new,
-          AST::Types::Class.new,
-          {}
-        ]
+        parse_relation("::Integer", "::Object", checker: checker)
       )
     end
   end

@@ -189,24 +189,78 @@ module Steep
 
         relation.type!
 
+        stats = Stats.active
+
+        case
+        when relation.sub_type == relation.super_type,
+             relation.sub_type.is_a?(AST::Types::Any) || relation.super_type.is_a?(AST::Types::Any),
+             relation.super_type.is_a?(AST::Types::Void),
+             relation.super_type.is_a?(AST::Types::Top),
+             relation.sub_type.is_a?(AST::Types::Bot)
+          # Trivially holds, by the first branches of `check_type0`; not worth caching.
+          stats&.shortcut(relation)
+          return success(relation)
+        end
+
         Steep.logger.tagged(-> { "#{relation.sub_type} <: #{relation.super_type}" }) do
-          bounds = cache_bounds(relation)
-          fvs = relation.sub_type.free_variables + relation.super_type.free_variables
-          cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
-          if cached && fvs.none? {|var| var.is_a?(Symbol) && constraints.unknown?(var) }
-            cached
-          else
-            if assumptions.member?(relation)
+          if cacheable?(relation)
+            # The relation has no free variables -- including the `self`, `instance`, and
+            # `class` types --, so its result doesn't depend on the context of the check.
+            if cached = cache.ground(relation)
+              stats&.hit(relation, toplevel: assumptions.empty?)
+              cached
+            elsif assumptions.member?(relation)
+              stats&.assumption(relation)
               success(relation)
             else
+              toplevel = assumptions.empty?
+              stats&.compute(relation, cached: false, toplevel: toplevel, ground: true)
+              started = stats && toplevel ? Process.clock_gettime(Process::CLOCK_MONOTONIC) : nil
               push_assumption(relation) do
                 check_type0(relation).tap do |result|
                   Steep.logger.debug { "result=#{result.class}" }
-                  cache[relation, @self_type, @instance_type, @class_type, bounds] = result
+                  cache.store_ground(relation, cache_value(relation, result))
+                  if stats && started
+                    stats.compute_time(relation, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
+                  end
+                end
+              end
+            end
+          else
+            bounds = cache_bounds(relation)
+            fvs = relation.sub_type.free_variables + relation.super_type.free_variables
+            cached = cache[relation, @self_type, @instance_type, @class_type, bounds]
+            if cached && fvs.none? {|var| var.is_a?(Symbol) && constraints.unknown?(var) }
+              stats&.hit(relation, toplevel: assumptions.empty?)
+              cached
+            else
+              if assumptions.member?(relation)
+                stats&.assumption(relation)
+                success(relation)
+              else
+                toplevel = assumptions.empty?
+                stats&.compute(relation, cached: cached ? true : false, toplevel: toplevel, ground: false)
+                started = stats && toplevel ? Process.clock_gettime(Process::CLOCK_MONOTONIC) : nil
+                push_assumption(relation) do
+                  check_type0(relation).tap do |result|
+                    Steep.logger.debug { "result=#{result.class}" }
+                    cache[relation, @self_type, @instance_type, @class_type, bounds] = cache_value(relation, result)
+                    if stats && started
+                      stats.compute_time(relation, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
+                    end
+                  end
                 end
               end
             end
           end
+        end
+      end
+
+      def cache_value(relation, result)
+        if result.success? && !result.is_a?(Result::Success)
+          Success(relation)
+        else
+          result
         end
       end
 
