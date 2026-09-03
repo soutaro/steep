@@ -10,6 +10,10 @@ module Steep
 
         def initialize: (MethodType, Array[RBS::Definition::Method::TypeDef]) -> void
 
+        # Returns an overload with the substitution applied to the method type
+        #
+        # Returns `self` when the method type is unchanged.
+        #
         def subst: (Substitution) -> MethodOverload
 
         def method_decls: (Symbol) -> Array[MethodDecl]
