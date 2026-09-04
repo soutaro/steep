@@ -4861,4 +4861,40 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_defs_on_untyped_receiver
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class DefsOnUntypedReceiver
+            def foo: (untyped) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class DefsOnUntypedReceiver
+            def foo(object)
+              def object.bar = 1
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 15
+              end:
+                line: 3
+                character: 18
+            severity: ERROR
+            message: Method `bar` is defined in undeclared module
+            code: Ruby::MethodDefinitionInUndeclaredModule
+      YAML
+    )
+  end
 end
