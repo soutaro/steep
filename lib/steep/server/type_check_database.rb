@@ -174,7 +174,7 @@ module Steep
 
       def self.rbs_entries_by_path(index)
         entries = {} #: Hash[Pathname, Array[Entry]]
-        seen = Set[] #: Set[Array[untyped]]
+        paths = {} #: Hash[String, Pathname]
 
         index.type_index.each do |type_name, entry|
           kind =
@@ -189,28 +189,28 @@ module Steep
 
           entry.declarations.each do |decl|
             location = rbs_declaration_location(decl) or next
-            push_rbs_entry(entries, seen, name: type_name.to_s, kind: kind, location: location)
+            push_rbs_entry(entries, paths, name: type_name.to_s, kind: kind, location: location)
           end
         end
 
         index.method_index.each do |method_name, entry|
           entry.declarations.each do |decl|
             location = rbs_declaration_location(decl) or next
-            push_rbs_entry(entries, seen, name: method_name.to_s, kind: :method, location: location)
+            push_rbs_entry(entries, paths, name: method_name.to_s, kind: :method, location: location)
           end
         end
 
         index.const_index.each do |const_name, entry|
           entry.declarations.each do |decl|
             location = rbs_declaration_location(decl) or next
-            push_rbs_entry(entries, seen, name: const_name.to_s, kind: :constant, location: location)
+            push_rbs_entry(entries, paths, name: const_name.to_s, kind: :constant, location: location)
           end
         end
 
         index.global_index.each do |global_name, entry|
           entry.declarations.each do |decl|
             location = rbs_declaration_location(decl) or next
-            push_rbs_entry(entries, seen, name: global_name.to_s, kind: :global, location: location)
+            push_rbs_entry(entries, paths, name: global_name.to_s, kind: :global, location: location)
           end
         end
 
@@ -235,11 +235,9 @@ module Steep
         end
       end
 
-      def self.push_rbs_entry(entries, seen, name:, kind:, location:)
-        path = Pathname(location.buffer.name)
-        key = [path, name, kind, location.start_line, location.start_column, location.end_line, location.end_column] #: Array[untyped]
-        return if seen.include?(key)
-        seen << key
+      def self.push_rbs_entry(entries, paths, name:, kind:, location:)
+        buffer_name = location.buffer.name.to_s
+        path = (paths[buffer_name] ||= Pathname(buffer_name))
 
         (entries[path] ||= []) << Entry.new(
           name: name,

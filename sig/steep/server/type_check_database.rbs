@@ -175,7 +175,8 @@ module Steep
       # Returns the location of the name of a declaration or member, or `nil` if it has no location
       def self.rbs_declaration_location: (untyped decl) -> RBS::Location[untyped, untyped]?
 
-      def self.push_rbs_entry: (Hash[Pathname, Array[Entry]] entries, Set[Array[untyped]] seen, name: String, kind: Entry::kind, location: RBS::Location[untyped, untyped]) -> void
+      # `paths` caches the `Pathname` of each buffer name, which is shared by every declaration in the file
+      def self.push_rbs_entry: (Hash[Pathname, Array[Entry]] entries, Hash[String, Pathname] paths, name: String, kind: Entry::kind, location: RBS::Location[untyped, untyped]) -> void
 
       attr_reader pool: NamePool
 
