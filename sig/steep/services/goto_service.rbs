@@ -106,7 +106,20 @@ module Steep
       #
       def type_definition: (path: Pathname, line: Integer, column: Integer) -> Array[loc]
 
+      # The goto request a symbol lookup is for
+      type goto_kind = :definition | :implementation | :type_definition
+
+      # Returns the queries for what is at the position, to be resolved against the `TypeCheckDatabase` in the master
+      #
+      # The file is type checked on demand with the cursor, like hover. For `:type_definition`, the queries are
+      # the type names in the type of the expression at the position.
+      #
+      def symbols_at: (kind: goto_kind, path: Pathname, line: Integer, column: Integer) -> Array[query]
+
       private
+
+      # Returns the type names in the type of the expression at the position
+      def type_names_at: (path: Pathname, line: Integer, column: Integer) -> Array[TypeName]
 
       # Returns a set of queries
       def query_at: (path: Pathname, line: Integer, column: Integer) -> Array[query]

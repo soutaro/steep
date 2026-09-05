@@ -45,7 +45,23 @@ module Steep
         def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
       end
 
-      type job = HoverJob | CompletionJob | SignatureHelpJob
+      # Resolves the symbols at a position for `$/steep/goto/symbol`
+      class GotoSymbolJob
+        attr_reader id: String
+
+        attr_reader kind: Services::GotoService::goto_kind
+
+        # Absolute path of the file
+        attr_reader path: Pathname
+
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        def initialize: (id: String, kind: Services::GotoService::goto_kind, path: Pathname, line: Integer, column: Integer) -> void
+      end
+
+      type job = HoverJob | CompletionJob | SignatureHelpJob | GotoSymbolJob
 
       module LSP = LanguageServer::Protocol
 
@@ -74,6 +90,9 @@ module Steep
       def handle_request: (lsp_request) -> void
 
       def process_hover: (HoverJob job) -> LanguageServer::Protocol::Interface::Hover?
+
+      # Returns the symbols at the position of the job, type checking the file on demand like hover
+      def process_goto_symbol: (GotoSymbolJob job) -> Array[CustomMethods::Goto__Symbol::symbol]
 
       def process_completion: (CompletionJob job) -> LanguageServer::Protocol::Interface::CompletionList?
 

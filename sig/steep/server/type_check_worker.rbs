@@ -6,7 +6,7 @@ module Steep
     # TypeCheckWorker provides two features:
     #
     # 1. Type check and validate source code invoked by `$/typecheck/start` notification
-    # 2. Language related features: `workspace/symbol`, `textDocument/definition`, `textDocument/implementation`, and `steep/stats` command
+    # 2. Language related features: `workspace/symbol` and `steep/stats` command
     #
     # `$/typecheck/start` notification is delivered to `#enqueue_typecheck_jobs` command that creates *jobs*.
     #
@@ -88,44 +88,10 @@ module Steep
         def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
-      class QueryDefinitionJob
-        attr_reader id: String
-
-        attr_reader name: String
-
-        def initialize: (id: String, name: String) -> void
-      end
-
       class QueryDiagnosticsJob
         attr_reader id: String
 
         def initialize: (id: String) -> void
-      end
-
-      class GotoJob
-        type kind = :implementation | :definition | :type_definition
-
-        attr_reader id: String
-
-        attr_reader kind: kind
-
-        type params = Hash[Symbol, untyped]
-
-        attr_reader params: params
-
-        def self.new: (id: String, params: params, kind: kind) -> instance
-
-        def self.implementation: (id: String, params: params) -> GotoJob
-
-        def self.definition: (id: String, params: params) -> GotoJob
-
-        def self.type_definition: (id: String, params: params) -> GotoJob
-
-        def implementation?: () -> bool
-
-        def definition?: () -> bool
-
-        def type_definition?: () -> bool
       end
 
       attr_reader mutex: Mutex
@@ -165,9 +131,7 @@ module Steep
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
                | TypeCheckInlineCodeJob
-               | GotoJob
                | StatsJob
-               | QueryDefinitionJob
                | QueryDiagnosticsJob
 
       def handle_job: (job) -> void
@@ -190,10 +154,6 @@ module Steep
       def workspace_symbol_result: (untyped query) -> untyped
 
       def stats_result: () -> Array[StatsCalculator::stats]
-
-      def goto: (GotoJob job) -> Array[untyped]
-
-      def query_definition_result: (String name_string) -> CustomMethods::Query__Definition::result
 
       # Returns the diagnostics of the files this worker has type checked so far
       #

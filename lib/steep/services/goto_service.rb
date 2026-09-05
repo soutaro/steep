@@ -211,13 +211,24 @@ module Steep
         end.uniq
       end
 
-      def type_definition(path:, line:, column:)
-        locations = [] #: Array[target_loc]
+      def symbols_at(kind:, path:, line:, column:)
+        case kind
+        when :definition, :implementation
+          queries = query_at(path: path, line: line, column: column)
+          queries.uniq!
+          queries
+        when :type_definition
+          type_names_at(path: path, line: line, column: column).map do |name|
+            TypeNameQuery.new(name: name)
+          end
+        end
+      end
 
+      def type_names_at(path:, line:, column:)
         relative_path = project.relative_path(path)
 
         target = type_check.project.target_for_path(relative_path) or return []
-        source = type_check.source_files.fetch(relative_path)
+        source = type_check.source_files.fetch(relative_path, nil) or return []
         typing, signature = type_check_path(target: target, path: relative_path, content: source.content, line: line, column: column)
 
         typing or return []
@@ -228,9 +239,13 @@ module Steep
 
         type = typing.type_of(node: node)
 
-        subtyping = signature.current_subtyping or return []
+        each_type_name(type).uniq
+      end
 
-        each_type_name(type).uniq.each do |name|
+      def type_definition(path:, line:, column:)
+        locations = [] #: Array[target_loc]
+
+        type_names_at(path: path, line: line, column: column).each do |name|
           type_name_locations(name, locations: locations)
         end
 

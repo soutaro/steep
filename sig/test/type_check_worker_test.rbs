@@ -67,6 +67,4 @@ class TypeCheckWorkerTest < Minitest::Test
   def test_job_workspace_symbol: () -> untyped
 
   def test_job_stats: () -> untyped
-
-  def test_goto_definition_from_ruby: () -> untyped
 end

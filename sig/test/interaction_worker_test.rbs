@@ -34,6 +34,10 @@ class InteractionWorkerTest < Minitest::Test
 
   def test_handle_request_hover: () -> untyped
 
+  def test_handle_goto_symbol_request: () -> untyped
+
+  def test_process_goto_symbol_job: () -> untyped
+
   def test_handle_hover_job_success: () -> untyped
 
   def test_handle_alias_hover_job_success_on_rbs: () -> untyped

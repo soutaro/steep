@@ -173,6 +173,82 @@ EOF
     end
   end
 
+  def test_handle_goto_symbol_request
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.handle_request(
+        {
+          id: 123,
+          method: Goto__Symbol::METHOD,
+          params: {
+            kind: "typeDefinition",
+            uri: "#{file_scheme}#{current_dir}/lib/hello.rb",
+            position: { line: 1, character: 2 }
+          }
+        }
+      )
+
+      q = flush_queue(worker.queue)
+      assert_equal 1, q.size
+      q[0].tap do |job|
+        assert_instance_of InteractionWorker::GotoSymbolJob, job
+        assert_equal :type_definition, job.kind
+        assert_equal current_dir + "lib/hello.rb", job.path
+        assert_equal 2, job.line
+        assert_equal 2, job.column
+      end
+    end
+  end
+
+  def test_process_goto_symbol_job
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/customer.rbs") => [ContentChange.string(<<RBS)],
+class Customer
+  attr_accessor name: String
+end
+RBS
+          Pathname("lib/main.rb") => [ContentChange.string(<<RUBY)]
+customer = Customer.new()
+customer.name = "Soutaro"
+RUBY
+        }
+      )
+
+      # `Customer` in `Customer.new()`
+      symbols = worker.process_goto_symbol(InteractionWorker::GotoSymbolJob.new(id: 1, kind: :definition, path: current_dir + "lib/main.rb", line: 1, column: 14))
+      assert_equal [{ name: "::Customer", kind: "constant", from: "ruby" }], symbols
+
+      # `name` in `customer.name = ...`
+      symbols = worker.process_goto_symbol(InteractionWorker::GotoSymbolJob.new(id: 2, kind: :implementation, path: current_dir + "lib/main.rb", line: 2, column: 10))
+      assert_equal [{ name: "::Customer#name=", kind: "method", from: "ruby" }], symbols
+
+      # The type of `customer`
+      symbols = worker.process_goto_symbol(InteractionWorker::GotoSymbolJob.new(id: 3, kind: :type_definition, path: current_dir + "lib/main.rb", line: 2, column: 2))
+      assert_equal [{ name: "::Customer", kind: "type_name", from: nil }], symbols
+    end
+  end
+
   def test_handle_hover_job_success
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")

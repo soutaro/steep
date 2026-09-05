@@ -1,0 +1,43 @@
+module Steep
+  module Server
+    # GotoResolver answers goto requests and `$/steep/query/definition` from the `TypeCheckDatabase`
+    #
+    # The symbols at the cursor position come from the interaction worker (`$/steep/goto/symbol`), and
+    # the resolver looks their definitions up in the database, applying the same policy as `Services::GotoService`:
+    #
+    # * *Go to definition* from Ruby code jumps to RBS declarations, and from an RBS file to Ruby definitions
+    # * *Go to implementation* jumps to Ruby definitions
+    # * *Go to type definition* jumps to the RBS declarations of the type names
+    # * `Foo.new` falls back to `Foo#initialize` when there is no definition of `new`
+    #
+    class GotoResolver
+      type location = { uri: String, range: TypeCheckDatabase::Entry::lsp_range }
+
+      # The kinds of entries a type name may be declared as
+      TYPE_NAME_KINDS: Array[TypeCheckDatabase::Entry::kind]
+
+      attr_reader database: TypeCheckDatabase
+
+      def initialize: (database: TypeCheckDatabase) -> void
+
+      # Returns the LSP locations for a goto request
+      def goto: (kind: Services::GotoService::goto_kind, symbols: Array[CustomMethods::Goto__Symbol::symbol]) -> Array[location]
+
+      # Returns the result of `$/steep/query/definition` for a name string
+      def query_definition: (String name_string) -> CustomMethods::Query__Definition::result
+
+      private
+
+      def definition_locations: (String name, kind: TypeCheckDatabase::Entry::kind, source: TypeCheckDatabase::Entry::source) -> Array[location]
+
+      def method_definition_locations: (String name, source: TypeCheckDatabase::Entry::source) -> Array[location]
+
+      # Returns the definitions of a method, falling back to `#initialize` for `.new`
+      def method_definitions: (String name) -> Array[[Pathname, TypeCheckDatabase::Entry]]
+
+      def lsp_location: (Pathname path, TypeCheckDatabase::Entry entry) -> location
+
+      def query_location: (Pathname path, TypeCheckDatabase::Entry entry) -> CustomMethods::Query__Definition::location
+    end
+  end
+end
