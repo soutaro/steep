@@ -93,7 +93,8 @@ module Steep
           guid: String,
           path: String,
           target: String,
-          diagnostics: Array[LSPDiagnostic::json]?
+          diagnostics: Array[LSPDiagnostic::json]?,
+          entries: Array[TypeCheckDatabase::Entry::wire]?
         }
 
         def self.notification: (params) -> untyped

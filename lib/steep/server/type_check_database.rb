@@ -11,6 +11,23 @@ module Steep
               end: { line: end_line, character: end_character }
             }
           end
+
+          def to_wire
+            [name, KIND_CODES.fetch(kind), ROLE_CODES.fetch(role), SOURCE_CODES.fetch(source), start_line, start_character, end_line, end_character]
+          end
+
+          def self.from_wire(array)
+            Entry.new(
+              name: array[0],
+              kind: KINDS.fetch(array[1]),
+              role: ROLES.fetch(array[2]),
+              source: SOURCES.fetch(array[3]),
+              start_line: array[4],
+              start_character: array[5],
+              end_line: array[6],
+              end_character: array[7]
+            )
+          end
         end
 
       class NamePool
@@ -70,6 +87,169 @@ module Steep
       SOURCES = SOURCE_CODES.invert #: Hash[Integer, Entry::source]
 
       ENTRY_SIZE = 8
+
+      def self.entries_from(typing)
+        entries = [] #: Array[Entry]
+        seen = Set[] #: Set[Array[untyped]]
+
+        index = typing.source_index
+
+        index.constant_index.each do |name, entry|
+          entry.definitions.each do |node|
+            if location = constant_definition_location(node)
+              push_entry(entries, seen, name: name.to_s, kind: :constant, role: :definition, location: location)
+            end
+          end
+          entry.references.each do |node|
+            push_entry(entries, seen, name: name.to_s, kind: :constant, role: :reference, location: node.location.expression)
+          end
+        end
+
+        index.method_index.each do |name, entry|
+          entry.definitions.each do |node|
+            location = (_ = node.location).name #: Parser::Source::Range
+            push_entry(entries, seen, name: name.to_s, kind: :method, role: :definition, location: location)
+          end
+        end
+
+        typing.method_calls.each do |node, call|
+          decls =
+            case call
+            when TypeInference::MethodCall::Typed, TypeInference::MethodCall::Error
+              call.method_decls
+            end
+          next unless decls
+
+          location = method_call_location(node) or next
+          decls.each do |decl|
+            push_entry(entries, seen, name: decl.method_name.to_s, kind: :method, role: :reference, location: location)
+          end
+        end
+
+        entries
+      end
+
+      def self.constant_definition_location(node)
+        case node.type
+        when :const
+          node.location.expression #: Parser::Source::Range
+        when :casgn
+          name_location = (_ = node.location).name #: Parser::Source::Range
+          if parent = node.children[0]
+            parent_location = parent.location.expression #: Parser::Source::Range
+            parent_location.join(name_location)
+          else
+            name_location
+          end
+        end
+      end
+
+      def self.method_call_location(node)
+        case node.type
+        when :block, :numblock, :itblock
+          method_call_location(node.children.fetch(0))
+        else
+          location = node.location
+          selector = location.respond_to?(:selector) ? (_ = location).selector : nil #: Parser::Source::Range?
+          selector || location.expression
+        end
+      end
+
+      def self.push_entry(entries, seen, name:, kind:, role:, location:)
+        key = [name, kind, role, location.line, location.column, location.last_line, location.last_column] #: Array[untyped]
+        return if seen.include?(key)
+        seen << key
+
+        entries << Entry.new(
+          name: name,
+          kind: kind,
+          role: role,
+          source: :ruby,
+          start_line: location.line - 1,
+          start_character: location.column,
+          end_line: location.last_line - 1,
+          end_character: location.last_column
+        )
+      end
+
+      def self.rbs_entries_by_path(index)
+        entries = {} #: Hash[Pathname, Array[Entry]]
+        paths = {} #: Hash[String, Pathname]
+
+        index.type_index.each do |type_name, entry|
+          kind =
+            case
+            when type_name.interface?
+              :interface
+            when type_name.alias?
+              :type_alias
+            else
+              :constant
+            end #: Entry::kind
+
+          entry.declarations.each do |decl|
+            location = rbs_declaration_location(decl) or next
+            push_rbs_entry(entries, paths, name: type_name.to_s, kind: kind, location: location)
+          end
+        end
+
+        index.method_index.each do |method_name, entry|
+          entry.declarations.each do |decl|
+            location = rbs_declaration_location(decl) or next
+            push_rbs_entry(entries, paths, name: method_name.to_s, kind: :method, location: location)
+          end
+        end
+
+        index.const_index.each do |const_name, entry|
+          entry.declarations.each do |decl|
+            location = rbs_declaration_location(decl) or next
+            push_rbs_entry(entries, paths, name: const_name.to_s, kind: :constant, location: location)
+          end
+        end
+
+        index.global_index.each do |global_name, entry|
+          entry.declarations.each do |decl|
+            location = rbs_declaration_location(decl) or next
+            push_rbs_entry(entries, paths, name: global_name.to_s, kind: :global, location: location)
+          end
+        end
+
+        entries
+      end
+
+      def self.rbs_declaration_location(decl)
+        case decl
+        when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module, RBS::AST::Declarations::Interface, RBS::AST::Declarations::TypeAlias,
+             RBS::AST::Declarations::Constant, RBS::AST::Declarations::Global,
+             RBS::AST::Members::MethodDefinition, RBS::AST::Members::AttrAccessor, RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter
+          if (location = decl.location) && location.key?(:name)
+            location[:name]
+          end
+        when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias, RBS::AST::Members::Alias
+          if (location = decl.location) && location.key?(:new_name)
+            location[:new_name]
+          end
+        when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl, RBS::AST::Ruby::Declarations::ClassModuleAliasDecl,
+             RBS::AST::Ruby::Declarations::ConstantDecl, RBS::AST::Ruby::Members::DefMember
+          decl.name_location
+        end
+      end
+
+      def self.push_rbs_entry(entries, paths, name:, kind:, location:)
+        buffer_name = location.buffer.name.to_s
+        path = (paths[buffer_name] ||= Pathname(buffer_name))
+
+        (entries[path] ||= []) << Entry.new(
+          name: name,
+          kind: kind,
+          role: :definition,
+          source: :rbs,
+          start_line: location.start_line - 1,
+          start_character: location.start_column,
+          end_line: location.end_line - 1,
+          end_character: location.end_column
+        )
+      end
 
       attr_reader :pool
 

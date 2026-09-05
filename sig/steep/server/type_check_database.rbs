@@ -55,6 +55,12 @@ module Steep
 
         type lsp_range = { start: { line: Integer, character: Integer }, end: { line: Integer, character: Integer } }
 
+        # Array representation of an entry for `$/steep/typecheck/progress` notifications
+        #
+        # `[name, kind code, role code, source code, start_line, start_character, end_line, end_character]`
+        #
+        type wire = Array[untyped]
+
         attr_reader name: String
 
         attr_reader kind: kind
@@ -74,6 +80,10 @@ module Steep
         def initialize: (name: String, kind: kind, role: role, source: source, start_line: Integer, start_character: Integer, end_line: Integer, end_character: Integer) -> void
 
         def lsp_range: () -> lsp_range
+
+        def to_wire: () -> wire
+
+        def self.from_wire: (wire array) -> Entry
       end
 
       # Interned strings with reference counting
@@ -140,6 +150,33 @@ module Steep
 
       # Reference counts of names per path -- `name id => (path => count)`
       @name_paths: Hash[Integer, Hash[Pathname, Integer]]
+
+      # Extracts the entries of a type checked Ruby file from its `Typing`
+      #
+      # The constant definitions/references and method definitions come from the `SourceIndex`,
+      # and the method references come from the method calls, resolved to the names of the
+      # declarations of each call.
+      #
+      def self.entries_from: (Typing typing) -> Array[Entry]
+
+      def self.constant_definition_location: (Parser::AST::Node node) -> Parser::Source::Range?
+
+      def self.method_call_location: (Parser::AST::Node node) -> Parser::Source::Range?
+
+      def self.push_entry: (Array[Entry] entries, Set[Array[untyped]] seen, name: String, kind: Entry::kind, role: Entry::role, location: Parser::Source::Range) -> void
+
+      # Extracts the declarations in RBS files (and inline RBS in Ruby files) from an `RBSIndex`, grouped by the path of the file
+      #
+      # Only the declarations are extracted. The references the index records point at the member or declaration
+      # that contains a type, not at the type itself, which is too coarse to store as a reference.
+      #
+      def self.rbs_entries_by_path: (Index::RBSIndex index) -> Hash[Pathname, Array[Entry]]
+
+      # Returns the location of the name of a declaration or member, or `nil` if it has no location
+      def self.rbs_declaration_location: (untyped decl) -> RBS::Location[untyped, untyped]?
+
+      # `paths` caches the `Pathname` of each buffer name, which is shared by every declaration in the file
+      def self.push_rbs_entry: (Hash[Pathname, Array[Entry]] entries, Hash[String, Pathname] paths, name: String, kind: Entry::kind, location: RBS::Location[untyped, untyped]) -> void
 
       attr_reader pool: NamePool
 
