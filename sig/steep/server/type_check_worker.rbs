@@ -136,6 +136,12 @@ module Steep
 
       attr_reader need_to_warmup: bool
 
+      # The declarations extracted from the latest `RBSIndex` of each target, grouped by path
+      #
+      # The index is kept with the entries to detect a newer index of the target.
+      #
+      @rbs_entries_cache: Hash[Symbol, [Index::RBSIndex, Hash[Pathname, Array[TypeCheckDatabase::Entry]]]]
+
       include ChangeBuffer
 
       def initialize: (
@@ -170,6 +176,16 @@ module Steep
 
       # Returns the entries extracted from the last type checking of the file, or `nil` if no `Typing` is available
       def source_file_entries: (Pathname relative_path) -> Array[TypeCheckDatabase::Entry]?
+
+      # Returns the declarations in the RBS file (or the inline RBS in the Ruby file) of the target
+      #
+      # `path` is the relative path of a project file, or the absolute path of a library file, which is the
+      # name of the buffer of the declarations.
+      #
+      # Returns `nil` when the signatures of the target failed to load, because the index would be of the last
+      # successfully loaded signatures, and its locations may be stale.
+      #
+      def signature_entries: (Project::Target target, Pathname path) -> Array[TypeCheckDatabase::Entry]?
 
       def workspace_symbol_result: (untyped query) -> untyped
 

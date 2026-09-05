@@ -172,6 +172,87 @@ module Steep
         )
       end
 
+      def self.rbs_entries_by_path(index)
+        entries = {} #: Hash[Pathname, Array[Entry]]
+        seen = Set[] #: Set[Array[untyped]]
+
+        index.type_index.each do |type_name, entry|
+          kind =
+            case
+            when type_name.interface?
+              :interface
+            when type_name.alias?
+              :type_alias
+            else
+              :constant
+            end #: Entry::kind
+
+          entry.declarations.each do |decl|
+            location = rbs_declaration_location(decl) or next
+            push_rbs_entry(entries, seen, name: type_name.to_s, kind: kind, location: location)
+          end
+        end
+
+        index.method_index.each do |method_name, entry|
+          entry.declarations.each do |decl|
+            location = rbs_declaration_location(decl) or next
+            push_rbs_entry(entries, seen, name: method_name.to_s, kind: :method, location: location)
+          end
+        end
+
+        index.const_index.each do |const_name, entry|
+          entry.declarations.each do |decl|
+            location = rbs_declaration_location(decl) or next
+            push_rbs_entry(entries, seen, name: const_name.to_s, kind: :constant, location: location)
+          end
+        end
+
+        index.global_index.each do |global_name, entry|
+          entry.declarations.each do |decl|
+            location = rbs_declaration_location(decl) or next
+            push_rbs_entry(entries, seen, name: global_name.to_s, kind: :global, location: location)
+          end
+        end
+
+        entries
+      end
+
+      def self.rbs_declaration_location(decl)
+        case decl
+        when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module, RBS::AST::Declarations::Interface, RBS::AST::Declarations::TypeAlias,
+             RBS::AST::Declarations::Constant, RBS::AST::Declarations::Global,
+             RBS::AST::Members::MethodDefinition, RBS::AST::Members::AttrAccessor, RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter
+          if (location = decl.location) && location.key?(:name)
+            location[:name]
+          end
+        when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias, RBS::AST::Members::Alias
+          if (location = decl.location) && location.key?(:new_name)
+            location[:new_name]
+          end
+        when RBS::AST::Ruby::Declarations::ClassDecl, RBS::AST::Ruby::Declarations::ModuleDecl, RBS::AST::Ruby::Declarations::ClassModuleAliasDecl,
+             RBS::AST::Ruby::Declarations::ConstantDecl, RBS::AST::Ruby::Members::DefMember
+          decl.name_location
+        end
+      end
+
+      def self.push_rbs_entry(entries, seen, name:, kind:, location:)
+        path = Pathname(location.buffer.name)
+        key = [path, name, kind, location.start_line, location.start_column, location.end_line, location.end_column] #: Array[untyped]
+        return if seen.include?(key)
+        seen << key
+
+        (entries[path] ||= []) << Entry.new(
+          name: name,
+          kind: kind,
+          role: :definition,
+          source: :rbs,
+          start_line: location.start_line - 1,
+          start_character: location.start_column,
+          end_line: location.end_line - 1,
+          end_character: location.end_column
+        )
+      end
+
       attr_reader :pool
 
       def initialize

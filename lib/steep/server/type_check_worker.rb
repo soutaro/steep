@@ -70,6 +70,7 @@ module Steep
         @service = service if service
         @child_pids = []
         @need_to_warmup = true
+        @rbs_entries_cache = {}
 
         if io_socket
           Signal.trap "SIGCHLD" do
@@ -242,13 +243,15 @@ module Steep
 
             formatter = Diagnostic::LSPFormatter.new({}, **{})
 
-            diagnostics = service.validate_signature(path: project.relative_path(job.path), target: job.target)
+            relative_path = project.relative_path(job.path)
+            diagnostics = service.validate_signature(path: relative_path, target: job.target)
 
             typecheck_progress(
               path: job.path,
               guid: job.guid,
               target: job.target,
-              diagnostics: diagnostics.filter_map { formatter.format(_1) }
+              diagnostics: diagnostics.filter_map { formatter.format(_1) },
+              entries: signature_entries(job.target, relative_path)
             )
           end
 
@@ -259,7 +262,7 @@ module Steep
             formatter = Diagnostic::LSPFormatter.new({}, **{})
             diagnostics = service.validate_signature(path: job.path, target: job.target)
 
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics.filter_map { formatter.format(_1) })
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path))
           end
 
         when TypeCheckCodeJob
@@ -288,7 +291,14 @@ module Steep
               end
             end
 
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) }, entries: source_file_entries(relative_path))
+            ruby_entries = source_file_entries(relative_path)
+            rbs_entries = signature_entries(job.target, relative_path)
+            entries =
+              if ruby_entries || rbs_entries
+                (ruby_entries || []) + (rbs_entries || [])
+              end
+
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) }, entries: entries)
           end
 
         when WorkspaceSymbolJob
@@ -335,6 +345,19 @@ module Steep
             TypeCheckDatabase.entries_from(typing)
           end
         end
+      end
+
+      def signature_entries(target, path)
+        signature_service = service.signature_services.fetch(target.name)
+        return unless signature_service.status.is_a?(Services::SignatureService::LoadedStatus)
+
+        index = signature_service.latest_rbs_index
+        cached = @rbs_entries_cache[target.name]
+        unless cached && cached[0].equal?(index)
+          cached = @rbs_entries_cache[target.name] = [index, TypeCheckDatabase.rbs_entries_by_path(index)]
+        end
+
+        cached[1][path] || []
       end
 
       def workspace_symbol_result(query)
