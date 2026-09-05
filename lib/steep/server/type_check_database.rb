@@ -1,40 +1,6 @@
 module Steep
   module Server
-    # TypeCheckDatabase stores the results of type checking that the master process keeps
-    #
-    # The typecheck workers report the results of each file through `$/steep/typecheck/progress` notifications,
-    # and the master process saves them in this database, so that it can answer queries without
-    # the workers keeping the `Typing` objects in memory.
-    #
-    # It stores two kinds of data per file and target:
-    #
-    # 1. LSP formatted diagnostics
-    # 2. Definitions and references of methods and constants, with their locations
-    #
-    # ```rb
-    # database = TypeCheckDatabase.new()
-    #
-    # database.update(path: path, target: :app, diagnostics: diagnostics, entries: entries)
-    #
-    # database.diagnostics_of(path)                        # Merged diagnostics of the file
-    # database.definitions(name: "::Foo#bar")              # Definitions of `Foo#bar` in the project
-    # database.references(name: "::Foo")                   # References of `Foo` in the project
-    # ```
-    #
-    # Updating a `path`/`target` pair replaces the results of the last type checking of the pair.
-    #
-    # The entries are stored in a flat `Array[Integer]` per file/target pair, with names interned
-    # in a `NamePool`, to minimize the memory footprint of the master process.
-    #
-    # The implementation is not thread safe, assuming every call is from the master's event loop.
-    #
     class TypeCheckDatabase
-      # Definition or reference of a method or constant
-      #
-      # * `name` is the fully qualified name of a constant (`::Foo::Bar`), an instance method (`::Foo#bar`),
-      #   or a singleton method (`::Foo.bar`)
-      # * The location is in LSP convention -- 0-origin lines and characters, end-exclusive
-      #
       Entry =
         _ = Struct.new(:name, :kind, :role, :source, :start_line, :start_character, :end_line, :end_character, keyword_init: true) do
           # @implements Entry
@@ -47,12 +13,6 @@ module Steep
           end
         end
 
-      # Interned strings with reference counting
-      #
-      # Each unique string is stored once and identified by an `Integer` id.
-      # `#intern` increments the reference count of the string, and `#release` decrements it,
-      # releasing the string when the count drops to zero.
-      #
       class NamePool
         def initialize
           @ids = {}
@@ -99,10 +59,6 @@ module Steep
         end
       end
 
-      # Diagnostics and packed entries of one file/target pair
-      #
-      # `diagnostics` is `nil` when the file is loaded but the type checking was skipped.
-      #
       FileData = _ = Struct.new(:diagnostics, :entries, keyword_init: true)
 
       KIND_CODES = { constant: 0, method: 1 } #: Hash[Entry::kind, Integer]
@@ -113,7 +69,6 @@ module Steep
       ROLES = ROLE_CODES.invert #: Hash[Integer, Entry::role]
       SOURCES = SOURCE_CODES.invert #: Hash[Integer, Entry::source]
 
-      # Number of `Integer`s that represent one entry
       ENTRY_SIZE = 8
 
       attr_reader :pool
@@ -124,7 +79,6 @@ module Steep
         @name_paths = {}
       end
 
-      # Replaces the results of the last type checking of the `path`/`target` pair
       def update(path:, target:, diagnostics:, entries:)
         targets = (@files[path] ||= {})
 
@@ -143,7 +97,6 @@ module Steep
         targets[target] = FileData.new(diagnostics: diagnostics, entries: packed)
       end
 
-      # Deletes everything stored for the `path`
       def remove(path)
         if targets = @files.delete(path)
           targets.each_value do |data|
@@ -152,16 +105,10 @@ module Steep
         end
       end
 
-      # Returns `true` if any result of the `path` is stored
       def checked?(path)
         @files.key?(path)
       end
 
-      # Returns the diagnostics of the file, merged over the targets
-      #
-      # Returns `nil` when no diagnostics of the file is stored -- because the file is not
-      # type checked yet, or the type checking was skipped.
-      #
       def diagnostics_of(path)
         targets = @files.fetch(path, nil) or return nil
 
@@ -180,7 +127,6 @@ module Steep
         merged
       end
 
-      # Yields each path with stored diagnostics
       def each_diagnostics(&block)
         if block
           @files.each_key do |path|
@@ -193,17 +139,14 @@ module Steep
         end
       end
 
-      # Returns the definitions of the name in the project
       def definitions(name:, kind: nil)
         matching_entries(name: name, role: :definition, kind: kind)
       end
 
-      # Returns the references of the name in the project
       def references(name:, kind: nil)
         matching_entries(name: name, role: :reference, kind: kind)
       end
 
-      # Number of entries stored in the database
       def entry_count
         count = 0
         @files.each_value do |targets|
