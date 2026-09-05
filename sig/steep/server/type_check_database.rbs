@@ -9,7 +9,8 @@ module Steep
     # It stores two kinds of data per file and target:
     #
     # 1. LSP formatted diagnostics
-    # 2. Definitions and references of methods and constants, with their locations
+    # 2. Definitions and references of methods, constants, and RBS type names, with their locations,
+    #    from both Ruby code and RBS files
     #
     # ```rb
     # database = TypeCheckDatabase.new()
@@ -29,15 +30,22 @@ module Steep
     # The implementation is not thread safe, assuming every call is from the master's event loop.
     #
     class TypeCheckDatabase
-      # Definition or reference of a method or constant
+      # Definition or reference of a method, constant, or RBS type name
       #
-      # * `name` is the fully qualified name of a constant (`::Foo::Bar`), an instance method (`::Foo#bar`),
-      #   or a singleton method (`::Foo.bar`)
+      # * `name` is the fully qualified name of the entity -- a constant (`::Foo::Bar`), an instance method (`::Foo#bar`),
+      #   a singleton method (`::Foo.bar`), an interface (`::_Foo`), a type alias (`::foo`), or a global variable (`$foo`)
       # * The location is in LSP convention -- 0-origin lines and characters, end-exclusive
       #
       class Entry
         # Kind of the named entity
-        type kind = :constant | :method
+        #
+        # * `:constant` -- classes, modules, and constants, which share the constant namespace in both Ruby code and RBS
+        # * `:method` -- instance and singleton methods
+        # * `:interface` -- RBS interfaces
+        # * `:type_alias` -- RBS type aliases
+        # * `:global` -- global variables
+        #
+        type kind = :constant | :method | :interface | :type_alias | :global
 
         # Whether the entry defines the name or references it
         type role = :definition | :reference

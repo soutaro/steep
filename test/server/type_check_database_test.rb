@@ -205,6 +205,31 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal 1, database.references(name: "::Foo").size
   end
 
+  def test_rbs_declarations
+    database = TypeCheckDatabase.new()
+
+    path = Pathname("sig/foo.rbs")
+    database.update(
+      path: path,
+      target: :app,
+      diagnostics: [],
+      entries: [
+        entry("::Foo", kind: :constant, role: :definition, source: :rbs, at: [0, 6, 0, 9]),
+        entry("::Foo#bar", kind: :method, role: :definition, source: :rbs, at: [1, 6, 1, 9]),
+        entry("::_Foo", kind: :interface, role: :definition, source: :rbs, at: [4, 10, 4, 14]),
+        entry("::foo", kind: :type_alias, role: :definition, source: :rbs, at: [7, 5, 7, 8]),
+        entry("$foo", kind: :global, role: :definition, source: :rbs, at: [9, 0, 9, 4])
+      ]
+    )
+
+    assert_equal [:rbs], database.definitions(name: "::Foo").map { |_, entry| entry.source }
+    assert_equal 1, database.definitions(name: "::_Foo", kind: :interface).size
+    assert_equal [], database.definitions(name: "::_Foo", kind: :constant)
+    assert_equal 1, database.definitions(name: "::foo", kind: :type_alias).size
+    assert_equal 1, database.definitions(name: "$foo", kind: :global).size
+    assert_equal 5, database.entry_count
+  end
+
   def test_entry_lsp_range
     e = entry("::Foo", kind: :constant, role: :definition, at: [1, 2, 3, 4])
 

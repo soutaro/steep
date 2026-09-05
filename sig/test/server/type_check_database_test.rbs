@@ -29,5 +29,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
   def test_references_deduplicates_targets: () -> untyped
 
+  def test_rbs_declarations: () -> untyped
+
   def test_entry_lsp_range: () -> untyped
 end

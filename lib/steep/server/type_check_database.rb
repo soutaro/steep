@@ -61,7 +61,7 @@ module Steep
 
       FileData = _ = Struct.new(:diagnostics, :entries, keyword_init: true)
 
-      KIND_CODES = { constant: 0, method: 1 } #: Hash[Entry::kind, Integer]
+      KIND_CODES = { constant: 0, method: 1, interface: 2, type_alias: 3, global: 4 } #: Hash[Entry::kind, Integer]
       ROLE_CODES = { definition: 0, reference: 1 } #: Hash[Entry::role, Integer]
       SOURCE_CODES = { ruby: 0, rbs: 1 } #: Hash[Entry::source, Integer]
 
