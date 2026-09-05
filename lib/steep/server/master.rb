@@ -187,6 +187,7 @@ module Steep
       attr_reader :start_type_checking_queue
 
       attr_reader :type_check_database
+      attr_reader :goto_resolver
 
       # Type check requests waiting for the current type check to finish
       attr_reader :pending_typecheck_requests
@@ -217,6 +218,7 @@ module Steep
         @result_controller = ResultController.new()
         @start_type_checking_queue = DelayQueue.new(delay: 0.3)
         @type_check_database = TypeCheckDatabase.new()
+        @goto_resolver = GotoResolver.new(database: @type_check_database)
       end
 
       def start
@@ -623,19 +625,33 @@ module Steep
           end
 
         when "textDocument/definition", "textDocument/implementation", "textDocument/typeDefinition"
-          if path = pathname(message[:params][:textDocument][:uri])
-            result_controller << group_request do |group|
-              typecheck_workers.each do |worker|
-                group << send_request(method: message[:method], params: message[:params], worker: worker)
-              end
+          kind, goto_kind =
+            case message[:method]
+            when "textDocument/definition"
+              ["definition", :definition]
+            when "textDocument/implementation"
+              ["implementation", :implementation]
+            else
+              ["typeDefinition", :type_definition]
+            end #: [CustomMethods::Goto__Symbol::kind, Services::GotoService::goto_kind]
 
-              group.on_completion do |handlers|
-                links = handlers.flat_map(&:result)
-                links.uniq!
+          if interaction_worker && pathname(message[:params][:textDocument][:uri])
+            params = {
+              kind: kind,
+              uri: message[:params][:textDocument][:uri],
+              position: message[:params][:position]
+            } #: CustomMethods::Goto__Symbol::params
+
+            result_controller << send_request(method: CustomMethods::Goto__Symbol::METHOD, params: params, worker: interaction_worker) do |handler|
+              handler.on_completion do |response|
+                result = response[:result] #: CustomMethods::Goto__Symbol::result?
+                symbols = [] #: Array[CustomMethods::Goto__Symbol::symbol]
+                symbols = result[:symbols] if result
+
                 enqueue_write_job SendMessageJob.to_client(
                   message: {
                     id: message[:id],
-                    result: links
+                    result: goto_resolver.goto(kind: goto_kind, symbols: symbols)
                   }
                 )
               end
@@ -651,35 +667,9 @@ module Steep
 
         when CustomMethods::Query__Definition::METHOD
           params = message[:params] #: CustomMethods::Query__Definition::params
-          result_controller << group_request do |group|
-            typecheck_workers.each do |worker|
-              group << send_request(method: CustomMethods::Query__Definition::METHOD, params: params, worker: worker)
-            end
-
-            group.on_completion do |handlers|
-              kind = "unknown" #: CustomMethods::Query__Definition::kind
-              locations = [] #: Array[CustomMethods::Query__Definition::location]
-
-              handlers.each do |handler|
-                result = handler.result #: CustomMethods::Query__Definition::result
-                next unless result
-
-                if kind == "unknown"
-                  kind = result[:kind]
-                end
-                locations.concat(result[:locations])
-              end
-
-              locations.uniq!
-
-              enqueue_write_job SendMessageJob.to_client(
-                message: CustomMethods::Query__Definition.response(
-                  message[:id],
-                  { name: params[:name], kind: kind, locations: locations }
-                )
-              )
-            end
-          end
+          enqueue_write_job SendMessageJob.to_client(
+            message: CustomMethods::Query__Definition.response(message[:id], goto_resolver.query_definition(params[:name]))
+          )
 
         when CustomMethods::TypeCheck::METHOD
           id = message[:id]

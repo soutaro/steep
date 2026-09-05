@@ -97,6 +97,18 @@ module Steep
         end
       end
 
+      module Goto__Symbol
+        METHOD = "$/steep/goto/symbol"
+
+        def self.request(id, params)
+          { method: METHOD, id: id, params: params }
+        end
+
+        def self.response(id, result)
+          { id: id, result: result }
+        end
+      end
+
       module Query__Diagnostics
         METHOD = "$/steep/query/diagnostics"
 

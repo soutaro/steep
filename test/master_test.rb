@@ -344,6 +344,84 @@ end
     end
   end
 
+  def test_goto_definition_via_interaction_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      interaction_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
+      typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: interaction_worker,
+        typecheck_workers: [typecheck_worker]
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      master.type_check_database.update(
+        path: current_dir + "sig/customer.rbs",
+        target: :lib,
+        diagnostics: [],
+        entries: [
+          Server::TypeCheckDatabase::Entry.new(name: "::Customer#name", kind: :method, role: :definition, source: :rbs, start_line: 1, start_character: 6, end_line: 1, end_character: 10)
+        ]
+      )
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/definition",
+          id: "definition_id",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/customer.rb" },
+            position: { line: 3, character: 9 }
+          }
+        }
+      )
+
+      # The request is forwarded to the interaction worker as `$/steep/goto/symbol`
+      jobs = flush_queue(master.write_queue)
+      request = jobs.find { |job| job.message[:method] == Goto__Symbol::METHOD } or raise
+      assert_equal interaction_worker, request.dest
+      assert_equal(
+        { kind: "definition", uri: "#{file_scheme}#{current_dir}/lib/customer.rb", position: { line: 3, character: 9 } },
+        request.message[:params]
+      )
+
+      # The symbols in the response are resolved with the database
+      master.result_controller.process_response(
+        { id: request.message[:id], result: { symbols: [{ name: "::Customer#name", kind: "method", from: "ruby" }] } }
+      )
+
+      assert_equal(
+        [
+          Master::SendMessageJob.to_client(
+            message: {
+              id: "definition_id",
+              result: [
+                {
+                  uri: "#{file_scheme}#{current_dir}/sig/customer.rbs",
+                  range: { start: { line: 1, character: 6 }, end: { line: 1, character: 10 } }
+                }
+              ]
+            }
+          )
+        ],
+        flush_queue(master.write_queue)
+      )
+    end
+  end
+
   def test_on_type_check_update_without_progress
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

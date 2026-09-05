@@ -4,6 +4,7 @@ module Steep
       include ChangeBuffer
 
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
+      GotoSymbolJob = _ = Struct.new(:id, :kind, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
       SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
 
@@ -51,6 +52,9 @@ module Steep
                 result: process_latest_job(job) { process_signature_help(job) }
               }
             )
+          when GotoSymbolJob
+            symbols = process_latest_job(job) { process_goto_symbol(job) } || []
+            writer.write(CustomMethods::Goto__Symbol.response(job.id, { symbols: symbols }))
           end
         end
       end
@@ -119,6 +123,49 @@ module Steep
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
 
           queue_job SignatureHelpJob.new(id: id, path: path, line: line, column: column)
+
+        when CustomMethods::Goto__Symbol::METHOD
+          id = request[:id]
+          params = request[:params] #: CustomMethods::Goto__Symbol::params
+
+          kind =
+            case params[:kind]
+            when "definition"
+              :definition
+            when "implementation"
+              :implementation
+            when "typeDefinition"
+              :type_definition
+            else
+              raise "Unknown goto kind: #{params[:kind]}"
+            end #: Services::GotoService::goto_kind
+          path = PathHelper.to_pathname!(params[:uri])
+          line = params[:position][:line] + 1
+          column = params[:position][:character]
+
+          queue_job GotoSymbolJob.new(id: id, kind: kind, path: path, line: line, column: column)
+        end
+      end
+
+      def process_goto_symbol(job)
+        Steep.logger.tagged "#process_goto_symbol" do
+          Steep.measure "Resolving the symbols at the position" do
+            Steep.logger.info { "kind=#{job.kind}, path=#{job.path}, line=#{job.line}, column=#{job.column}" }
+
+            goto_service = Services::GotoService.new(type_check: service, assignment: Services::PathAssignment.all)
+            queries = goto_service.symbols_at(kind: job.kind, path: job.path, line: job.line, column: job.column)
+
+            queries.map do |query|
+              case query
+              when Services::GotoService::ConstantQuery
+                { name: query.name.to_s, kind: "constant", from: query.from.to_s }
+              when Services::GotoService::MethodQuery
+                { name: query.name.to_s, kind: "method", from: query.from.to_s }
+              when Services::GotoService::TypeNameQuery
+                { name: query.name.to_s, kind: "type_name", from: nil }
+              end
+            end
+          end
         end
       end
 

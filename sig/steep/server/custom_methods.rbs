@@ -172,6 +172,38 @@ module Steep
         def self.response: (String id, result) -> untyped
       end
 
+      # Request to resolve the symbols at a cursor position, sent from master to the interaction worker
+      #
+      # The interaction worker type checks the file on demand, like hover, and returns the names of what is
+      # at the position. The master looks the names up in its `TypeCheckDatabase` to answer goto requests.
+      #
+      module Goto__Symbol
+        METHOD: String
+
+        # The goto request the symbols are for -- `"definition"`, `"implementation"`, or `"typeDefinition"`
+        type kind = String
+
+        type params = {
+          kind: kind,
+          uri: String,
+          position: { line: Integer, character: Integer }
+        }
+
+        # A symbol at the position
+        #
+        # * `name` is the name as stored in the database -- `::Foo`, `::Foo#bar`, `::Foo.bar`, `::_Foo`, or `::foo`
+        # * `kind` is `"constant"` for a constant (class, module, or constant), `"method"` for a method, or `"type_name"` for a type name
+        # * `from` is `"ruby"` or `"rbs"` for where the symbol is written, and `nil` for a type name
+        #
+        type symbol = { name: String, kind: String, from: String? }
+
+        type result = { symbols: Array[symbol] }
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result) -> untyped
+      end
+
       module Query__Diagnostics
         METHOD: String
 

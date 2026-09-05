@@ -1,0 +1,46 @@
+# Generated from test/server/goto_resolver_test.rb with RBS::Inline
+
+class Steep::Server::GotoResolverTest < Minitest::Test
+  include TestHelper
+
+  include Steep
+
+  class TypeCheckDatabase = Steep::Server::TypeCheckDatabase
+
+  class GotoResolver = Steep::Server::GotoResolver
+
+  RUBY_PATH: untyped
+
+  RBS_PATH: untyped
+
+  def entry: (untyped name, kind: untyped, source: untyped, at: untyped) -> TypeCheckDatabase::Entry
+
+  def database: () -> TypeCheckDatabase
+
+  def resolver: () -> GotoResolver
+
+  def uri: (untyped path) -> String
+
+  # Returns `[uri, start line]` pairs of the locations
+  def summarize: (untyped locations) -> Array[[ String, Integer ]]
+
+  def test_definition_from_ruby_jumps_to_rbs: () -> untyped
+
+  def test_definition_from_rbs_jumps_to_ruby: () -> untyped
+
+  def test_implementation_jumps_to_ruby: () -> untyped
+
+  def test_new_falls_back_to_initialize: () -> untyped
+
+  def test_type_definition_jumps_to_rbs_declarations: () -> untyped
+
+  def test_unknown_symbol: () -> untyped
+
+  def test_query_definition_method: () -> untyped
+
+  def test_query_definition_new: () -> untyped
+
+  def test_query_definition_type_name: () -> untyped
+
+  def test_query_definition_unknown: () -> untyped
+end
