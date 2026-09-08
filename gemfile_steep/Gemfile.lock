@@ -1,9 +1,9 @@
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 2a52643c6554c553cd0dc31a6daef717304c3985
+  revision: 0f60b67bb1502e8af3193c548765151695fcf01b
   branch: master
   specs:
-    steep (2.1.0.dev.1)
+    steep (2.1.0)
       concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
       fileutils (>= 1.1.0)
@@ -14,7 +14,7 @@ GIT
       parser (>= 3.2)
       prism (>= 0.25.0)
       rainbow (>= 2.2.2, < 4.0)
-      rbs (~> 4.0)
+      rbs (~> 4.2)
       securerandom (>= 0.1)
       strscan (>= 1.0.0)
       terminal-table (>= 2, < 5)
@@ -39,7 +39,7 @@ GEM
       prism (>= 1.3.0)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
-    json (2.21.2)
+    json (3.0.0)
     language_server-protocol (3.17.0.6)
     listen (3.10.0)
       logger
