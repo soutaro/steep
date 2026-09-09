@@ -17,6 +17,8 @@ module Steep
       #
       attr_reader context: Array[[AST::Types::t?, AST::Types::t?, AST::Types::t?]]
 
+      attr_reader referenced_type_names: Set[RBS::TypeName]
+
       def latest_context: -> [AST::Types::t?, AST::Types::t?, AST::Types::t?]
 
       def push_context: [T] (?self_type: AST::Types::t?, ?class_type: AST::Types::t?, ?instance_type: AST::Types::t?) { () -> T } -> T
