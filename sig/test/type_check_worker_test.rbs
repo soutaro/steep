@@ -63,4 +63,6 @@ class TypeCheckWorkerTest < Minitest::Test
   def test_job_stats: () -> untyped
 
   def test_goto_definition_from_ruby: () -> untyped
+
+  def test_refork_after_pending_jobs: () -> untyped
 end
