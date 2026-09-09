@@ -158,6 +158,9 @@ module Steep
 
       attr_reader start_type_checking_queue: DelayQueue
 
+      # The type check results reported by the typecheck workers
+      attr_reader type_check_database: TypeCheckDatabase
+
       @need_to_refork: boolish
 
       # Type check requests waiting for the current type check to finish
@@ -225,7 +228,12 @@ module Steep
 
       def finish_type_check: (TypeCheckController::Request) -> void
 
-      def on_type_check_update: (guid: String, path: Pathname, target: Project::Target, diagnostics: Array[LSPDiagnostic::json]?) -> void
+      # Stores the results reported by a worker in the database and publishes the diagnostics of the file
+      #
+      # Results of a guid other than the current request are dropped. The diagnostics published are the ones of
+      # `source` and `signature` concatenated, or nothing when both are skipped.
+      #
+      def on_type_check_update: (guid: String, path: Pathname, target: Project::Target, ?source: CustomMethods::TypeCheck__Progress::result?, ?signature: CustomMethods::TypeCheck__Progress::result?) -> void
 
       def refork_workers: () -> void
 

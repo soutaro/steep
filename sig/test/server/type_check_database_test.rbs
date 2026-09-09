@@ -36,5 +36,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
   def test_name_shared_between_files_survives_removal_of_one: () -> untyped
 
+  def test_entry_wire_round_trip: () -> untyped
+
   def test_rbs_declarations: () -> untyped
 end

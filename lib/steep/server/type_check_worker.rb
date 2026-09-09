@@ -71,6 +71,7 @@ module Steep
         @service = service if service
         @child_pids = []
         @need_to_warmup = true
+        @rbs_entries_cache = {}
 
         if io_socket
           Signal.trap "SIGCHLD" do
@@ -257,13 +258,14 @@ module Steep
 
             formatter = Diagnostic::LSPFormatter.new({}, **{})
 
-            diagnostics = service.validate_signature(path: project.relative_path(job.path), target: job.target)
+            relative_path = project.relative_path(job.path)
+            diagnostics = service.validate_signature(path: relative_path, target: job.target)
 
             typecheck_progress(
               path: job.path,
               guid: job.guid,
               target: job.target,
-              diagnostics: diagnostics.filter_map { formatter.format(_1) }
+              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, relative_path) }
             )
           end
 
@@ -274,7 +276,12 @@ module Steep
             formatter = Diagnostic::LSPFormatter.new({}, **{})
             diagnostics = service.validate_signature(path: job.path, target: job.target)
 
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics.filter_map { formatter.format(_1) })
+            typecheck_progress(
+              path: job.path,
+              guid: job.guid,
+              target: job.target,
+              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path) }
+            )
           end
 
         when TypeCheckCodeJob
@@ -284,7 +291,12 @@ module Steep
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
             diagnostics = service.typecheck_source(path: relative_path, target: job.target)
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
+            typecheck_progress(
+              path: job.path,
+              guid: job.guid,
+              target: job.target,
+              source: { diagnostics: diagnostics&.filter_map { formatter.format(_1) }, entries: source_file_entries(relative_path) }
+            )
           end
 
         when TypeCheckInlineCodeJob
@@ -293,17 +305,21 @@ module Steep
             group_target = project.group_for_inline_source_path(job.path) || job.target
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
-            diagnostics = service.typecheck_source(path: relative_path, target: job.target) #: Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base] | nil
-            signature_diagnostics = service.validate_signature(path: relative_path, target: job.target)
-            if diagnostics
-              diagnostics.concat(signature_diagnostics)
-            else
-              unless signature_diagnostics.empty?
-                diagnostics = signature_diagnostics
-              end
+            source_diagnostics = service.typecheck_source(path: relative_path, target: job.target)&.filter_map { formatter.format(_1) }
+            signature_diagnostics = service.validate_signature(path: relative_path, target: job.target).filter_map { formatter.format(_1) } #: Array[LanguageServer::Protocol::Interface::Diagnostic::json]?
+
+            # Keep the diagnostics of the last type checking, as the plain Ruby files do, when the type checking is skipped and the validation finds nothing
+            if source_diagnostics.nil? && signature_diagnostics&.empty?
+              signature_diagnostics = nil
             end
 
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, diagnostics: diagnostics&.filter_map { formatter.format(_1) })
+            typecheck_progress(
+              path: job.path,
+              guid: job.guid,
+              target: job.target,
+              source: { diagnostics: source_diagnostics, entries: source_file_entries(relative_path) },
+              signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path) }
+            )
           end
 
         when WorkspaceSymbolJob
@@ -332,8 +348,41 @@ module Steep
         end
       end
 
-      def typecheck_progress(guid:, path:, target:, diagnostics:)
-        writer.write(CustomMethods::TypeCheck__Progress.notification({ guid: guid, path: path.to_s, target: target.name.to_s, diagnostics: diagnostics }))
+      def typecheck_progress(guid:, path:, target:, source: nil, signature: nil)
+        writer.write(
+          CustomMethods::TypeCheck__Progress.notification({
+            guid: guid,
+            path: path.to_s,
+            target: target.name.to_s,
+            source: source && wire_result(source),
+            signature: signature && wire_result(signature)
+          })
+        )
+      end
+
+      def wire_result(result)
+        { diagnostics: result[:diagnostics], entries: result[:entries]&.map { _1.to_wire } }
+      end
+
+      def source_file_entries(relative_path)
+        if file = service.source_files[relative_path]
+          if typing = file.typing
+            TypeCheckDatabase.entries_from(typing)
+          end
+        end
+      end
+
+      def signature_entries(target, path)
+        signature_service = service.signature_services.fetch(target.name)
+        return unless signature_service.status.is_a?(Services::SignatureService::LoadedStatus)
+
+        index = signature_service.latest_rbs_index
+        cached = @rbs_entries_cache[target.name]
+        unless cached && cached[0].equal?(index)
+          cached = @rbs_entries_cache[target.name] = [index, TypeCheckDatabase.rbs_entries_by_path(index)]
+        end
+
+        cached[1][path] || []
       end
 
       def workspace_symbol_result(query)

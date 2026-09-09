@@ -226,7 +226,7 @@ end
 
       flush_queue(master.write_queue)
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", target: project.targets[0], diagnostics: nil)
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", target: project.targets[0], source: { diagnostics: nil, entries: nil })
 
       jobs = flush_queue(master.write_queue)
 
@@ -244,7 +244,7 @@ end
         end
       end
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", target: project.targets[0], diagnostics: [])
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", target: project.targets[0], source: { diagnostics: [], entries: [] })
 
       jobs = flush_queue(master.write_queue)
 
@@ -278,6 +278,76 @@ end
       end
 
       assert_nil master.current_type_check_request
+    end
+  end
+
+  def test_on_type_check_update_stores_results_in_database
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
+
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+
+      progress = master.work_done_progress("guid")
+      master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
+
+      flush_queue(master.write_queue)
+
+      master.on_type_check_update(
+        guid: "guid",
+        path: current_dir + "lib/customer.rb",
+        target: project.targets[0],
+        source: {
+          diagnostics: [],
+          entries: [
+            ["::Customer", 0, 0, 6, 0, 14],
+            ["::Customer#name", 0, 1, 6, 1, 10]
+          ]
+        },
+        signature: {
+          diagnostics: [],
+          entries: [
+            ["::Customer#name", 0, 1, 6, 1, 10]
+          ]
+        }
+      )
+
+      database = master.type_check_database
+
+      assert_equal [], database.diagnostics(current_dir + "lib/customer.rb")
+
+      # The Ruby code and the inline declarations are stored in both tables
+      definitions = database.definitions("::Customer#name")
+      assert_equal [current_dir + "lib/customer.rb"], definitions.map(&:path).uniq
+      assert_equal [[:ruby, 1], [:rbs, 1]], definitions.map { [_1.source, _1.start_line] }
+
+      # Results of unknown guids are not stored
+      master.on_type_check_update(
+        guid: "different-guid",
+        path: current_dir + "lib/customer.rb",
+        target: project.targets[0],
+        source: { diagnostics: nil, entries: [["::Other", 0, 0, 0, 0, 5]] }
+      )
+      assert_equal [], database.definitions("::Other")
     end
   end
 
@@ -315,8 +385,8 @@ end
 
       flush_queue(master.write_queue)
 
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", target: project.targets[0], diagnostics: [])
-      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", target: project.targets[0], diagnostics: nil)
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/customer.rb", target: project.targets[0], source: { diagnostics: [], entries: [] })
+      master.on_type_check_update(guid: "guid", path: current_dir + "lib/account.rb", target: project.targets[0], source: { diagnostics: nil, entries: nil })
 
       jobs = flush_queue(master.write_queue)
 

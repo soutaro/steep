@@ -186,6 +186,8 @@ module Steep
       attr_accessor :typecheck_automatically
       attr_reader :start_type_checking_queue
 
+      attr_reader :type_check_database
+
       # Type check requests waiting for the current type check to finish
       attr_reader :pending_typecheck_requests
 
@@ -214,6 +216,7 @@ module Steep
         @controller = TypeCheckController.new(project: project)
         @result_controller = ResultController.new()
         @start_type_checking_queue = DelayQueue.new(delay: 0.3)
+        @type_check_database = TypeCheckDatabase.new()
       end
 
       def start
@@ -790,7 +793,8 @@ module Steep
                 guid: params[:guid],
                 path: Pathname(params[:path]),
                 target: target,
-                diagnostics: params[:diagnostics]
+                source: params[:source],
+                signature: params[:signature]
               )
             else
               # Forward other notifications
@@ -902,10 +906,37 @@ module Steep
         end
       end
 
-      def on_type_check_update(guid:, path:, target:, diagnostics:)
+      def on_type_check_update(guid:, path:, target:, source: nil, signature: nil)
         if current = current_type_check_request()
           if current.guid == guid
             current.checked(path, target)
+
+            if source
+              type_check_database.update_source(
+                path: path,
+                target: target.name,
+                diagnostics: source[:diagnostics],
+                entries: source[:entries]&.map { TypeCheckDatabase::Entry.from_wire(_1) }
+              )
+            end
+
+            if signature
+              type_check_database.update_signature(
+                path: path,
+                target: target.name,
+                diagnostics: signature[:diagnostics],
+                entries: signature[:entries]&.map { TypeCheckDatabase::Entry.from_wire(_1) }
+              )
+            end
+
+            source_diagnostics = source && source[:diagnostics]
+            signature_diagnostics = signature && signature[:diagnostics]
+            diagnostics =
+              if source_diagnostics && signature_diagnostics
+                source_diagnostics + signature_diagnostics
+              else
+                source_diagnostics || signature_diagnostics
+              end
 
             Steep.logger.info { "Request updated: checked=#{path}, unchecked=#{current.each_unchecked_code_target_path.size}, diagnostics=#{diagnostics&.size}" }
 
