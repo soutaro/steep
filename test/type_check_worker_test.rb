@@ -323,7 +323,121 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "sig/hello.rbs").to_s, message[:params][:path]
-          assert_empty message[:params][:diagnostics]
+          assert_empty message[:params][:signature][:diagnostics]
+        end
+      end
+    end
+  end
+
+  def test_handle_job_validate_app_signature_entries
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+        {}.tap do |changes|
+          changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<~RBS)]
+            class Hello
+              def world: () -> void
+              attr_reader name: String
+              alias greet world
+            end
+
+            interface _Greeter
+              def greet: () -> void
+            end
+
+            type greeting = String
+
+            VERSION: String
+
+            $hello: Hello
+          RBS
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+        end
+
+        job = TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid", path: current_dir + "sig/hello.rbs", target: project.targets[0])
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+          assert_empty message[:params][:signature][:diagnostics]
+
+          entries = message[:params][:signature][:entries]
+
+          # Class, methods (`def`, `attr_reader`, and `alias`)
+          assert_includes entries, ["::Hello", 0, 0, 6, 0, 11]
+          assert_includes entries, ["::Hello#world", 0, 1, 6, 1, 11]
+          assert_includes entries, ["::Hello#name", 0, 2, 14, 2, 18]
+          assert_includes entries, ["::Hello#greet", 0, 3, 8, 3, 13]
+
+          # Interface, type alias, constant, and global
+          assert_includes entries, ["::_Greeter", 0, 6, 10, 6, 18]
+          assert_includes entries, ["::_Greeter#greet", 0, 7, 6, 7, 11]
+          assert_includes entries, ["::greeting", 0, 10, 5, 10, 13]
+          assert_includes entries, ["::VERSION", 0, 12, 0, 12, 7]
+          assert_includes entries, ["$hello", 0, 14, 0, 14, 6]
+
+          # Declarations of other files are not included
+          refute entries.any? {|name, *| name == "::String" }
+        end
+      end
+    end
+  end
+
+  def test_handle_job_validate_app_signature_entries_on_syntax_error
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+        {}.tap do |changes|
+          changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<~RBS)]
+            class Hello
+              def world: () ->
+          RBS
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+        end
+
+        job = TypeCheckWorker::ValidateAppSignatureJob.new(guid: "guid", path: current_dir + "sig/hello.rbs", target: project.targets[0])
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+          refute_empty message[:params][:signature][:diagnostics]
+
+          # No entries are reported while the signatures fail to load
+          assert_nil message[:params][:signature][:entries]
         end
       end
     end
@@ -419,7 +533,7 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs").to_s, message[:params][:path]
-          assert_empty message[:params][:diagnostics]
+          assert_empty message[:params][:signature][:diagnostics]
         end
       end
     end
@@ -513,7 +627,68 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
-          assert_equal 1, message[:params][:diagnostics].size
+          assert_equal 1, message[:params][:source][:diagnostics].size
+        end
+      end
+    end
+  end
+
+  def test_handle_job_typecheck_code_entries
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          assignment: assignment,
+          commandline_args: [],
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        worker.instance_variable_set(:@current_type_check_guid, "guid")
+
+        {}.tap do |changes|
+          changes[Pathname("lib/hello.rb")] = [Services::ContentChange.string(<<~RUBY)]
+            class Hello
+              def world
+              end
+            end
+
+            Hello.new.world()
+          RUBY
+          changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<~RUBY)]
+            class Hello
+              def world: () -> void
+            end
+          RUBY
+          worker.handle_job(TypeCheckWorker::StartTypeCheckJob.new(guid: "guid", changes: changes))
+        end
+
+        job = TypeCheckWorker::TypeCheckCodeJob.new(guid: "guid", path: current_dir + "lib/hello.rb", target: project.targets[0])
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal TypeCheck__Progress::METHOD, message[:method]
+
+          entries = message[:params][:source][:entries]
+
+          # Constant definition and reference of ::Hello
+          assert_includes entries, ["::Hello", 0, 0, 6, 0, 11]
+          assert_includes entries, ["::Hello", 1, 5, 0, 5, 5]
+
+          # Method definition and reference of ::Hello#world
+          assert_includes entries, ["::Hello#world", 0, 1, 6, 1, 11]
+          assert_includes entries, ["::Hello#world", 1, 5, 10, 5, 15]
+
+          # The reference of `.new` points at the selector
+          assert(entries.any? {|_, role, line, character, _, _| role == 1 && line == 5 && character == 6 })
         end
       end
     end
@@ -570,12 +745,12 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
 
-          assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
+          assert_any!(message[:params][:source][:diagnostics], size: 2) do |diagnostic|
             assert_equal "Ruby::UnexpectedPositionalArgument", diagnostic[:code]
             assert_equal 1, diagnostic[:severity]
           end
 
-          assert_any!(message[:params][:diagnostics], size: 2) do |diagnostic|
+          assert_any!(message[:params][:source][:diagnostics], size: 2) do |diagnostic|
             assert_equal "Ruby::UnknownConstant", diagnostic[:code]
             assert_equal 3, diagnostic[:severity]
           end
@@ -670,7 +845,7 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
-          assert_equal 0, message[:params][:diagnostics].size
+          assert_equal 0, message[:params][:source][:diagnostics].size
         end
       end
     end
@@ -717,8 +892,8 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
-          assert_equal 1, message[:params][:diagnostics].size
-          assert_equal "Ruby::ArgumentTypeMismatch", message[:params][:diagnostics][0][:code]
+          assert_equal 1, message[:params][:source][:diagnostics].size
+          assert_equal "Ruby::ArgumentTypeMismatch", message[:params][:source][:diagnostics][0][:code]
         end
       end
     end
@@ -765,9 +940,9 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_equal TypeCheck__Progress::METHOD, message[:method]
           assert_equal "guid", message[:params][:guid]
           assert_equal (current_dir + "lib/hello.rb").to_s, message[:params][:path]
-          assert_equal 1, message[:params][:diagnostics].size
-          pp message[:params][:diagnostics][0]
-          assert_equal "RBS::InlineDiagnostic", message[:params][:diagnostics][0][:code]
+          assert_equal 1, message[:params][:signature][:diagnostics].size
+          pp message[:params][:signature][:diagnostics][0]
+          assert_equal "RBS::InlineDiagnostic", message[:params][:signature][:diagnostics][0][:code]
         end
       end
     end
@@ -1011,7 +1186,7 @@ RUBY
         refute_nil progress
         assert_equal "guid2", progress[:params][:guid]
         assert_equal (current_dir + "lib/hello.rb").to_s, progress[:params][:path]
-        assert_equal [], progress[:params][:diagnostics]
+        assert_equal [], progress[:params][:source][:diagnostics]
 
         child_writer.write({ method: "shutdown", id: "shutdown" })
         child_writer.write({ method: "exit" })

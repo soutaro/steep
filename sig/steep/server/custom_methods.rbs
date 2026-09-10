@@ -89,11 +89,22 @@ module Steep
       module TypeCheck__Progress
         METHOD: String
 
+        # The result of type checking Ruby code or validating RBS declarations in the file
+        #
+        # `diagnostics` is `nil` when the type checking is skipped, and `entries` is `nil` when no entries
+        # are available. The master keeps the ones of the last result in either case.
+        #
+        type result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry::wire]? }
+
+        # `source` is the result of type checking Ruby code, and `signature` is the result of validating RBS declarations.
+        # A Ruby file with inline RBS declarations has both.
+        #
         type params = {
           guid: String,
           path: String,
           target: String,
-          diagnostics: Array[LSPDiagnostic::json]?
+          source: result?,
+          signature: result?
         }
 
         def self.notification: (params) -> untyped
