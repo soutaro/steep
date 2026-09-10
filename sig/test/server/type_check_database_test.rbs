@@ -1,0 +1,40 @@
+# Generated from test/server/type_check_database_test.rb with RBS::Inline
+
+class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
+  include TestHelper
+
+  include Steep
+
+  class TypeCheckDatabase = Steep::Server::TypeCheckDatabase
+
+  def entry: (untyped name, role: untyped, at: untyped) -> TypeCheckDatabase::Entry
+
+  def diagnostic: (untyped message, ?line: untyped) -> untyped
+
+  # Returns `[path, source, start line]` triples of the locations
+  def summarize: (untyped locations) -> Array[[ Pathname, Symbol, Integer ]]
+
+  def test_diagnostics_merges_tables_and_targets: () -> untyped
+
+  def test_diagnostics_of_unchecked_file: () -> untyped
+
+  def test_skipped_type_check_keeps_previous_result: () -> untyped
+
+  def test_definitions_and_references: () -> untyped
+
+  def test_location: () -> untyped
+
+  def test_inline_file_has_results_in_both_tables: () -> untyped
+
+  def test_signatures_merge_targets: () -> untyped
+
+  def test_update_replaces_previous_result: () -> untyped
+
+  def test_update_signature_replaces_only_the_target: () -> untyped
+
+  def test_remove_releases_everything: () -> untyped
+
+  def test_name_shared_between_files_survives_removal_of_one: () -> untyped
+
+  def test_rbs_declarations: () -> untyped
+end
