@@ -1,0 +1,215 @@
+module Steep
+  module Server
+    # TypeCheckDatabase stores the results of type checking that the master process keeps
+    #
+    # The typecheck workers report the results of each file through `$/steep/typecheck/progress` notifications,
+    # and the master process saves them in this database, so that it can answer queries without
+    # the workers keeping the `Typing` objects in memory.
+    #
+    # It stores LSP formatted diagnostics and the definitions and references of methods, constants, and RBS type names
+    # with their locations, in two tables:
+    #
+    # * *Sources* keeps the results of type checking Ruby code, keyed by the path -- a Ruby file belongs to exactly one target
+    # * *Signatures* keeps the results of validating RBS declarations, keyed by the path and the target -- an RBS file is
+    #   loaded in every target that references it, and the names it references may resolve differently in each target
+    #
+    # A Ruby file with inline RBS declarations has its results in both tables: the type checking of the Ruby code in
+    # *sources*, and the validation of the inline declarations in *signatures*.
+    #
+    # ```rb
+    # database = TypeCheckDatabase.new()
+    #
+    # database.update_source(path: Pathname("lib/foo.rb"), target: :app, diagnostics: diagnostics, entries: entries)
+    # database.update_signature(path: Pathname("sig/foo.rbs"), target: :app, diagnostics: diagnostics, entries: entries)
+    #
+    # database.diagnostics(Pathname("lib/foo.rb"))   # Diagnostics of the file, merged over the tables and the targets
+    # database.definitions("::Foo#bar")              # Definitions of `Foo#bar` in the project
+    # database.references("::Foo")                   # References of `Foo` in the project
+    # ```
+    #
+    # The queries return the locations in all targets, merged and deduplicated.
+    #
+    # The entries are stored in a flat `Array[Integer]` per file (and target), with names interned
+    # in a `NamePool`, to minimize the memory footprint of the master process.
+    #
+    # The implementation is not thread safe, assuming every call is from the master's event loop.
+    #
+    class TypeCheckDatabase
+      # Definition or reference of a method, constant, or RBS type name, reported by the workers
+      #
+      # * `name` is the fully qualified name of the entity -- a constant (`::Foo::Bar`), an instance method (`::Foo#bar`),
+      #   a singleton method (`::Foo.bar`), an interface (`::_Foo`), a type alias (`::foo`), or a global variable (`$foo`),
+      #   which tells the kind of the entity by its syntax
+      # * The location is in LSP convention -- 0-origin lines and characters, end-exclusive
+      #
+      class Entry
+        # Whether the entry defines the name or references it
+        type role = :definition | :reference
+
+        attr_reader name: String
+
+        attr_reader role: role
+
+        attr_reader start_line: Integer
+
+        attr_reader start_character: Integer
+
+        attr_reader end_line: Integer
+
+        attr_reader end_character: Integer
+
+        def initialize: (name: String, role: role, start_line: Integer, start_character: Integer, end_line: Integer, end_character: Integer) -> void
+      end
+
+      # Location of a definition or reference, returned by the queries
+      #
+      # `source` tells whether the location is in Ruby code or in RBS declarations, which is not always
+      # decidable from the path because of the inline RBS declarations in Ruby files.
+      #
+      class Location
+        type source = :ruby | :rbs
+
+        type lsp_range = { start: { line: Integer, character: Integer }, end: { line: Integer, character: Integer } }
+
+        attr_reader path: Pathname
+
+        attr_reader source: source
+
+        attr_reader start_line: Integer
+
+        attr_reader start_character: Integer
+
+        attr_reader end_line: Integer
+
+        attr_reader end_character: Integer
+
+        def initialize: (path: Pathname, source: source, start_line: Integer, start_character: Integer, end_line: Integer, end_character: Integer) -> void
+
+        def lsp_range: () -> lsp_range
+      end
+
+      # Interned strings with reference counting
+      #
+      # Each unique string is stored once and identified by an `Integer` id.
+      # `#intern` increments the reference count of the string, and `#release` decrements it,
+      # releasing the string when the count drops to zero.
+      #
+      class NamePool
+        @ids: Hash[String, Integer]
+
+        @names: Hash[Integer, String]
+
+        @counts: Hash[Integer, Integer]
+
+        @next_id: Integer
+
+        def initialize: () -> void
+
+        # Returns the id of the string, incrementing its reference count
+        def intern: (String name) -> Integer
+
+        # Decrements the reference count of the id, releasing the string when it drops to zero
+        def release: (Integer id) -> void
+
+        # Returns the string of the id, or `nil` if the id is not in the pool
+        def []: (Integer id) -> String?
+
+        # Returns the id of the string without changing its reference count, or `nil` if the string is not in the pool
+        def id_of: (String name) -> Integer?
+
+        # Number of the strings in the pool
+        def size: () -> Integer
+      end
+
+      # The result of the last type checking of a file, or of a file/target pair
+      class FileResult
+        # The target the file is type checked in
+        attr_reader target: Symbol
+
+        attr_reader diagnostics: Array[untyped]
+
+        # Packed entries
+        attr_reader entries: Array[Integer]
+
+        def initialize: (target: Symbol, diagnostics: Array[untyped], entries: Array[Integer]) -> void
+      end
+
+      ROLE_CODES: Hash[Entry::role, Integer]
+
+      ROLES: Hash[Integer, Entry::role]
+
+      # Number of `Integer`s that represent one entry
+      ENTRY_SIZE: Integer
+
+      # Results of type checking Ruby code
+      @sources: Hash[Pathname, FileResult]
+
+      # Results of validating RBS declarations
+      @signatures: Hash[Pathname, Hash[Symbol, FileResult]]
+
+      # Reference counts of names per path in `@sources` -- `name id => (path => count)`
+      @source_paths: Hash[Integer, Hash[Pathname, Integer]]
+
+      # Reference counts of names per path in `@signatures` -- `name id => (path => count)`
+      @signature_paths: Hash[Integer, Hash[Pathname, Integer]]
+
+      attr_reader pool: NamePool
+
+      def initialize: () -> void
+
+      # Replaces the result of type checking the Ruby code in the file
+      #
+      # `diagnostics` or `entries` given `nil` keeps the ones of the last update, for the type checking that is skipped.
+      #
+      def update_source: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?) -> void
+
+      # Replaces the result of validating the RBS declarations in the file, in the target
+      #
+      # `diagnostics` or `entries` given `nil` keeps the ones of the last update, for the validation that is skipped.
+      #
+      def update_signature: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?) -> void
+
+      # Deletes everything stored for the `path`
+      def remove: (Pathname path) -> void
+
+      # Returns the diagnostics of the file, merged over the tables and the targets
+      #
+      # Returns an empty array when no result of the file is stored.
+      #
+      def diagnostics: (Pathname path) -> Array[untyped]
+
+      # Returns the locations of the definitions of the name in the project
+      #
+      # The locations in Ruby code come first, followed by the ones in RBS declarations.
+      #
+      def definitions: (String name) -> Array[Location]
+
+      # Returns the locations of the references of the name in the project
+      #
+      # The locations in Ruby code come first, followed by the ones in RBS declarations.
+      #
+      def references: (String name) -> Array[Location]
+
+      # Number of entries stored in the database
+      def entry_count: () -> Integer
+
+      private
+
+      # Returns the result that replaces `old`, packing `entries` and keeping the parts of `old` given `nil`
+      def replace_result: (FileResult? old, Hash[Integer, Hash[Pathname, Integer]] name_paths, path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?) -> FileResult
+
+      def pack_entries: (Hash[Integer, Hash[Pathname, Integer]] name_paths, Pathname path, Array[Entry] entries) -> Array[Integer]
+
+      def matching_locations: (String name, role: Entry::role) -> Array[Location]
+
+      # Appends the locations of the entries of the name and the role in the packed `array` to `locations`
+      def collect_locations: (Array[Location] locations, Array[Integer] array, Integer id, Integer role_code, path: Pathname, source: Location::source) -> void
+
+      def release_entries: (Hash[Integer, Hash[Pathname, Integer]] name_paths, Pathname path, Array[Integer] array) -> void
+
+      def track_name: (Hash[Integer, Hash[Pathname, Integer]] name_paths, Integer id, Pathname path) -> void
+
+      def untrack_name: (Hash[Integer, Hash[Pathname, Integer]] name_paths, Integer id, Pathname path) -> void
+    end
+  end
+end
