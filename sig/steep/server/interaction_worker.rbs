@@ -45,7 +45,21 @@ module Steep
         def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
       end
 
-      type job = HoverJob | CompletionJob | SignatureHelpJob
+      # Resolves what is at a position for `$/steep/source/symbol`
+      class SourceSymbolJob
+        attr_reader id: String
+
+        # Absolute path of the file
+        attr_reader path: Pathname
+
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
+      end
+
+      type job = HoverJob | CompletionJob | SignatureHelpJob | SourceSymbolJob
 
       module LSP = LanguageServer::Protocol
 
@@ -74,6 +88,9 @@ module Steep
       def handle_request: (lsp_request) -> void
 
       def process_hover: (HoverJob job) -> LanguageServer::Protocol::Interface::Hover?
+
+      # Returns what is at the position of the job, type checking the file on demand like hover
+      def process_source_symbol: (SourceSymbolJob job) -> CustomMethods::Source__Symbol::result
 
       def process_completion: (CompletionJob job) -> LanguageServer::Protocol::Interface::CompletionList?
 
