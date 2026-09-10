@@ -182,6 +182,43 @@ module Steep
         def self.response: (String id, result) -> untyped
       end
 
+      # Request to resolve what is at a cursor position, sent from master to the interaction worker
+      #
+      # The interaction worker type checks the file on demand, like hover, and returns what is at the position.
+      # The master looks the names up in its `TypeCheckDatabase` to answer goto requests -- `constant`,
+      # `type_name`, and `method_names` for definition and implementation, and the type names in `type` for
+      # typeDefinition.
+      #
+      module Source__Symbol
+        METHOD: String
+
+        type params = {
+          uri: String,
+          position: { line: Integer, character: Integer }
+        }
+
+        # What is at the position, each key present only when there is one
+        #
+        # * `constant` is the constant written at the position -- `::Foo`, referenced or defined in Ruby code, or
+        #   declared in an RBS file
+        # * `type_name` is the type name written in a type at the position -- `::Foo`, `::_Foo`, or `::foo`, in an
+        #   RBS file, a type annotation, or an inline RBS declaration
+        # * `method_names` are the methods written at the position -- `::Foo#bar` or `::Foo.bar`, resolved to the
+        #   names they are declared as, which may be several for a call on a union type
+        # * `type` is the type of the expression at the position in RBS syntax, absent in RBS files
+        #
+        type result = {
+          ?constant: String,
+          ?type_name: String,
+          ?method_names: Array[String],
+          ?type: String
+        }
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result) -> untyped
+      end
+
       module Query__Diagnostics
         METHOD: String
 

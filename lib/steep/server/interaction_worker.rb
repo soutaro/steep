@@ -6,6 +6,7 @@ module Steep
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
       SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
+      SourceSymbolJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
 
       LSP = LanguageServer::Protocol
 
@@ -51,6 +52,10 @@ module Steep
                 result: process_latest_job(job) { process_signature_help(job) }
               }
             )
+          when SourceSymbolJob
+            result = process_latest_job(job) { process_source_symbol(job) }
+            result ||= {} #: CustomMethods::Source__Symbol::result
+            writer.write(CustomMethods::Source__Symbol.response(job.id, result))
           end
         end
       end
@@ -119,6 +124,33 @@ module Steep
           line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
 
           queue_job SignatureHelpJob.new(id: id, path: path, line: line, column: column)
+
+        when CustomMethods::Source__Symbol::METHOD
+          id = request[:id]
+          params = request[:params] #: CustomMethods::Source__Symbol::params
+
+          path = PathHelper.to_pathname!(params[:uri])
+          line = params[:position][:line] + 1
+          column = params[:position][:character]
+
+          queue_job SourceSymbolJob.new(id: id, path: path, line: line, column: column)
+        end
+      end
+
+      def process_source_symbol(job)
+        Steep.logger.tagged "#process_source_symbol" do
+          Steep.measure "Resolving the symbols at the position" do
+            Steep.logger.info { "path=#{job.path}, line=#{job.line}, column=#{job.column}" }
+
+            result = Services::SymbolProvider.new(service: service).symbols_at(path: job.path, line: job.line, column: job.column)
+
+            wire = {} #: CustomMethods::Source__Symbol::result
+            wire[:constant] = result.constant.to_s if result.constant
+            wire[:type_name] = result.type_name.to_s if result.type_name
+            wire[:method_names] = result.method_names.map(&:to_s) unless result.method_names.empty?
+            wire[:type] = result.type.to_s if result.type
+            wire
+          end
         end
       end
 

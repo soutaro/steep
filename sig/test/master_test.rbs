@@ -33,6 +33,8 @@ class MasterTest < Minitest::Test
 
   def test_on_type_check_update_stores_results_in_database: () -> untyped
 
+  def test_goto_definition_via_interaction_worker: () -> untyped
+
   def test_on_type_check_update_without_progress: () -> untyped
 
   def test_client_message_initialize_work_done_supported_no: () -> untyped

@@ -1,0 +1,39 @@
+# Generated from test/symbol_provider_test.rb with RBS::Inline
+
+class SymbolProviderTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  ContentChange: untyped
+
+  SymbolProvider: untyped
+
+  def dir: () -> untyped
+
+  def project: () -> untyped
+
+  # @rbs () { (Steep::Server::ChangeBuffer::changes) -> void } -> Steep::Services::TypeCheckService
+  def type_check_service: () { (Steep::Server::ChangeBuffer::changes) -> void } -> Steep::Services::TypeCheckService
+
+  # Returns what is at the position as strings, with the keys that are present
+  def symbols_at: (untyped type_check, untyped path, untyped line, untyped column) -> Hash[Symbol, untyped]
+
+  def test_constant_in_ruby: () -> untyped
+
+  def test_constant_in_rbs: () -> untyped
+
+  def test_method_definition: () -> untyped
+
+  def test_method_call: () -> untyped
+
+  def test_type_name_in_rbs: () -> untyped
+
+  def test_type_name_in_annotations: () -> untyped
+
+  def test_inline: () -> untyped
+
+  def test_type_of_expression: () -> untyped
+
+  def test_unknown_file: () -> untyped
+end

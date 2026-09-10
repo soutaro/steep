@@ -161,6 +161,9 @@ module Steep
       # The type check results reported by the typecheck workers
       attr_reader type_check_database: TypeCheckDatabase
 
+      # Answers goto requests and `$/steep/query/definition` from the database
+      attr_reader goto_resolver: GotoResolver
+
       @need_to_refork: boolish
 
       # Type check requests waiting for the current type check to finish

@@ -173,6 +173,80 @@ EOF
     end
   end
 
+  def test_handle_source_symbol_request
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.handle_request(
+        {
+          id: 123,
+          method: Source__Symbol::METHOD,
+          params: {
+            uri: "#{file_scheme}#{current_dir}/lib/hello.rb",
+            position: { line: 1, character: 2 }
+          }
+        }
+      )
+
+      q = flush_queue(worker.queue)
+      assert_equal 1, q.size
+      q[0].tap do |job|
+        assert_instance_of InteractionWorker::SourceSymbolJob, job
+        assert_equal current_dir + "lib/hello.rb", job.path
+        assert_equal 2, job.line
+        assert_equal 2, job.column
+      end
+    end
+  end
+
+  def test_process_source_symbol_job
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+EOF
+
+      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/customer.rbs") => [ContentChange.string(<<RBS)],
+class Customer
+  attr_accessor name: String
+end
+RBS
+          Pathname("lib/main.rb") => [ContentChange.string(<<RUBY)]
+customer = Customer.new()
+customer.name = "Soutaro"
+RUBY
+        }
+      )
+
+      # `Customer` in `Customer.new()` -- the constant, and the type of the expression is its singleton
+      result = worker.process_source_symbol(InteractionWorker::SourceSymbolJob.new(id: 1, path: current_dir + "lib/main.rb", line: 1, column: 14))
+      assert_equal({ constant: "::Customer", type: "singleton(::Customer)" }, result)
+
+      # `name` in `customer.name = ...` -- the method, and the type of the assignment is the value
+      result = worker.process_source_symbol(InteractionWorker::SourceSymbolJob.new(id: 2, path: current_dir + "lib/main.rb", line: 2, column: 10))
+      assert_equal({ method_names: ["::Customer#name="], type: "::String" }, result)
+
+      # `customer` -- nothing is written, and the type of the variable is Customer
+      result = worker.process_source_symbol(InteractionWorker::SourceSymbolJob.new(id: 3, path: current_dir + "lib/main.rb", line: 2, column: 2))
+      assert_equal({ type: "::Customer" }, result)
+    end
+  end
+
   def test_handle_hover_job_success
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")

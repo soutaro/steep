@@ -1,0 +1,70 @@
+use RBS::TypeName
+
+module Steep
+  module Services
+    # SymbolProvider finds what is at a cursor position
+    #
+    # The interaction worker uses it to answer `$/steep/source/symbol`: the file is type checked on demand
+    # against the latest buffer, like hover, and the master resolves the names found against its
+    # `TypeCheckDatabase`.
+    #
+    class SymbolProvider
+      # What is at a position
+      #
+      # * `constant` is the constant written at the position -- a class, a module, or a constant, referenced or
+      #   defined in Ruby code, or declared in an RBS file
+      # * `type_name` is the type name written in a type at the position -- in an RBS file, a type annotation,
+      #   or an inline RBS declaration
+      # * `method_names` are the methods written at the position -- a definition or a call, resolved to the names
+      #   they are declared as, which may be several for a call on a union type or a `def self?.` in RBS
+      # * `type` is the type of the expression at the position, `nil` in RBS files
+      #
+      # A constant and a type name are told apart because they go to different places: a constant has a Ruby
+      # side and an RBS side, while a type name is a reference to an RBS declaration wherever it is written.
+      # A position has at most one of `constant`, `type_name`, and `method_names`.
+      #
+      class Result
+        attr_accessor constant: TypeName?
+
+        attr_accessor type_name: TypeName?
+
+        attr_reader method_names: Array[method_name]
+
+        attr_accessor type: RBS::Types::t?
+
+        def initialize: (constant: TypeName?, type_name: TypeName?, method_names: Array[method_name], type: RBS::Types::t?) -> void
+      end
+
+      attr_reader service: TypeCheckService
+
+      def initialize: (service: TypeCheckService) -> void
+
+      def project: () -> Project
+
+      # Returns what is at the position
+      #
+      # `path` is the absolute path of a Ruby file, an inline RBS file, or an RBS file of the project.
+      # The position is 1-origin line and 0-origin column.
+      #
+      def symbols_at: (path: Pathname, line: Integer, column: Integer) -> Result
+
+      private
+
+      # Type checks the Ruby file with the cursor and collects the symbols and the type at the position
+      def ruby_symbols: (Project::Target target, Pathname path, line: Integer, column: Integer, result: Result) -> void
+
+      # Collects the type name written in an inline RBS annotation at the position
+      def inline_symbols: (Project::Target target, Pathname path, line: Integer, column: Integer, result: Result) -> void
+
+      # Collects the declaration name, the method, or the type name written in the RBS file at the position, in the environment of the target
+      def rbs_symbols: (Symbol target_name, Pathname path, line: Integer, column: Integer, result: Result) -> void
+
+      def type_check: (Project::Target target, path: Pathname, content: String, line: Integer, column: Integer) -> [Typing, Subtyping::Check]?
+
+      # Converts a type to an RBS type, or `nil` if the type has no RBS representation
+      def rbs_type: (Subtyping::Check subtyping, AST::Types::t type) -> RBS::Types::t?
+
+      def cursor_in?: (Parser::Source::Range? location, line: Integer, column: Integer) -> bool
+    end
+  end
+end
