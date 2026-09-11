@@ -42,6 +42,14 @@ class Steep::Server::GotoResolverTest < Minitest::Test
 
   def test_unknown_symbol: () -> untyped
 
+  def test_parse_name_type_name: () -> untyped
+
+  def test_parse_name_instance_method: () -> untyped
+
+  def test_parse_name_singleton_method: () -> untyped
+
+  def test_parse_name_returns_nil_for_empty: () -> untyped
+
   def test_query_definition_method: () -> untyped
 
   def test_query_definition_new: () -> untyped

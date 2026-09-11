@@ -3,8 +3,6 @@ require_relative "test_helper"
 class StatsCalculatorTest < Minitest::Test
   include TestHelper
   include ShellHelper
-  include FactoryHelper
-  include SubtypingHelper
 
   include Steep
 
@@ -29,7 +27,7 @@ class StatsCalculatorTest < Minitest::Test
     end
   end
 
-  def test_stats_success
+  def test_count_calls
     setup_project() do |service|
       service.update(changes: {
         Pathname("lib/hello.rb") => [ContentChange.string(<<~RUBY)]
@@ -38,44 +36,26 @@ class StatsCalculatorTest < Minitest::Test
           1 + ""
         RUBY
       })
-      service.typecheck_source(path: Pathname("lib/hello.rb"), target: service.project.targets[0])
 
-      calculator = StatsCalculator.new(service: service)
+      file = service.typecheck_source(path: Pathname("lib/hello.rb"), target: service.project.targets[0]) or raise
+      typing = file.typing or raise
 
-      target = service.project.targets[0]
-
-      calculator.calc_stats(target, file: service.source_files[Pathname("lib/hello.rb")]).tap do |stats|
-        assert_instance_of StatsCalculator::SuccessStats, stats
-        assert_equal :lib, stats.target.name
-        assert_equal Pathname("lib/hello.rb"), stats.path
-        assert_equal 1, stats.typed_calls_count
-        assert_equal 1, stats.untyped_calls_count
-        assert_equal 1, stats.typed_calls_count
-      end
+      assert_equal({ typed_calls: 1, untyped_calls: 1, error_calls: 1 }, StatsCalculator.count_calls(typing))
     end
   end
 
-  def test_stats_syntax_error
-    setup_project do |service|
-      service.update(changes: {
-        Pathname("sig/hello.rbs") => [ContentChange.string(<<~RBS)],
-          interface _HelloWorld
-        RBS
-        Pathname("lib/hello.rb") => [ContentChange.string(<<~RUBY)]
-          1+2
-        RUBY
-      })
-      service.typecheck_source(path: Pathname("lib/hello.rb"), target: service.project.targets[0])
-
-      calculator = StatsCalculator.new(service: service)
-
+  def test_stats_as_json
+    setup_project() do |service|
       target = service.project.targets[0]
 
-      calculator.calc_stats(target, file: service.source_files[Pathname("lib/hello.rb")]).tap do |stats|
-        assert_instance_of StatsCalculator::ErrorStats, stats
-        assert_equal :lib, stats.target.name
-        assert_equal Pathname("lib/hello.rb"), stats.path
-      end
+      stats = StatsCalculator::SuccessStats.new(target: target, path: Pathname("lib/hello.rb"), typed_calls_count: 3, untyped_calls_count: 2, error_calls_count: 1)
+      assert_equal(
+        { type: "success", target: "lib", path: "lib/hello.rb", typed_calls: 3, untyped_calls: 2, error_calls: 1, total_calls: 6 },
+        stats.as_json
+      )
+
+      stats = StatsCalculator::ErrorStats.new(target: target, path: Pathname("lib/hello.rb"))
+      assert_equal({ type: "error", target: "lib", path: "lib/hello.rb" }, stats.as_json)
     end
   end
 end

@@ -28,6 +28,10 @@ module Steep
           new(path: path, node: false, content: content, errors: [error], typing: nil, ignores: nil)
         end
 
+        def self.with_diagnostics(path:, content:, diagnostics:)
+          new(path: path, node: false, content: content, errors: diagnostics, typing: nil, ignores: nil)
+        end
+
         def self.with_typing(path:, content:, typing:, node:, ignores:)
           new(path: path, node: node, content: content, errors: nil, typing: typing, ignores: ignores)
         end
@@ -266,9 +270,16 @@ module Steep
             if subtyping
               text = source_files.fetch(path).content
               file = type_check_file(target: target, subtyping: subtyping, path: path, text: text) { signature_service.latest_constant_resolver }
-              source_files[path] = file
 
-              file.diagnostics
+              # Keep the content and the diagnostics only: the Typing goes to the master through the worker, and is dropped with the file
+              source_files[path] =
+                if file.typing || file.errors
+                  SourceFile.with_diagnostics(path: path, content: file.content, diagnostics: file.diagnostics)
+                else
+                  SourceFile.no_data(path: path, content: file.content)
+                end
+
+              file
             else
               # Signature loading failed. If the errors originate from library RBS files,
               # they won't be reported by validate_signature (which filters by user file path).
@@ -287,9 +298,10 @@ module Steep
                   buffer = RBS::Buffer.new(name: path, content: text)
                   location = RBS::Location.new(buffer: buffer, start_pos: 0, end_pos: text.size)
 
-                  library_errors.map do |error|
+                  errors = library_errors.map do |error|
                     Diagnostic::Ruby::LibraryRBSError.new(error: error, location: location)
                   end
+                  SourceFile.with_diagnostics(path: path, content: text, diagnostics: errors)
                 end
               end
             end

@@ -92,9 +92,11 @@ module Steep
         # The result of type checking Ruby code or validating RBS declarations in the file
         #
         # `diagnostics` is `nil` when the type checking is skipped, and `entries` is `nil` when no entries
-        # are available. The master keeps the ones of the last result in either case.
+        # are available. The master keeps the ones of the last result in either case. `stats` counts the
+        # method calls of Ruby code for `$/steep/stats`, and is `nil` for RBS declarations or when the
+        # file is not type checked.
         #
-        type result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry::wire]? }
+        type result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry::wire]?, stats: Services::StatsCalculator::calls? }
 
         # `source` is the result of type checking Ruby code, and `signature` is the result of validating RBS declarations.
         # A Ruby file with inline RBS declarations has both.
@@ -111,6 +113,8 @@ module Steep
       end
 
       # Request to start stats of type checking, sent from client to master and master to workers
+      #
+      # Request for the stats of the method calls in the type checked files, answered by the master from its `TypeCheckDatabase`
       #
       module Stats
         METHOD: String
@@ -220,9 +224,8 @@ module Steep
         #
         type entry = { uri: String, diagnostics: Array[untyped]? }
 
-        # The same shape flows on both hops: each typecheck worker answers with the
-        # entries it holds (`diagnostics` never `nil`), and the master merges them,
-        # adding `diagnostics: nil` entries for requested files no worker has checked.
+        # The master answers from its `TypeCheckDatabase`, with `diagnostics: nil` entries for
+        # requested files it has no result of.
         #
         type result = Array[entry]
 

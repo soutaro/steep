@@ -79,7 +79,7 @@ module Steep
         end
       end
 
-      FileResult = _ = Struct.new(:target, :diagnostics, :entries, keyword_init: true)
+      FileResult = _ = Struct.new(:target, :diagnostics, :entries, :stats, keyword_init: true)
 
       ROLE_CODES = { definition: 0, reference: 1 } #: Hash[Entry::role, Integer]
       ROLES = ROLE_CODES.invert #: Hash[Integer, Entry::role]
@@ -245,14 +245,15 @@ module Steep
         @signature_paths = {}
       end
 
-      def update_source(path:, target:, diagnostics:, entries:)
+      def update_source(path:, target:, diagnostics:, entries:, stats: nil)
         @sources[path] = replace_result(
           @sources.fetch(path, nil),
           @source_paths,
           path: path,
           target: target,
           diagnostics: diagnostics,
-          entries: entries
+          entries: entries,
+          stats: stats
         )
       end
 
@@ -264,7 +265,8 @@ module Steep
           path: path,
           target: target,
           diagnostics: diagnostics,
-          entries: entries
+          entries: entries,
+          stats: nil
         )
       end
 
@@ -277,6 +279,24 @@ module Steep
           targets.each_value do |result|
             release_entries(@signature_paths, path, result.entries)
           end
+        end
+      end
+
+      def checked?(path)
+        @sources.key?(path) || @signatures.key?(path)
+      end
+
+      def paths
+        @sources.keys | @signatures.keys
+      end
+
+      def each_source(&block)
+        if block
+          @sources.each do |path, result|
+            yield path, result
+          end
+        else
+          enum_for :each_source
         end
       end
 
@@ -323,7 +343,7 @@ module Steep
 
       private
 
-      def replace_result(old, name_paths, path:, target:, diagnostics:, entries:)
+      def replace_result(old, name_paths, path:, target:, diagnostics:, entries:, stats:)
         packed =
           if entries
             release_entries(name_paths, path, old.entries) if old
@@ -337,7 +357,8 @@ module Steep
         FileResult.new(
           target: target,
           diagnostics: diagnostics || old&.diagnostics || [],
-          entries: packed
+          entries: packed,
+          stats: diagnostics ? stats : old&.stats
         )
       end
 

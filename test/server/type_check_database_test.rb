@@ -281,6 +281,46 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal e, TypeCheckDatabase::Entry.from_wire(e.to_wire)
   end
 
+  def test_stats_follow_diagnostics
+    database = TypeCheckDatabase.new()
+
+    path = Pathname("lib/a.rb")
+    database.update_source(path: path, target: :app, diagnostics: [], entries: [], stats: { typed_calls: 2, untyped_calls: 1, error_calls: 0 })
+
+    result = database.each_source.to_a.fetch(0)
+    assert_equal path, result[0]
+    assert_equal :app, result[1].target
+    assert_equal({ typed_calls: 2, untyped_calls: 1, error_calls: 0 }, result[1].stats)
+
+    # Skipping the type checking keeps the stats
+    database.update_source(path: path, target: :app, diagnostics: nil, entries: nil)
+    assert_equal({ typed_calls: 2, untyped_calls: 1, error_calls: 0 }, database.each_source.to_a.fetch(0)[1].stats)
+
+    # A type checking without a Typing has no stats
+    database.update_source(path: path, target: :app, diagnostics: [diagnostic("syntax error")], entries: nil, stats: nil)
+    assert_nil database.each_source.to_a.fetch(0)[1].stats
+  end
+
+  def test_checked_and_paths
+    database = TypeCheckDatabase.new()
+
+    refute_operator database, :checked?, Pathname("lib/a.rb")
+    assert_equal [], database.paths
+
+    database.update_source(path: Pathname("lib/a.rb"), target: :app, diagnostics: [], entries: [])
+    database.update_signature(path: Pathname("lib/a.rb"), target: :app, diagnostics: [], entries: [])
+    database.update_signature(path: Pathname("sig/a.rbs"), target: :app, diagnostics: [], entries: [])
+
+    assert_operator database, :checked?, Pathname("lib/a.rb")
+    assert_operator database, :checked?, Pathname("sig/a.rbs")
+    assert_equal [Pathname("lib/a.rb"), Pathname("sig/a.rbs")], database.paths
+    assert_equal [Pathname("lib/a.rb")], database.each_source.map { |path, _| path }
+
+    database.remove(Pathname("lib/a.rb"))
+    refute_operator database, :checked?, Pathname("lib/a.rb")
+    assert_equal [Pathname("sig/a.rbs")], database.paths
+  end
+
   def test_rbs_declarations
     database = TypeCheckDatabase.new()
 

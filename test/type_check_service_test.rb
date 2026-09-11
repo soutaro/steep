@@ -516,7 +516,7 @@ RBS
       assert_operator service, :source_file?, Pathname("lib/inline.rb")
     end
 
-    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+    (service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }) or raise).diagnostics.tap do |diagnostics|
       assert_instance_of Array, diagnostics
       assert_empty diagnostics
     end
@@ -547,7 +547,7 @@ RBS
       assert_operator service, :source_file?, Pathname("lib/inline.rb")
     end
 
-    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+    (service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }) or raise).diagnostics.tap do |diagnostics|
       assert_instance_of Array, diagnostics
       assert_any!(diagnostics) do |error|
         assert_instance_of Diagnostic::Ruby::MethodBodyTypeMismatch, error
@@ -580,7 +580,7 @@ RBS
       assert_operator service, :source_file?, Pathname("lib/inline.rb")
     end
 
-    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+    (service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }) or raise).diagnostics.tap do |diagnostics|
       assert_instance_of Array, diagnostics
       assert_empty diagnostics
     end
@@ -617,7 +617,7 @@ RUBY
       assert_operator service, :source_file?, Pathname("lib/inline.rb")
     end
 
-    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+    (service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }) or raise).diagnostics.tap do |diagnostics|
       assert_instance_of Array, diagnostics
     end
 
@@ -655,7 +655,7 @@ RBS
       assert_operator service, :source_file?, Pathname("lib/inline.rb")
     end
 
-    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+    (service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }) or raise).diagnostics.tap do |diagnostics|
       assert_instance_of Array, diagnostics
       assert_any!(diagnostics) do |error|
         assert_instance_of Diagnostic::Ruby::UnexpectedError, error
@@ -714,7 +714,7 @@ RUBY
       assert_operator service, :source_file?, Pathname("lib/inline.rb")
     end
 
-    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+    (service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }) or raise).diagnostics.tap do |diagnostics|
       assert_instance_of Array, diagnostics
       assert_empty diagnostics
     end
@@ -754,9 +754,8 @@ RUBY
       assert_operator service, :source_file?, Pathname("lib/inline.rb")
     end
 
-    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
-      assert_nil diagnostics
-    end
+    # The type checking is skipped while the signatures fail to load
+    assert_nil service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline })
 
     service.validate_signature(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
       assert_instance_of Array, diagnostics
@@ -797,7 +796,7 @@ RUBY
       assert_operator service, :source_file?, Pathname("lib/inline.rb")
     end
 
-    service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }).tap do |diagnostics|
+    (service.typecheck_source(path: Pathname("lib/inline.rb"), target: project.targets.find { _1.name == :inline }) or raise).diagnostics.tap do |diagnostics|
       assert_instance_of Array, diagnostics
       # Type checking may pass or fail depending on when the duplication is detected
     end
@@ -841,9 +840,9 @@ RUBY
       assert_instance_of Services::SignatureService::AncestorErrorStatus, sig_service.status
 
       # typecheck_source should return LibraryRBSError diagnostics for each signature error
-      diagnostics = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
-      refute_nil diagnostics, "Library-originated diagnostics should be reported on source files"
-      assert_any!(diagnostics) do |error|
+      file = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+      refute_nil file, "Library-originated diagnostics should be reported on source files"
+      assert_any!((file or raise).diagnostics) do |error|
         assert_instance_of Diagnostic::Ruby::LibraryRBSError, error
         assert_equal Pathname("lib/core.rb"), Pathname(error.location.buffer.name)
         assert_instance_of Diagnostic::Signature::SuperclassMismatch, error.error

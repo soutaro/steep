@@ -606,18 +606,9 @@ module Steep
           end
 
         when CustomMethods::Stats::METHOD
-          result_controller << group_request do |group|
-            typecheck_workers.each do |worker|
-              group << send_request(method: CustomMethods::Stats::METHOD, params: nil, worker: worker)
-            end
-
-            group.on_completion do |handlers|
-              stats = handlers.flat_map(&:result) #: Server::CustomMethods::Stats::result
-              enqueue_write_job SendMessageJob.to_client(
-                message: CustomMethods::Stats.response(message[:id], stats)
-              )
-            end
-          end
+          enqueue_write_job SendMessageJob.to_client(
+            message: CustomMethods::Stats.response(message[:id], stats_result())
+          )
 
         when "textDocument/definition", "textDocument/implementation", "textDocument/typeDefinition"
           kind =
@@ -911,7 +902,8 @@ module Steep
                 path: path,
                 target: target.name,
                 diagnostics: source[:diagnostics],
-                entries: source[:entries]&.map { TypeCheckDatabase::Entry.from_wire(_1) }
+                entries: source[:entries]&.map { TypeCheckDatabase::Entry.from_wire(_1) },
+                stats: source[:stats]
               )
             end
 
@@ -1059,43 +1051,53 @@ module Steep
       # `paths` is an array of absolute path strings to filter the result, or `nil` to return everything.
       #
       def collect_query_diagnostics(id, paths)
-        uris = paths&.map {|path| PathHelper.to_uri(Pathname(path)).to_s }
-
-        result_controller << group_request do |group|
-          typecheck_workers.each do |worker|
-            group << send_request(method: CustomMethods::Query__Diagnostics::METHOD, params: nil, worker: worker)
-          end
-
-          group.on_completion do |handlers|
-            diagnostics = {} #: Hash[String, Array[untyped]]
-
-            handlers.each do |handler|
-              result = handler.result or next
-              result.each do |entry|
-                array = diagnostics[entry[:uri]] ||= []
-                array.concat(entry[:diagnostics] || [])
-                array.uniq!
-              end
+        entries =
+          if paths
+            # Files the server has not type checked yet are reported with `diagnostics: nil`
+            paths.map do |path|
+              path = Pathname(path)
+              diagnostics = type_check_database.checked?(path) ? type_check_database.diagnostics(path) : nil
+              { uri: PathHelper.to_uri(path).to_s, diagnostics: diagnostics }
             end
+          else
+            type_check_database.paths.map do |path|
+              { uri: PathHelper.to_uri(path).to_s, diagnostics: type_check_database.diagnostics(path) }
+            end
+          end #: CustomMethods::Query__Diagnostics::result
 
-            # @type var result: CustomMethods::Query__Diagnostics::result
-            result =
-              if uris
-                # Files the server has not type checked yet are reported with `diagnostics: nil`
-                uris.sort.map do |uri|
-                  { uri: uri, diagnostics: diagnostics[uri] }
-                end
-              else
-                diagnostics.keys.sort.map do |uri|
-                  { uri: uri, diagnostics: diagnostics.fetch(uri) }
-                end
-              end
+        entries.sort_by! { _1[:uri] }
 
-            enqueue_write_job SendMessageJob.to_client(
-              message: CustomMethods::Query__Diagnostics.response(id, result)
-            )
-          end
+        enqueue_write_job SendMessageJob.to_client(
+          message: CustomMethods::Query__Diagnostics.response(id, entries)
+        )
+      end
+
+      def stats_result
+        targets = project.targets.each.with_object({}) do |target, hash| #$ Hash[Symbol, Project::Target]
+          hash[target.name] = target
         end
+
+        stats = [] #: Array[Services::StatsCalculator::json_stats]
+
+        type_check_database.each_source do |path, result|
+          target = targets.fetch(result.target, nil) or next
+          relative_path = project.relative_path(path)
+
+          stats <<
+            if calls = result.stats
+              Services::StatsCalculator::SuccessStats.new(
+                target: target,
+                path: relative_path,
+                typed_calls_count: calls[:typed_calls],
+                untyped_calls_count: calls[:untyped_calls],
+                error_calls_count: calls[:error_calls]
+              ).as_json
+            else
+              Services::StatsCalculator::ErrorStats.new(target: target, path: relative_path).as_json
+            end
+        end
+
+        stats
       end
 
       # Methods that command socket clients cannot send because they control the server lifecycle

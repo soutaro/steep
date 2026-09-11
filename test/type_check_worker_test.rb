@@ -438,6 +438,7 @@ class TypeCheckWorkerTest < Minitest::Test
 
           # No entries are reported while the signatures fail to load
           assert_nil message[:params][:signature][:entries]
+          assert_nil message[:params][:signature][:stats]
         end
       end
     end
@@ -689,6 +690,12 @@ class TypeCheckWorkerTest < Minitest::Test
 
           # The reference of `.new` points at the selector
           assert(entries.any? {|_, role, line, character, _, _| role == 1 && line == 5 && character == 6 })
+
+          # The method calls are counted for `$/steep/stats`
+          assert_equal({ typed_calls: 2, untyped_calls: 0, error_calls: 0 }, message[:params][:source][:stats])
+
+          # The worker keeps the content of the file only
+          assert_nil worker.service.source_files[Pathname("lib/hello.rb")].typing
         end
       end
     end
@@ -985,48 +992,6 @@ RBS
       symbols.find {|symbol| symbol.name == "#new_class_method" }.tap do |symbol|
         assert_equal "#{file_scheme}#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
         assert_equal "NewClassName", symbol.container_name
-      end
-    end
-  end
-
-  def test_job_stats
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<RUBY)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-RUBY
-
-      worker = Server::TypeCheckWorker.new(
-        project: project,
-        assignment: assignment,
-        commandline_args: [],
-        reader: worker_reader,
-        writer: worker_writer
-      )
-
-      worker.service.update(changes: {
-        Pathname("lib/hello.rb") => [Services::ContentChange.string(<<~RUBY)],
-          Hello.new.world(10)
-        RUBY
-        Pathname("lib/world.rb") => [Services::ContentChange.string(<<~RUBY)]
-          1+
-        RUBY
-      })
-
-      target = project.targets[0]
-      worker.service.typecheck_source(path: Pathname("lib/hello.rb"), target: target)
-      worker.service.typecheck_source(path: Pathname("lib/world.rb"), target: target)
-
-      result = worker.stats_result()
-
-      result.find {|stat| stat.path == Pathname("lib/hello.rb") }.tap do |stat|
-        assert_instance_of Services::StatsCalculator::SuccessStats, stat
-      end
-      result.find {|stat| stat.path == Pathname("lib/world.rb") }.tap do |stat|
-        assert_instance_of Services::StatsCalculator::ErrorStats, stat
       end
     end
   end

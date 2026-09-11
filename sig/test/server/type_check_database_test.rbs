@@ -38,5 +38,9 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
   def test_entry_wire_round_trip: () -> untyped
 
+  def test_stats_follow_diagnostics: () -> untyped
+
+  def test_checked_and_paths: () -> untyped
+
   def test_rbs_declarations: () -> untyped
 end

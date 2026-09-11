@@ -141,7 +141,10 @@ module Steep
         # Packed entries
         attr_reader entries: Array[Integer]
 
-        def initialize: (target: Symbol, diagnostics: Array[untyped], entries: Array[Integer]) -> void
+        # The numbers of the method calls of Ruby code, `nil` for RBS declarations or when the file has no `Typing`
+        attr_reader stats: Services::StatsCalculator::calls?
+
+        def initialize: (target: Symbol, diagnostics: Array[untyped], entries: Array[Integer], stats: Services::StatsCalculator::calls?) -> void
       end
 
       ROLE_CODES: Hash[Entry::role, Integer]
@@ -197,8 +200,9 @@ module Steep
       # Replaces the result of type checking the Ruby code in the file
       #
       # `diagnostics` or `entries` given `nil` keeps the ones of the last update, for the type checking that is skipped.
+      # `stats` is kept too when `diagnostics` is `nil`, and replaced otherwise -- `nil` then means the file has no `Typing`.
       #
-      def update_source: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?) -> void
+      def update_source: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?, ?stats: Services::StatsCalculator::calls?) -> void
 
       # Replaces the result of validating the RBS declarations in the file, in the target
       #
@@ -208,6 +212,16 @@ module Steep
 
       # Deletes everything stored for the `path`
       def remove: (Pathname path) -> void
+
+      # Returns `true` if any result of the `path` is stored
+      def checked?: (Pathname path) -> bool
+
+      # Returns the paths with any result stored
+      def paths: () -> Array[Pathname]
+
+      # Yields the path and the result of each Ruby file
+      def each_source: () { (Pathname, FileResult) -> void } -> void
+                     | () -> Enumerator[[Pathname, FileResult], void]
 
       # Returns the diagnostics of the file, merged over the tables and the targets
       #
@@ -233,7 +247,7 @@ module Steep
       private
 
       # Returns the result that replaces `old`, packing `entries` and keeping the parts of `old` given `nil`
-      def replace_result: (FileResult? old, Hash[Integer, Hash[Pathname, Integer]] name_paths, path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?) -> FileResult
+      def replace_result: (FileResult? old, Hash[Integer, Hash[Pathname, Integer]] name_paths, path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?, stats: Services::StatsCalculator::calls?) -> FileResult
 
       def pack_entries: (Hash[Integer, Hash[Pathname, Integer]] name_paths, Pathname path, Array[Entry] entries) -> Array[Integer]
 

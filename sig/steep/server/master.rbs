@@ -261,7 +261,11 @@ module Steep
       #
       # `paths` is an array of absolute path strings to filter the result, or `nil` to return everything.
       #
+      # Answers `$/steep/query/diagnostics` from the database
       def collect_query_diagnostics: (String id, Array[String]? paths) -> void
+
+      # Answers `$/steep/stats` from the database
+      def stats_result: () -> CustomMethods::Stats::result
 
       def typecheck_request_from_command_socket?: (TypeCheckController::Request request) -> bool
 

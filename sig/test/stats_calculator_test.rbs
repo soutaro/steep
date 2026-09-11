@@ -5,10 +5,6 @@ class StatsCalculatorTest < Minitest::Test
 
   include ShellHelper
 
-  include FactoryHelper
-
-  include SubtypingHelper
-
   include Steep
 
   StatsCalculator: untyped
@@ -19,7 +15,7 @@ class StatsCalculatorTest < Minitest::Test
 
   def setup_project: () -> untyped
 
-  def test_stats_success: () -> untyped
+  def test_count_calls: () -> untyped
 
-  def test_stats_syntax_error: () -> untyped
+  def test_stats_as_json: () -> untyped
 end

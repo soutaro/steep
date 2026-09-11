@@ -119,7 +119,6 @@ require "steep/services/completion_provider/rbs"
 require "steep/services/signature_help_provider"
 require "steep/services/stats_calculator"
 require "steep/services/file_loader"
-require "steep/services/goto_service"
 require "steep/services/symbol_provider"
 
 require "steep/server/custom_methods"

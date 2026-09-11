@@ -34,12 +34,6 @@ module Steep
         def initialize: (id: String, query: String) -> void
       end
 
-      class StatsJob
-        attr_reader id: String
-
-        def initialize: (id: String) -> void
-      end
-
       class StartTypeCheckJob
         attr_reader guid: String
 
@@ -88,12 +82,6 @@ module Steep
         def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
-      class QueryDiagnosticsJob
-        attr_reader id: String
-
-        def initialize: (id: String) -> void
-      end
-
       attr_reader mutex: Mutex
 
       # The declarations extracted from the latest `RBSIndex` of each target, grouped by path
@@ -122,16 +110,15 @@ module Steep
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
                | TypeCheckInlineCodeJob
-               | StatsJob
-               | QueryDiagnosticsJob
 
       def handle_job: (job) -> void
 
       # The result of type checking Ruby code or validating RBS declarations in a file, to be reported to the master
       #
       # `diagnostics` is `nil` when the type checking is skipped, and `entries` is `nil` when no entries are available.
+      # `stats` counts the method calls of Ruby code, and is `nil` when the file is not type checked or for RBS declarations.
       #
-      type result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry]? }
+      type result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry]?, stats: StatsCalculator::calls? }
 
       # Sends `$/steep/typecheck/progress` with the results of the file
       #
@@ -142,8 +129,12 @@ module Steep
 
       def wire_result: (result) -> CustomMethods::TypeCheck__Progress::result
 
-      # Returns the entries extracted from the last type checking of the file, or `nil` if no `Typing` is available
-      def source_file_entries: (Pathname relative_path) -> Array[TypeCheckDatabase::Entry]?
+      # Returns the result to report for a type checked Ruby file -- the diagnostics, the entries, and the stats from its `Typing`
+      #
+      # Everything is `nil` when the type checking is skipped (`file` is `nil`), and the entries and the stats are `nil`
+      # when the file has no `Typing` because of a syntax error.
+      #
+      def source_result: (TypeCheckService::SourceFile? file, Diagnostic::LSPFormatter formatter) -> result
 
       # Returns the declarations in the RBS file (or the inline RBS in the Ruby file) of the target
       #
@@ -156,15 +147,6 @@ module Steep
       def signature_entries: (Project::Target target, Pathname path) -> Array[TypeCheckDatabase::Entry]?
 
       def workspace_symbol_result: (untyped query) -> untyped
-
-      def stats_result: () -> Array[StatsCalculator::stats]
-
-      # Returns the diagnostics of the files this worker has type checked so far
-      #
-      # An array of `Query__Diagnostics::entry`, with the LSP-formatted diagnostics per file URI.
-      # Files that are loaded but not type checked yet are not included.
-      #
-      def query_diagnostics_result: () -> CustomMethods::Query__Diagnostics::result
     end
   end
 end

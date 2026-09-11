@@ -4,7 +4,7 @@ module Steep
     #
     # What is at the cursor position comes from the interaction worker (`$/steep/source/symbol`) -- the constant,
     # the type name, or the methods written there, and the type of the expression there -- and the resolver looks
-    # the definitions up in the database, applying the same policy as `Services::GotoService`:
+    # the definitions up in the database, applying the policy goto had when the typecheck workers answered it:
     #
     # * *Go to definition* on a constant or a method jumps from Ruby code to the RBS declarations, and from an RBS file to the Ruby definitions
     # * *Go to definition* on a type name jumps to its RBS declarations, wherever the type name is written
@@ -18,6 +18,9 @@ module Steep
       # The goto request being answered
       type kind = :definition | :implementation | :type_definition
 
+      # Parsed result of a name string given to `steep query definition NAME`
+      type name = RBS::TypeName | InstanceMethodName | SingletonMethodName
+
       # Whether the cursor is in Ruby code (including inline RBS declarations) or in an RBS file
       type from = :ruby | :rbs
 
@@ -30,6 +33,22 @@ module Steep
 
       # Returns the result of `$/steep/query/definition` for a name string
       def query_definition: (String name_string) -> CustomMethods::Query__Definition::result
+
+      # Parses a string representing a class/type/constant/method name into a name value
+      #
+      # Supported formats:
+      #
+      # * `RBS::Location`                   -- type name (class, module, interface, type alias, class/module alias, or constant)
+      # * `::RBS::Location`                 -- type name, fully qualified
+      # * `RBS::Parser#parse_type`          -- instance method
+      # * `RBS::Parser.parse_signature`     -- singleton method
+      #
+      # Returns `nil` when the given string cannot be parsed as any of the above.
+      #
+      def self.parse_name: (String? name_string) -> name?
+
+      # Parses a type name string into a `RBS::TypeName`, or `nil` on parse failure
+      def self.parse_type_name: (String string) -> RBS::TypeName?
 
       # Yields the type names in a type in RBS syntax, once each
       #

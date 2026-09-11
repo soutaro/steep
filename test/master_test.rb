@@ -429,6 +429,115 @@ end
     end
   end
 
+  def test_stats_from_database
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: []
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      master.type_check_database.update_source(
+        path: current_dir + "lib/customer.rb",
+        target: :lib,
+        diagnostics: [],
+        entries: [],
+        stats: { typed_calls: 3, untyped_calls: 1, error_calls: 0 }
+      )
+      master.type_check_database.update_source(path: current_dir + "lib/broken.rb", target: :lib, diagnostics: [], entries: [], stats: nil)
+      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [], entries: [])
+
+      master.process_message_from_client({ method: Stats::METHOD, id: "stats" })
+
+      jobs = flush_queue(master.write_queue)
+      assert_equal 1, jobs.size
+      assert_equal "stats", jobs[0].message[:id]
+
+      # The stats of the Ruby files, with the paths relative to the project
+      assert_equal(
+        [
+          { type: "success", target: "lib", path: "lib/customer.rb", typed_calls: 3, untyped_calls: 1, error_calls: 0, total_calls: 4 },
+          { type: "error", target: "lib", path: "lib/broken.rb" }
+        ],
+        jobs[0].message[:result].sort_by { _1[:path] }.reverse
+      )
+    end
+  end
+
+  def test_query_diagnostics_from_database
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: []
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      diagnostic = { message: "error", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } } }
+      master.type_check_database.update_source(path: current_dir + "lib/customer.rb", target: :lib, diagnostics: [diagnostic], entries: [])
+      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [], entries: [])
+
+      # The requested files, with `nil` for a file that is not type checked
+      master.process_message_from_client(
+        {
+          method: Query__Diagnostics::METHOD,
+          id: "query1",
+          params: { paths: [(current_dir + "lib/customer.rb").to_s, (current_dir + "lib/other.rb").to_s] }
+        }
+      )
+
+      jobs = flush_queue(master.write_queue)
+      response = jobs.find { _1.message[:id] == "query1" } or raise
+      assert_equal(
+        [
+          { uri: "#{file_scheme}#{current_dir}/lib/customer.rb", diagnostics: [diagnostic] },
+          { uri: "#{file_scheme}#{current_dir}/lib/other.rb", diagnostics: nil }
+        ],
+        response.message[:result]
+      )
+
+      # Every type checked file
+      master.process_message_from_client({ method: Query__Diagnostics::METHOD, id: "query2", params: { paths: nil } })
+
+      jobs = flush_queue(master.write_queue)
+      response = jobs.find { _1.message[:id] == "query2" } or raise
+      assert_equal(
+        [
+          { uri: "#{file_scheme}#{current_dir}/lib/customer.rb", diagnostics: [diagnostic] },
+          { uri: "#{file_scheme}#{current_dir}/sig/customer.rbs", diagnostics: [] }
+        ],
+        response.message[:result]
+      )
+    end
+  end
+
   def test_on_type_check_update_without_progress
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

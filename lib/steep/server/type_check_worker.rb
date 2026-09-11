@@ -6,8 +6,6 @@ module Steep
       attr_reader :current_type_check_guid
 
       WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
-      StatsJob = _ = Struct.new(:id, keyword_init: true)
-      QueryDiagnosticsJob = _ = Struct.new(:id, keyword_init: true)
       StartTypeCheckJob = _ = Struct.new(:guid, :changes, keyword_init: true)
       TypeCheckCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
@@ -53,13 +51,9 @@ module Steep
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
-        when CustomMethods::Stats::METHOD
-          queue << StatsJob.new(id: request[:id])
         when CustomMethods::TypeCheck__Start::METHOD
           params = request[:params] #: CustomMethods::TypeCheck__Start::params
           enqueue_typecheck_jobs(params)
-        when CustomMethods::Query__Diagnostics::METHOD
-          queue << QueryDiagnosticsJob.new(id: request[:id])
         end
       end
 
@@ -148,7 +142,7 @@ module Steep
               path: job.path,
               guid: job.guid,
               target: job.target,
-              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, relative_path) }
+              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, relative_path), stats: nil }
             )
           end
 
@@ -163,7 +157,7 @@ module Steep
               path: job.path,
               guid: job.guid,
               target: job.target,
-              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path) }
+              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path), stats: nil }
             )
           end
 
@@ -173,13 +167,8 @@ module Steep
             group_target = project.group_for_source_path(job.path) || job.target
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
-            diagnostics = service.typecheck_source(path: relative_path, target: job.target)
-            typecheck_progress(
-              path: job.path,
-              guid: job.guid,
-              target: job.target,
-              source: { diagnostics: diagnostics&.filter_map { formatter.format(_1) }, entries: source_file_entries(relative_path) }
-            )
+            file = service.typecheck_source(path: relative_path, target: job.target)
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, source: source_result(file, formatter))
           end
 
         when TypeCheckInlineCodeJob
@@ -188,11 +177,11 @@ module Steep
             group_target = project.group_for_inline_source_path(job.path) || job.target
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
-            source_diagnostics = service.typecheck_source(path: relative_path, target: job.target)&.filter_map { formatter.format(_1) }
+            source = source_result(service.typecheck_source(path: relative_path, target: job.target), formatter)
             signature_diagnostics = service.validate_signature(path: relative_path, target: job.target).filter_map { formatter.format(_1) } #: Array[LanguageServer::Protocol::Interface::Diagnostic::json]?
 
             # Keep the diagnostics of the last type checking, as the plain Ruby files do, when the type checking is skipped and the validation finds nothing
-            if source_diagnostics.nil? && signature_diagnostics&.empty?
+            if source[:diagnostics].nil? && signature_diagnostics&.empty?
               signature_diagnostics = nil
             end
 
@@ -200,8 +189,8 @@ module Steep
               path: job.path,
               guid: job.guid,
               target: job.target,
-              source: { diagnostics: source_diagnostics, entries: source_file_entries(relative_path) },
-              signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path) }
+              source: source,
+              signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path), stats: nil }
             )
           end
 
@@ -209,15 +198,6 @@ module Steep
           writer.write(
             id: job.id,
             result: workspace_symbol_result(job.query)
-          )
-        when StatsJob
-          writer.write(
-            id: job.id,
-            result: stats_result().map(&:as_json)
-          )
-        when QueryDiagnosticsJob
-          writer.write(
-            CustomMethods::Query__Diagnostics.response(job.id, query_diagnostics_result())
           )
         end
       end
@@ -235,14 +215,19 @@ module Steep
       end
 
       def wire_result(result)
-        { diagnostics: result[:diagnostics], entries: result[:entries]&.map { _1.to_wire } }
+        { diagnostics: result[:diagnostics], entries: result[:entries]&.map { _1.to_wire }, stats: result[:stats] }
       end
 
-      def source_file_entries(relative_path)
-        if file = service.source_files[relative_path]
-          if typing = file.typing
-            TypeCheckDatabase.entries_from(typing)
-          end
+      def source_result(file, formatter)
+        if file
+          typing = file.typing
+          {
+            diagnostics: file.diagnostics.filter_map { formatter.format(_1) },
+            entries: typing ? TypeCheckDatabase.entries_from(typing) : nil,
+            stats: typing ? Services::StatsCalculator.count_calls(typing) : nil
+          }
+        else
+          { diagnostics: nil, entries: nil, stats: nil }
         end
       end
 
@@ -288,60 +273,6 @@ module Steep
           end
         end
       end
-
-      def stats_result
-        calculator = Services::StatsCalculator.new(service: service)
-
-        project.targets.each.with_object([]) do |target, stats|
-          service.source_files.each_value do |file|
-            next unless target.possible_source_file?(file.path)
-            absolute_path = project.absolute_path(file.path)
-            next unless assignment =~ [target, absolute_path]
-
-            stats << calculator.calc_stats(target, file: file)
-          end
-        end
-      end
-
-      # Returns the diagnostics of the files this worker has type checked so far
-      #
-      # An array of `Query__Diagnostics::entry`, with the LSP-formatted diagnostics per file URI.
-      # Files that are loaded but not type checked yet are not included.
-      #
-      def query_diagnostics_result
-        result = {} #: Hash[String, Array[untyped]]
-
-        service.source_files.each_value do |file|
-          next if file.typing.nil? && file.errors.nil?
-
-          absolute_path = project.absolute_path(file.path)
-
-          group_target =
-            project.group_for_source_path(absolute_path) ||
-            project.group_for_inline_source_path(absolute_path) ||
-            project.target_for_source_path(absolute_path) ||
-            project.target_for_inline_source_path(absolute_path)
-          next unless group_target
-
-          formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
-          uri = PathHelper.to_uri(absolute_path).to_s
-          array = result[uri] ||= []
-          array.concat(file.diagnostics.filter_map { formatter.format(_1) })
-        end
-
-        formatter = Diagnostic::LSPFormatter.new({}, **{})
-        service.signature_validation_diagnostics.each_value do |path_diagnostics|
-          path_diagnostics.each do |path, diagnostics|
-            absolute_path = path.absolute? ? path : project.absolute_path(path)
-            uri = PathHelper.to_uri(absolute_path).to_s
-            array = result[uri] ||= []
-            array.concat(diagnostics.filter_map { formatter.format(_1) })
-          end
-        end
-
-        result.map { { uri: _1, diagnostics: _2 } }
-      end
-
     end
   end
 end
