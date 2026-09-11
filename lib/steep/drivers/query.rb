@@ -33,7 +33,7 @@ module Steep
             method: "textDocument/hover",
             params: {
               textDocument: { uri: uri },
-              position: { line: line - 1, character: column - 1 }
+              position: { line: line, character: column }
             }
           }
 
