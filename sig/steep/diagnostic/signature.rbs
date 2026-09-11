@@ -310,6 +310,16 @@ module Steep
         def header_line: () -> String
       end
 
+      class WarningTypeName < Base
+        attr_reader type_name: RBS::TypeName
+
+        attr_reader message: String?
+
+        def initialize: (RBS::TypeName type_name, String? message, location: RBS::Location[untyped, untyped]?) -> void
+
+        def header_line: () -> String
+      end
+
       class InlineDiagnostic < Base
         attr_reader diagnostic: RBS::InlineParser::Diagnostic::t
 

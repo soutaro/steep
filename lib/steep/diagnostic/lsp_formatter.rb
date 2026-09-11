@@ -57,6 +57,8 @@ module Steep
           when Signature::DeprecatedTypeName
             tags << LSP::Constant::DiagnosticTag::DEPRECATED
             severity = LSP::Constant::DiagnosticSeverity::WARNING
+          when Signature::WarningTypeName
+            severity = LSP::Constant::DiagnosticSeverity::WARNING
           end
 
           json = {

@@ -1357,6 +1357,40 @@ Test: SetValueExtractor[ArraySet]
     end
   end
 
+  def test_validate__warning__class
+    with_checker <<~RBS do |checker|
+        %a{warning: experimental} class Foo end
+
+        %a{warning: experimental} module M end
+
+        %a{warning: experimental} interface _Foo end
+
+        class Bar < Foo
+          include M
+          include _Foo
+        end
+      RBS
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate
+        assert_predicate validator, :has_error?
+
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::WarningTypeName, error
+          assert_equal "Type `::Foo` has a warning: experimental", error.header_line
+        end
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::WarningTypeName, error
+          assert_equal "Type `::M` has a warning: experimental", error.header_line
+        end
+        assert_any!(validator.each_error) do |error|
+          assert_instance_of Diagnostic::Signature::WarningTypeName, error
+          assert_equal "Type `::_Foo` has a warning: experimental", error.header_line
+        end
+      end
+    end
+  end
+
   def test_validate__deprecated__module
     with_checker <<~RBS do |checker|
         %a{deprecated} class Foo end
