@@ -127,8 +127,7 @@ module Steep
           reader: server_reader,
           writer: server_writer,
           interaction_worker: interaction_worker,
-          typecheck_workers: workers,
-          refork: true
+          typecheck_workers: workers
         )
         master.typecheck_automatically = false
 

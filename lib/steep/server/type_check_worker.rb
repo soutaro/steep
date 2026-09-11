@@ -13,35 +13,19 @@ module Steep
       ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       TypeCheckInlineCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
-      ReforkJob = _ = Struct.new(:id, :params, keyword_init: true)
 
       include ChangeBuffer
 
-      attr_reader :io_socket
-      attr_reader :need_to_warmup
-
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:, io_socket: nil, buffered_changes: nil, service: nil)
+      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
-        @buffered_changes = buffered_changes || {}
+        @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = Queue.new
         @commandline_args = commandline_args
         @current_type_check_guid = nil
-        @io_socket = io_socket
-        @service = service if service
-        @child_pids = []
-        @need_to_warmup = true
         @rbs_entries_cache = {}
-
-        if io_socket
-          Signal.trap "SIGCHLD" do
-            while pid = Process.wait(-1, Process::WNOHANG)
-              raise "Unexpected worker process exit: #{pid}" if @child_pids.include?(pid)
-            end
-          end
-        end
       end
 
       def service
@@ -76,57 +60,6 @@ module Steep
           enqueue_typecheck_jobs(params)
         when CustomMethods::Query__Diagnostics::METHOD
           queue << QueryDiagnosticsJob.new(id: request[:id])
-        when CustomMethods::Refork::METHOD
-          io_socket or raise
-
-          # The job thread forks, after the jobs queued so far are done. `service` is updated only
-          # by that thread, and the changes a `StartTypeCheckJob` applies are already popped from
-          # the buffer: a fork before the job finishes gives the new worker neither the changes
-          # nor the files they add.
-          queue << ReforkJob.new(id: request[:id], params: request[:params])
-        end
-      end
-
-      def refork(job)
-        io_socket = self.io_socket or raise
-
-        # Receive IOs before fork to avoid receiving them from multiple processes
-        stdin = io_socket.recv_io
-        stdout = io_socket.recv_io
-
-        if need_to_warmup
-          Process.warmup
-          @need_to_warmup = false
-        end
-
-        if pid = fork
-          stdin.close
-          stdout.close
-          @child_pids << pid
-          writer.write(CustomMethods::Refork.response(job.id, { pid: }))
-        else
-          io_socket.close
-
-          reader.close
-          writer.close
-
-          reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
-          writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout)
-          Steep.logger.info("Reforked worker: #{Process.pid}, params: #{job.params}")
-          index = job.params[:index]
-          assignment = Services::PathAssignment.new(max_index: job.params[:max_index], index: index)
-
-          worker = self.class.new(project: project, reader: reader, writer: writer, assignment: assignment, commandline_args: commandline_args, io_socket: nil, buffered_changes: buffered_changes, service: service)
-
-          # The forking thread is the job thread of the primary worker, and becomes the main thread of the new worker
-          tags = Steep.logger.current_tags
-          tags.delete("background")
-          if (tag_index = tags.find_index("typecheck:typecheck@0"))
-            tags[tag_index] = "typecheck:typecheck@#{index}-reforked"
-          end
-          worker.run()
-
-          exit 0
         end
       end
 
@@ -201,9 +134,6 @@ module Steep
         when StartTypeCheckJob
           Steep.logger.info { "Processing StartTypeCheckJob for guid=#{job.guid}" }
           service.update(changes: job.changes)
-
-        when ReforkJob
-          refork(job)
 
         when ValidateAppSignatureJob
           if job.guid == current_type_check_guid

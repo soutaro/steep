@@ -88,16 +88,6 @@ module Steep
         def initialize: (guid: String, path: Pathname, target: Project::Target) -> void
       end
 
-      # Forks a new worker, that starts from a copy of this worker
-      #
-      class ReforkJob
-        attr_reader id: String
-
-        attr_reader params: CustomMethods::Refork::params
-
-        def initialize: (id: String, params: CustomMethods::Refork::params) -> void
-      end
-
       class QueryDiagnosticsJob
         attr_reader id: String
 
@@ -105,12 +95,6 @@ module Steep
       end
 
       attr_reader mutex: Mutex
-
-      attr_reader io_socket: UNIXSocket?
-
-      attr_reader child_pids: Array[Integer]
-
-      attr_reader need_to_warmup: bool
 
       # The declarations extracted from the latest `RBSIndex` of each target, grouped by path
       #
@@ -125,10 +109,7 @@ module Steep
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
         assignment: PathAssignment,
-        commandline_args: Array[String],
-        ?io_socket: UNIXSocket?,
-        ?buffered_changes: ChangeBuffer::changes?,
-        ?service: TypeCheckService?,
+        commandline_args: Array[String]
       ) -> void
 
       def handle_request: (untyped request) -> void
@@ -143,15 +124,8 @@ module Steep
                | TypeCheckInlineCodeJob
                | StatsJob
                | QueryDiagnosticsJob
-               | ReforkJob
 
       def handle_job: (job) -> void
-
-      # Forks a new worker from the job thread, so that it starts with the jobs queued before the request done
-      #
-      # The new worker takes over the IOs the master sends through `io_socket`. The method returns only in the primary worker.
-      #
-      def refork: (ReforkJob job) -> void
 
       # The result of type checking Ruby code or validating RBS declarations in a file, to be reported to the master
       #

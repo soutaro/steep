@@ -35,12 +35,9 @@ module Steep
 
       attr_reader index: Integer?
 
-      attr_reader io_socket: UNIXSocket?
-
       def initialize: (
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
-        ?io_socket: UNIXSocket?,
         stderr: IO?,
         wait_thread: Thread & _ProcessWaitThread,
         name: String,
@@ -64,7 +61,6 @@ module Steep
         name: String,
         steepfile: Pathname?,
         patterns: Array[String],
-        is_primary: boolish,
         delay_shutdown: bool,
         index: [Integer, Integer]?
       ) -> WorkerProcess
