@@ -145,8 +145,11 @@ module Steep
             1 + (tail&.size || 0)
           end
 
-          def self.build(required:, optional:, rest:)
-            params = rest ? self.rest(rest) : nil
+          def self.build(required:, optional:, rest:, trailing:)
+            # @type var params: Interface::Function::Params::PositionalParams?
+            params = nil
+            params = trailing.reverse_each.inject(params) {|params, type| self.required(type, params) }
+            params = self.rest(rest, params) if rest
             params = optional.reverse_each.inject(params) {|params, type| self.optional(type, params) }
             params = required.reverse_each.inject(params) {|params, type| self.required(type, params) }
 
@@ -769,11 +772,27 @@ module Steep
           nil
         end
 
+        def trailing
+          array = [] #: Array[AST::Types::t]
+          trailing = false
+
+          positional_params&.each do |param|
+            case param
+            when PositionalParams::Required
+              array << param.type if trailing
+            when PositionalParams::Optional, PositionalParams::Rest
+              trailing = true
+            end
+          end
+
+          array
+        end
+
         attr_reader :positional_params
         attr_reader :keyword_params
 
-        def self.build(required: [], optional: [], rest: nil, required_keywords: {}, optional_keywords: {}, rest_keywords: nil)
-          positional_params = PositionalParams.build(required: required, optional: optional, rest: rest)
+        def self.build(required: [], optional: [], rest: nil, trailing: [], required_keywords: {}, optional_keywords: {}, rest_keywords: nil)
+          positional_params = PositionalParams.build(required: required, optional: optional, rest: rest, trailing: trailing)
           keyword_params = KeywordParams.new(requireds: required_keywords, optionals: optional_keywords, rest: rest_keywords)
           new(positional_params: positional_params, keyword_params: keyword_params)
         end
