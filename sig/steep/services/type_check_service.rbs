@@ -35,7 +35,7 @@ module Steep
 
         def self.with_syntax_error: (path: Pathname, content: String, error: Diagnostic::Ruby::SyntaxError | Diagnostic::Ruby::AnnotationSyntaxError) -> SourceFile
 
-        # A file with its diagnostics only -- the ones of a type checking that is done, or the errors that stopped it
+        # A file with the errors that stopped its type check
         def self.with_diagnostics: (path: Pathname, content: String, diagnostics: Array[Diagnostic::Ruby::Base]) -> SourceFile
 
         def self.with_typing: (path: Pathname, content: String, typing: Typing, ignores: Source::IgnoreRanges, node: Parser::AST::Node?) -> SourceFile
@@ -57,15 +57,6 @@ module Steep
       #
       def signature_diagnostics: () -> Hash[Pathname, Array[Diagnostic::Signature::Base]]
 
-      def diagnostics: () -> Hash[Pathname, Array[Diagnostic::Ruby::Base | Diagnostic::Signature::Base]]
-
-      # Yields diagnostics reported on each path
-      #
-      # * Signature diagnostics contains everything reported to each target
-      #
-      def each_diagnostics: () { ([Pathname, Array[Diagnostic::Ruby::Base] | Array[Diagnostic::Signature::Base]]) -> void } -> void
-                          | () -> Enumerator[[Pathname, Array[Diagnostic::Ruby::Base] | Array[Diagnostic::Signature::Base]], void]
-
       # Record the changes to the files managed by the service
       #
       # Note that the diagnostics are not updated by this method.
@@ -83,8 +74,8 @@ module Steep
       # * Returns `nil` if the type check doesn't complete.
       # * Returns the `SourceFile` with the `Typing` and the diagnostics otherwise, or with the errors that stopped the type check.
       #
-      # The returned file is not kept: `#source_files` keeps the content and the diagnostics of the file only, so that
-      # the workers hold no `Typing` after reporting the results to the master.
+      # The returned file is not kept: `#source_files` keeps the content of the file only, so that the workers hold
+      # neither the `Typing` nor the diagnostics after reporting the results to the master.
       #
       def typecheck_source: (path: Pathname, target: Project::Target?) -> SourceFile?
 
