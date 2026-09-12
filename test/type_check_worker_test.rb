@@ -393,8 +393,15 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_includes entries, ["::VERSION", 0, 12, 0, 12, 7]
           assert_includes entries, ["$hello", 0, 14, 0, 14, 6]
 
+          # References to the types written in the file, including the ones declared in other files
+          assert_includes entries, ["::String", 1, 2, 20, 2, 26]
+          assert_includes entries, ["::Hello#world", 1, 3, 14, 3, 19]
+          assert_includes entries, ["::String", 1, 10, 16, 10, 22]
+          assert_includes entries, ["::String", 1, 12, 9, 12, 15]
+          assert_includes entries, ["::Hello", 1, 14, 8, 14, 13]
+
           # Declarations of other files are not included
-          refute entries.any? {|name, *| name == "::String" }
+          refute entries.any? {|name, role, *| name == "::String" && role == 0 }
         end
       end
     end

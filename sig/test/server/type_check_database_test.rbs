@@ -43,4 +43,8 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
   def test_checked_and_paths: () -> untyped
 
   def test_rbs_declarations: () -> untyped
+
+  def test_rbs_entries_by_path: () -> untyped
+
+  def test_rbs_entries_by_path_inline: () -> untyped
 end
