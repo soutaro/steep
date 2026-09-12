@@ -347,4 +347,119 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal [9], database.definitions("$foo").map(&:start_line)
     assert_equal 6, database.entry_count
   end
+
+  def test_rbs_entries_by_path
+    env = RBS::Environment.new
+
+    buffer = RBS::Buffer.new(name: Pathname("sig/foo.rbs"), content: <<~RBS)
+      class Foo[T < Bar] < Bar
+        include Mixin[Qux]
+        def bar: (Qux) -> Bar
+        attr_accessor baz: Qux
+        alias bar2 bar
+        @ivar: Qux
+      end
+
+      module Mixin[T] : Bar
+      end
+
+      interface _Foo
+        def foo: () -> Qux
+      end
+
+      type foo = Qux | Bar
+
+      FOO: Qux
+
+      $foo: Qux
+
+      class Alias = Foo
+
+      class Bar
+      end
+
+      class Qux
+      end
+    RBS
+    _, directives, declarations = RBS::Parser.parse_signature(buffer)
+    env.add_source(RBS::Source::RBS.new(buffer, directives, declarations))
+
+    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("sig/foo.rbs")).map(&:to_wire)
+
+    # Declarations, at the names
+    assert_includes entries, ["::Foo", 0, 0, 6, 0, 9]
+    assert_includes entries, ["::Foo#bar", 0, 2, 6, 2, 9]
+    assert_includes entries, ["::Foo#baz", 0, 3, 16, 3, 19]
+    assert_includes entries, ["::Foo#baz=", 0, 3, 16, 3, 19]
+    assert_includes entries, ["::Foo#bar2", 0, 4, 8, 4, 12]
+    assert_includes entries, ["::Mixin", 0, 8, 7, 8, 12]
+    assert_includes entries, ["::_Foo", 0, 11, 10, 11, 14]
+    assert_includes entries, ["::_Foo#foo", 0, 12, 6, 12, 9]
+    assert_includes entries, ["::foo", 0, 15, 5, 15, 8]
+    assert_includes entries, ["::FOO", 0, 17, 0, 17, 3]
+    assert_includes entries, ["$foo", 0, 19, 0, 19, 4]
+    assert_includes entries, ["::Alias", 0, 21, 6, 21, 11]
+
+    # References, at the type names
+    assert_includes entries, ["::Bar", 1, 0, 14, 0, 17]      # Upper bound of the type parameter
+    assert_includes entries, ["::Bar", 1, 0, 21, 0, 24]      # Super class
+    assert_includes entries, ["::Mixin", 1, 1, 10, 1, 15]    # Mixin
+    assert_includes entries, ["::Qux", 1, 1, 16, 1, 19]      # Type argument of the mixin
+    assert_includes entries, ["::Qux", 1, 2, 12, 2, 15]      # Parameter type
+    assert_includes entries, ["::Bar", 1, 2, 20, 2, 23]      # Return type
+    assert_includes entries, ["::Qux", 1, 3, 21, 3, 24]      # Attribute type
+    assert_includes entries, ["::Foo#bar", 1, 4, 13, 4, 16]  # Old name of the alias
+    assert_includes entries, ["::Qux", 1, 5, 9, 5, 12]       # Instance variable type
+    assert_includes entries, ["::Bar", 1, 8, 18, 8, 21]      # Module self type
+    assert_includes entries, ["::Qux", 1, 12, 17, 12, 20]    # Return type of the interface method
+    assert_includes entries, ["::Qux", 1, 15, 11, 15, 14]    # Type alias
+    assert_includes entries, ["::Bar", 1, 15, 17, 15, 20]
+    assert_includes entries, ["::Qux", 1, 17, 5, 17, 8]      # Constant type
+    assert_includes entries, ["::Qux", 1, 19, 6, 19, 9]      # Global type
+    assert_includes entries, ["::Foo", 1, 21, 14, 21, 17]    # Class alias target
+
+    # Each entry is included once
+    assert_equal entries.uniq, entries
+  end
+
+  def test_rbs_entries_by_path_inline
+    env = RBS::Environment.new
+
+    buffer = RBS::Buffer.new(name: Pathname("lib/foo.rb"), content: <<~RUBY)
+      class Foo < Bar #[Qux]
+        include Mixin #[Qux]
+
+        # @rbs (Qux) -> Bar
+        def foo(x)
+        end
+      end
+
+      class Bar
+      end
+
+      class Qux
+      end
+
+      module Mixin
+      end
+    RUBY
+    prism = Prism.parse(buffer.content)
+    result = RBS::InlineParser.parse(buffer, prism)
+    env.add_source(RBS::Source::Ruby.new(buffer, prism, result.declarations, result.diagnostics))
+
+    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("lib/foo.rb")).map(&:to_wire)
+
+    # Declarations, at the names in the Ruby file
+    assert_includes entries, ["::Foo", 0, 0, 6, 0, 9]
+    assert_includes entries, ["::Foo#foo", 0, 4, 6, 4, 9]
+    assert_includes entries, ["::Bar", 0, 8, 6, 8, 9]
+
+    # References, at the type names in the Ruby file
+    assert_includes entries, ["::Bar", 1, 0, 12, 0, 15]      # Super class
+    assert_includes entries, ["::Qux", 1, 0, 18, 0, 21]      # Type argument of the super class
+    assert_includes entries, ["::Mixin", 1, 1, 10, 1, 15]    # Mixin
+    assert_includes entries, ["::Qux", 1, 1, 18, 1, 21]      # Type argument of the mixin
+    assert_includes entries, ["::Qux", 1, 3, 10, 3, 13]      # Parameter type in the annotation
+    assert_includes entries, ["::Bar", 1, 3, 18, 3, 21]      # Return type in the annotation
+  end
 end

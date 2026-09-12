@@ -88,7 +88,7 @@ module Steep
       #
       # The index is kept with the entries to detect a newer index of the target.
       #
-      @rbs_entries_cache: Hash[Symbol, [Index::RBSIndex, Hash[Pathname, Array[TypeCheckDatabase::Entry]]]]
+      @rbs_entries_cache: Hash[Symbol, [RBS::Environment, Hash[Pathname, Array[TypeCheckDatabase::Entry]]]]
 
       include ChangeBuffer
 

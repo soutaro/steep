@@ -1,0 +1,59 @@
+module Steep
+  module Server
+    # Collects the entries of the declarations and the type references in an RBS environment, grouped by the path of the file
+    #
+    # The declarations -- classes, modules, interfaces, type aliases, constants, globals, and the methods defined by `def`,
+    # attribute members, and `alias` -- are `:definition` entries at the name of the declaration or member.
+    #
+    # The type names written in the declarations are `:reference` entries at the type name: super classes, module self types,
+    # mixins, class and module alias targets, the types in method types, attributes, variables, constants, globals, and
+    # type aliases, and the bounds and defaults of type parameters. The old name of a method alias is a method reference.
+    #
+    # Inline RBS declarations in Ruby files are included, with the locations in the Ruby file.
+    #
+    class RBSEntryBuilder
+      # The entries collected so far, grouped by path
+      attr_reader entries: Hash[Pathname, Array[TypeCheckDatabase::Entry]]
+
+      # Keys of the entries already pushed, to skip the duplicates
+      @seen: Set[Array[untyped]]
+
+      # The `Pathname` of each buffer name, shared by every entry in the file
+      @paths: Hash[String, Pathname]
+
+      def initialize: () -> void
+
+      # Collects the entries of every declaration in the environment
+      def env: (RBS::Environment env) -> self
+
+      private
+
+      def class_decl: (RBS::TypeName name, RBS::AST::Declarations::Class | RBS::AST::Declarations::Module | RBS::AST::Ruby::Declarations::ClassDecl | RBS::AST::Ruby::Declarations::ModuleDecl decl) -> void
+
+      def members: (RBS::TypeName type_name, Array[RBS::AST::Declarations::Class::member | RBS::AST::Declarations::Interface::member | RBS::AST::Ruby::Declarations::ClassDecl::member | RBS::AST::Ruby::Declarations::ModuleDecl::member] members) -> void
+
+      def method_type: (RBS::MethodType method_type) -> void
+
+      def type_params: (Array[RBS::AST::TypeParam] params) -> void
+
+      def type: (RBS::Types::t type) -> void
+
+      def definition: (String name, RBS::Location[untyped, untyped]? location) -> void
+
+      def reference: (RBS::TypeName type_name, RBS::Location[untyped, untyped]? location) -> void
+
+      def method_definition: (RBS::TypeName type_name, Symbol method_name, Symbol kind, RBS::Location[untyped, untyped]? location) -> void
+
+      def method_reference: (RBS::TypeName type_name, Symbol method_name, Symbol kind, RBS::Location[untyped, untyped]? location) -> void
+
+      # Formats an instance or singleton method name; `kind` is `:instance` or `:singleton`
+      def method_name_string: (RBS::TypeName type_name, Symbol method_name, Symbol kind) -> String
+
+      # Pushes an entry at the location, unless the location is `nil` or the same entry is already pushed
+      def push: (String name, TypeCheckDatabase::Entry::role role, RBS::Location[untyped, untyped]? location) -> void
+
+      # Returns the child location of the key, or `nil` if the location has no such child
+      def child_location: (RBS::Location[untyped, untyped]? location, Symbol key) -> RBS::Location[untyped, untyped]?
+    end
+  end
+end

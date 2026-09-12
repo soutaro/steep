@@ -180,18 +180,12 @@ module Steep
 
       def self.push_entry: (Array[Entry] entries, Set[Array[untyped]] seen, name: String, role: Entry::role, location: Parser::Source::Range) -> void
 
-      # Extracts the declarations in RBS files (and inline RBS in Ruby files) from an `RBSIndex`, grouped by the path of the file
+      # Extracts the declarations and the type references in the RBS files (and inline RBS in Ruby files) of the environment,
+      # grouped by the path of the file
       #
-      # Only the declarations are extracted. The references the index records point at the member or declaration
-      # that contains a type, not at the type itself, which is too coarse to store as a reference.
+      # See `RBSEntryBuilder` for the details.
       #
-      def self.rbs_entries_by_path: (Index::RBSIndex index) -> Hash[Pathname, Array[Entry]]
-
-      # Returns the location of the name of a declaration or member, or `nil` if it has no location
-      def self.rbs_declaration_location: (untyped decl) -> RBS::Location[untyped, untyped]?
-
-      # `paths` caches the `Pathname` of each buffer name, which is shared by every declaration in the file
-      def self.push_rbs_entry: (Hash[Pathname, Array[Entry]] entries, Hash[String, Pathname] paths, name: String, location: RBS::Location[untyped, untyped]) -> void
+      def self.rbs_entries_by_path: (RBS::Environment env) -> Hash[Pathname, Array[Entry]]
 
       attr_reader pool: NamePool
 

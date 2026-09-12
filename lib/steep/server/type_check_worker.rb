@@ -235,10 +235,10 @@ module Steep
         signature_service = service.signature_services.fetch(target.name)
         return unless signature_service.status.is_a?(Services::SignatureService::LoadedStatus)
 
-        index = signature_service.latest_rbs_index
+        env = signature_service.latest_env
         cached = @rbs_entries_cache[target.name]
-        unless cached && cached[0].equal?(index)
-          cached = @rbs_entries_cache[target.name] = [index, TypeCheckDatabase.rbs_entries_by_path(index)]
+        unless cached && cached[0].equal?(env)
+          cached = @rbs_entries_cache[target.name] = [env, TypeCheckDatabase.rbs_entries_by_path(env)]
         end
 
         cached[1][path] || []
