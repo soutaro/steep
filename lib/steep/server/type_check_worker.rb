@@ -6,42 +6,24 @@ module Steep
       attr_reader :current_type_check_guid
 
       WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
-      StatsJob = _ = Struct.new(:id, keyword_init: true)
-      QueryDiagnosticsJob = _ = Struct.new(:id, keyword_init: true)
       StartTypeCheckJob = _ = Struct.new(:guid, :changes, keyword_init: true)
       TypeCheckCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
       TypeCheckInlineCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
-      ReforkJob = _ = Struct.new(:id, :params, keyword_init: true)
 
       include ChangeBuffer
 
-      attr_reader :io_socket
-      attr_reader :need_to_warmup
-
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:, io_socket: nil, buffered_changes: nil, service: nil)
+      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
         super(project: project, reader: reader, writer: writer)
 
         @assignment = assignment
-        @buffered_changes = buffered_changes || {}
+        @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = Queue.new
         @commandline_args = commandline_args
         @current_type_check_guid = nil
-        @io_socket = io_socket
-        @service = service if service
-        @child_pids = []
-        @need_to_warmup = true
         @rbs_entries_cache = {}
-
-        if io_socket
-          Signal.trap "SIGCHLD" do
-            while pid = Process.wait(-1, Process::WNOHANG)
-              raise "Unexpected worker process exit: #{pid}" if @child_pids.include?(pid)
-            end
-          end
-        end
       end
 
       def service
@@ -69,64 +51,9 @@ module Steep
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
-        when CustomMethods::Stats::METHOD
-          queue << StatsJob.new(id: request[:id])
         when CustomMethods::TypeCheck__Start::METHOD
           params = request[:params] #: CustomMethods::TypeCheck__Start::params
           enqueue_typecheck_jobs(params)
-        when CustomMethods::Query__Diagnostics::METHOD
-          queue << QueryDiagnosticsJob.new(id: request[:id])
-        when CustomMethods::Refork::METHOD
-          io_socket or raise
-
-          # The job thread forks, after the jobs queued so far are done. `service` is updated only
-          # by that thread, and the changes a `StartTypeCheckJob` applies are already popped from
-          # the buffer: a fork before the job finishes gives the new worker neither the changes
-          # nor the files they add.
-          queue << ReforkJob.new(id: request[:id], params: request[:params])
-        end
-      end
-
-      def refork(job)
-        io_socket = self.io_socket or raise
-
-        # Receive IOs before fork to avoid receiving them from multiple processes
-        stdin = io_socket.recv_io
-        stdout = io_socket.recv_io
-
-        if need_to_warmup
-          Process.warmup
-          @need_to_warmup = false
-        end
-
-        if pid = fork
-          stdin.close
-          stdout.close
-          @child_pids << pid
-          writer.write(CustomMethods::Refork.response(job.id, { pid: }))
-        else
-          io_socket.close
-
-          reader.close
-          writer.close
-
-          reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
-          writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout)
-          Steep.logger.info("Reforked worker: #{Process.pid}, params: #{job.params}")
-          index = job.params[:index]
-          assignment = Services::PathAssignment.new(max_index: job.params[:max_index], index: index)
-
-          worker = self.class.new(project: project, reader: reader, writer: writer, assignment: assignment, commandline_args: commandline_args, io_socket: nil, buffered_changes: buffered_changes, service: service)
-
-          # The forking thread is the job thread of the primary worker, and becomes the main thread of the new worker
-          tags = Steep.logger.current_tags
-          tags.delete("background")
-          if (tag_index = tags.find_index("typecheck:typecheck@0"))
-            tags[tag_index] = "typecheck:typecheck@#{index}-reforked"
-          end
-          worker.run()
-
-          exit 0
         end
       end
 
@@ -202,9 +129,6 @@ module Steep
           Steep.logger.info { "Processing StartTypeCheckJob for guid=#{job.guid}" }
           service.update(changes: job.changes)
 
-        when ReforkJob
-          refork(job)
-
         when ValidateAppSignatureJob
           if job.guid == current_type_check_guid
             Steep.logger.info { "Processing ValidateAppSignature for guid=#{job.guid}, path=#{job.path}" }
@@ -218,7 +142,7 @@ module Steep
               path: job.path,
               guid: job.guid,
               target: job.target,
-              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, relative_path) }
+              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, relative_path), stats: nil }
             )
           end
 
@@ -233,7 +157,7 @@ module Steep
               path: job.path,
               guid: job.guid,
               target: job.target,
-              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path) }
+              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path), stats: nil }
             )
           end
 
@@ -243,13 +167,8 @@ module Steep
             group_target = project.group_for_source_path(job.path) || job.target
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
-            diagnostics = service.typecheck_source(path: relative_path, target: job.target)
-            typecheck_progress(
-              path: job.path,
-              guid: job.guid,
-              target: job.target,
-              source: { diagnostics: diagnostics&.filter_map { formatter.format(_1) }, entries: source_file_entries(relative_path) }
-            )
+            file = service.typecheck_source(path: relative_path, target: job.target)
+            typecheck_progress(path: job.path, guid: job.guid, target: job.target, source: source_result(file, formatter))
           end
 
         when TypeCheckInlineCodeJob
@@ -258,11 +177,11 @@ module Steep
             group_target = project.group_for_inline_source_path(job.path) || job.target
             formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
             relative_path = project.relative_path(job.path)
-            source_diagnostics = service.typecheck_source(path: relative_path, target: job.target)&.filter_map { formatter.format(_1) }
+            source = source_result(service.typecheck_source(path: relative_path, target: job.target), formatter)
             signature_diagnostics = service.validate_signature(path: relative_path, target: job.target).filter_map { formatter.format(_1) } #: Array[LanguageServer::Protocol::Interface::Diagnostic::json]?
 
             # Keep the diagnostics of the last type checking, as the plain Ruby files do, when the type checking is skipped and the validation finds nothing
-            if source_diagnostics.nil? && signature_diagnostics&.empty?
+            if source[:diagnostics].nil? && signature_diagnostics&.empty?
               signature_diagnostics = nil
             end
 
@@ -270,8 +189,8 @@ module Steep
               path: job.path,
               guid: job.guid,
               target: job.target,
-              source: { diagnostics: source_diagnostics, entries: source_file_entries(relative_path) },
-              signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path) }
+              source: source,
+              signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path), stats: nil }
             )
           end
 
@@ -279,15 +198,6 @@ module Steep
           writer.write(
             id: job.id,
             result: workspace_symbol_result(job.query)
-          )
-        when StatsJob
-          writer.write(
-            id: job.id,
-            result: stats_result().map(&:as_json)
-          )
-        when QueryDiagnosticsJob
-          writer.write(
-            CustomMethods::Query__Diagnostics.response(job.id, query_diagnostics_result())
           )
         end
       end
@@ -305,14 +215,19 @@ module Steep
       end
 
       def wire_result(result)
-        { diagnostics: result[:diagnostics], entries: result[:entries]&.map { _1.to_wire } }
+        { diagnostics: result[:diagnostics], entries: result[:entries]&.map { _1.to_wire }, stats: result[:stats] }
       end
 
-      def source_file_entries(relative_path)
-        if file = service.source_files[relative_path]
-          if typing = file.typing
-            TypeCheckDatabase.entries_from(typing)
-          end
+      def source_result(file, formatter)
+        if file
+          typing = file.typing
+          {
+            diagnostics: file.diagnostics.filter_map { formatter.format(_1) },
+            entries: typing ? TypeCheckDatabase.entries_from(typing) : nil,
+            stats: typing ? Services::StatsCalculator.count_calls(typing) : nil
+          }
+        else
+          { diagnostics: nil, entries: nil, stats: nil }
         end
       end
 
@@ -358,60 +273,6 @@ module Steep
           end
         end
       end
-
-      def stats_result
-        calculator = Services::StatsCalculator.new(service: service)
-
-        project.targets.each.with_object([]) do |target, stats|
-          service.source_files.each_value do |file|
-            next unless target.possible_source_file?(file.path)
-            absolute_path = project.absolute_path(file.path)
-            next unless assignment =~ [target, absolute_path]
-
-            stats << calculator.calc_stats(target, file: file)
-          end
-        end
-      end
-
-      # Returns the diagnostics of the files this worker has type checked so far
-      #
-      # An array of `Query__Diagnostics::entry`, with the LSP-formatted diagnostics per file URI.
-      # Files that are loaded but not type checked yet are not included.
-      #
-      def query_diagnostics_result
-        result = {} #: Hash[String, Array[untyped]]
-
-        service.source_files.each_value do |file|
-          next if file.typing.nil? && file.errors.nil?
-
-          absolute_path = project.absolute_path(file.path)
-
-          group_target =
-            project.group_for_source_path(absolute_path) ||
-            project.group_for_inline_source_path(absolute_path) ||
-            project.target_for_source_path(absolute_path) ||
-            project.target_for_inline_source_path(absolute_path)
-          next unless group_target
-
-          formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
-          uri = PathHelper.to_uri(absolute_path).to_s
-          array = result[uri] ||= []
-          array.concat(file.diagnostics.filter_map { formatter.format(_1) })
-        end
-
-        formatter = Diagnostic::LSPFormatter.new({}, **{})
-        service.signature_validation_diagnostics.each_value do |path_diagnostics|
-          path_diagnostics.each do |path, diagnostics|
-            absolute_path = path.absolute? ? path : project.absolute_path(path)
-            uri = PathHelper.to_uri(absolute_path).to_s
-            array = result[uri] ||= []
-            array.concat(diagnostics.filter_map { formatter.format(_1) })
-          end
-        end
-
-        result.map { { uri: _1, diagnostics: _2 } }
-      end
-
     end
   end
 end

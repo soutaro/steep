@@ -35,6 +35,9 @@ module Steep
 
         def self.with_syntax_error: (path: Pathname, content: String, error: Diagnostic::Ruby::SyntaxError | Diagnostic::Ruby::AnnotationSyntaxError) -> SourceFile
 
+        # A file with its diagnostics only -- the ones of a type checking that is done, or the errors that stopped it
+        def self.with_diagnostics: (path: Pathname, content: String, diagnostics: Array[Diagnostic::Ruby::Base]) -> SourceFile
+
         def self.with_typing: (path: Pathname, content: String, typing: Typing, ignores: Source::IgnoreRanges, node: Parser::AST::Node?) -> SourceFile
 
         def self.no_data: (path: Pathname, content: String) -> SourceFile
@@ -75,12 +78,15 @@ module Steep
       #
       def validate_signature: (path: Pathname, target: Project::Target) -> Array[Diagnostic::Signature::Base]
 
-      # Type check the code of given path and updates the `#source_files`
+      # Type checks the code of the path and returns the checked file
       #
       # * Returns `nil` if the type check doesn't complete.
-      # * Returns an array if the type check complete and detects no/some errors.
+      # * Returns the `SourceFile` with the `Typing` and the diagnostics otherwise, or with the errors that stopped the type check.
       #
-      def typecheck_source: (path: Pathname, target: Project::Target?) -> Array[Diagnostic::Ruby::Base]?
+      # The returned file is not kept: `#source_files` keeps the content and the diagnostics of the file only, so that
+      # the workers hold no `Typing` after reporting the results to the master.
+      #
+      def typecheck_source: (path: Pathname, target: Project::Target?) -> SourceFile?
 
       def update_signature: (changes: Server::ChangeBuffer::changes) -> void
 

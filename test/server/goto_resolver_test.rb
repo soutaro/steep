@@ -151,6 +151,44 @@ class Steep::Server::GotoResolverTest < Minitest::Test
     assert_equal [], resolver.goto(kind: :type_definition, from: :ruby, result: result(type: "::Nothing"))
   end
 
+  def test_parse_name_type_name
+    GotoResolver.parse_name("RBS::Location").tap do |name|
+      assert_instance_of RBS::TypeName, name
+      assert_equal RBS::TypeName.parse("::RBS::Location"), name
+    end
+
+    GotoResolver.parse_name("::Customer").tap do |name|
+      assert_instance_of RBS::TypeName, name
+      assert_equal RBS::TypeName.parse("::Customer"), name
+    end
+
+    GotoResolver.parse_name("_Each").tap do |name|
+      assert_instance_of RBS::TypeName, name
+      assert_equal RBS::TypeName.parse("::_Each"), name
+    end
+  end
+
+  def test_parse_name_instance_method
+    GotoResolver.parse_name("RBS::Parser#parse_type").tap do |name|
+      assert_instance_of Steep::InstanceMethodName, name
+      assert_equal RBS::TypeName.parse("::RBS::Parser"), name.type_name
+      assert_equal :parse_type, name.method_name
+    end
+  end
+
+  def test_parse_name_singleton_method
+    GotoResolver.parse_name("RBS::Parser.parse_signature").tap do |name|
+      assert_instance_of Steep::SingletonMethodName, name
+      assert_equal RBS::TypeName.parse("::RBS::Parser"), name.type_name
+      assert_equal :parse_signature, name.method_name
+    end
+  end
+
+  def test_parse_name_returns_nil_for_empty
+    assert_nil GotoResolver.parse_name("")
+    assert_nil GotoResolver.parse_name(nil)
+  end
+
   def test_query_definition_method
     result = resolver.query_definition("Customer#name")
 

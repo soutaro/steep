@@ -47,13 +47,11 @@ module Steep
 
       type json_stats = SuccessStats::json | ErrorStats::json
 
-      attr_reader service: TypeCheckService
+      # The numbers of the method calls in a file by how they are typed, reported by the typecheck workers to the master
+      type calls = { typed_calls: Integer, untyped_calls: Integer, error_calls: Integer }
 
-      def initialize: (service: TypeCheckService) -> void
-
-      def project: () -> Project
-
-      def calc_stats: (Project::Target target, file: TypeCheckService::SourceFile) -> stats
+      # Counts the method calls in the `Typing` of a file
+      def self.count_calls: (Typing typing) -> calls
     end
   end
 end

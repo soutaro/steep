@@ -65,8 +65,4 @@ class TypeCheckWorkerTest < Minitest::Test
   def test_handle_job_typecheck_inline__type_decl_error: () -> untyped
 
   def test_job_workspace_symbol: () -> untyped
-
-  def test_job_stats: () -> untyped
-
-  def test_refork_after_pending_jobs: () -> untyped
 end

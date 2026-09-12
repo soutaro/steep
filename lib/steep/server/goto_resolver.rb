@@ -44,7 +44,7 @@ module Steep
       end
 
       def query_definition(name_string)
-        name = Services::GotoService.parse_name(name_string)
+        name = GotoResolver.parse_name(name_string)
 
         kind =
           case name
@@ -72,6 +72,37 @@ module Steep
         end
 
         { name: name_string, kind: kind, locations: locations.uniq }
+      end
+
+      def self.parse_name(name_string)
+        return nil if name_string.nil? || name_string.empty?
+
+        if index = name_string.index("#")
+          type_part = name_string[0...index] or return nil
+          method_part = name_string[(index + 1)..] or return nil
+          return nil if type_part.empty? || method_part.empty?
+
+          type_name = parse_type_name(type_part) or return nil
+          InstanceMethodName.new(type_name: type_name, method_name: method_part.to_sym)
+        elsif (index = name_string.rindex(".")) && index > 0
+          type_part = name_string[0...index] or return nil
+          method_part = name_string[(index + 1)..] or return nil
+          return nil if type_part.empty? || method_part.empty?
+
+          type_name = parse_type_name(type_part) or return nil
+          SingletonMethodName.new(type_name: type_name, method_name: method_part.to_sym)
+        else
+          parse_type_name(name_string)
+        end
+      rescue RBS::ParsingError, StandardError
+        nil
+      end
+
+      def self.parse_type_name(string)
+        string = "::#{string}" unless string.start_with?("::")
+        RBS::TypeName.parse(string)
+      rescue RBS::ParsingError, StandardError
+        nil
       end
 
       def each_type_name(type_string, &block)

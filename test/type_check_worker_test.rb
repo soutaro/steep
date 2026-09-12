@@ -438,6 +438,7 @@ class TypeCheckWorkerTest < Minitest::Test
 
           # No entries are reported while the signatures fail to load
           assert_nil message[:params][:signature][:entries]
+          assert_nil message[:params][:signature][:stats]
         end
       end
     end
@@ -689,6 +690,12 @@ class TypeCheckWorkerTest < Minitest::Test
 
           # The reference of `.new` points at the selector
           assert(entries.any? {|_, role, line, character, _, _| role == 1 && line == 5 && character == 6 })
+
+          # The method calls are counted for `$/steep/stats`
+          assert_equal({ typed_calls: 2, untyped_calls: 0, error_calls: 0 }, message[:params][:source][:stats])
+
+          # The worker keeps the content of the file only
+          assert_nil worker.service.source_files[Pathname("lib/hello.rb")].typing
         end
       end
     end
@@ -985,151 +992,6 @@ RBS
       symbols.find {|symbol| symbol.name == "#new_class_method" }.tap do |symbol|
         assert_equal "#{file_scheme}#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
         assert_equal "NewClassName", symbol.container_name
-      end
-    end
-  end
-
-  def test_job_stats
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<RUBY)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-RUBY
-
-      worker = Server::TypeCheckWorker.new(
-        project: project,
-        assignment: assignment,
-        commandline_args: [],
-        reader: worker_reader,
-        writer: worker_writer
-      )
-
-      worker.service.update(changes: {
-        Pathname("lib/hello.rb") => [Services::ContentChange.string(<<~RUBY)],
-          Hello.new.world(10)
-        RUBY
-        Pathname("lib/world.rb") => [Services::ContentChange.string(<<~RUBY)]
-          1+
-        RUBY
-      })
-
-      target = project.targets[0]
-      worker.service.typecheck_source(path: Pathname("lib/hello.rb"), target: target)
-      worker.service.typecheck_source(path: Pathname("lib/world.rb"), target: target)
-
-      result = worker.stats_result()
-
-      result.find {|stat| stat.path == Pathname("lib/hello.rb") }.tap do |stat|
-        assert_instance_of Services::StatsCalculator::SuccessStats, stat
-      end
-      result.find {|stat| stat.path == Pathname("lib/world.rb") }.tap do |stat|
-        assert_instance_of Services::StatsCalculator::ErrorStats, stat
-      end
-    end
-  end
-
-  def test_refork_after_pending_jobs
-    skip "fork() is not available on this platform" unless Steep.can_fork?
-
-    in_tmpdir do
-      with_master_read_queue do |master_read_queue|
-        project = Project.new(steepfile_path: current_dir + "Steepfile")
-        Project::DSL.parse(project, <<~RUBY)
-          target :lib do
-            check "lib"
-            signature "sig"
-          end
-        RUBY
-
-        sock_master, sock_worker = UNIXSocket.pair
-        child_stdin, stdin_writer = IO.pipe
-        stdout_reader, child_stdout = IO.pipe
-
-        # The worker traps SIGCHLD to watch its reforked workers, which would report the exit of the child below as an error
-        sigchld = Signal.trap("SIGCHLD", "DEFAULT")
-
-        worker = Server::TypeCheckWorker.new(
-          project: project,
-          assignment: assignment,
-          commandline_args: [],
-          reader: worker_reader,
-          writer: worker_writer,
-          io_socket: sock_worker
-        )
-
-        typecheck_start = ->(guid) do
-          {
-            method: TypeCheck__Start::METHOD,
-            params: {
-              guid: guid,
-              priority_uris: [],
-              signature_uris: [],
-              code_uris: [["lib", "#{file_scheme}#{current_dir}/lib/hello.rb"]],
-              library_uris: [],
-              inline_uris: []
-            }
-          }
-        end
-
-        worker.handle_request({ method: FileLoad::METHOD, params: { content: { "lib/hello.rb" => "1 + 2\n" } } })
-        worker.handle_request(typecheck_start["guid1"])
-
-        sock_master.send_io(child_stdin)
-        sock_master.send_io(child_stdout)
-        worker.handle_request({ method: Refork::METHOD, id: "refork", params: { index: 1, max_index: 2 } })
-
-        # The fork waits for the jobs queued before the request, which apply the changes popped from the buffer
-        jobs = flush_queue(worker.queue)
-        assert_equal [TypeCheckWorker::StartTypeCheckJob, TypeCheckWorker::TypeCheckCodeJob, TypeCheckWorker::ReforkJob], jobs.map(&:class)
-
-        # Fork from another thread, as the job thread does, so that the child exits without unwinding this test
-        Thread.new { jobs.each { worker.handle_job(_1) } }.join
-
-        Signal.trap("SIGCHLD", sigchld)
-        sigchld = nil
-        child_stdin.close
-        child_stdout.close
-
-        master_read_queue.pop.tap do |message|
-          assert_equal TypeCheck__Progress::METHOD, message[:method]
-          assert_equal "guid1", message[:params][:guid]
-        end
-
-        pid = master_read_queue.pop.tap do |response|
-          assert_equal "refork", response[:id]
-        end[:result][:pid]
-
-        child_writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_writer)
-        child_reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_reader)
-
-        # The new worker type checks the file it inherited from the primary, which the master never sends again
-        child_writer.write(typecheck_start["guid2"])
-
-        progress = Timeout.timeout(TestHelper.timeout) do
-          child_reader.read do |message|
-            if message[:method] == "window/showMessage"
-              flunk "The reforked worker failed: #{message[:params][:message]}"
-            end
-            break message if message[:method] == TypeCheck__Progress::METHOD
-          end
-        end
-
-        refute_nil progress
-        assert_equal "guid2", progress[:params][:guid]
-        assert_equal (current_dir + "lib/hello.rb").to_s, progress[:params][:path]
-        assert_equal [], progress[:params][:source][:diagnostics]
-
-        child_writer.write({ method: "shutdown", id: "shutdown" })
-        child_writer.write({ method: "exit" })
-        Process.waitpid(pid)
-      ensure
-        Signal.trap("SIGCHLD", sigchld) if sigchld
-        [sock_master, sock_worker, child_stdin, stdin_writer, stdout_reader, child_stdout].each do |io|
-          io&.close unless io&.closed?
-        end
       end
     end
   end

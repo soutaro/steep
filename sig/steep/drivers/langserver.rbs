@@ -15,8 +15,6 @@ module Steep
 
       attr_reader jobs_option: Utils::JobsOption
 
-      attr_accessor refork: bool
-
       attr_accessor command_socket: bool
 
       include Utils::DriverHelper
