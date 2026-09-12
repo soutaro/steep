@@ -1476,4 +1476,63 @@ end
       end
     end
   end
+
+  def test_library_entries_loaded_on_initialize
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+
+      # The files are loaded when the worker responds to `initialize`
+      jobs = flush_queue(master.write_queue)
+      request = jobs.find { _1.dest == worker && _1.message[:method] == "initialize" } or raise
+      master.result_controller.process_response({ id: request.message[:id], result: nil })
+      flush_queue(master.write_queue)
+
+      # The entries of the library RBS files are collected in the environment thread, and stored in the main thread
+      assert_equal [], master.type_check_database.definitions("::String")
+      master.environment_queue.pop.call
+      master.job_queue.pop.call
+
+      assert_any!(master.type_check_database.definitions("::String")) do |location|
+        assert_equal :rbs, location.source
+        assert_operator location.path.to_s, :end_with?, "/core/string.rbs"
+        refute master.type_check_database.checked?(location.path)
+      end
+
+      # The project RBS files are not in the database until the workers validate them
+      assert_equal [], master.type_check_database.definitions("::Customer")
+
+      master.process_message_from_client({ id: "definition", method: Query__Definition::METHOD, params: { name: "::String" } })
+      jobs = flush_queue(master.write_queue)
+      assert_equal "type_name", jobs[0].message[:result][:kind]
+      assert_any!(jobs[0].message[:result][:locations]) do |location|
+        assert_equal "rbs", location[:source]
+        assert_operator location[:uri], :end_with?, "/core/string.rbs"
+      end
+    end
+  end
 end

@@ -168,6 +168,13 @@ module Steep
       # Callbacks to be called when no type check is running anymore
       attr_reader typecheck_quiescent_callbacks: Array[^() -> void]
 
+      # Jobs that update or read the RBS environments in `controller.type_check_service`, run in the environment thread
+      #
+      # Updating an environment takes seconds on a large project, so the main thread never does it. Jobs run one at a time,
+      # and a job that has a result for the main thread pushes another job to `job_queue`.
+      #
+      attr_reader environment_queue: Thread::Queue
+
       # The mtimes of the project files when they were loaded or reloaded
       #
       # `nil` until the initial project load finishes.
@@ -195,6 +202,18 @@ module Steep
       # The only one cleanup it does is stopping the worker processes, by `SIGKILL`.
       #
       def start: () -> void
+
+      # Hands the buffered signature changes to the environment thread
+      #
+      # Called when a type check starts, so that the environments follow the files the same way the typecheck workers do.
+      #
+      def update_environment: () -> void
+
+      # Collects the entries of the library RBS files of every target and stores them in the database through `job_queue`
+      #
+      # Runs in the environment thread. A file shared by targets is collected once, with the environment of the first target.
+      #
+      def load_library_entries: () -> void
 
       # Stops the language server workers by sending SIGTERM
       #

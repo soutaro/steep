@@ -437,6 +437,7 @@ RUBY
       write_file("sig/test/test.rbs", <<~RBS)
         class CoreTest
           def core: () -> Core
+          def name: () -> String
         end
 
         class MainTest
@@ -479,6 +480,15 @@ RUBY
               assert_operator location[:uri], :end_with?, "/lib/main/main.rb"
               assert_equal({ line: 0, character: 6 }, location[:range][:start])
               assert_equal({ line: 0, character: 10 }, location[:range][:end])
+            end
+          end
+        end
+
+        # Jump to library RBS file works because the master indexes the library RBS files
+        finally_holds(timeout: 3) do
+          client.goto_definition("sig/test/test.rbs", line: 2, character: 20) do |result|
+            assert_any!(result) do |location|
+              assert_operator location[:uri], :end_with?, "/core/string.rbs"
             end
           end
         end

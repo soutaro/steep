@@ -462,4 +462,38 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_includes entries, ["::Qux", 1, 3, 10, 3, 13]      # Parameter type in the annotation
     assert_includes entries, ["::Bar", 1, 3, 18, 3, 21]      # Return type in the annotation
   end
+
+  def test_library_entries
+    database = TypeCheckDatabase.new()
+
+    path = Pathname("/gems/core/string.rbs")
+    database.update_library(
+      path: path,
+      entries: [
+        entry("::String", role: :definition, at: [0, 6, 0, 12]),
+        entry("::Integer", role: :reference, at: [3, 20, 3, 27])
+      ]
+    )
+    database.update_source(path: Pathname("lib/a.rb"), target: :app, diagnostics: [], entries: [entry("::String", role: :reference, at: [1, 0, 1, 6])])
+
+    assert_equal [[path, :rbs, 0]], summarize(database.definitions("::String"))
+    assert_equal [[Pathname("lib/a.rb"), :ruby, 1]], summarize(database.references("::String"))
+    assert_equal [[path, :rbs, 3]], summarize(database.references("::Integer"))
+    assert_equal 3, database.entry_count
+
+    # Library files are not type checked: they are not `checked?`, not in `paths`, and have no diagnostics
+    refute database.checked?(path)
+    assert_equal [Pathname("lib/a.rb")], database.paths
+    assert_equal [], database.diagnostics(path)
+
+    # Updating replaces the entries of the file
+    database.update_library(path: path, entries: [entry("::String", role: :definition, at: [1, 6, 1, 12])])
+    assert_equal [[path, :rbs, 1]], summarize(database.definitions("::String"))
+    assert_equal [], database.references("::Integer")
+    assert_equal 2, database.entry_count
+
+    database.remove(path)
+    assert_equal [], database.definitions("::String")
+    assert_equal 1, database.entry_count
+  end
 end

@@ -193,6 +193,7 @@ module Steep
 
       # Callbacks to be called when no type check is running anymore
       attr_reader :typecheck_quiescent_callbacks
+      attr_reader :environment_queue
 
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
@@ -205,6 +206,7 @@ module Steep
         @commandline_args = []
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
+        @environment_queue = Thread::Queue.new
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
         @project_file_mtimes = nil
@@ -262,6 +264,19 @@ module Steep
                 when WorkerProcess
                   Steep.logger.info { "Processing SendMessageJob: dest=#{job.dest.name}, method=#{job.message[:method] || "-"}, id=#{job.message[:id] || "-"}" }
                   job.dest << job.message
+                end
+              end
+            end
+          end
+
+          environment_thread = Thread.new do
+            Steep.logger.push_tags(*tags)
+            Steep.logger.tagged "environment" do
+              while job = environment_queue.deq
+                begin
+                  job.call()
+                rescue => exn
+                  Steep.log_error(exn)
                 end
               end
             end
@@ -328,6 +343,9 @@ module Steep
           end
 
           loop_thread.join
+
+          environment_queue.close()
+          environment_thread.join
         end
       end
 
@@ -427,6 +445,8 @@ module Steep
                 end
               end
 
+              environment_queue << -> { load_library_entries() }
+
               if typecheck_automatically
                 progress.end()
               end
@@ -473,7 +493,7 @@ module Steep
               when controller.code_path?(path)
                 controller.add_dirty_code_path(path)
               when controller.signature_path?(path)
-                controller.add_dirty_signature_path(path)
+                controller.add_dirty_signature_path(path, content)
               when controller.inline_path?(path)
                 controller.add_dirty_inline_path(path, content)
               end
@@ -516,7 +536,8 @@ module Steep
               controller.add_dirty_code_path(path)
             when controller.signature_path?(path)
               Steep.logger.debug { "signature_path?" }
-              controller.add_dirty_signature_path(path)
+              changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
+              controller.add_dirty_signature_path(path, changes)
             when controller.inline_path?(path)
               Steep.logger.debug { "inline_path?" }
               changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
@@ -829,6 +850,8 @@ module Steep
             return
           end
 
+          update_environment()
+
           if last_request
             finish_type_check(last_request)
           end
@@ -1072,6 +1095,48 @@ module Steep
         )
       end
 
+      def update_environment
+        changes = controller.pop_signature_changes
+        return if changes.empty?
+        service = controller.type_check_service or return
+
+        environment_queue << -> do
+          Steep.measure("Updating the environments with #{changes.size} files") do
+            service.update(changes: changes)
+          end
+        end
+      end
+
+      def load_library_entries
+        service = controller.type_check_service or return
+
+        covered = Set[] #: Set[Pathname]
+        entries_by_path = {} #: Hash[Pathname, Array[TypeCheckDatabase::Entry]]
+
+        project.targets.each do |target|
+          signature_service = service.signature_services.fetch(target.name)
+          library_paths = signature_service.env_rbs_paths
+          next if library_paths.subset?(covered)
+
+          Steep.measure("Collecting the entries of the library RBS files of target=#{target.name}") do
+            TypeCheckDatabase.rbs_entries_by_path(signature_service.latest_env).each do |path, entries|
+              next unless library_paths.include?(path)
+              next if covered.include?(path)
+              entries_by_path[path] = entries
+            end
+          end
+
+          covered.merge(library_paths)
+        end
+
+        job_queue << -> do
+          entries_by_path.each do |path, entries|
+            type_check_database.update_library(path: path, entries: entries)
+          end
+          Steep.logger.info { "Stored the entries of #{entries_by_path.size} library RBS files" }
+        end
+      end
+
       def stats_result
         targets = project.targets.each.with_object({}) do |target, hash| #$ Hash[Symbol, Project::Target]
           hash[target.name] = target
@@ -1307,7 +1372,7 @@ module Steep
           when controller.code_path?(path)
             controller.add_dirty_code_path(path)
           when controller.signature_path?(path)
-            controller.add_dirty_signature_path(path)
+            controller.add_dirty_signature_path(path, content)
           when controller.inline_path?(path)
             controller.add_dirty_inline_path(path, content)
           end

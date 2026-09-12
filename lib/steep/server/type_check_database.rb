@@ -177,9 +177,11 @@ module Steep
       def initialize
         @sources = {}
         @signatures = {}
+        @libraries = {}
         @pool = NamePool.new
         @source_paths = {}
         @signature_paths = {}
+        @library_paths = {}
       end
 
       def update_source(path:, target:, diagnostics:, entries:, stats: nil)
@@ -207,6 +209,14 @@ module Steep
         )
       end
 
+      def update_library(path:, entries:)
+        if old = @libraries[path]
+          release_entries(@library_paths, path, old)
+        end
+
+        @libraries[path] = pack_entries(@library_paths, path, entries)
+      end
+
       def remove(path)
         if result = @sources.delete(path)
           release_entries(@source_paths, path, result.entries)
@@ -216,6 +226,10 @@ module Steep
           targets.each_value do |result|
             release_entries(@signature_paths, path, result.entries)
           end
+        end
+
+        if packed = @libraries.delete(path)
+          release_entries(@library_paths, path, packed)
         end
       end
 
@@ -275,6 +289,10 @@ module Steep
           end
         end
 
+        @libraries.each_value do |packed|
+          count += packed.size / ENTRY_SIZE
+        end
+
         count
       end
 
@@ -328,6 +346,12 @@ module Steep
             @signatures.fetch(path).each_value do |result|
               collect_locations(locations, result.entries, id, role_code, path: path, source: :rbs)
             end
+          end
+        end
+
+        if paths = @library_paths.fetch(id, nil)
+          paths.each_key do |path|
+            collect_locations(locations, @libraries.fetch(path), id, role_code, path: path, source: :rbs)
           end
         end
 
