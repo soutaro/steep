@@ -106,17 +106,18 @@ RUBY
     }.tap do |changes|
       service.update(changes: changes)
 
-      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+      file = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core }) or raise
 
-      service.source_files[Pathname("lib/core.rb")].tap do |file|
-        assert_any!(file.errors, size: 1) do |error|
-          assert_instance_of Diagnostic::Ruby::SyntaxError, error
-          assert_equal 1, error.location.line
-          assert_equal 13, error.location.column
-          assert_equal 2, error.location.last_line
-          assert_equal 0, error.location.last_column
-        end
+      assert_any!(file.errors, size: 1) do |error|
+        assert_instance_of Diagnostic::Ruby::SyntaxError, error
+        assert_equal 1, error.location.line
+        assert_equal 13, error.location.column
+        assert_equal 2, error.location.last_line
+        assert_equal 0, error.location.last_column
       end
+
+      # The service keeps the content of the file only
+      assert_nil service.source_files[Pathname("lib/core.rb")].errors
     end
   end
 
@@ -153,14 +154,12 @@ end
 RUBY
     }.tap do |changes|
       service.update(changes: changes)
-      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+      file = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core }) or raise
 
-      service.source_files[Pathname("lib/core.rb")].tap do |file|
-        assert_any!(file.errors, size: 1) do |error|
-          assert_instance_of Diagnostic::Ruby::AnnotationSyntaxError, error
-          assert_equal "Array[", error.location.source
-          assert_equal "Syntax error caused by token `pEOF`", error.message
-        end
+      assert_any!(file.errors, size: 1) do |error|
+        assert_instance_of Diagnostic::Ruby::AnnotationSyntaxError, error
+        assert_equal "Array[", error.location.source
+        assert_equal "Syntax error caused by token `pEOF`", error.message
       end
     end
   end
@@ -184,12 +183,12 @@ RUBY
     }.tap do |changes|
       service.update(changes: changes)
 
-      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
-      service.typecheck_source(path: Pathname("lib/main.rb"), target: project.targets.find { _1.name == :main })
+      core = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core }) or raise
+      main = service.typecheck_source(path: Pathname("lib/main.rb"), target: project.targets.find { _1.name == :main }) or raise
 
-      assert_equal [], service.diagnostics.dig(Pathname("lib/core.rb"))
+      assert_equal [], core.diagnostics
 
-      service.diagnostics[Pathname("lib/main.rb")].tap do |errors|
+      main.diagnostics.tap do |errors|
         assert_equal 1, errors.size
         assert_instance_of Diagnostic::Ruby::UnresolvedOverloading, errors[0]
       end
@@ -224,13 +223,13 @@ RUBY
     }.tap do |changes|
       service.update(changes: changes)
 
-      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
-      service.typecheck_source(path: Pathname("lib/main.rb"), target: project.targets.find { _1.name == :main })
-      service.typecheck_source(path: Pathname("test/core_test.rb"), target: project.targets.find { _1.name == :test })
+      core = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core }) or raise
+      main = service.typecheck_source(path: Pathname("lib/main.rb"), target: project.targets.find { _1.name == :main }) or raise
+      core_test = service.typecheck_source(path: Pathname("test/core_test.rb"), target: project.targets.find { _1.name == :test }) or raise
 
-      assert_equal [], service.diagnostics.dig(Pathname("lib/core.rb"))
-      assert_equal [], service.diagnostics.dig(Pathname("lib/main.rb"))
-      assert_equal [], service.diagnostics.dig(Pathname("test/core_test.rb"))
+      assert_equal [], core.diagnostics
+      assert_equal [], main.diagnostics
+      assert_equal [], core_test.diagnostics
     end
   end
 
@@ -255,23 +254,23 @@ RUBY
     }.tap do |changes|
       service.update(changes: changes)
 
-      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
-      service.typecheck_source(path: Pathname("lib/main.rb"), target: project.targets.find { _1.name == :main })
-      service.typecheck_source(path: Pathname("test/core_test.rb"), target: project.targets.find { _1.name == :test })
+      core = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core }) or raise
+      main = service.typecheck_source(path: Pathname("lib/main.rb"), target: project.targets.find { _1.name == :main }) or raise
+      core_test = service.typecheck_source(path: Pathname("test/core_test.rb"), target: project.targets.find { _1.name == :test }) or raise
 
-      service.diagnostics[Pathname("lib/core.rb")].tap do |errors|
+      core.diagnostics.tap do |errors|
         assert_any!(errors, size: 1) do |error|
           assert_instance_of Diagnostic::Ruby::UnknownConstant, errors[0]
           assert_equal :CoreTest, error.name
         end
       end
-      service.diagnostics[Pathname("lib/main.rb")].tap do |errors|
+      main.diagnostics.tap do |errors|
         assert_any!(errors, size: 1) do |error|
           assert_instance_of Diagnostic::Ruby::UnknownConstant, errors[0]
           assert_equal :CoreTest, error.name
         end
       end
-      assert_equal [], service.diagnostics.dig(Pathname("test/core_test.rb"))
+      assert_equal [], core_test.diagnostics
     end
   end
 
@@ -291,13 +290,13 @@ RUBY
       service.validate_signature(path: Pathname("sig/core.rbs"), target: project.targets.find { _1.name == :core })
       service.validate_signature(path: Pathname("sig/main.rbs"), target: project.targets.find { _1.name == :main })
 
-      service.diagnostics[Pathname("sig/core.rbs")].tap do |errors|
+      service.signature_diagnostics[Pathname("sig/core.rbs")].tap do |errors|
         assert_any!(errors, size: 1) do |error|
           assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
         end
       end
 
-      assert_empty service.diagnostics[Pathname("sig/main.rbs")]
+      assert_empty service.signature_diagnostics[Pathname("sig/main.rbs")]
     end
   end
 
@@ -321,8 +320,8 @@ RBS
       service.validate_signature(path: Pathname("sig/core.rbs"), target: project.targets.find { _1.name == :core })
       service.validate_signature(path: Pathname("sig/main.rbs"), target: project.targets.find { _1.name == :main })
 
-      assert_empty service.diagnostics[Pathname("sig/core.rbs")]
-      assert_empty service.diagnostics[Pathname("sig/main.rbs")]
+      assert_empty service.signature_diagnostics[Pathname("sig/core.rbs")]
+      assert_empty service.signature_diagnostics[Pathname("sig/main.rbs")]
     end
   end
 
@@ -347,17 +346,17 @@ RBS
       service.validate_signature(path: Pathname("sig/main.rbs"), target: project.targets.find { _1.name == :main })
       service.validate_signature(path: Pathname("sig/core_test.rbs"), target: project.targets.find { _1.name == :test })
 
-      service.diagnostics[Pathname("sig/core.rbs")].tap do |errors|
+      service.signature_diagnostics[Pathname("sig/core.rbs")].tap do |errors|
         assert_any!(errors, size: 1) do |error|
           assert_instance_of Diagnostic::Signature::UnknownTypeName, error
         end
       end
-      service.diagnostics[Pathname("sig/main.rbs")].tap do |errors|
+      service.signature_diagnostics[Pathname("sig/main.rbs")].tap do |errors|
         assert_any!(errors, size: 1) do |error|
           assert_instance_of Diagnostic::Signature::UnknownTypeName, error
         end
       end
-      assert_empty service.diagnostics[Pathname("sig/core_test.rbs")]
+      assert_empty service.signature_diagnostics[Pathname("sig/core_test.rbs")]
     end
   end
 
@@ -377,7 +376,7 @@ RBS
       service.validate_signature(path: Pathname("sig/core.rbs"), target: project.targets.find { _1.name == :core })
 
       # SyntaxError is reported to all of the targets
-      service.diagnostics[Pathname("sig/core.rbs")].tap do |errors|
+      service.signature_diagnostics[Pathname("sig/core.rbs")].tap do |errors|
         assert_equal 4, errors.size
         errors.each do |error|
           assert_instance_of Diagnostic::Signature::SyntaxError, error
@@ -400,7 +399,7 @@ RBS
 
       service.validate_signature(path: Pathname("sig/core.rbs"), target: project.targets.find { _1.name == :core })
 
-      service.diagnostics[Pathname("sig/core.rbs")].tap do |errors|
+      service.signature_diagnostics[Pathname("sig/core.rbs")].tap do |errors|
         assert_any!(errors, size: 1) do |error|
           assert_instance_of Diagnostic::Signature::UnknownTypeName, errors[0]
           assert_equal "Cannot find type `::Foo::Bar`", error.header_line
@@ -425,9 +424,9 @@ RBS
       RUBY
     }.tap do |changes|
       service.update(changes: changes)
-      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+      file = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core }) or raise
 
-      assert_equal [], service.diagnostics[Pathname("lib/core.rb")]
+      assert_equal [], file.diagnostics
     end
   end
 
@@ -448,11 +447,11 @@ RBS
     }.tap do |changes|
       service.update(changes: changes)
 
-      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+      file = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core }) or raise
 
       assert_equal(
         [Diagnostic::Ruby::NoMethod, Diagnostic::Ruby::InvalidIgnoreComment, Diagnostic::Ruby::InvalidIgnoreComment],
-        service.diagnostics[Pathname("lib/core.rb")].map {|d| d.class }
+        file.diagnostics.map {|d| d.class }
       )
     end
   end
@@ -482,14 +481,14 @@ RUBY
     }.tap do |changes|
       service.update(changes: changes)
 
-      service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core })
+      file = service.typecheck_source(path: Pathname("lib/core.rb"), target: project.targets.find { _1.name == :core }) or raise
 
-      assert_any!(service.diagnostics[Pathname("lib/core.rb")]) do |error|
+      assert_any!(file.diagnostics) do |error|
         assert_instance_of Diagnostic::Ruby::RedundantIgnoreComment, error
         assert_equal "steep:ignore", error.location.source
       end
 
-      assert_any!(service.diagnostics[Pathname("lib/core.rb")]) do |error|
+      assert_any!(file.diagnostics) do |error|
         assert_instance_of Diagnostic::Ruby::RedundantIgnoreComment, error
         assert_equal "steep:ignore:start\n1+2\n# steep:ignore:end", error.location.source
       end

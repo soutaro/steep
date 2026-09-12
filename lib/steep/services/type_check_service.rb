@@ -146,24 +146,6 @@ module Steep
         signature_diagnostics
       end
 
-      def diagnostics
-        each_diagnostics.to_h
-      end
-
-      def each_diagnostics(&block)
-        if block
-          signature_diagnostics.each do |path, diagnostics|
-            yield [path, diagnostics]
-          end
-
-          source_files.each_value do |file|
-            yield [file.path, file.diagnostics]
-          end
-        else
-          enum_for :each_diagnostics
-        end
-      end
-
       def update(changes:)
         Steep.measure "#update_signature" do
           update_signature(changes: changes)
@@ -271,13 +253,8 @@ module Steep
               text = source_files.fetch(path).content
               file = type_check_file(target: target, subtyping: subtyping, path: path, text: text) { signature_service.latest_constant_resolver }
 
-              # Keep the content and the diagnostics only: the Typing goes to the master through the worker, and is dropped with the file
-              source_files[path] =
-                if file.typing || file.errors
-                  SourceFile.with_diagnostics(path: path, content: file.content, diagnostics: file.diagnostics)
-                else
-                  SourceFile.no_data(path: path, content: file.content)
-                end
+              # Keep the content only: the diagnostics and the Typing go to the master through the worker, and are dropped with the file
+              source_files[path] = SourceFile.no_data(path: path, content: file.content)
 
               file
             else
