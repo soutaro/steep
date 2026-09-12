@@ -467,13 +467,13 @@ end
       assert_equal 1, jobs.size
       assert_equal "stats", jobs[0].message[:id]
 
-      # The stats of the Ruby files, with the paths relative to the project
+      # The stats of the Ruby files, sorted by path, with the paths relative to the project
       assert_equal(
         [
-          { type: "success", target: "lib", path: "lib/customer.rb", typed_calls: 3, untyped_calls: 1, error_calls: 0, total_calls: 4 },
-          { type: "error", target: "lib", path: "lib/broken.rb" }
+          { type: "error", target: "lib", path: "lib/broken.rb" },
+          { type: "success", target: "lib", path: "lib/customer.rb", typed_calls: 3, untyped_calls: 1, error_calls: 0, total_calls: 4 }
         ],
-        jobs[0].message[:result].sort_by { _1[:path] }.reverse
+        jobs[0].message[:result]
       )
     end
   end

@@ -1097,7 +1097,7 @@ module Steep
             end
         end
 
-        stats
+        stats.sort_by! { _1[:path] }
       end
 
       # Methods that command socket clients cannot send because they control the server lifecycle
