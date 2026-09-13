@@ -166,6 +166,12 @@ module Steep
       # Reference counts of names per path in `@signatures` -- `name id => (path => count)`
       @signature_paths: Hash[Integer, Hash[Pathname, Integer]]
 
+      # Entries of the library RBS files, which are not type checked: the packed entries of each path
+      @libraries: Hash[Pathname, Array[Integer]]
+
+      # Reference counts of names per path in `@libraries` -- `name id => (path => count)`
+      @library_paths: Hash[Integer, Hash[Pathname, Integer]]
+
       # Extracts the entries of a type checked Ruby file from its `Typing`
       #
       # The constant definitions/references and method definitions come from the `SourceIndex`,
@@ -203,6 +209,13 @@ module Steep
       # `diagnostics` or `entries` given `nil` keeps the ones of the last update, for the validation that is skipped.
       #
       def update_signature: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?) -> void
+
+      # Replaces the entries of a library RBS file
+      #
+      # Library files are not type checked: they have no diagnostics, no target, and are not `checked?` nor in `paths`.
+      # Their entries are found by `definitions` and `references` as `:rbs` locations, like the ones of signature files.
+      #
+      def update_library: (path: Pathname, entries: Array[Entry]) -> void
 
       # Deletes everything stored for the `path`
       def remove: (Pathname path) -> void

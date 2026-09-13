@@ -646,4 +646,84 @@ end
       end
     end
   end
+
+  def test_load_keeps_environment
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+          check "app", inline: true
+        end
+      end
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig").mkdir
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+      (current_dir + "app").mkdir
+      (current_dir + "app/app.rb").write("class App\nend\n")
+
+      controller = Server::TypeCheckController.new(project: project)
+      assert_nil controller.type_check_service
+
+      controller.load(command_line_args: []) {}
+
+      # The environment has the libraries only, until the buffered changes are applied
+      service = controller.type_check_service or raise
+      env = service.signature_services.fetch(:lib).latest_env
+      assert_operator env.class_decls, :key?, RBS::TypeName.parse("::String")
+      refute_operator env.class_decls, :key?, RBS::TypeName.parse("::Customer")
+
+      changes = controller.pop_signature_changes
+      assert_equal Set[Pathname("sig/customer.rbs"), Pathname("app/app.rb")], changes.keys.to_set
+      assert_empty controller.pop_signature_changes
+
+      service.update(changes: changes)
+      env = service.signature_services.fetch(:lib).latest_env
+      assert_operator env.class_decls, :key?, RBS::TypeName.parse("::Customer")
+      assert_operator env.class_decls, :key?, RBS::TypeName.parse("::App")
+    end
+  end
+
+  def test_signature_changes
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+          check "app", inline: true
+        end
+      end
+
+      (current_dir + "sig").mkdir
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+      (current_dir + "app").mkdir
+      (current_dir + "app/app.rb").write("class App\nend\n")
+
+      controller = Server::TypeCheckController.new(project: project)
+      controller.load(command_line_args: []) {}
+      controller.pop_signature_changes
+
+      # A dirty path without content leaves the buffer as is
+      controller.add_dirty_signature_path(current_dir + "sig/customer.rbs")
+      assert_empty controller.pop_signature_changes
+
+      # Incremental changes are accumulated, and a content replaces them
+      controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", [Services::ContentChange.string("class Customer\n  def name: () -> String\nend\n")])
+      controller.add_dirty_inline_path(current_dir + "app/app.rb", [Services::ContentChange.string("class App\n  def name = \"\"\nend\n")])
+      controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "class Customer\nend\n")
+
+      changes = controller.pop_signature_changes
+      assert_equal ["class Customer\nend\n"], changes.fetch(Pathname("sig/customer.rbs")).map(&:text)
+      assert_equal 1, changes.fetch(Pathname("app/app.rb")).size
+
+      # Library files are not buffered
+      library_path = controller.files.library_paths.fetch(:lib).first or raise
+      controller.add_dirty_signature_path(library_path, "")
+      assert_empty controller.pop_signature_changes
+    end
+  end
 end

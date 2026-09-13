@@ -156,11 +156,35 @@ module Steep
 
       attr_reader files: TargetGroupFiles
 
+      # The RBS environments of the targets, loaded by `#load`
+      #
+      # The master keeps the environments to answer queries about library RBS files, and to fork the workers from them later.
+      # The contents of the RBS files and inline RBS sources reach the environments through `#push_signature_change` and
+      # `#pop_signature_changes`, the same way the typecheck workers receive them.
+      #
+      attr_reader type_check_service: Services::TypeCheckService?
+
+      # Changes of the RBS files and inline RBS sources that are not applied to the environments yet, by relative path
+      attr_reader signature_changes: ChangeBuffer::changes
+
       def initialize: (project: Project) -> void
 
       # Load files from commandline_args
       #
+      # Loads the RBS environments of the targets into `#type_check_service`, and buffers the contents of the
+      # RBS files and inline RBS sources as signature changes.
+      #
       def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
+
+      # Buffers a change of an RBS file or an inline RBS source for the environments
+      #
+      # A `String` replaces the content of the file, and the array of changes is appended to the buffered changes.
+      # Library files are ignored.
+      #
+      def push_signature_change: (Pathname path, String | Array[Services::ContentChange] update) -> void
+
+      # Returns the buffered signature changes and empties the buffer
+      def pop_signature_changes: () -> ChangeBuffer::changes
 
       def code_path?: (Pathname path) -> bool
 
@@ -170,8 +194,10 @@ module Steep
 
       def add_dirty_code_path: (Pathname path) -> void
 
-      def add_dirty_signature_path: (Pathname path) -> void
+      # Marks an RBS file dirty, and buffers its change for the environments when `update` is given
+      def add_dirty_signature_path: (Pathname path, ?(String | Array[Services::ContentChange])? update) -> void
 
+      # Marks an inline RBS source dirty, and buffers its change for the environments
       def add_dirty_inline_path: (Pathname path, String | Array[Services::ContentChange] update) -> void
 
       def open_inline_path: (Pathname path, String content) -> void
