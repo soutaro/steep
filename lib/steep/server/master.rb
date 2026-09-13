@@ -491,7 +491,7 @@ module Steep
 
               case
               when controller.code_path?(path)
-                controller.add_dirty_code_path(path)
+                controller.add_dirty_code_path(path, content)
               when controller.signature_path?(path)
                 controller.add_dirty_signature_path(path, content)
               when controller.inline_path?(path)
@@ -530,17 +530,17 @@ module Steep
 
             Steep.logger.debug { path.to_s }
 
+            changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
+
             case
             when controller.code_path?(path)
               Steep.logger.debug { "code_path?" }
-              controller.add_dirty_code_path(path)
+              controller.add_dirty_code_path(path, changes)
             when controller.signature_path?(path)
               Steep.logger.debug { "signature_path?" }
-              changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
               controller.add_dirty_signature_path(path, changes)
             when controller.inline_path?(path)
               Steep.logger.debug { "inline_path?" }
-              changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
               controller.add_dirty_inline_path(path, changes)
             end
 
@@ -1096,7 +1096,7 @@ module Steep
       end
 
       def update_environment
-        changes = controller.pop_signature_changes
+        changes = controller.pop_file_changes
         return if changes.empty?
         service = controller.type_check_service or return
 
@@ -1372,7 +1372,7 @@ module Steep
 
           case
           when controller.code_path?(path)
-            controller.add_dirty_code_path(path)
+            controller.add_dirty_code_path(path, content)
           when controller.signature_path?(path)
             controller.add_dirty_signature_path(path, content)
           when controller.inline_path?(path)

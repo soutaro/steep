@@ -696,7 +696,10 @@ end
           params: {
             textDocument: {
               uri: "#{file_scheme}#{current_dir + "lib/customer.rb"}"
-            }
+            },
+            contentChanges: [
+              { text: "class Customer\nend\n" }
+            ]
           }
         }
       )
@@ -710,6 +713,9 @@ end
       end
 
       assert_operator master.controller.dirty_code_paths, :include?, current_dir + "lib/customer.rb"
+
+      # The change is buffered for the master's service too
+      assert_equal "class Customer\nend\n", master.controller.file_contents.fetch(Pathname("lib/customer.rb")).text
     end
   end
 

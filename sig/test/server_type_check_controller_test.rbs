@@ -43,5 +43,5 @@ class ServerTypeCheckControllerTest < Minitest::Test
 
   def test_load_keeps_environment: () -> untyped
 
-  def test_signature_changes: () -> untyped
+  def test_file_changes: () -> untyped
 end

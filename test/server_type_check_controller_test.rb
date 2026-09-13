@@ -676,18 +676,22 @@ end
       assert_operator env.class_decls, :key?, RBS::TypeName.parse("::String")
       refute_operator env.class_decls, :key?, RBS::TypeName.parse("::Customer")
 
-      changes = controller.pop_signature_changes
-      assert_equal Set[Pathname("sig/customer.rbs"), Pathname("app/app.rb")], changes.keys.to_set
-      assert_empty controller.pop_signature_changes
+      assert_equal "class Customer\nend\n", controller.file_contents.fetch(Pathname("lib/customer.rb")).text
+      assert_equal 1, controller.file_contents.fetch(Pathname("lib/customer.rb")).version
+
+      changes = controller.pop_file_changes
+      assert_equal Set[Pathname("lib/customer.rb"), Pathname("sig/customer.rbs"), Pathname("app/app.rb")], changes.keys.to_set
+      assert_empty controller.pop_file_changes
 
       service.update(changes: changes)
       env = service.signature_services.fetch(:lib).latest_env
       assert_operator env.class_decls, :key?, RBS::TypeName.parse("::Customer")
       assert_operator env.class_decls, :key?, RBS::TypeName.parse("::App")
+      assert_equal "class Customer\nend\n", service.source_files.fetch(Pathname("lib/customer.rb")).content
     end
   end
 
-  def test_signature_changes
+  def test_file_changes
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.eval(project) do
@@ -698,6 +702,8 @@ end
         end
       end
 
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
       (current_dir + "sig").mkdir
       (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
       (current_dir + "app").mkdir
@@ -705,25 +711,39 @@ end
 
       controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
-      controller.pop_signature_changes
+      controller.pop_file_changes
 
-      # A dirty path without content leaves the buffer as is
+      # A dirty path without content leaves the contents as they are
+      controller.add_dirty_code_path(current_dir + "lib/customer.rb")
       controller.add_dirty_signature_path(current_dir + "sig/customer.rbs")
-      assert_empty controller.pop_signature_changes
+      assert_empty controller.pop_file_changes
 
-      # Incremental changes are accumulated, and a content replaces them
+      # Incremental changes are applied to the content, and a String replaces it
+      range = [Services::ContentChange::Position.new(line: 1, column: 0), Services::ContentChange::Position.new(line: 1, column: 5)]
+      controller.add_dirty_code_path(current_dir + "lib/customer.rb", [Services::ContentChange.new(range: range, text: "module")])
       controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", [Services::ContentChange.string("class Customer\n  def name: () -> String\nend\n")])
       controller.add_dirty_inline_path(current_dir + "app/app.rb", [Services::ContentChange.string("class App\n  def name = \"\"\nend\n")])
       controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "class Customer\nend\n")
 
-      changes = controller.pop_signature_changes
-      assert_equal ["class Customer\nend\n"], changes.fetch(Pathname("sig/customer.rbs")).map(&:text)
-      assert_equal 1, changes.fetch(Pathname("app/app.rb")).size
+      assert_equal "module Customer\nend\n", controller.file_contents.fetch(Pathname("lib/customer.rb")).text
+      assert_equal 2, controller.file_contents.fetch(Pathname("lib/customer.rb")).version
+      assert_equal 3, controller.file_contents.fetch(Pathname("sig/customer.rbs")).version
 
-      # Library files are not buffered
+      changes = controller.pop_file_changes
+      assert_equal ["module Customer\nend\n"], changes.fetch(Pathname("lib/customer.rb")).map(&:text)
+      assert_equal ["class Customer\nend\n"], changes.fetch(Pathname("sig/customer.rbs")).map(&:text)
+      assert_equal ["class App\n  def name = \"\"\nend\n"], changes.fetch(Pathname("app/app.rb")).map(&:text)
+      assert_empty controller.pop_file_changes
+
+      # The same content again changes nothing
+      controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "class Customer\nend\n")
+      assert_equal 3, controller.file_contents.fetch(Pathname("sig/customer.rbs")).version
+      assert_empty controller.pop_file_changes
+
+      # Library files are not recorded
       library_path = controller.files.library_paths.fetch(:lib).first or raise
       controller.add_dirty_signature_path(library_path, "")
-      assert_empty controller.pop_signature_changes
+      assert_empty controller.pop_file_changes
     end
   end
 end

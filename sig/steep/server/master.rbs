@@ -203,9 +203,10 @@ module Steep
       #
       def start: () -> void
 
-      # Hands the buffered signature changes to the environment thread
+      # Hands the buffered file changes to the environment thread
       #
-      # Called when a type check starts, so that the environments follow the files the same way the typecheck workers do.
+      # Called when a type check starts, so that the environments and the file contents in `controller.type_check_service`
+      # follow the files the same way the typecheck workers do.
       #
       def update_environment: () -> void
 

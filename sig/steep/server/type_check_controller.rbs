@@ -156,35 +156,53 @@ module Steep
 
       attr_reader files: TargetGroupFiles
 
-      # The RBS environments of the targets, loaded by `#load`
+      # The RBS environments of the targets and the contents of the project files, loaded by `#load`
       #
       # The master keeps the environments to answer queries about library RBS files, and to fork the workers from them later.
-      # The contents of the RBS files and inline RBS sources reach the environments through `#push_signature_change` and
-      # `#pop_signature_changes`, the same way the typecheck workers receive them.
+      # The contents of the files reach the service through `#push_file_change` and `#pop_file_changes`: the RBS files
+      # and inline RBS sources go to the environments, and the Ruby sources are kept as they are.
       #
       attr_reader type_check_service: Services::TypeCheckService?
 
-      # Changes of the RBS files and inline RBS sources that are not applied to the environments yet, by relative path
-      attr_reader signature_changes: ChangeBuffer::changes
+      # The latest content of a project file, with a version that grows on each change
+      class FileContent
+        attr_reader text: String
+
+        attr_reader version: Integer
+
+        def initialize: (text: String, version: Integer) -> void
+
+        # Returns the content with the new text and the next version
+        def update: (String text) -> FileContent
+      end
+
+      # The latest contents of the project files, by relative path
+      #
+      # The master is the source of truth of the file contents: the workers receive them from here.
+      #
+      attr_reader file_contents: Hash[Pathname, FileContent]
+
+      # Relative paths of the files changed since the last `#pop_file_changes`
+      attr_reader changed_paths: Set[Pathname]
 
       def initialize: (project: Project) -> void
 
       # Load files from commandline_args
       #
-      # Loads the RBS environments of the targets into `#type_check_service`, and buffers the contents of the
-      # RBS files and inline RBS sources as signature changes.
+      # Loads the RBS environments of the targets into `#type_check_service`, and records the contents of the
+      # project files in `#file_contents`.
       #
       def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
 
-      # Buffers a change of an RBS file or an inline RBS source for the environments
+      # Records a change of a project file
       #
-      # A `String` replaces the content of the file, and the array of changes is appended to the buffered changes.
-      # Library files are ignored.
+      # A `String` replaces the content of the file, and the array of changes is applied to the current content.
+      # The version of the file grows unless the content stays the same. Library files are ignored.
       #
-      def push_signature_change: (Pathname path, String | Array[Services::ContentChange] update) -> void
+      def push_file_change: (Pathname path, String | Array[Services::ContentChange] update) -> void
 
-      # Returns the buffered signature changes and empties the buffer
-      def pop_signature_changes: () -> ChangeBuffer::changes
+      # Returns the contents of the files changed since the last call, as changes for `#type_check_service`
+      def pop_file_changes: () -> ChangeBuffer::changes
 
       def code_path?: (Pathname path) -> bool
 
@@ -192,12 +210,13 @@ module Steep
 
       def inline_path?: (Pathname path) -> bool
 
-      def add_dirty_code_path: (Pathname path) -> void
+      # Marks a Ruby file dirty, and buffers its change for `#type_check_service` when `update` is given
+      def add_dirty_code_path: (Pathname path, ?(String | Array[Services::ContentChange])? update) -> void
 
-      # Marks an RBS file dirty, and buffers its change for the environments when `update` is given
+      # Marks an RBS file dirty, and buffers its change for `#type_check_service` when `update` is given
       def add_dirty_signature_path: (Pathname path, ?(String | Array[Services::ContentChange])? update) -> void
 
-      # Marks an inline RBS source dirty, and buffers its change for the environments
+      # Marks an inline RBS source dirty, and buffers its change for `#type_check_service`
       def add_dirty_inline_path: (Pathname path, String | Array[Services::ContentChange] update) -> void
 
       def open_inline_path: (Pathname path, String content) -> void
