@@ -445,6 +445,8 @@ module Steep
                 end
               end
 
+              environment_queue << -> { load_library_entries() }
+
               if typecheck_automatically
                 progress.end()
               end
@@ -1102,6 +1104,38 @@ module Steep
           Steep.measure("Updating the environments with #{changes.size} files") do
             service.update(changes: changes)
           end
+        end
+      end
+
+      def load_library_entries
+        service = controller.type_check_service or return
+
+        entries_by_path = {} #: Hash[Pathname, Array[TypeCheckDatabase::Entry]]
+
+        project.targets.each do |target|
+          signature_service = service.signature_services.fetch(target.name)
+          library_paths = signature_service.env_rbs_paths
+
+          Steep.measure("Collecting the entries of the library RBS files of target=#{target.name}") do
+            TypeCheckDatabase.rbs_entries_by_path(signature_service.latest_env).each do |path, entries|
+              next unless library_paths.include?(path)
+
+              if merged = entries_by_path[path]
+                merged.concat(entries)
+              else
+                entries_by_path[path] = entries
+              end
+            end
+          end
+        end
+
+        entries_by_path.each_value(&:uniq!)
+
+        job_queue << -> do
+          entries_by_path.each do |path, entries|
+            type_check_database.update_library(path: path, entries: entries)
+          end
+          Steep.logger.info { "Stored the entries of #{entries_by_path.size} library RBS files" }
         end
       end
 

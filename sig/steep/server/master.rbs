@@ -209,6 +209,13 @@ module Steep
       #
       def update_environment: () -> void
 
+      # Collects the entries of the library RBS files of every target and stores them in the database through `job_queue`
+      #
+      # Runs in the environment thread. The type names in a file resolve in the environment of each target, so a file
+      # shared by targets is collected in every environment that has it, and the entries are merged.
+      #
+      def load_library_entries: () -> void
+
       # Stops the language server workers by sending SIGTERM
       #
       # This skips the normal shutdown process defined in LSP.
