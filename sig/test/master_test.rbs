@@ -51,6 +51,8 @@ class MasterTest < Minitest::Test
 
   def test_client_message_document_did_open_close: () -> untyped
 
+  def test_type_check_request__dispatch_across_workers: () -> untyped
+
   def test_type_check_request__start: () -> untyped
 
   def test_code_type_check: () -> untyped
