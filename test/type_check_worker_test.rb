@@ -125,7 +125,7 @@ class TypeCheckWorkerTest < Minitest::Test
     end
   end
 
-  def test_handle_request_document_did_change
+  def test_handle_request_file_load
     in_tmpdir do
       with_master_read_queue do
         project = Project.new(steepfile_path: current_dir + "Steepfile")
@@ -146,21 +146,10 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker.handle_request(
           {
-            method: "textDocument/didChange",
-            params: LSP::DidChangeTextDocumentParams.new(
-              text_document: LSP::VersionedTextDocumentIdentifier.new(
-                version: 1,
-                uri: "#{file_scheme}#{current_dir}/lib/hello.rb"
-              ).to_hash,
-              content_changes: [
-                LSP::TextDocumentContentChangeEvent.new(
-                  text: <<~RUBY
-                    class Foo
-                    end
-                  RUBY
-                ).to_hash
-              ]
-            ).to_hash
+            method: FileLoad::METHOD,
+            params: {
+              content: { "lib/hello.rb" => "class Foo\nend\n" }
+            }
           }
         )
 

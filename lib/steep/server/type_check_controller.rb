@@ -237,18 +237,11 @@ module Steep
           files.add_library_path(target, *signature_service.env_rbs_paths.to_a)
         end
 
-        files = {} #: Hash[String, String]
-
         project.targets.each do |target|
           loader.each_path_in_target(target, command_line_args) do |path|
             absolute_path = project.absolute_path(path)
-            self.files.add_path(absolute_path)
+            files.add_path(absolute_path)
             content = absolute_path.read
-            files[path.to_s] = content
-            if files.size > 1000
-              yield files.dup
-              files.clear
-            end
 
             if inline_path?(path)
               inline_path_changes.add_source(path, content)
@@ -257,8 +250,6 @@ module Steep
             push_file_change(absolute_path, content)
           end
         end
-
-        yield files.dup unless files.empty?
       end
 
       def push_file_change(path, update)
@@ -348,6 +339,7 @@ module Steep
 
         if inline_path?(path)
           open_path(path)
+          push_file_change(path, content)
 
           if inline_path_changes.has_source?(path)
             inline_path_changes.replace_source(path, content)

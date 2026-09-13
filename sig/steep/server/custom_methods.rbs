@@ -4,7 +4,10 @@ module Steep
   module Server
     # Defines custom LSP methods
     module CustomMethods
-      # Notification with params of files and the contents, sent from master to workers
+      # Notification with the latest contents of files, sent from master to a worker
+      #
+      # The master sends a worker the files it needs right before a type check or an interaction request.
+      # See `Master#deliver_contents`.
       #
       module FileLoad
         METHOD: String
@@ -12,16 +15,6 @@ module Steep
         type params = {
           content: Hash[String, ChangeBuffer::content]
         }
-
-        def self.notification: (params) -> untyped
-      end
-
-      # Notification with params of a file name and its contents, sent from master to workers
-      #
-      module FileReset
-        METHOD: String
-
-        type params = { uri: String, content: String }
 
         def self.notification: (params) -> untyped
       end

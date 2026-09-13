@@ -704,17 +704,11 @@ end
         }
       )
 
+      # The change is not broadcast to the workers: they receive the contents with the requests
       jobs = flush_queue(master.write_queue)
-
-      assert_any!(jobs, size: 1) do |job|
-        assert_instance_of Master::SendMessageJob, job
-        assert_equal worker, job.dest
-        assert_equal "textDocument/didChange", job.message[:method]
-      end
+      assert_empty jobs
 
       assert_operator master.controller.dirty_code_paths, :include?, current_dir + "lib/customer.rb"
-
-      # The change is buffered for the master's service too
       assert_equal "class Customer\nend\n", master.controller.file_contents.fetch(Pathname("lib/customer.rb")).text
     end
   end
@@ -1549,6 +1543,90 @@ end
         assert_equal "rbs", location[:source]
         assert_operator location[:uri], :end_with?, "/core/string.rbs"
       end
+    end
+  end
+
+  def test_start_type_check_delivers_file_contents
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "lib/account.rb").write("class Account\nend\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker]
+      )
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      jobs = flush_queue(master.write_queue)
+      request = jobs.find { _1.dest == worker && _1.message[:method] == "initialize" } or raise
+      master.result_controller.process_response({ id: request.message[:id], result: nil })
+      flush_queue(master.write_queue)
+
+      # The worker receives the RBS files and the Ruby files it checks, right before the type check starts
+      master.process_message_from_client({
+        id: "check-1",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal [FileLoad::METHOD, TypeCheck__Start::METHOD], jobs.map { _1.message[:method] }
+      assert_equal(
+        { "sig/customer.rbs" => "class Customer\nend\n", "lib/customer.rb" => "class Customer\nend\n" },
+        jobs[0].message[:params][:content]
+      )
+
+      # A file the worker already has is not sent again, and a changed file is sent with the new content
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir + "lib/customer.rb"}" },
+            contentChanges: [{ text: "class Customer\n  def name = \"\"\nend\n" }]
+          }
+        }
+      )
+      master.process_message_from_client({
+        id: "check-2",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s], ["lib", (current_dir + "lib/account.rb").to_s]],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal [FileLoad::METHOD, TypeCheck__Start::METHOD], jobs.map { _1.message[:method] }
+      assert_equal(
+        { "lib/customer.rb" => "class Customer\n  def name = \"\"\nend\n", "lib/account.rb" => "class Account\nend\n" },
+        jobs[0].message[:params][:content]
+      )
     end
   end
 end

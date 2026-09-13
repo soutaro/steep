@@ -131,20 +131,13 @@ module Steep
         stdin_input.each do |path, content|
           uri = PathHelper.to_uri(project.absolute_path(path))
 
-          master.broadcast_notification(
+          # The master records the content, and sends it to the worker that type checks the file
+          client_writer.write(
             {
               method: "textDocument/didChange",
               params: {
-              textDocument: { uri: uri, version: 0 },
-              contentChanges: [{ text: content }]
-              }
-            }
-          )
-          master.broadcast_notification(
-            {
-              method: "textDocument/didSave",
-              params: {
-                textDocument: { uri: uri }
+                textDocument: { uri: uri, version: 0 },
+                contentChanges: [{ text: content }]
               }
             }
           )

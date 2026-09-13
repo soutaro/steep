@@ -35,18 +35,9 @@ module Steep
         when "initialize"
           writer.write({ id: request[:id], result: nil})
 
-        when "textDocument/didChange"
-          collect_changes(request)
-
         when CustomMethods::FileLoad::METHOD
           input = request[:params][:content]
           load_files(input)
-
-        when CustomMethods::FileReset::METHOD
-          params = request[:params] #: CustomMethods::FileReset::params
-          uri = params[:uri]
-          text = params[:content]
-          reset_change(uri: uri, text: text)
 
         when "workspace/symbol"
           query = request[:params][:query]

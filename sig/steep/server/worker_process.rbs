@@ -35,6 +35,12 @@ module Steep
 
       attr_reader index: Integer?
 
+      # The versions of the file contents the worker has received, by relative path
+      #
+      # See `Master#deliver_contents`.
+      #
+      attr_reader known_versions: Hash[Pathname, Integer]
+
       def initialize: (
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,

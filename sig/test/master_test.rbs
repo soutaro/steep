@@ -70,4 +70,6 @@ class MasterTest < Minitest::Test
   def test__initialize__file_system_watcher_setup: () -> untyped
 
   def test_library_entries_loaded_on_initialize: () -> untyped
+
+  def test_start_type_check_delivers_file_contents: () -> untyped
 end

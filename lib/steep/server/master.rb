@@ -431,18 +431,7 @@ module Steep
               end
 
               Steep.measure("Load files from disk...") do
-                controller.load(command_line_args: commandline_args) do |input|
-                  input.transform_values! do |content|
-                    content.is_a?(String) or raise
-                    if content.valid_encoding?
-                      content
-                    else
-                      base64_encoded = [content].pack("m")
-                      { text: base64_encoded, binary: true }
-                    end
-                  end
-                  broadcast_notification(CustomMethods::FileLoad.notification({ content: input }))
-                end
+                controller.load(command_line_args: commandline_args)
               end
 
               environment_queue << -> { load_library_entries() }
@@ -497,8 +486,6 @@ module Steep
               when controller.inline_path?(path)
                 controller.add_dirty_inline_path(path, content)
               end
-
-              broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: content }))
             end
           end
 
@@ -526,8 +513,6 @@ module Steep
 
         when "textDocument/didChange"
           if path = pathname(message[:params][:textDocument][:uri])
-            broadcast_notification(message)
-
             Steep.logger.debug { path.to_s }
 
             changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
@@ -574,9 +559,8 @@ module Steep
                 controller.open_inline_path(path, text)
               else
                 controller.open_path(path)
+                controller.push_file_change(path, text) if text
               end
-
-              # broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
 
               start_type_checking_queue.execute do
                 guid = SecureRandom.uuid
@@ -593,6 +577,8 @@ module Steep
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
           if interaction_worker
             if path = pathname(message[:params][:textDocument][:uri])
+              deliver_contents_for_request(interaction_worker, path)
+
               result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
                 handler.on_completion do |response|
                   enqueue_write_job SendMessageJob.to_client(
@@ -614,8 +600,11 @@ module Steep
           end
 
         when "workspace/symbol"
+          update_environment()
+
           result_controller << group_request do |group|
             typecheck_workers.each do |worker|
+              deliver_contents(worker, signature_paths_to_deliver)
               group << send_request(method: "workspace/symbol", params: message[:params], worker: worker)
             end
 
@@ -654,6 +643,8 @@ module Steep
               uri: message[:params][:textDocument][:uri],
               position: message[:params][:position]
             } #: CustomMethods::Source__Symbol::params
+
+            deliver_contents_for_request(interaction_worker, path)
 
             result_controller << send_request(method: CustomMethods::Source__Symbol::METHOD, params: params, worker: interaction_worker) do |handler|
               handler.on_completion do |response|
@@ -907,6 +898,9 @@ module Steep
               index: worker.index || raise
             )
 
+            code_paths = request.code_paths.filter_map {|target_path| target_path[1] if assignment =~ target_path }
+            deliver_contents(worker, signature_paths_to_deliver + code_paths)
+
             enqueue_write_job SendMessageJob.to_worker(
               worker,
               message: CustomMethods::TypeCheck__Start.notification(request.as_json(assignment: assignment))
@@ -1105,6 +1099,38 @@ module Steep
             service.update(changes: changes)
           end
         end
+      end
+
+      def deliver_contents(worker, paths)
+        content = {} #: Hash[String, ChangeBuffer::content]
+
+        paths.each do |path|
+          relative_path = project.relative_path(path)
+          file = controller.file_contents.fetch(relative_path, nil) or next
+          next if worker.known_versions[relative_path] == file.version
+
+          worker.known_versions[relative_path] = file.version
+          content[relative_path.to_s] =
+            if file.text.valid_encoding?
+              file.text
+            else
+              { text: [file.text].pack("m"), binary: true }
+            end
+        end
+
+        unless content.empty?
+          Steep.logger.info { "Sending the contents of #{content.size} files to #{worker.name}" }
+          enqueue_write_job SendMessageJob.to_worker(worker, message: CustomMethods::FileLoad.notification({ content: content }))
+        end
+      end
+
+      def deliver_contents_for_request(worker, path)
+        update_environment()
+        deliver_contents(worker, signature_paths_to_deliver + [path])
+      end
+
+      def signature_paths_to_deliver
+        controller.files.signature_paths.paths.to_a + controller.files.inline_paths.paths.to_a
       end
 
       def load_library_entries
@@ -1378,8 +1404,6 @@ module Steep
           when controller.inline_path?(path)
             controller.add_dirty_inline_path(path, content)
           end
-
-          broadcast_notification(CustomMethods::FileReset.notification({ uri: PathHelper.to_uri(path).to_s, content: content }))
         end
 
         if typecheck_automatically

@@ -203,6 +203,21 @@ module Steep
       #
       def start: () -> void
 
+      # Sends the worker the latest contents of the files it doesn't have yet, as a `$/steep/file/load` notification
+      #
+      # The master is the source of truth of the file contents, and the workers receive them right before they need
+      # them: the RBS files and the assigned Ruby files before a type check, and the RBS files and the file of the
+      # request before an interaction request. `worker.known_versions` records what the worker has, so unchanged
+      # files are not sent again.
+      #
+      def deliver_contents: (WorkerProcess worker, Array[Pathname] paths) -> void
+
+      # Applies the pending changes to the environments, and sends the worker the RBS files and the file of a request
+      def deliver_contents_for_request: (WorkerProcess worker, Pathname path) -> void
+
+      # The RBS files and inline RBS sources of the project, which every worker needs for its environments
+      def signature_paths_to_deliver: () -> Array[Pathname]
+
       # Hands the buffered file changes to the environment thread
       #
       # Called when a type check starts, so that the environments and the file contents in `controller.type_check_service`

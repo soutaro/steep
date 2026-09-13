@@ -28,9 +28,7 @@ class InteractionWorkerTest < Minitest::Test
 
   def test_handle_request_initialize: () -> untyped
 
-  def test_handle_request_change: () -> untyped
-
-  def test_handle_request__file_reset: () -> untyped
+  def test_handle_request_file_load: () -> untyped
 
   def test_handle_request_hover: () -> untyped
 

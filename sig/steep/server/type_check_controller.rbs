@@ -192,7 +192,7 @@ module Steep
       # Loads the RBS environments of the targets into `#type_check_service`, and records the contents of the
       # project files in `#file_contents`.
       #
-      def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
+      def load: (command_line_args: Array[String]) -> void
 
       # Records a change of a project file
       #

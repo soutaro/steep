@@ -9,14 +9,6 @@ module Steep
         end
       end
 
-      module FileReset
-        METHOD = "$/steep/file/reset"
-
-        def self.notification(params)
-          { method: METHOD, params: params }
-        end
-      end
-
       module TypeCheck
         METHOD = "$/steep/typecheck"
 

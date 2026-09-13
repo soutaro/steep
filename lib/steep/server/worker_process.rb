@@ -8,6 +8,7 @@ module Steep
       attr_reader :name
       attr_reader :wait_thread
       attr_reader :index
+      attr_reader :known_versions
 
       def initialize(reader:, writer:, stderr:, wait_thread:, name:, index: nil)
         @reader = reader
@@ -16,6 +17,7 @@ module Steep
         @wait_thread = wait_thread
         @name = name
         @index = index
+        @known_versions = {}
       end
 
       def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, delay_shutdown: false, patterns: [])

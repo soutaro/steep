@@ -32,7 +32,7 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_handle_request_initialize: () -> untyped
 
-  def test_handle_request_document_did_change: () -> untyped
+  def test_handle_request_file_load: () -> untyped
 
   def test_handle_request_typecheck_start: () -> untyped
 
