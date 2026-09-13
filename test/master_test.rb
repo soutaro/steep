@@ -803,6 +803,57 @@ end
   end
 
 
+  def test_type_check_request__dispatch_across_workers
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      end
+
+      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-1", index: 0)
+      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-2", index: 1)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: nil,
+        typecheck_workers: [worker1, worker2]
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      master.process_message_from_client({
+        id: "guid",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [],
+          code_paths: [
+            ["lib", (current_dir + "lib/a.rb").to_s],
+            ["lib", (current_dir + "lib/b.rb").to_s],
+            ["lib", (current_dir + "lib/c.rb").to_s]
+          ],
+          inline_paths: []
+        }
+      })
+
+      # Each worker takes one file per round, so the files are spread across the workers from the start
+      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal(
+        [
+          ["test-1", Steep::PathHelper.to_uri(current_dir + "lib/a.rb").to_s],
+          ["test-2", Steep::PathHelper.to_uri(current_dir + "lib/b.rb").to_s],
+          ["test-1", Steep::PathHelper.to_uri(current_dir + "lib/c.rb").to_s]
+        ],
+        jobs.map { [_1.dest.name, _1.message[:params][:uri]] }
+      )
+    end
+  end
+
   def test_type_check_request__start
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

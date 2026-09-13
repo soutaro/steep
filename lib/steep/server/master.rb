@@ -897,9 +897,12 @@ module Steep
       def dispatch_typecheck_jobs
         request = current_type_check_request or return
 
-        typecheck_workers.each do |worker|
-          while typecheck_jobs_in_flight.fetch(worker, 0) < TYPECHECK_JOBS_PER_WORKER
-            job = pending_typecheck_jobs.shift or return
+        until pending_typecheck_jobs.empty?
+          workers = typecheck_workers.select {|worker| typecheck_jobs_in_flight.fetch(worker, 0) < TYPECHECK_JOBS_PER_WORKER }
+          break if workers.empty?
+
+          workers.each do |worker|
+            job = pending_typecheck_jobs.shift or break
             send_typecheck_job(worker, request, job)
           end
         end

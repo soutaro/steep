@@ -217,6 +217,10 @@ module Steep
       def start: () -> void
 
       # Hands the pending jobs of the current type check to the workers that have room for more
+      #
+      # Each worker with room takes one job per round, so that the files are spread across the workers from the
+      # start, and a worker checks each file of a small project alone.
+      #
       def dispatch_typecheck_jobs: () -> void
 
       # Sends a `$/steep/typecheck/file` request of the job to the worker, with the content of the Ruby file when the
