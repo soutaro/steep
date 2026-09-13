@@ -194,12 +194,14 @@ module Steep
       attr_reader :files
       attr_reader :inline_path_changes
       attr_reader :type_check_service
+      attr_reader :signature_changes
 
       def initialize(project:)
         @project = project
 
         @files = TargetGroupFiles.new(project)
         @type_check_service = nil
+        @signature_changes = {}
         @open_paths = Set[]
         @active_groups = Set[].compare_by_identity
         @new_active_groups = Set[].compare_by_identity
@@ -235,10 +237,34 @@ module Steep
             if inline_path?(path)
               inline_path_changes.add_source(path, content)
             end
+
+            if signature_path?(path) || inline_path?(path)
+              push_signature_change(absolute_path, content)
+            end
           end
         end
 
         yield files.dup unless files.empty?
+      end
+
+      def push_signature_change(path, update)
+        return if files.library_path?(path)
+
+        path = project.relative_path(path)
+        changes = (signature_changes[path] ||= [])
+
+        case update
+        when String
+          changes.replace([Services::ContentChange.string(update)])
+        else
+          changes.concat(update)
+        end
+      end
+
+      def pop_signature_changes
+        changes = signature_changes
+        @signature_changes = {}
+        changes
       end
 
       def code_path?(path)
@@ -266,11 +292,12 @@ module Steep
         end
       end
 
-      def add_dirty_signature_path(path)
+      def add_dirty_signature_path(path, update = nil)
         return if files.library_path?(path)
         if signature_path?(path)
           files.add_path(path)
           dirty_signature_paths << path
+          push_signature_change(path, update) if update
         end
       end
 
@@ -279,6 +306,7 @@ module Steep
         if inline_path?(path)
           files.add_path(path)
           dirty_inline_paths << path
+          push_signature_change(path, update)
 
           unless inline_path_changes.has_source?(path)
             inline_path_changes.add_source(path, "")
