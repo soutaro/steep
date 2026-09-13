@@ -646,4 +646,35 @@ end
       end
     end
   end
+
+  def test_load_keeps_environment
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+          check "app", inline: true
+        end
+      end
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig").mkdir
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+      (current_dir + "app").mkdir
+      (current_dir + "app/app.rb").write("class App\nend\n")
+
+      controller = Server::TypeCheckController.new(project: project)
+      assert_nil controller.type_check_service
+
+      controller.load(command_line_args: []) {}
+
+      # The environment has the library RBS files, and the project RBS files are not loaded into it yet
+      service = controller.type_check_service or raise
+      env = service.signature_services.fetch(:lib).latest_env
+      assert_operator env.class_decls, :key?, RBS::TypeName.parse("::String")
+      refute_operator env.class_decls, :key?, RBS::TypeName.parse("::Customer")
+    end
+  end
 end

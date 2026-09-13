@@ -193,11 +193,13 @@ module Steep
       attr_reader :dirty_code_paths, :dirty_signature_paths, :dirty_inline_paths
       attr_reader :files
       attr_reader :inline_path_changes
+      attr_reader :type_check_service
 
       def initialize(project:)
         @project = project
 
         @files = TargetGroupFiles.new(project)
+        @type_check_service = nil
         @open_paths = Set[]
         @active_groups = Set[].compare_by_identity
         @new_active_groups = Set[].compare_by_identity
@@ -210,8 +212,10 @@ module Steep
       def load(command_line_args:)
         loader = Services::FileLoader.new(base_dir: project.base_dir)
 
+        service = @type_check_service = Services::TypeCheckService.new(project: project)
+
         project.targets.each do |target|
-          signature_service = Services::SignatureService.load_from(target.new_env_loader(), implicitly_returns_nil: target.implicitly_returns_nil)
+          signature_service = service.signature_services.fetch(target.name)
           files.add_library_path(target, *signature_service.env_rbs_paths.to_a)
         end
 

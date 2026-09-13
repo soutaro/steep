@@ -40,4 +40,6 @@ class ServerTypeCheckControllerTest < Minitest::Test
   def test_make_request__active_targets: () -> untyped
 
   def test_make_group_request: () -> untyped
+
+  def test_load_keeps_environment: () -> untyped
 end

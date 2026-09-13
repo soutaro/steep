@@ -156,9 +156,17 @@ module Steep
 
       attr_reader files: TargetGroupFiles
 
+      # The RBS environments of the targets, loaded by `#load`
+      #
+      # The master keeps the environments to answer queries about library RBS files, and to fork the workers from them later.
+      #
+      attr_reader type_check_service: Services::TypeCheckService?
+
       def initialize: (project: Project) -> void
 
       # Load files from commandline_args
+      #
+      # Loads the RBS environments of the targets into `#type_check_service`.
       #
       def load: (command_line_args: Array[String]) { (Hash[String, ChangeBuffer::content]) -> void } -> void
 
