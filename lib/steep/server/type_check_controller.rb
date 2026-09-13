@@ -37,23 +37,22 @@ module Steep
           Steep::PathHelper.to_uri(path)
         end
 
-        def as_json(assignment:)
-          {
-            guid: guid,
-            library_uris: assigned_uris(assignment, library_paths),
-            signature_uris: assigned_uris(assignment, signature_paths),
-            code_uris: assigned_uris(assignment, code_paths),
-            inline_uris: assigned_uris(assignment, inline_paths),
-            priority_uris: priority_paths.map {|path| uri(path).to_s }
-          }
-        end
+        def jobs
+          kinds = [[:code, code_paths], [:signature, signature_paths], [:library, library_paths], [:inline, inline_paths]] #: Array[[job_kind, Set[target_and_path]]]
+          jobs = [] #: Array[job]
 
-        def assigned_uris(assignment, paths)
-          paths.filter_map do |target_path|
-            if assignment =~ target_path
-              [target_path[0].to_s, uri(target_path[1]).to_s]
+          [true, false].each do |priority|
+            kinds.each do |kind, paths|
+              paths.each do |target_path|
+                next if checked_paths.include?(target_path)
+                next unless priority_paths.include?(target_path[1]) == priority
+
+                jobs << [kind, target_path[0], target_path[1]]
+              end
             end
           end
+
+          jobs
         end
 
         def total

@@ -34,9 +34,7 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_handle_request_file_load: () -> untyped
 
-  def test_handle_request_typecheck_start: () -> untyped
-
-  def test_handle_job_start_typecheck: () -> untyped
+  def test_handle_request_typecheck_file: () -> untyped
 
   def test_handle_job_validate_app_signature: () -> untyped
 
@@ -44,19 +42,13 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_handle_job_validate_app_signature_entries_on_syntax_error: () -> untyped
 
-  def test_handle_job_validate_app_signature_skip: () -> untyped
-
   def test_handle_job_validate_lib_signature: () -> untyped
-
-  def test_handle_job_validate_lib_signature_skip: () -> untyped
 
   def test_handle_job_typecheck_code: () -> untyped
 
   def test_handle_job_typecheck_code_entries: () -> untyped
 
   def test_handle_job_typecheck_code_diagnostics: () -> untyped
-
-  def test_handle_job_typecheck_skip: () -> untyped
 
   def test_handle_job_typecheck_inline__no_error: () -> untyped
 

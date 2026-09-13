@@ -86,11 +86,8 @@ end
       assert_any!(jobs) do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
-        assert_equal TypeCheck__Start::METHOD, job.message[:method]
-
-        job.message[:params].tap do |params|
-          assert_equal "guid", params[:guid]
-        end
+        assert_equal TypeCheck__File::METHOD, job.message[:method]
+        assert_equal "guid", job.message[:params][:guid]
       end
     end
   end
@@ -139,11 +136,8 @@ end
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
 
-        assert_equal TypeCheck__Start::METHOD, job.message[:method]
-
-        job.message[:params].tap do |params|
-          assert_equal "guid", params[:guid]
-        end
+        assert_equal TypeCheck__File::METHOD, job.message[:method]
+        assert_equal "guid", job.message[:params][:guid]
       end
     end
   end
@@ -180,16 +174,15 @@ end
 
       refute_nil master.current_type_check_request
 
+      # One request per file, and nothing else without progress
       jobs = flush_queue(master.write_queue)
 
-      assert_any!(jobs, size: 1) do |job|
+      assert_equal 2, jobs.size
+      jobs.each do |job|
         assert_instance_of Master::SendMessageJob, job
         assert_equal worker, job.dest
-        assert_equal TypeCheck__Start::METHOD, job.message[:method]
-
-        job.message[:params].tap do |params|
-          assert_equal "guid", params[:guid]
-        end
+        assert_equal TypeCheck__File::METHOD, job.message[:method]
+        assert_equal "guid", job.message[:params][:guid]
       end
     end
   end
@@ -845,21 +838,24 @@ end
 
       refute_nil master.current_type_check_request
 
-      jobs = flush_queue(master.write_queue)
+      # The worker gets `TYPECHECK_JOBS_PER_WORKER` requests first: the Ruby file, then the RBS file
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal [TypeCheck__File::METHOD] * 2, jobs.map { _1.message[:method] }
+      assert_equal(
+        [
+          { guid: "guid", kind: "code", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s },
+          { guid: "guid", kind: "signature", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s }
+        ],
+        jobs.map { _1.message[:params] }
+      )
 
-      assert_any!(jobs, size: 1) do |job|
-        assert_instance_of Master::SendMessageJob, job
-        assert_equal worker, job.dest
-        assert_equal TypeCheck__Start::METHOD, job.message[:method]
-
-        job.message[:params].tap do |params|
-          assert_equal "guid", params[:guid]
-          assert_equal [["lib", Steep::PathHelper.to_uri("/rbs/core/object.rbs").to_s]], params[:library_uris]
-          assert_equal [["lib", Steep::PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s]], params[:signature_uris]
-          assert_equal [["lib", Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s]], params[:code_uris]
-          assert_equal [], params[:priority_uris]
-        end
-      end
+      # The library file goes out when a response comes back
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: { diagnostics: [], entries: [], stats: nil }, signature: nil } })
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal(
+        [{ guid: "guid", kind: "library", target: "lib", uri: Steep::PathHelper.to_uri("/rbs/core/object.rbs").to_s }],
+        jobs.map { _1.message[:params] }
+      )
     end
   end
 
@@ -1581,7 +1577,7 @@ end
       master.result_controller.process_response({ id: request.message[:id], result: nil })
       flush_queue(master.write_queue)
 
-      # The worker receives the RBS files and the Ruby files it checks, right before the type check starts
+      # The worker receives the RBS files before the type check, and the Ruby file with its request
       master.process_message_from_client({
         id: "check-1",
         method: TypeCheck::METHOD,
@@ -1594,11 +1590,17 @@ end
       })
 
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal [FileLoad::METHOD, TypeCheck__Start::METHOD], jobs.map { _1.message[:method] }
-      assert_equal(
-        { "sig/customer.rbs" => "class Customer\nend\n", "lib/customer.rb" => "class Customer\nend\n" },
-        jobs[0].message[:params][:content]
-      )
+      assert_equal [FileLoad::METHOD, TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
+      assert_equal "code", jobs[1].message[:params][:kind]
+      assert_equal "class Customer\nend\n", jobs[1].message[:params][:content]
+      assert_equal "signature", jobs[2].message[:params][:kind]
+      refute_operator jobs[2].message[:params], :key?, :content
+
+      jobs.drop(1).each do |job|
+        master.result_controller.process_response({ id: job.message[:id], result: { source: nil, signature: nil } })
+      end
+      flush_queue(master.write_queue)
 
       # A file the worker already has is not sent again, and a changed file is sent with the new content
       master.process_message_from_client(
@@ -1622,10 +1624,13 @@ end
       })
 
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal [FileLoad::METHOD, TypeCheck__Start::METHOD], jobs.map { _1.message[:method] }
+      assert_equal [TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
       assert_equal(
-        { "lib/customer.rb" => "class Customer\n  def name = \"\"\nend\n", "lib/account.rb" => "class Account\nend\n" },
-        jobs[0].message[:params][:content]
+        [
+          ["code", Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s, "class Customer\n  def name = \"\"\nend\n"],
+          ["code", Steep::PathHelper.to_uri(current_dir + "lib/account.rb").to_s, "class Account\nend\n"]
+        ],
+        jobs.map { |job| params = job.message[:params]; [params[:kind], params[:uri], params[:content]] }
       )
     end
   end

@@ -194,6 +194,10 @@ module Steep
       # Callbacks to be called when no type check is running anymore
       attr_reader :typecheck_quiescent_callbacks
       attr_reader :environment_queue
+      attr_reader :pending_typecheck_jobs
+      attr_reader :typecheck_jobs_in_flight
+
+      TYPECHECK_JOBS_PER_WORKER = 2
 
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
@@ -207,6 +211,8 @@ module Steep
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
         @environment_queue = Thread::Queue.new
+        @pending_typecheck_jobs = []
+        @typecheck_jobs_in_flight = {}
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
         @project_file_mtimes = nil
@@ -783,21 +789,8 @@ module Steep
               Steep.logger.debug { "result = #{message[:result].inspect}" }
             end
           when message.key?(:method) && !message.key?(:id)
-            case message[:method]
-            when CustomMethods::TypeCheck__Progress::METHOD
-              params = message[:params] #: CustomMethods::TypeCheck__Progress::params
-              target = project.targets.find {|target| target.name.to_s == params[:target] } or raise
-              on_type_check_update(
-                guid: params[:guid],
-                path: Pathname(params[:path]),
-                target: target,
-                source: params[:source],
-                signature: params[:signature]
-              )
-            else
-              # Forward other notifications
-              enqueue_write_job SendMessageJob.to_client(message: message)
-            end
+            # Forward notifications from the workers to the client
+            enqueue_write_job SendMessageJob.to_client(message: message)
           end
         end
       end
@@ -891,20 +884,72 @@ module Steep
             request.work_done_progress.begin("Type checking", request_id: fresh_request_id)
           end
 
-          Steep.logger.info "Sending $/typecheck/start notifications"
+          Steep.logger.info "Dispatching the type check jobs"
           typecheck_workers.each do |worker|
-            assignment = Services::PathAssignment.new(
-              max_index: typecheck_workers.size,
-              index: worker.index || raise
+            deliver_contents(worker, signature_paths_to_deliver)
+          end
+
+          @pending_typecheck_jobs = request.jobs
+          dispatch_typecheck_jobs()
+        end
+      end
+
+      def dispatch_typecheck_jobs
+        request = current_type_check_request or return
+
+        typecheck_workers.each do |worker|
+          while typecheck_jobs_in_flight.fetch(worker, 0) < TYPECHECK_JOBS_PER_WORKER
+            job = pending_typecheck_jobs.shift or return
+            send_typecheck_job(worker, request, job)
+          end
+        end
+      end
+
+      def send_typecheck_job(worker, request, job)
+        kind, target_name, path = job
+        target = project.targets.find {|target| target.name == target_name } or raise "Unknown target: #{target_name}"
+
+        kind_string =
+          case kind
+          when :code
+            "code"
+          when :signature
+            "signature"
+          when :library
+            "library"
+          when :inline
+            "inline"
+          end #: CustomMethods::TypeCheck__File::kind
+
+        params = {
+          guid: request.guid,
+          kind: kind_string,
+          target: target_name.to_s,
+          uri: PathHelper.to_uri(path).to_s
+        } #: CustomMethods::TypeCheck__File::params
+
+        if kind == :code
+          if content = content_for(worker, path)
+            params[:content] = content
+          end
+        end
+
+        typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) + 1
+
+        result_controller << send_request(method: CustomMethods::TypeCheck__File::METHOD, params: params, worker: worker) do |handler|
+          handler.on_completion do |response|
+            typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) - 1
+
+            result = response[:result] #: CustomMethods::TypeCheck__File::result?
+            on_type_check_update(
+              guid: request.guid,
+              path: path,
+              target: target,
+              source: result&.[](:source),
+              signature: result&.[](:signature)
             )
 
-            code_paths = request.code_paths.filter_map {|target_path| target_path[1] if assignment =~ target_path }
-            deliver_contents(worker, signature_paths_to_deliver + code_paths)
-
-            enqueue_write_job SendMessageJob.to_worker(
-              worker,
-              message: CustomMethods::TypeCheck__Start.notification(request.as_json(assignment: assignment))
-            )
+            dispatch_typecheck_jobs()
           end
         end
       end
@@ -1101,21 +1146,27 @@ module Steep
         end
       end
 
+      def content_for(worker, path)
+        relative_path = project.relative_path(path)
+        file = controller.file_contents.fetch(relative_path, nil) or return
+        return if worker.known_versions[relative_path] == file.version
+
+        worker.known_versions[relative_path] = file.version
+
+        if file.text.valid_encoding?
+          file.text
+        else
+          { text: [file.text].pack("m"), binary: true }
+        end
+      end
+
       def deliver_contents(worker, paths)
         content = {} #: Hash[String, ChangeBuffer::content]
 
         paths.each do |path|
-          relative_path = project.relative_path(path)
-          file = controller.file_contents.fetch(relative_path, nil) or next
-          next if worker.known_versions[relative_path] == file.version
-
-          worker.known_versions[relative_path] = file.version
-          content[relative_path.to_s] =
-            if file.text.valid_encoding?
-              file.text
-            else
-              { text: [file.text].pack("m"), binary: true }
-            end
+          if file_content = content_for(worker, path)
+            content[project.relative_path(path).to_s] = file_content
+          end
         end
 
         unless content.empty?

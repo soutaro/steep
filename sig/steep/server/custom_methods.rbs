@@ -67,20 +67,28 @@ module Steep
         def self.notification: (params) -> untyped
       end
 
-      # Notification to start type checking, sent from the master to workers
+      # Request to type check or validate one file, sent from the master to a typecheck worker
       #
-      module TypeCheck__Start
+      # The master hands the files of a type check to the workers one by one, and each worker answers with the
+      # result of the file. `kind` tells what to do with the file: `code` type checks a Ruby file, `signature`
+      # validates an RBS file of the project, `library` validates an RBS file of a library, and `inline` type checks
+      # a Ruby file with inline RBS declarations and validates the declarations.
+      #
+      # `content` is the latest content of a Ruby file, given when the worker doesn't have it yet. The RBS files reach
+      # the workers by `$/steep/file/load` before the type check.
+      #
+      module TypeCheck__File
         METHOD: String
 
-        type params = TypeCheckController::Request::json
+        type kind = "code" | "signature" | "library" | "inline"
 
-        def self.notification: (params) -> untyped
-      end
-
-      # Notification to report progress of type checking, sent from workers to master
-      #
-      module TypeCheck__Progress
-        METHOD: String
+        type params = {
+          guid: String,
+          kind: kind,
+          target: String,
+          uri: String,
+          ?content: ChangeBuffer::content
+        }
 
         # The result of type checking Ruby code or validating RBS declarations in the file
         #
@@ -89,20 +97,16 @@ module Steep
         # method calls of Ruby code for `$/steep/stats`, and is `nil` for RBS declarations or when the
         # file is not type checked.
         #
-        type result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry::wire]?, stats: Services::StatsCalculator::calls? }
+        type file_result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry::wire]?, stats: Services::StatsCalculator::calls? }
 
         # `source` is the result of type checking Ruby code, and `signature` is the result of validating RBS declarations.
         # A Ruby file with inline RBS declarations has both.
         #
-        type params = {
-          guid: String,
-          path: String,
-          target: String,
-          source: result?,
-          signature: result?
-        }
+        type result = { source: file_result?, signature: file_result? }
 
-        def self.notification: (params) -> untyped
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result) -> untyped
       end
 
       # Request to start stats of type checking, sent from client to master and master to workers
