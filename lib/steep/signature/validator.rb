@@ -49,7 +49,10 @@ module Steep
       end
 
       def type_name_resolver
-        @type_name_resolver ||= RBS::Resolver::TypeNameResolver.build(env)
+        # The resolver is built from the environment, so it is shared through the factory:
+        # a validator is instantiated per type assertion, and building one costs a pass
+        # over every type name of the environment.
+        factory.type_name_resolver
       end
 
       def validator
