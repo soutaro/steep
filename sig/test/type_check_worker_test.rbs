@@ -30,6 +30,8 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_worker_shutdown: () -> untyped
 
+  def test_request_after_shutdown: () -> untyped
+
   def test_handle_request_initialize: () -> untyped
 
   def test_handle_request_file_load: () -> untyped

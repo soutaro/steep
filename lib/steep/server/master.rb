@@ -212,6 +212,7 @@ module Steep
         @worker_threads = []
         @worker_waiter = ThreadWaiter.new()
         @running = false
+        @shutting_down = false
         @current_type_check_request = nil
         @typecheck_automatically = true
         @commandline_args = []
@@ -789,6 +790,7 @@ module Steep
           ))
 
         when "shutdown"
+          @shutting_down = true
           start_type_checking_queue.cancel
 
           result_controller << group_request do |group|
@@ -923,6 +925,7 @@ module Steep
       end
 
       def dispatch_typecheck_jobs
+        return if @shutting_down
         request = current_type_check_request or return
 
         until pending_typecheck_jobs.empty?

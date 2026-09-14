@@ -901,6 +901,47 @@ end
     end
   end
 
+  def test_type_check_request__no_jobs_after_shutdown
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      end
+
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+
+      master = Server::Master.new(project: project, reader: worker_reader, writer: worker_writer)
+      master.attach_worker(worker)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      master.process_message_from_client({
+        id: "guid",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [["lib", "/rbs/core/object.rbs"]],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal [TypeCheck__File::METHOD] * 2, jobs.map { _1.message[:method] }
+
+      # The client shuts the server down while the type check is running
+      master.process_message_from_client({ id: "shutdown", method: "shutdown", params: nil })
+      assert_equal ["shutdown"], flush_queue(master.write_queue).select { _1.dest == worker }.map { _1.message[:method] }
+
+      # The response to a job sends no more job to the worker
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: { diagnostics: [], entries: [], stats: nil }, signature: nil } })
+      assert_empty flush_queue(master.write_queue).select { _1.dest == worker }
+    end
+  end
+
   def test_type_check_request__start
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

@@ -92,6 +92,63 @@ class TypeCheckWorkerTest < Minitest::Test
     end
   end
 
+  def test_request_after_shutdown
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.parse(project, <<~RUBY)
+          target :lib do
+            check "lib"
+            signature "sig"
+          end
+        RUBY
+
+        run_worker(
+          Server::TypeCheckWorker.new(
+            project: project,
+            assignment: assignment,
+            commandline_args: [],
+            reader: worker_reader,
+            writer: worker_writer)
+        ) do |worker|
+          master_writer.write(
+            id: 123,
+            method: :shutdown,
+            params: nil
+          )
+
+          while response = master_read_queue.pop
+            break if response[:id] == 123
+          end
+
+          # A request after `shutdown` is answered with an error, instead of a job pushed to the closed queue
+          master_writer.write(
+            id: 124,
+            method: TypeCheck__File::METHOD,
+            params: {
+              guid: "guid",
+              kind: "code",
+              target: "lib",
+              uri: Steep::PathHelper.to_uri(current_dir + "lib/a.rb").to_s,
+              content: ""
+            }
+          )
+
+          while response = master_read_queue.pop
+            if response[:id] == 124
+              assert_equal LanguageServer::Protocol::Constant::ErrorCodes::INVALID_REQUEST, response[:error][:code]
+              break
+            end
+          end
+
+          master_writer.write(
+            method: :exit
+          )
+        end
+      end
+    end
+  end
+
   def test_handle_request_initialize
     in_tmpdir do
       with_master_read_queue do

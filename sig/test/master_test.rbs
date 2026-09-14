@@ -57,6 +57,8 @@ class MasterTest < Minitest::Test
 
   def test_shutdown_without_workers: () -> untyped
 
+  def test_type_check_request__no_jobs_after_shutdown: () -> untyped
+
   def test_type_check_request__start: () -> untyped
 
   def test_code_type_check: () -> untyped

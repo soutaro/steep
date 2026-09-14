@@ -95,11 +95,27 @@ module Steep
               when "shutdown"
                 queue << ShutdownJob.new(id: request[:id])
                 @skip_job = skip_jobs_after_shutdown?
+                @shutdown = true
                 queue.close
               when "exit"
                 break
               else
-                handle_request(request) unless @shutdown
+                if @shutdown
+                  # The queue is closed: a request after `shutdown` is an error in LSP, and a notification is ignored
+                  if id = request[:id]
+                    writer.write(
+                      {
+                        id: id,
+                        error: {
+                          code: LSP::Constant::ErrorCodes::INVALID_REQUEST,
+                          message: "The worker is shutting down"
+                        }
+                      }
+                    )
+                  end
+                else
+                  handle_request(request)
+                end
               end
             end
           ensure
