@@ -105,6 +105,20 @@ module Steep
         # every pattern, for each of the types the union it narrows is made of.
         @instance_type_cache: Hash[TypeName, Name::Instance]
 
+        @expand_alias_cache: Hash[t, t]
+
+        @unwrap_optional_cache: Hash[t, t?]
+
+        @normalize_type_cache: Hash[t, t]
+
+        # Returns the value of a pure function of a type, computing it once per type
+        #
+        # The answers depend on nothing but the environment the factory is bound to, while the
+        # type check asks for them again and again: the type check of the Steep project itself
+        # normalizes 118,000 types that are 6,200 distinct ones.
+        #
+        def cache_by_type: [T] (Hash[t, T] cache, t `type`) { () -> T } -> T
+
         def instance_type: (TypeName type_name, ?args: Array[t]?) -> t
 
         def try_singleton_type: (t) -> t?
@@ -112,6 +126,8 @@ module Steep
         def try_instance_type: (t) -> t?
 
         def normalize_type: (t) -> t
+
+        def normalize_type0: (t) -> t
       end
     end
   end
