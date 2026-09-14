@@ -277,6 +277,13 @@ module Steep
 
     SPECIAL_METHOD_NAMES: Hash[Symbol, Set[method_name]]
 
+    # The unqualified names of `SPECIAL_METHOD_NAMES`
+    #
+    # A call of any other method cannot have a special method type, and looking the declarations
+    # of an overload up to find that out costs more than the type check of the call.
+    #
+    SPECIAL_METHOD_SHORT_NAMES: Set[Symbol]
+
     KNOWN_PURE_METHODS: Set[method_name]
 
     KERNEL_BLOCK_GIVEN: method_name

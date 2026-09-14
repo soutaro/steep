@@ -3633,7 +3633,18 @@ module Steep
       ]
     }
 
+    # The unqualified names of `SPECIAL_METHOD_NAMES`
+    #
+    # A call of any other method cannot have a special method type, and looking the declarations
+    # of an overload up to find that out costs more than the type check of the call.
+    #
+    SPECIAL_METHOD_SHORT_NAMES = SPECIAL_METHOD_NAMES.each_value.with_object(Set[]) do |names, set| #$ Set[Symbol]
+      names.each {|name| set << name.method_name }
+    end
+
     def try_special_method(node, receiver_type:, method_name:, method_overload:, arguments:, block_params:, block_body:, hint:)
+      return unless SPECIAL_METHOD_SHORT_NAMES.include?(method_name)
+
       method_type = method_overload.method_type
       decls = method_overload.method_decls(method_name).to_set
 
