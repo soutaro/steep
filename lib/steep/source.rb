@@ -252,6 +252,10 @@ module Steep
         end
       end
 
+      # Every node of the source runs this, while the annotations are exhausted by the nodes
+      # they belong to: skip the partition, which allocates two arrays, once nothing is left.
+      return if annotations.empty?
+
       associated_annotations, other_annotations = annotations.partition do |annot|
         location = node.loc
         annot.line or next
