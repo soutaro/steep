@@ -29,6 +29,8 @@ module Steep
 
       attr_reader stderr: IO?
 
+      attr_reader type: worker_type
+
       attr_reader name: String
 
       attr_reader wait_thread: Thread & _ProcessWaitThread
@@ -42,6 +44,7 @@ module Steep
       attr_reader known_versions: Hash[Pathname, Integer]
 
       def initialize: (
+        type: worker_type,
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
         stderr: IO?,
@@ -80,14 +83,6 @@ module Steep
         delay_shutdown: bool,
         index: [Integer, Integer]?
       ) -> WorkerProcess
-
-      def self.start_typecheck_workers: (
-        steepfile: Pathname?,
-        args: Array[String],
-        steep_command: ::String?,
-        ?count: Integer,
-        ?delay_shutdown: bool
-      ) -> Array[WorkerProcess]
 
       def redirect_to: (self) -> void
 

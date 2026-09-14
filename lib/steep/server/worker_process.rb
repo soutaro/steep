@@ -5,12 +5,14 @@ module Steep
       attr_reader :writer
       attr_reader :stderr
 
+      attr_reader :type
       attr_reader :name
       attr_reader :wait_thread
       attr_reader :index
       attr_reader :known_versions
 
-      def initialize(reader:, writer:, stderr:, wait_thread:, name:, index: nil)
+      def initialize(type:, reader:, writer:, stderr:, wait_thread:, name:, index: nil)
+        @type = type
         @reader = reader
         @writer = writer
         @stderr = stderr
@@ -80,6 +82,7 @@ module Steep
         stdout_out.close
 
         new(
+          type: type,
           reader: reader,
           writer: writer,
           stderr: STDERR,
@@ -126,21 +129,7 @@ module Steep
         writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
         reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
 
-        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
-      end
-
-      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max || raise, delay_shutdown: false)
-        count.times.map do |i|
-          start_worker(
-            :typecheck,
-            name: "typecheck@#{i}",
-            steepfile: steepfile,
-            steep_command: steep_command,
-            index: [count, i],
-            patterns: args,
-            delay_shutdown: delay_shutdown,
-          )
-        end
+        new(type: type, reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
       end
 
       def redirect_to(worker)

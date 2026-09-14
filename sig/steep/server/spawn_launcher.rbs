@@ -1,0 +1,48 @@
+module Steep
+  module Server
+    # A launcher starts the workers of a master, and attaches them with `Master#attach_worker`
+    #
+    # `Master#start` calls `#start` once before it starts serving, and `#stop` once after the server has shut down or
+    # the master has been killed. A launcher may attach a worker later than `#start`, through `Master#job_queue`,
+    # because the master keeps the type check jobs until a typecheck worker is attached.
+    #
+    interface _WorkerLauncher
+      def start: (Master master) -> void
+
+      def stop: () -> void
+    end
+
+    # Starts each worker as a process that runs the `steep worker` driver, at `Master#start`
+    #
+    # The process is forked from the driver process when `fork` is available and no `steep_command` is given, or
+    # spawned as a `steep worker` command otherwise. Each worker loads the RBS environment by itself.
+    #
+    class SpawnLauncher
+      include _WorkerLauncher
+
+      attr_reader steepfile: Pathname?
+
+      attr_reader steep_command: String?
+
+      # The number of typecheck workers
+      attr_reader typecheck_count: Integer
+
+      # Whether to start the interaction worker
+      attr_reader interaction: bool
+
+      # The command line patterns given to the typecheck workers
+      attr_reader patterns: Array[String]
+
+      attr_reader delay_shutdown: bool
+
+      def initialize: (
+        steepfile: Pathname?,
+        steep_command: String?,
+        typecheck_count: Integer,
+        interaction: bool,
+        ?patterns: Array[String],
+        ?delay_shutdown: bool
+      ) -> void
+    end
+  end
+end

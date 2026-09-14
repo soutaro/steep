@@ -42,15 +42,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
       master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
@@ -105,15 +104,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
@@ -155,15 +153,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
@@ -200,15 +197,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
       master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
@@ -287,15 +283,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
       master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
@@ -357,16 +352,16 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
-      typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      interaction_worker = Server::WorkerProcess.new(type: :interaction, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
+      typecheck_worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: interaction_worker,
-        typecheck_workers: [typecheck_worker]
+        writer: worker_writer
       )
+      master.attach_worker(interaction_worker)
+      master.attach_worker(typecheck_worker)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.type_check_database.update_signature(
@@ -438,9 +433,7 @@ end
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: []
+        writer: worker_writer
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -487,9 +480,7 @@ end
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: []
+        writer: worker_writer
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -544,15 +535,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
@@ -593,15 +583,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
 
       master.process_message_from_client(
         {
@@ -629,15 +618,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
 
       master.process_message_from_client(
         {
@@ -669,15 +657,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
 
       assert_empty master.controller.dirty_code_paths
       assert_empty master.controller.dirty_signature_paths
@@ -719,15 +706,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
 
       assert_empty master.controller.dirty_code_paths
       assert_empty master.controller.dirty_signature_paths
@@ -762,15 +748,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
 
       assert_empty master.controller.open_paths
 
@@ -814,16 +799,16 @@ end
         end
       end
 
-      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-1", index: 0)
-      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-2", index: 1)
+      worker1 = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-1", index: 0)
+      worker2 = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-2", index: 1)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker1, worker2]
+        writer: worker_writer
       )
+      master.attach_worker(worker1)
+      master.attach_worker(worker2)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.process_message_from_client({
@@ -854,6 +839,68 @@ end
     end
   end
 
+  def test_type_check_request__worker_attached_later
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      end
+
+      master = Server::Master.new(project: project, reader: worker_reader, writer: worker_writer)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      # The type check starts without a worker, and the jobs wait
+      master.process_message_from_client({
+        id: "guid",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
+          inline_paths: []
+        }
+      })
+
+      refute_nil master.current_type_check_request
+      assert_equal 2, master.pending_typecheck_jobs.size
+      assert_empty flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+
+      # The worker attached later receives `initialize` and takes the jobs
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      master.attach_worker(worker)
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal ["initialize", TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal DEFAULT_CLI_LSP_INITIALIZE_PARAMS, jobs[0].message[:params]
+      assert_empty master.pending_typecheck_jobs
+    end
+  end
+
+  def test_shutdown_without_workers
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      end
+
+      master = Server::Master.new(project: project, reader: worker_reader, writer: worker_writer)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      # No request goes to a worker, and the client gets the response at once
+      master.process_message_from_client({ id: "shutdown", method: "shutdown", params: nil })
+
+      assert_equal [{ id: "shutdown", result: nil }], flush_queue(master.write_queue).map { _1.message }
+    end
+  end
+
   def test_type_check_request__start
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -865,15 +912,14 @@ end
         end
       end
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       master.process_message_from_client({
@@ -923,15 +969,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: true)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: interaction_worker,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1004,14 +1048,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: true)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+        launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1078,14 +1120,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2, interaction: true)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+        launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1127,14 +1167,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2, interaction: true)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+        launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1180,15 +1218,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: Object.new,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
 
       assert_empty master.controller.dirty_code_paths
       assert_empty master.controller.dirty_signature_paths
@@ -1324,14 +1361,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: false)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1405,14 +1441,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: false)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1486,15 +1521,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
       master.assign_initialize_params(
         DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(
           {
@@ -1546,15 +1580,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
 
@@ -1612,15 +1645,14 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
-        writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        writer: worker_writer
       )
+      master.attach_worker(worker)
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
       jobs = flush_queue(master.write_queue)

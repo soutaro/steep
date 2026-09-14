@@ -172,8 +172,11 @@ module Steep
       attr_reader :reader, :writer
       attr_reader :commandline_args
 
+      attr_reader :launcher
       attr_reader :interaction_worker
       attr_reader :typecheck_workers
+      attr_reader :worker_threads
+      attr_reader :worker_waiter
 
       attr_reader :job_queue, :write_queue
 
@@ -199,12 +202,16 @@ module Steep
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
-      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
+      def initialize(project:, reader:, writer:, launcher: nil, queue: Queue.new)
         @project = project
         @reader = reader
         @writer = writer
-        @interaction_worker = interaction_worker
-        @typecheck_workers = typecheck_workers
+        @launcher = launcher
+        @interaction_worker = nil
+        @typecheck_workers = []
+        @worker_threads = []
+        @worker_waiter = ThreadWaiter.new()
+        @running = false
         @current_type_check_request = nil
         @typecheck_automatically = true
         @commandline_args = []
@@ -229,27 +236,14 @@ module Steep
       def start
         Steep.logger.tagged "master" do
           tags = Steep.logger.current_tags.dup
+          @logger_tags = tags
 
-          # @type var worker_threads: Array[Thread]
-          worker_threads = []
+          launcher&.start(self)
 
-          if interaction_worker
-            worker_threads << Thread.new do
-              Steep.logger.push_tags(*tags, "from-worker@interaction")
-              interaction_worker.reader.read do |message|
-                job_queue << ReceiveMessageJob.new(source: interaction_worker, message: message)
-              end
-            end
+          each_worker do |worker|
+            start_worker_thread(worker)
           end
-
-          typecheck_workers.each do |worker|
-            worker_threads << Thread.new do
-              Steep.logger.push_tags(*tags, "from-worker@#{worker.name}")
-              worker.reader.read do |message|
-                job_queue << ReceiveMessageJob.new(source: worker, message: message)
-              end
-            end
-          end
+          @running = true
 
           read_client_thread = Thread.new do
             reader.read do |message|
@@ -324,16 +318,11 @@ module Steep
             end
           end
 
-          waiter = ThreadWaiter.new(each_worker.to_a) {|worker| worker.wait_thread }
-          # @type var th: Thread & WorkerProcess::_ProcessWaitThread
-          while th = _ = waiter.wait_one()
-            if each_worker.any? { |worker| worker.pid == th.pid }
-              break # The worker unexpectedly exited
-            end
-          end
+          worker_waiter << loop_thread
+          worker_waiter.wait_one()
 
           unless job_queue.closed?
-            # Exit by error
+            # A worker process exited, or the main loop stopped, before the client sent `exit`
             each_worker do |worker|
               worker.kill(force: true)
             end
@@ -352,7 +341,47 @@ module Steep
 
           environment_queue.close()
           environment_thread.join
+
+          launcher&.stop
         end
+      end
+
+      def attach_worker(worker)
+        Steep.logger.info { "Attaching worker: #{worker.name}" }
+
+        case worker.type
+        when :interaction
+          raise "Interaction worker is already attached" if interaction_worker
+          @interaction_worker = worker
+        when :typecheck
+          typecheck_workers << worker
+        end
+
+        if @running
+          start_worker_thread(worker)
+        end
+
+        if initialize_params
+          result_controller << send_request(method: "initialize", params: initialize_params, worker: worker)
+        end
+
+        if worker.type == :typecheck && current_type_check_request
+          deliver_contents(worker, signature_paths_to_deliver)
+          dispatch_typecheck_jobs()
+        end
+      end
+
+      def start_worker_thread(worker)
+        tags = @logger_tags || []
+
+        worker_threads << Thread.new do
+          Steep.logger.push_tags(*tags, "from-worker@#{worker.name}")
+          worker.reader.read do |message|
+            job_queue << ReceiveMessageJob.new(source: worker, message: message)
+          end
+        end
+
+        worker_waiter << worker.wait_thread
       end
 
       def each_worker(&block)
@@ -581,28 +610,27 @@ module Steep
           end
 
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
-          if interaction_worker
-            if path = pathname(message[:params][:textDocument][:uri])
-              deliver_contents_for_request(interaction_worker, path)
+          if interaction_worker && (path = pathname(message[:params][:textDocument][:uri]))
+            deliver_contents_for_request(interaction_worker, path)
 
-              result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
-                handler.on_completion do |response|
-                  enqueue_write_job SendMessageJob.to_client(
-                    message: {
-                      id: message[:id],
-                      result: response[:result]
-                    }
-                  )
-                end
+            result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
+              handler.on_completion do |response|
+                enqueue_write_job SendMessageJob.to_client(
+                  message: {
+                    id: message[:id],
+                    result: response[:result]
+                  }
+                )
               end
-            else
-              enqueue_write_job SendMessageJob.to_client(
-                message: {
-                  id: message[:id],
-                  result: nil
-                }
-              )
             end
+          else
+            # No interaction worker yet, or the file is not in the project
+            enqueue_write_job SendMessageJob.to_client(
+              message: {
+                id: message[:id],
+                result: nil
+              }
+            )
           end
 
         when "workspace/symbol"
@@ -1036,6 +1064,11 @@ module Steep
       def group_request()
         GroupHandler.new().tap do |group|
           yield group
+
+          if group.handlers.empty?
+            # No response completes an empty group
+            group.completion_handler&.call([])
+          end
         end
       end
 
@@ -1043,6 +1076,7 @@ module Steep
         each_worker do |worker|
           worker.kill
         end
+        launcher&.stop
       end
 
       def enqueue_write_job(job)
