@@ -20,14 +20,13 @@ module Steep
         @known_versions = {}
       end
 
-      def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, delay_shutdown: false, patterns: [])
+      def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, patterns: [])
         if Steep.can_fork? && !steep_command
           fork_worker(
             type,
             name: name,
             steepfile: steepfile,
             index: index,
-            delay_shutdown: delay_shutdown,
             patterns: patterns
           )
         else
@@ -37,13 +36,12 @@ module Steep
             steepfile: steepfile,
             steep_command: steep_command || "steep",
             index: index,
-            delay_shutdown: delay_shutdown,
             patterns: patterns
           )
         end
       end
 
-      def self.fork_worker(type, name:, steepfile:, index:, delay_shutdown:, patterns:)
+      def self.fork_worker(type, name:, steepfile:, index:, patterns:)
         stdin_in, stdin_out = IO.pipe
         stdout_in, stdout_out = IO.pipe
 
@@ -52,7 +50,6 @@ module Steep
         worker.steepfile = steepfile
         worker.worker_type = type
         worker.worker_name = name
-        worker.delay_shutdown = delay_shutdown
         if (max, this = index)
           worker.max_index = max
           worker.index = this
@@ -89,7 +86,7 @@ module Steep
         )
       end
 
-      def self.spawn_worker(type, name:, steepfile:, steep_command:, index:, delay_shutdown:, patterns:)
+      def self.spawn_worker(type, name:, steepfile:, steep_command:, index:, patterns:)
         args = ["--name=#{name}"]
         args << "--steepfile=#{steepfile}" if steepfile
         args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
@@ -101,10 +98,6 @@ module Steep
         if (max, this = index)
           args << "--max-index=#{max}"
           args << "--index=#{this}"
-        end
-
-        if delay_shutdown
-          args << "--delay-shutdown"
         end
 
         command = case type
@@ -129,7 +122,7 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
       end
 
-      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max || raise, delay_shutdown: false)
+      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max || raise)
         count.times.map do |i|
           start_worker(
             :typecheck,
@@ -138,7 +131,6 @@ module Steep
             steep_command: steep_command,
             index: [count, i],
             patterns: args,
-            delay_shutdown: delay_shutdown,
           )
         end
       end

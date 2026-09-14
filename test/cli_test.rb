@@ -69,13 +69,13 @@ end
       if Gem.win_platform?
         (current_dir + "wrap-steep.bat").write(<<-EOF)
 @echo off
-ECHO "This is Wrap!"
+ECHO "This is Wrap!" 1>&2
 steep %*
         EOF
         stdout, status = sh(*steep, "check", "--steep-command=./wrap-steep.bat")
       else
         (current_dir + "wrap-steep.sh").write(<<-EOF)
-echo "This is Wrap!"
+echo "This is Wrap!" >&2
 steep $@
         EOF
         FileUtils.chmod("u+x", current_dir + "wrap-steep.sh")

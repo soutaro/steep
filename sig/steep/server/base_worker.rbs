@@ -1,5 +1,10 @@
 module Steep
   module Server
+    # The common part of the workers: reads the messages from the master, and runs the jobs in a background thread
+    #
+    # A worker takes requests from the moment it starts, and stops at the `exit` notification, or when the master
+    # closes the pipe. The running job finishes, the jobs left in the queue are skipped, and the process exits.
+    #
     class BaseWorker
       interface _Queue[A]
         def pop: () -> A?
@@ -11,11 +16,8 @@ module Steep
 
       module LSP = LanguageServer::Protocol
 
-      @skip_jobs_after_shutdown: bool
-
+      # `true` once the worker is stopping: the jobs left in the queue are skipped
       @skip_job: bool
-
-      @shutdown: bool
 
       attr_reader project: Project
 
@@ -25,17 +27,7 @@ module Steep
 
       attr_reader queue: _Queue[untyped]
 
-      class ShutdownJob
-        attr_reader id: String
-
-        def initialize: (id: String) -> void
-      end
-
       def initialize: (project: Project, reader: LanguageServer::Protocol::Transport::Io::Reader, writer: LanguageServer::Protocol::Transport::Io::Writer) -> void
-
-      def skip_jobs_after_shutdown!: (?bool flag) -> void
-
-      def skip_jobs_after_shutdown?: () -> bool
 
       def skip_job?: () -> bool
 

@@ -58,7 +58,6 @@ module Steep
         steepfile: Pathname?,
         steep_command: String?,
         ?patterns: Array[String],
-        ?delay_shutdown: bool,
         ?index: [Integer, Integer]?
       ) -> WorkerProcess
 
@@ -67,7 +66,6 @@ module Steep
         name: String,
         steepfile: Pathname?,
         patterns: Array[String],
-        delay_shutdown: bool,
         index: [Integer, Integer]?
       ) -> WorkerProcess
 
@@ -77,7 +75,6 @@ module Steep
         steepfile: Pathname?,
         steep_command: ::String,
         patterns: Array[String],
-        delay_shutdown: bool,
         index: [Integer, Integer]?
       ) -> WorkerProcess
 
@@ -85,8 +82,7 @@ module Steep
         steepfile: Pathname?,
         args: Array[String],
         steep_command: ::String?,
-        ?count: Integer,
-        ?delay_shutdown: bool
+        ?count: Integer
       ) -> Array[WorkerProcess]
 
       def redirect_to: (self) -> void

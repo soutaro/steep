@@ -185,6 +185,9 @@ module Steep
       # The number of `$/steep/typecheck/file` requests each worker is working on
       attr_reader typecheck_jobs_in_flight: Hash[WorkerProcess, Integer]
 
+      # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
+      @shutting_down: bool
+
       # The number of `$/steep/typecheck/file` requests a worker gets ahead, to keep it busy while a response travels
       TYPECHECK_JOBS_PER_WORKER: Integer
 
@@ -219,7 +222,7 @@ module Steep
       # Hands the pending jobs of the current type check to the workers that have room for more
       #
       # Each worker with room takes one job per round, so that the files are spread across the workers from the
-      # start, and a worker checks each file of a small project alone.
+      # start, and a worker checks each file of a small project alone. Nothing is sent after `shutdown`.
       #
       def dispatch_typecheck_jobs: () -> void
 
@@ -272,6 +275,9 @@ module Steep
       # The `#start` call will result in an exception.
       #
       def kill: () -> void
+
+      # Queues a message from a worker to the main loop, and drops it once the server is exiting
+      def enqueue_worker_message: (WorkerProcess worker, untyped message) -> void
 
       def each_worker: () { (WorkerProcess) -> void } -> void
                      | () -> Enumerator[WorkerProcess, void]

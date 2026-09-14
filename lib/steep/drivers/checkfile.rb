@@ -104,7 +104,6 @@ module Steep
         typecheck_workers = Server::WorkerProcess.start_typecheck_workers(
           steepfile: project.steepfile_path,
           args: [],
-          delay_shutdown: true,
           steep_command: jobs_option.steep_command,
           count: count
         )
