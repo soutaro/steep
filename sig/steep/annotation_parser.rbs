@@ -12,6 +12,12 @@ module Steep
 
     attr_reader factory: AST::Types::Factory
 
+    # A regexp literal with an interpolation is compiled every time it is evaluated, and
+    # `#parse` evaluates the patterns of every annotation for every comment of the source
+    @keyword_subject_types: Hash[[String, Regexp], Regexp]
+
+    @keyword_and_types: Hash[String, Regexp]
+
     def initialize: (factory: AST::Types::Factory) -> void
 
     class SyntaxError < StandardError
@@ -30,6 +36,10 @@ module Steep
     PARAM: Regexp
 
     TYPE_PARAMS: Regexp
+
+    DYNAMIC: Regexp
+
+    IMPLEMENTS: Regexp
 
     def parse_type: (MatchData, ?Symbol, location: RBS::Location[untyped, untyped]) -> AST::Types::t
 

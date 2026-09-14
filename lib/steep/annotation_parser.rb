@@ -14,6 +14,11 @@ module Steep
 
     def initialize(factory:)
       @factory = factory
+
+      # A regexp literal with an interpolation is compiled every time it is evaluated, and
+      # `#parse` evaluates the patterns of every annotation for every comment of the source
+      @keyword_subject_types = {}
+      @keyword_and_types = {}
     end
 
     class SyntaxError < StandardError
@@ -69,12 +74,15 @@ module Steep
       factory.type(type)
     end
 
+    DYNAMIC = /@dynamic\s+(?<names>(#{DYNAMIC_NAME}\s*,\s*)*#{DYNAMIC_NAME})/
+    IMPLEMENTS = /@implements\s+(?<name>#{CONST_NAME})#{TYPE_PARAMS}$/
+
     def keyword_subject_type(keyword, name)
-      /@type\s+#{keyword}\s+(?<name>#{name})#{COLON}#{TYPE}/
+      @keyword_subject_types[[keyword, name]] ||= /@type\s+#{keyword}\s+(?<name>#{name})#{COLON}#{TYPE}/
     end
 
     def keyword_and_type(keyword)
-      /@type\s+#{keyword}#{COLON}#{TYPE}/
+      @keyword_and_types[keyword] ||= /@type\s+#{keyword}#{COLON}#{TYPE}/
     end
 
     def parse(src, location:)
@@ -165,7 +173,7 @@ module Steep
           AST::Annotation::BreakType.new(type: type, location: location)
         end
 
-      when /@dynamic\s+(?<names>(#{DYNAMIC_NAME}\s*,\s*)*#{DYNAMIC_NAME})/
+      when DYNAMIC
         Regexp.last_match.yield_self do |match|
           match or raise
           names = (match[:names] || raise).split(/\s*,\s*/)
@@ -185,7 +193,7 @@ module Steep
           )
         end
 
-      when /@implements\s+(?<name>#{CONST_NAME})#{TYPE_PARAMS}$/
+      when IMPLEMENTS
         Regexp.last_match.yield_self do |match|
           match or raise
           type_name = RBS::TypeName.parse(match[:name] || raise)
