@@ -327,7 +327,18 @@ module Steep
         # Ruby constants start with Uppercase_Letter or Titlecase_Letter in the unicode property.
         # If name start with `@`, it is instance variable or class instance variable.
         # If name start with `$`, it is global variable.
-        return false if name.start_with?(/[\p{Uppercase_Letter}\p{Titlecase_Letter}@$]/)
+        #
+        # The first byte decides it for an ASCII name, and a name is looked up for every
+        # variable of the source: the unicode property match is left to the names that need it.
+        case name.name.getbyte(0)
+        when 0x24, 0x40 # `$` and `@`
+          return false
+        when 0x41..0x5a # `A` to `Z`
+          return false
+        when 0x80..0xff # A non ASCII name, where the unicode property tells a constant apart
+          return false if name.start_with?(/[\p{Uppercase_Letter}\p{Titlecase_Letter}]/)
+        end
+
         return false if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
 
         true
