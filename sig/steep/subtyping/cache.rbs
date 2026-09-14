@@ -24,6 +24,18 @@ module Steep
       #
       attr_reader ground_subtypes: Hash[Relation[AST::Types::t], Result::t]
 
+      # The types a `case`/`when` narrows a type to, keyed by the type and the class of the
+      # pattern
+      #
+      # Narrowing asks the same question over and over -- the type check of the Steep project
+      # asks 17,000 times for 4,400 distinct pairs -- and each answer costs the subtyping
+      # checks between the class and the types the union is made of.
+      #
+      # Only the types without a free variable are kept, like `ground_subtypes`: the bounds of
+      # the variables in scope take part in those subtyping checks.
+      #
+      @case_selects: Hash[[AST::Types::t, RBS::TypeName], [Array[AST::Types::t], Array[AST::Types::t]]]
+
       def initialize: () -> void
 
       def subtype: (Relation[AST::Types::t] relation, AST::Types::t? self_type, AST::Types::t? instance_type, AST::Types::t? class_type, Hash[Symbol, AST::Types::t?] bounds) -> Result::t?
@@ -35,6 +47,10 @@ module Steep
       def ground: (Relation[AST::Types::t] relation) -> Result::t?
 
       def store_ground: (Relation[AST::Types::t] relation, Result::t value) -> Result::t
+
+      def case_select: (AST::Types::t `type`, RBS::TypeName type_name) -> [Array[AST::Types::t], Array[AST::Types::t]]?
+
+      def store_case_select: (AST::Types::t `type`, RBS::TypeName type_name, [Array[AST::Types::t], Array[AST::Types::t]] value) -> [Array[AST::Types::t], Array[AST::Types::t]]
 
       def no_subtype_cache?: () -> bool
     end

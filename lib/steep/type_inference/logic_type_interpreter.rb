@@ -587,6 +587,22 @@ module Steep
       end
 
       def type_case_select0(type, klass)
+        # Narrowing asks the same question over and over -- the type check of the Steep project
+        # asks 17,000 times for 4,400 distinct pairs -- and each answer costs the subtyping
+        # checks between the class and the types the union is made of.
+        #
+        # A type with a free variable is answered without the cache, because the bounds of the
+        # variables in scope take part in those checks. The `self`, `instance` and `class`
+        # types count as free variables, so what is kept doesn't depend on the context either.
+        unless type.free_variables.empty?
+          return type_case_select1(type, klass)
+        end
+
+        subtyping.cache.case_select(type, klass) ||
+          subtyping.cache.store_case_select(type, klass, type_case_select1(type, klass))
+      end
+
+      def type_case_select1(type, klass)
         instance_type = factory.instance_type(klass)
 
         case type

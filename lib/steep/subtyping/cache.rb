@@ -8,6 +8,7 @@ module Steep
       def initialize
         @subtypes = {}
         @ground_subtypes = {}
+        @case_selects = {}
         Stats.active&.register_cache(self)
       end
 
@@ -32,6 +33,14 @@ module Steep
 
       def store_ground(relation, value)
         ground_subtypes[relation] = value
+      end
+
+      def case_select(type, type_name)
+        @case_selects[[type, type_name]]
+      end
+
+      def store_case_select(type, type_name, value)
+        @case_selects[[type, type_name]] = value
       end
 
       def no_subtype_cache?

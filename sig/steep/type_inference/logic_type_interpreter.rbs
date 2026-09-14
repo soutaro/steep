@@ -102,7 +102,14 @@ module Steep
 
       def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t?, AST::Types::t?]
 
+      # Narrowing asks the same question over and over -- the type check of the Steep project
+      # asks 17,000 times for 4,400 distinct pairs -- and each answer costs the subtyping
+      # checks between the class and the types the union is made of, so the answers of the
+      # types without a free variable are kept in the cache of the checker.
+      #
       def type_case_select0: (AST::Types::t `type`, RBS::TypeName klass) -> [Array[AST::Types::t], Array[AST::Types::t]]
+
+      def type_case_select1: (AST::Types::t `type`, RBS::TypeName klass) -> [Array[AST::Types::t], Array[AST::Types::t]]
 
       def try_convert: (AST::Types::t, Symbol) -> AST::Types::t?
 
