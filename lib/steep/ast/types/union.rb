@@ -14,38 +14,54 @@ module Steep
             return types.first || raise
           end
 
-          types.flat_map do |type|
-            if type.is_a?(Union)
-              type.types
-            else
-              [type]
+          # A union among the types is the exception, while `flat_map` allocates a singleton
+          # array for every type that is not one
+          if types.any? {|type| type.is_a?(Union) }
+            types = types.flat_map do |type|
+              if type.is_a?(Union)
+                type.types
+              else
+                [type]
+              end
             end
-          end.map do |type|
+          end
+
+          tys = [] #: Array[t]
+
+          types.each do |type|
             case type
             when AST::Types::Any
               return AST::Types::Any.instance()
             when AST::Types::Top
               return AST::Types::Top.instance
             when AST::Types::Bot
-              nil
+              # `bot` adds nothing to a union
             else
-              type
+              tys << type
             end
-          end.compact.uniq.yield_self do |tys|
-            case tys.size
-            when 0
-              AST::Types::Bot.instance
-            when 1
-              tys.first || raise
-            else
-              new(types: tys)
-            end
+          end
+
+          tys.uniq!
+
+          case tys.size
+          when 0
+            AST::Types::Bot.instance
+          when 1
+            tys.first || raise
+          else
+            new(types: tys)
           end
         end
 
         def ==(other)
-          other.is_a?(Union) &&
-            Set.new(other.types) == Set.new(types)
+          return true if equal?(other)
+          return false unless other.is_a?(Union)
+
+          # The order of the types doesn't matter, but two equal unions are usually built the
+          # same way, and the sets are allocated only when they are not
+          return true if other.types == types
+
+          Set.new(other.types) == Set.new(types)
         end
 
         def hash
