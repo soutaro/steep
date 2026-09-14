@@ -33,7 +33,7 @@ module Steep
       # TypeParam.rename([`X`, `Y`], [:X, :Y])  # [[`X(0)`, `Y(1)`], `{ X => X(0), Y => Y(1) }`]
       # ```
       #
-      def self.rename: (Array[TypeParam] params, ?Array[Symbol] conflicting_names, ?Array[Symbol] new_names) -> [Array[TypeParam], Substitution]
+      def self.rename: (Array[TypeParam] params, ?Array[Symbol]? conflicting_names, ?Array[Symbol]? new_names) -> [Array[TypeParam], Substitution]
 
       def to_s: () -> String
 

@@ -32,7 +32,14 @@ module Steep
         name.hash ^ upper_bound.hash ^ variance.hash ^ unchecked.hash ^ default_type.hash
       end
 
-      def self.rename(params, conflicting_names = params.map(&:name), new_names = conflicting_names.map {|n| AST::Types::Var.fresh_name(n) })
+      def self.rename(params, conflicting_names = nil, new_names = nil)
+        # Most method types have no type parameter, and computing the default arguments
+        # allocates two arrays for each of them
+        return [params, Substitution.empty] if conflicting_names.nil? && params.empty?
+
+        conflicting_names ||= params.map(&:name)
+        new_names ||= conflicting_names.map {|n| AST::Types::Var.fresh_name(n) }
+
         unless conflicting_names.empty?
           hash = conflicting_names.zip(new_names).to_h
           new_types = new_names.map {|n| AST::Types::Var.new(name: n) }
