@@ -30,8 +30,15 @@
 Encoding.default_external = Encoding::UTF_8
 
 require "steep"
-require "benchmark"
 require "json"
+
+# `benchmark` is not a default gem since Ruby 4.0, and the script needs nothing but the
+# elapsed time of a block.
+def realtime
+  started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  yield
+  Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+end
 
 MODE = ENV.fetch("CACHE_MODE", "on")
 STATS = ENV["CACHE_STATS"] == "1"
@@ -156,7 +163,7 @@ Steep::Project::DSL.parse(project, steepfile.read, filename: steepfile.to_s)
 loader = Steep::Services::FileLoader.new(base_dir: project.base_dir)
 
 service = nil
-boot_time = Benchmark.realtime do
+boot_time = realtime do
   service = Steep::Services::TypeCheckService.new(project: project)
 end
 
@@ -172,7 +179,7 @@ project.targets.each do |target|
   end
 end
 
-update_time = Benchmark.realtime { service.update(changes: changes) }
+update_time = realtime { service.update(changes: changes) }
 
 result = {
   mode: MODE,
@@ -196,7 +203,7 @@ targets.each do |target|
     check.cache.subtypes.clear if check
   end
 
-  sig_time = Benchmark.realtime do
+  sig_time = realtime do
     sig_paths.each do |path|
       FILE_IDX[0] += 1
       service.validate_signature(path: path, target: target)
@@ -204,7 +211,7 @@ targets.each do |target|
     end
   end
 
-  src_time = Benchmark.realtime do
+  src_time = realtime do
     src_paths.each do |path|
       FILE_IDX[0] += 1
       service.typecheck_source(path: path, target: target)

@@ -48,9 +48,16 @@
 Encoding.default_external = Encoding::UTF_8
 
 require "steep"
-require "benchmark"
 require "json"
 require "objspace"
+
+# `benchmark` is not a default gem since Ruby 4.0, and the script needs nothing but the
+# elapsed time of a block.
+def realtime
+  started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  yield
+  Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+end
 
 TARGET_NAMES = (ENV["TARGETS"] || "app").split(",").map(&:to_sym)
 verbose_errors = ENV["VERBOSE_ERRORS"] == "1"
@@ -105,7 +112,7 @@ Steep::Project::DSL.parse(project, steepfile.read, filename: steepfile.to_s)
 loader = Steep::Services::FileLoader.new(base_dir: project.base_dir)
 
 service = nil
-boot_time = Benchmark.realtime do
+boot_time = realtime do
   service = Steep::Services::TypeCheckService.new(project: project)
 end
 
@@ -115,7 +122,7 @@ project.targets.each do |target|
     changes[path] ||= [Steep::Services::ContentChange.string((project.base_dir + path).read)]
   end
 end
-update_time = Benchmark.realtime { service.update(changes: changes) }
+update_time = realtime { service.update(changes: changes) }
 
 rss_mb = -> { File.read("/proc/self/status")[/VmRSS:\s+(\d+)/, 1].to_i / 1024.0 }
 
@@ -179,7 +186,7 @@ targets.each do |target|
   warm = ->(names) do
     errors = 0
     error_tally = Hash.new(0)
-    time = Benchmark.realtime do
+    time = realtime do
       names.each do |name|
         begin
           if name.class?
@@ -200,7 +207,7 @@ targets.each do |target|
   warm_definitions = ->(names) do
     definition_builder = builder.factory.definition_builder
     errors = 0
-    time = Benchmark.realtime do
+    time = realtime do
       names.each do |name|
         begin
           if name.class?
@@ -242,7 +249,7 @@ targets.each do |target|
       source_paths = source_paths.first(limit.to_i)
     end
 
-    check_time = Benchmark.realtime do
+    check_time = realtime do
       source_paths.each do |path|
         begin
           service.typecheck_source(path: path, target: target)
@@ -289,7 +296,7 @@ targets.each do |target|
     after_library = gc_memsize.()
   end
 
-  compact_time = Benchmark.realtime { GC.compact }
+  compact_time = realtime { GC.compact }
 
   result[:targets][target.name] = {
     project_types: project_set.size,
@@ -324,7 +331,7 @@ targets.each do |target|
   if fork_count
     # `Process.warmup` promotes everything to the old generation and compacts, so the pages
     # the children inherit are as stable as they get
-    warmup_time = Benchmark.realtime { Process.warmup if Process.respond_to?(:warmup) }
+    warmup_time = realtime { Process.warmup if Process.respond_to?(:warmup) }
 
     source_paths = [] #: Array[Pathname]
     loader.each_path_in_target(target) do |path|
@@ -340,7 +347,7 @@ targets.each do |target|
 
       fork do
         reader.close
-        time = Benchmark.realtime do
+        time = realtime do
           paths.each do |path|
             begin
               service.typecheck_source(path: path, target: target)

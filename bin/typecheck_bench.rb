@@ -26,9 +26,16 @@
 Encoding.default_external = Encoding::UTF_8
 
 require "steep"
-require "benchmark"
 require "json"
 require "objspace"
+
+# `benchmark` is not a default gem since Ruby 4.0, and the script needs nothing but the
+# elapsed time of a block.
+def realtime
+  started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  yield
+  Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+end
 
 TARGET_NAMES = (ENV["TARGETS"] || "app").split(",").map(&:to_sym)
 file_limit = ENV["FILES"]&.to_i
@@ -61,7 +68,7 @@ project.targets.each do |target|
     changes[path] ||= [Steep::Services::ContentChange.string((project.base_dir + path).read)]
   end
 end
-update_time = Benchmark.realtime { service.update(changes: changes) }
+update_time = realtime { service.update(changes: changes) }
 
 result = {
   update: update_time.round(2),
@@ -103,7 +110,7 @@ targets.each do |target|
   errors = 0
   files = [] #: Array[Steep::Services::TypeCheckService::SourceFile]
 
-  check_time = Benchmark.realtime do
+  check_time = realtime do
     profile.(-> do
       source_paths.each do |path|
         begin
