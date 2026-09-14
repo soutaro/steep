@@ -13,9 +13,7 @@ class ServerTypeCheckRequestTest < Minitest::Test
 
   def test_request: () -> untyped
 
-  def test_as_json_all: () -> untyped
-
-  def test_as_json_none: () -> untyped
+  def test_jobs: () -> untyped
 
   def test_progress: () -> untyped
 end

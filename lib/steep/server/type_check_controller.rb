@@ -37,23 +37,22 @@ module Steep
           Steep::PathHelper.to_uri(path)
         end
 
-        def as_json(assignment:)
-          {
-            guid: guid,
-            library_uris: assigned_uris(assignment, library_paths),
-            signature_uris: assigned_uris(assignment, signature_paths),
-            code_uris: assigned_uris(assignment, code_paths),
-            inline_uris: assigned_uris(assignment, inline_paths),
-            priority_uris: priority_paths.map {|path| uri(path).to_s }
-          }
-        end
+        def jobs
+          kinds = [[:code, code_paths], [:signature, signature_paths], [:library, library_paths], [:inline, inline_paths]] #: Array[[job_kind, Set[target_and_path]]]
+          jobs = [] #: Array[job]
 
-        def assigned_uris(assignment, paths)
-          paths.filter_map do |target_path|
-            if assignment =~ target_path
-              [target_path[0].to_s, uri(target_path[1]).to_s]
+          [true, false].each do |priority|
+            kinds.each do |kind, paths|
+              paths.each do |target_path|
+                next if checked_paths.include?(target_path)
+                next unless priority_paths.include?(target_path[1]) == priority
+
+                jobs << [kind, target_path[0], target_path[1]]
+              end
             end
           end
+
+          jobs
         end
 
         def total
@@ -186,6 +185,20 @@ module Steep
         end
       end
 
+      class FileContent
+        attr_reader :text
+        attr_reader :version
+
+        def initialize(text:, version:)
+          @text = text
+          @version = version
+        end
+
+        def update(text)
+          FileContent.new(text: text, version: version + 1)
+        end
+      end
+
       attr_reader :project
       attr_reader :open_paths
       attr_reader :active_groups
@@ -194,14 +207,16 @@ module Steep
       attr_reader :files
       attr_reader :inline_path_changes
       attr_reader :type_check_service
-      attr_reader :signature_changes
+      attr_reader :file_contents
+      attr_reader :changed_paths
 
       def initialize(project:)
         @project = project
 
         @files = TargetGroupFiles.new(project)
         @type_check_service = nil
-        @signature_changes = {}
+        @file_contents = {}
+        @changed_paths = Set[]
         @open_paths = Set[]
         @active_groups = Set[].compare_by_identity
         @new_active_groups = Set[].compare_by_identity
@@ -221,49 +236,46 @@ module Steep
           files.add_library_path(target, *signature_service.env_rbs_paths.to_a)
         end
 
-        files = {} #: Hash[String, String]
-
         project.targets.each do |target|
           loader.each_path_in_target(target, command_line_args) do |path|
             absolute_path = project.absolute_path(path)
-            self.files.add_path(absolute_path)
+            files.add_path(absolute_path)
             content = absolute_path.read
-            files[path.to_s] = content
-            if files.size > 1000
-              yield files.dup
-              files.clear
-            end
 
             if inline_path?(path)
               inline_path_changes.add_source(path, content)
             end
 
-            if signature_path?(path) || inline_path?(path)
-              push_signature_change(absolute_path, content)
-            end
+            push_file_change(absolute_path, content)
           end
         end
-
-        yield files.dup unless files.empty?
       end
 
-      def push_signature_change(path, update)
+      def push_file_change(path, update)
         return if files.library_path?(path)
 
         path = project.relative_path(path)
-        changes = (signature_changes[path] ||= [])
+        content = file_contents[path]
 
-        case update
-        when String
-          changes.replace([Services::ContentChange.string(update)])
-        else
-          changes.concat(update)
-        end
+        text =
+          case update
+          when String
+            update
+          else
+            update.inject(content ? content.text : "") {|text, change| change.apply_to(text) }
+          end
+
+        return if content && content.text == text
+
+        file_contents[path] = content ? content.update(text) : FileContent.new(text: text, version: 1)
+        changed_paths << path
       end
 
-      def pop_signature_changes
-        changes = signature_changes
-        @signature_changes = {}
+      def pop_file_changes
+        changes = changed_paths.each.with_object({}) do |path, hash| #$ ChangeBuffer::changes
+          hash[path] = [Services::ContentChange.string(file_contents.fetch(path).text)]
+        end
+        changed_paths.clear
         changes
       end
 
@@ -284,11 +296,12 @@ module Steep
         files.inline_paths.registered_path?(path) || project.target_for_inline_source_path(path) != nil
       end
 
-      def add_dirty_code_path(path)
+      def add_dirty_code_path(path, update = nil)
         return if files.library_path?(path)
         if code_path?(path)
           files.add_path(path)
           dirty_code_paths << path
+          push_file_change(path, update) if update
         end
       end
 
@@ -297,7 +310,7 @@ module Steep
         if signature_path?(path)
           files.add_path(path)
           dirty_signature_paths << path
-          push_signature_change(path, update) if update
+          push_file_change(path, update) if update
         end
       end
 
@@ -306,7 +319,7 @@ module Steep
         if inline_path?(path)
           files.add_path(path)
           dirty_inline_paths << path
-          push_signature_change(path, update)
+          push_file_change(path, update)
 
           unless inline_path_changes.has_source?(path)
             inline_path_changes.add_source(path, "")
@@ -325,6 +338,7 @@ module Steep
 
         if inline_path?(path)
           open_path(path)
+          push_file_change(path, content)
 
           if inline_path_changes.has_source?(path)
             inline_path_changes.replace_source(path, content)

@@ -175,6 +175,19 @@ module Steep
       #
       attr_reader environment_queue: Thread::Queue
 
+      # The jobs of the current type check that are not handed to a worker yet
+      #
+      # The master hands the jobs out one by one, `TYPECHECK_JOBS_PER_WORKER` at a time to each worker, so that
+      # a worker that finishes early takes more files.
+      #
+      attr_reader pending_typecheck_jobs: Array[TypeCheckController::Request::job]
+
+      # The number of `$/steep/typecheck/file` requests each worker is working on
+      attr_reader typecheck_jobs_in_flight: Hash[WorkerProcess, Integer]
+
+      # The number of `$/steep/typecheck/file` requests a worker gets ahead, to keep it busy while a response travels
+      TYPECHECK_JOBS_PER_WORKER: Integer
+
       # The mtimes of the project files when they were loaded or reloaded
       #
       # `nil` until the initial project load finishes.
@@ -203,9 +216,46 @@ module Steep
       #
       def start: () -> void
 
-      # Hands the buffered signature changes to the environment thread
+      # Hands the pending jobs of the current type check to the workers that have room for more
       #
-      # Called when a type check starts, so that the environments follow the files the same way the typecheck workers do.
+      # Each worker with room takes one job per round, so that the files are spread across the workers from the
+      # start, and a worker checks each file of a small project alone.
+      #
+      def dispatch_typecheck_jobs: () -> void
+
+      # Sends a `$/steep/typecheck/file` request of the job to the worker, with the content of the Ruby file when the
+      # worker doesn't have it yet, and stores the result in the database when the response comes back
+      #
+      # The response of a request that is superseded by a newer type check is ignored, except for handing the next
+      # job to the worker.
+      #
+      def send_typecheck_job: (WorkerProcess worker, TypeCheckController::Request request, TypeCheckController::Request::job job) -> void
+
+      # Returns the latest content of the file to send to the worker, or `nil` when the worker has it already
+      #
+      # Records the version in `worker.known_versions`. The content is base64 encoded when it is not valid UTF-8.
+      #
+      def content_for: (WorkerProcess worker, Pathname path) -> ChangeBuffer::content?
+
+      # Sends the worker the latest contents of the files it doesn't have yet, as a `$/steep/file/load` notification
+      #
+      # The master is the source of truth of the file contents, and the workers receive them right before they need
+      # them: the RBS files before a type check, and the RBS files and the file of the request before an interaction
+      # request. The Ruby files to type check go with the `$/steep/typecheck/file` requests. `worker.known_versions`
+      # records what the worker has, so unchanged files are not sent again.
+      #
+      def deliver_contents: (WorkerProcess worker, Array[Pathname] paths) -> void
+
+      # Applies the pending changes to the environments, and sends the worker the RBS files and the file of a request
+      def deliver_contents_for_request: (WorkerProcess worker, Pathname path) -> void
+
+      # The RBS files and inline RBS sources of the project, which every worker needs for its environments
+      def signature_paths_to_deliver: () -> Array[Pathname]
+
+      # Hands the buffered file changes to the environment thread
+      #
+      # Called when a type check starts, so that the environments and the file contents in `controller.type_check_service`
+      # follow the files the same way the typecheck workers do.
       #
       def update_environment: () -> void
 
@@ -252,7 +302,7 @@ module Steep
       # Results of a guid other than the current request are dropped. The diagnostics published are the ones of
       # `source` and `signature` concatenated, or nothing when both are skipped.
       #
-      def on_type_check_update: (guid: String, path: Pathname, target: Project::Target, ?source: CustomMethods::TypeCheck__Progress::result?, ?signature: CustomMethods::TypeCheck__Progress::result?) -> void
+      def on_type_check_update: (guid: String, path: Pathname, target: Project::Target, ?source: CustomMethods::TypeCheck__File::file_result?, ?signature: CustomMethods::TypeCheck__File::file_result?) -> void
 
       def broadcast_notification: (lsp_notification message) -> void
 

@@ -15,53 +15,33 @@ class ServerTypeCheckRequestTest < Minitest::Test
     Server::TypeCheckController::Request.new(guid: "guid", progress: Server::WorkDoneProgress.new("guid"))
   end
 
-  def test_as_json_all
+  def test_jobs
     in_tmpdir do
       request = Server::TypeCheckController::Request.new(guid: "guid", progress: Server::WorkDoneProgress.new("guid"))
 
       request.library_paths << [:lib, RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"]
       request.signature_paths << [:lib, current_dir + "sig/user.rbs"]
       request.code_paths << [:lib, current_dir + "lib/user.rb"]
+      request.code_paths << [:lib, current_dir + "lib/account.rb"]
       request.inline_paths << [:lib, current_dir + "lib/inline.rb"]
+      request.priority_paths << (current_dir + "lib/account.rb")
 
-      json = request.as_json(assignment: Services::PathAssignment.all)
-
+      # The priority paths come first, and then the Ruby files, the RBS files, the library files, and the inline files
       assert_equal(
-        {
-          guid: "guid",
-          library_uris: [["lib", "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}"]],
-          signature_uris: [["lib", "#{file_scheme}#{current_dir + "sig/user.rbs"}"]],
-          code_uris: [["lib", "#{file_scheme}#{current_dir + "lib/user.rb"}"]],
-          inline_uris: [["lib", "#{file_scheme}#{current_dir + "lib/inline.rb"}"]],
-          priority_uris: []
-        },
-        json
+        [
+          [:code, :lib, current_dir + "lib/account.rb"],
+          [:code, :lib, current_dir + "lib/user.rb"],
+          [:signature, :lib, current_dir + "sig/user.rbs"],
+          [:library, :lib, RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"],
+          [:inline, :lib, current_dir + "lib/inline.rb"]
+        ],
+        request.jobs
       )
-    end
-  end
 
-  def test_as_json_none
-    in_tmpdir do
-      request = Server::TypeCheckController::Request.new(guid: "guid", progress: Server::WorkDoneProgress.new("guid"))
-
-      request.library_paths << [:lib, RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"]
-      request.signature_paths << [:lib, current_dir + "sig/user.rbs"]
-      request.code_paths << [:lib, current_dir + "lib/user.rb"]
-      request.inline_paths << [:lib, current_dir + "lib/inline.rb"]
-
-      json = request.as_json(assignment: Services::PathAssignment.new(max_index: 1, index: 1))
-
-      assert_equal(
-        {
-          guid: "guid",
-          library_uris: [],
-          signature_uris: [],
-          code_uris: [],
-          inline_uris: [],
-          priority_uris: []
-        },
-        json
-      )
+      # The paths checked already are left out
+      request.checked(current_dir + "lib/user.rb", Steep::Project::Target.new(name: :lib, options: nil, source_pattern: nil, inline_source_pattern: nil, signature_pattern: nil, code_diagnostics_config: nil, project: nil, unreferenced: false, implicitly_returns_nil: true))
+      assert_equal 4, request.jobs.size
+      refute_includes request.jobs, [:code, :lib, current_dir + "lib/user.rb"]
     end
   end
 

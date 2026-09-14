@@ -194,6 +194,10 @@ module Steep
       # Callbacks to be called when no type check is running anymore
       attr_reader :typecheck_quiescent_callbacks
       attr_reader :environment_queue
+      attr_reader :pending_typecheck_jobs
+      attr_reader :typecheck_jobs_in_flight
+
+      TYPECHECK_JOBS_PER_WORKER = 2
 
       def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
         @project = project
@@ -207,6 +211,8 @@ module Steep
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
         @environment_queue = Thread::Queue.new
+        @pending_typecheck_jobs = []
+        @typecheck_jobs_in_flight = {}
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
         @project_file_mtimes = nil
@@ -431,18 +437,7 @@ module Steep
               end
 
               Steep.measure("Load files from disk...") do
-                controller.load(command_line_args: commandline_args) do |input|
-                  input.transform_values! do |content|
-                    content.is_a?(String) or raise
-                    if content.valid_encoding?
-                      content
-                    else
-                      base64_encoded = [content].pack("m")
-                      { text: base64_encoded, binary: true }
-                    end
-                  end
-                  broadcast_notification(CustomMethods::FileLoad.notification({ content: input }))
-                end
+                controller.load(command_line_args: commandline_args)
               end
 
               environment_queue << -> { load_library_entries() }
@@ -491,14 +486,12 @@ module Steep
 
               case
               when controller.code_path?(path)
-                controller.add_dirty_code_path(path)
+                controller.add_dirty_code_path(path, content)
               when controller.signature_path?(path)
                 controller.add_dirty_signature_path(path, content)
               when controller.inline_path?(path)
                 controller.add_dirty_inline_path(path, content)
               end
-
-              broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: content }))
             end
           end
 
@@ -526,21 +519,19 @@ module Steep
 
         when "textDocument/didChange"
           if path = pathname(message[:params][:textDocument][:uri])
-            broadcast_notification(message)
-
             Steep.logger.debug { path.to_s }
+
+            changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
 
             case
             when controller.code_path?(path)
               Steep.logger.debug { "code_path?" }
-              controller.add_dirty_code_path(path)
+              controller.add_dirty_code_path(path, changes)
             when controller.signature_path?(path)
               Steep.logger.debug { "signature_path?" }
-              changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
               controller.add_dirty_signature_path(path, changes)
             when controller.inline_path?(path)
               Steep.logger.debug { "inline_path?" }
-              changes = Services::ContentChange.from_lsp(message[:params][:contentChanges])
               controller.add_dirty_inline_path(path, changes)
             end
 
@@ -574,9 +565,8 @@ module Steep
                 controller.open_inline_path(path, text)
               else
                 controller.open_path(path)
+                controller.push_file_change(path, text) if text
               end
-
-              # broadcast_notification(CustomMethods::FileReset.notification({ uri: uri, content: text }))
 
               start_type_checking_queue.execute do
                 guid = SecureRandom.uuid
@@ -593,6 +583,8 @@ module Steep
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
           if interaction_worker
             if path = pathname(message[:params][:textDocument][:uri])
+              deliver_contents_for_request(interaction_worker, path)
+
               result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
                 handler.on_completion do |response|
                   enqueue_write_job SendMessageJob.to_client(
@@ -614,8 +606,11 @@ module Steep
           end
 
         when "workspace/symbol"
+          update_environment()
+
           result_controller << group_request do |group|
             typecheck_workers.each do |worker|
+              deliver_contents(worker, signature_paths_to_deliver)
               group << send_request(method: "workspace/symbol", params: message[:params], worker: worker)
             end
 
@@ -654,6 +649,8 @@ module Steep
               uri: message[:params][:textDocument][:uri],
               position: message[:params][:position]
             } #: CustomMethods::Source__Symbol::params
+
+            deliver_contents_for_request(interaction_worker, path)
 
             result_controller << send_request(method: CustomMethods::Source__Symbol::METHOD, params: params, worker: interaction_worker) do |handler|
               handler.on_completion do |response|
@@ -792,21 +789,8 @@ module Steep
               Steep.logger.debug { "result = #{message[:result].inspect}" }
             end
           when message.key?(:method) && !message.key?(:id)
-            case message[:method]
-            when CustomMethods::TypeCheck__Progress::METHOD
-              params = message[:params] #: CustomMethods::TypeCheck__Progress::params
-              target = project.targets.find {|target| target.name.to_s == params[:target] } or raise
-              on_type_check_update(
-                guid: params[:guid],
-                path: Pathname(params[:path]),
-                target: target,
-                source: params[:source],
-                signature: params[:signature]
-              )
-            else
-              # Forward other notifications
-              enqueue_write_job SendMessageJob.to_client(message: message)
-            end
+            # Forward notifications from the workers to the client
+            enqueue_write_job SendMessageJob.to_client(message: message)
           end
         end
       end
@@ -900,17 +884,75 @@ module Steep
             request.work_done_progress.begin("Type checking", request_id: fresh_request_id)
           end
 
-          Steep.logger.info "Sending $/typecheck/start notifications"
+          Steep.logger.info "Dispatching the type check jobs"
           typecheck_workers.each do |worker|
-            assignment = Services::PathAssignment.new(
-              max_index: typecheck_workers.size,
-              index: worker.index || raise
+            deliver_contents(worker, signature_paths_to_deliver)
+          end
+
+          @pending_typecheck_jobs = request.jobs
+          dispatch_typecheck_jobs()
+        end
+      end
+
+      def dispatch_typecheck_jobs
+        request = current_type_check_request or return
+
+        until pending_typecheck_jobs.empty?
+          workers = typecheck_workers.select {|worker| typecheck_jobs_in_flight.fetch(worker, 0) < TYPECHECK_JOBS_PER_WORKER }
+          break if workers.empty?
+
+          workers.each do |worker|
+            job = pending_typecheck_jobs.shift or break
+            send_typecheck_job(worker, request, job)
+          end
+        end
+      end
+
+      def send_typecheck_job(worker, request, job)
+        kind, target_name, path = job
+        target = project.targets.find {|target| target.name == target_name } or raise "Unknown target: #{target_name}"
+
+        kind_string =
+          case kind
+          when :code
+            "code"
+          when :signature
+            "signature"
+          when :library
+            "library"
+          when :inline
+            "inline"
+          end #: CustomMethods::TypeCheck__File::kind
+
+        params = {
+          guid: request.guid,
+          kind: kind_string,
+          target: target_name.to_s,
+          uri: PathHelper.to_uri(path).to_s
+        } #: CustomMethods::TypeCheck__File::params
+
+        if kind == :code
+          if content = content_for(worker, path)
+            params[:content] = content
+          end
+        end
+
+        typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) + 1
+
+        result_controller << send_request(method: CustomMethods::TypeCheck__File::METHOD, params: params, worker: worker) do |handler|
+          handler.on_completion do |response|
+            typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) - 1
+
+            result = response[:result] #: CustomMethods::TypeCheck__File::result?
+            on_type_check_update(
+              guid: request.guid,
+              path: path,
+              target: target,
+              source: result&.[](:source),
+              signature: result&.[](:signature)
             )
 
-            enqueue_write_job SendMessageJob.to_worker(
-              worker,
-              message: CustomMethods::TypeCheck__Start.notification(request.as_json(assignment: assignment))
-            )
+            dispatch_typecheck_jobs()
           end
         end
       end
@@ -1096,7 +1138,7 @@ module Steep
       end
 
       def update_environment
-        changes = controller.pop_signature_changes
+        changes = controller.pop_file_changes
         return if changes.empty?
         service = controller.type_check_service or return
 
@@ -1105,6 +1147,44 @@ module Steep
             service.update(changes: changes)
           end
         end
+      end
+
+      def content_for(worker, path)
+        relative_path = project.relative_path(path)
+        file = controller.file_contents.fetch(relative_path, nil) or return
+        return if worker.known_versions[relative_path] == file.version
+
+        worker.known_versions[relative_path] = file.version
+
+        if file.text.valid_encoding?
+          file.text
+        else
+          { text: [file.text].pack("m"), binary: true }
+        end
+      end
+
+      def deliver_contents(worker, paths)
+        content = {} #: Hash[String, ChangeBuffer::content]
+
+        paths.each do |path|
+          if file_content = content_for(worker, path)
+            content[project.relative_path(path).to_s] = file_content
+          end
+        end
+
+        unless content.empty?
+          Steep.logger.info { "Sending the contents of #{content.size} files to #{worker.name}" }
+          enqueue_write_job SendMessageJob.to_worker(worker, message: CustomMethods::FileLoad.notification({ content: content }))
+        end
+      end
+
+      def deliver_contents_for_request(worker, path)
+        update_environment()
+        deliver_contents(worker, signature_paths_to_deliver + [path])
+      end
+
+      def signature_paths_to_deliver
+        controller.files.signature_paths.paths.to_a + controller.files.inline_paths.paths.to_a
       end
 
       def load_library_entries
@@ -1372,14 +1452,12 @@ module Steep
 
           case
           when controller.code_path?(path)
-            controller.add_dirty_code_path(path)
+            controller.add_dirty_code_path(path, content)
           when controller.signature_path?(path)
             controller.add_dirty_signature_path(path, content)
           when controller.inline_path?(path)
             controller.add_dirty_inline_path(path, content)
           end
-
-          broadcast_notification(CustomMethods::FileReset.notification({ uri: PathHelper.to_uri(path).to_s, content: content }))
         end
 
         if typecheck_automatically

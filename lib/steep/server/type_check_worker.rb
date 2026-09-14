@@ -3,14 +3,12 @@ module Steep
     class TypeCheckWorker < BaseWorker
       attr_reader :project, :assignment
       attr_reader :commandline_args
-      attr_reader :current_type_check_guid
 
       WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
-      StartTypeCheckJob = _ = Struct.new(:guid, :changes, keyword_init: true)
-      TypeCheckCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
-      ValidateAppSignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
-      ValidateLibrarySignatureJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
-      TypeCheckInlineCodeJob = _ = Struct.new(:guid, :path, :target, keyword_init: true)
+      TypeCheckCodeJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
+      ValidateAppSignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
+      ValidateLibrarySignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
+      TypeCheckInlineCodeJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
 
       include ChangeBuffer
 
@@ -22,7 +20,6 @@ module Steep
         @mutex = Mutex.new()
         @queue = Queue.new
         @commandline_args = commandline_args
-        @current_type_check_guid = nil
         @rbs_entries_cache = {}
       end
 
@@ -35,166 +32,104 @@ module Steep
         when "initialize"
           writer.write({ id: request[:id], result: nil})
 
-        when "textDocument/didChange"
-          collect_changes(request)
-
         when CustomMethods::FileLoad::METHOD
           input = request[:params][:content]
           load_files(input)
 
-        when CustomMethods::FileReset::METHOD
-          params = request[:params] #: CustomMethods::FileReset::params
-          uri = params[:uri]
-          text = params[:content]
-          reset_change(uri: uri, text: text)
-
         when "workspace/symbol"
           query = request[:params][:query]
           queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
-        when CustomMethods::TypeCheck__Start::METHOD
-          params = request[:params] #: CustomMethods::TypeCheck__Start::params
-          enqueue_typecheck_jobs(params)
+        when CustomMethods::TypeCheck__File::METHOD
+          params = request[:params] #: CustomMethods::TypeCheck__File::params
+          enqueue_typecheck_job(request[:id], params)
         end
       end
 
-      def enqueue_typecheck_jobs(params)
-        guid = params[:guid]
+      def enqueue_typecheck_job(id, params)
+        target = project.targets.find {|target| target.name.to_s == params[:target] } or raise "Unknown target: #{params[:target]}"
+        path = Steep::PathHelper.to_pathname!(params[:uri])
 
-        @current_type_check_guid = guid
-
-        pop_buffer() do |changes|
-          Steep.logger.info { "Enqueueing StartTypeCheckJob for guid=#{guid}" }
-          queue << StartTypeCheckJob.new(guid: guid, changes: changes)
+        if content = params[:content]
+          load_files({ project.relative_path(path).to_s => content })
         end
 
-        targets = project.targets.each.with_object({}) do |target, hash| #$ Hash[String, Project::Target]
-          hash[target.name.to_s] = target
-        end
+        job =
+          case params[:kind]
+          when "code"
+            TypeCheckCodeJob.new(id: id, path: path, target: target)
+          when "signature"
+            ValidateAppSignatureJob.new(id: id, path: path, target: target)
+          when "library"
+            ValidateLibrarySignatureJob.new(id: id, path: path, target: target)
+          when "inline"
+            TypeCheckInlineCodeJob.new(id: id, path: path, target: target)
+          else
+            raise "Unknown kind of type check: #{params[:kind]}"
+          end
 
-        priority_paths = Set.new(params[:priority_uris].map {|uri| Steep::PathHelper.to_pathname!(uri) })
-        libraries = params[:library_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
-        signatures = params[:signature_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
-        codes = params[:code_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
-        inlines = params[:inline_uris].map {|target_name, uri| [targets.fetch(target_name), Steep::PathHelper.to_pathname!(uri)] } #: Array[[Project::Target, Pathname]]
-
-        priority_libs, non_priority_libs = libraries.partition {|_, path| priority_paths.include?(path) }
-        priority_sigs, non_priority_sigs = signatures.partition {|_, path| priority_paths.include?(path) }
-        priority_codes, non_priority_codes = codes.partition {|_, path| priority_paths.include?(path) }
-        priority_inlines, non_priority_inlines = inlines.partition {|_, path| priority_paths.include?(path) }
-
-        priority_codes.each do |target, path|
-          Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
-          queue << TypeCheckCodeJob.new(guid: guid, path: path, target: target)
-        end
-
-        priority_sigs.each do |target, path|
-          Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
-          queue << ValidateAppSignatureJob.new(guid: guid, path: path, target: target)
-        end
-
-        priority_libs.each do |target, path|
-          Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
-          queue << ValidateLibrarySignatureJob.new(guid: guid, path: path, target: target)
-        end
-
-        priority_inlines.each do |target, path|
-          Steep.logger.info { "Enqueueing TypeCheckInlineCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
-          queue << TypeCheckInlineCodeJob.new(guid: guid, path: path, target: target)
-        end
-
-        non_priority_codes.each do |target, path|
-          Steep.logger.info { "Enqueueing TypeCheckCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
-          queue << TypeCheckCodeJob.new(guid: guid, path: path, target: target)
-        end
-
-        non_priority_sigs.each do |target, path|
-          Steep.logger.info { "Enqueueing ValidateAppSignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
-          queue << ValidateAppSignatureJob.new(guid: guid, path: path, target: target)
-        end
-
-        non_priority_libs.each do |target, path|
-          Steep.logger.info { "Enqueueing ValidateLibrarySignatureJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
-          queue << ValidateLibrarySignatureJob.new(guid: guid, path: path, target: target)
-        end
-
-        non_priority_inlines.each do |target, path|
-          Steep.logger.info { "Enqueueing TypeCheckInlineCodeJob for guid=#{guid}, path=#{path}, target=#{target.name}" }
-          queue << TypeCheckInlineCodeJob.new(guid: guid, path: path, target: target)
-        end
+        Steep.logger.info { "Enqueueing #{job.class.name&.split("::")&.last} for id=#{id}, path=#{path}, target=#{target.name}" }
+        queue << job
       end
 
       def handle_job(job)
         case job
-        when StartTypeCheckJob
-          Steep.logger.info { "Processing StartTypeCheckJob for guid=#{job.guid}" }
-          service.update(changes: job.changes)
-
         when ValidateAppSignatureJob
-          if job.guid == current_type_check_guid
-            Steep.logger.info { "Processing ValidateAppSignature for guid=#{job.guid}, path=#{job.path}" }
+          apply_changes()
+          Steep.logger.info { "Processing ValidateAppSignature for id=#{job.id}, path=#{job.path}" }
 
-            formatter = Diagnostic::LSPFormatter.new({}, **{})
+          formatter = Diagnostic::LSPFormatter.new({}, **{})
 
-            relative_path = project.relative_path(job.path)
-            diagnostics = service.validate_signature(path: relative_path, target: job.target)
+          relative_path = project.relative_path(job.path)
+          diagnostics = service.validate_signature(path: relative_path, target: job.target)
 
-            typecheck_progress(
-              path: job.path,
-              guid: job.guid,
-              target: job.target,
-              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, relative_path), stats: nil }
-            )
-          end
+          respond(
+            job.id,
+            signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, relative_path), stats: nil }
+          )
 
         when ValidateLibrarySignatureJob
-          if job.guid == current_type_check_guid
-            Steep.logger.info { "Processing ValidateLibrarySignature for guid=#{job.guid}, path=#{job.path}" }
+          apply_changes()
+          Steep.logger.info { "Processing ValidateLibrarySignature for id=#{job.id}, path=#{job.path}" }
 
-            formatter = Diagnostic::LSPFormatter.new({}, **{})
-            diagnostics = service.validate_signature(path: job.path, target: job.target)
+          formatter = Diagnostic::LSPFormatter.new({}, **{})
+          diagnostics = service.validate_signature(path: job.path, target: job.target)
 
-            typecheck_progress(
-              path: job.path,
-              guid: job.guid,
-              target: job.target,
-              signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path), stats: nil }
-            )
-          end
+          respond(
+            job.id,
+            signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path), stats: nil }
+          )
 
         when TypeCheckCodeJob
-          if job.guid == current_type_check_guid
-            Steep.logger.info { "Processing TypeCheckCodeJob for guid=#{job.guid}, path=#{job.path}, target=#{job.target.name}" }
-            group_target = project.group_for_source_path(job.path) || job.target
-            formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
-            relative_path = project.relative_path(job.path)
-            file = service.typecheck_source(path: relative_path, target: job.target)
-            typecheck_progress(path: job.path, guid: job.guid, target: job.target, source: source_result(file, formatter))
-          end
+          apply_changes()
+          Steep.logger.info { "Processing TypeCheckCodeJob for id=#{job.id}, path=#{job.path}, target=#{job.target.name}" }
+          group_target = project.group_for_source_path(job.path) || job.target
+          formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
+          relative_path = project.relative_path(job.path)
+          file = service.typecheck_source(path: relative_path, target: job.target)
+          respond(job.id, source: source_result(file, formatter))
 
         when TypeCheckInlineCodeJob
-          if job.guid == current_type_check_guid
-            Steep.logger.info { "Processing TypeCheckInlineCodeJob for guid=#{job.guid}, path=#{job.path}, target=#{job.target.name}" }
-            group_target = project.group_for_inline_source_path(job.path) || job.target
-            formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
-            relative_path = project.relative_path(job.path)
-            source = source_result(service.typecheck_source(path: relative_path, target: job.target), formatter)
-            signature_diagnostics = service.validate_signature(path: relative_path, target: job.target).filter_map { formatter.format(_1) } #: Array[LanguageServer::Protocol::Interface::Diagnostic::json]?
+          apply_changes()
+          Steep.logger.info { "Processing TypeCheckInlineCodeJob for id=#{job.id}, path=#{job.path}, target=#{job.target.name}" }
+          group_target = project.group_for_inline_source_path(job.path) || job.target
+          formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
+          relative_path = project.relative_path(job.path)
+          source = source_result(service.typecheck_source(path: relative_path, target: job.target), formatter)
+          signature_diagnostics = service.validate_signature(path: relative_path, target: job.target).filter_map { formatter.format(_1) } #: Array[LanguageServer::Protocol::Interface::Diagnostic::json]?
 
-            # Keep the diagnostics of the last type checking, as the plain Ruby files do, when the type checking is skipped and the validation finds nothing
-            if source[:diagnostics].nil? && signature_diagnostics&.empty?
-              signature_diagnostics = nil
-            end
-
-            typecheck_progress(
-              path: job.path,
-              guid: job.guid,
-              target: job.target,
-              source: source,
-              signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path), stats: nil }
-            )
+          # Keep the diagnostics of the last type checking, as the plain Ruby files do, when the type checking is skipped and the validation finds nothing
+          if source[:diagnostics].nil? && signature_diagnostics&.empty?
+            signature_diagnostics = nil
           end
 
+          respond(
+            job.id,
+            source: source,
+            signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path), stats: nil }
+          )
+
         when WorkspaceSymbolJob
+          apply_changes()
           writer.write(
             id: job.id,
             result: workspace_symbol_result(job.query)
@@ -202,15 +137,21 @@ module Steep
         end
       end
 
-      def typecheck_progress(guid:, path:, target:, source: nil, signature: nil)
+      def apply_changes
+        pop_buffer do |changes|
+          unless changes.empty?
+            Steep.logger.info { "Applying the changes of #{changes.size} files..." }
+            service.update(changes: changes)
+          end
+        end
+      end
+
+      def respond(id, source: nil, signature: nil)
         writer.write(
-          CustomMethods::TypeCheck__Progress.notification({
-            guid: guid,
-            path: path.to_s,
-            target: target.name.to_s,
-            source: source && wire_result(source),
-            signature: signature && wire_result(signature)
-          })
+          CustomMethods::TypeCheck__File.response(
+            id,
+            { source: source && wire_result(source), signature: signature && wire_result(signature) }
+          )
         )
       end
 

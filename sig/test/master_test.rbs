@@ -51,6 +51,8 @@ class MasterTest < Minitest::Test
 
   def test_client_message_document_did_open_close: () -> untyped
 
+  def test_type_check_request__dispatch_across_workers: () -> untyped
+
   def test_type_check_request__start: () -> untyped
 
   def test_code_type_check: () -> untyped
@@ -70,4 +72,6 @@ class MasterTest < Minitest::Test
   def test__initialize__file_system_watcher_setup: () -> untyped
 
   def test_library_entries_loaded_on_initialize: () -> untyped
+
+  def test_start_type_check_delivers_file_contents: () -> untyped
 end

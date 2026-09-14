@@ -9,14 +9,6 @@ module Steep
         end
       end
 
-      module FileReset
-        METHOD = "$/steep/file/reset"
-
-        def self.notification(params)
-          { method: METHOD, params: params }
-        end
-      end
-
       module TypeCheck
         METHOD = "$/steep/typecheck"
 
@@ -37,19 +29,15 @@ module Steep
         end
       end
 
-      module TypeCheck__Start
-        METHOD = "$/steep/typecheck/start"
+      module TypeCheck__File
+        METHOD = "$/steep/typecheck/file"
 
-        def self.notification(params)
-          { method: METHOD, params: params }
+        def self.request(id, params)
+          { method: METHOD, id: id, params: params }
         end
-      end
 
-      module TypeCheck__Progress
-        METHOD = "$/steep/typecheck/progress"
-
-        def self.notification(params)
-          { method: METHOD, params: params }
+        def self.response(id, result)
+          { id: id, result: result }
         end
       end
 

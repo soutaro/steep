@@ -27,14 +27,6 @@ module Steep
       # Load files from `project` to `buffered_changes`
       #
       def load_files: (Hash[String, content] input) -> void
-
-      # Load changes from a request with `DidChangeTextDocumentParams` into `buffered_changes`
-      #
-      def collect_changes: (untyped request) -> void
-
-      # Reset the content of `uri` to `text`
-      #
-      def reset_change: (uri: String, text: String) -> void
     end
   end
 end

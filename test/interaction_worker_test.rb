@@ -62,7 +62,7 @@ EOF
     end
   end
 
-  def test_handle_request_change
+  def test_handle_request_file_load
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
       Project::DSL.parse(project, <<EOF)
@@ -79,56 +79,9 @@ EOF
 
       worker.handle_request(
         {
-          method: "textDocument/didChange",
-          id: 123,
-          params: LSP::Interface::DidChangeTextDocumentParams.new(
-            text_document: {
-              version: 1,
-              uri: "#{file_scheme}#{current_dir}/lib/hello.rb"
-            },
-            content_changes: [
-              {
-                text: <<-RUBY
-foo = 100
-foo.to_s(8)
-
-class String
-  def to_s
-  end
-end
-                RUBY
-              }
-            ]
-          ).to_hash
-        }
-      )
-
-      refute_empty worker.buffered_changes
-    end
-  end
-
-  def test_handle_request__file_reset
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-EOF
-
-      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
-
-      worker.handle_request({ method: "initialize", id: 1, params: nil })
-      flush_queue(worker.queue)
-
-      worker.handle_request(
-        {
-          method: FileReset::METHOD,
-          id: 123,
+          method: FileLoad::METHOD,
           params: {
-            uri: "#{file_scheme}#{current_dir}/lib/hello.rb",
-            content: "1 + true"
+            content: { "lib/hello.rb" => "1 + true" }
           }
         }
       )
