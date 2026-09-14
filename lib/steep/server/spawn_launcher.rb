@@ -6,15 +6,13 @@ module Steep
       attr_reader :typecheck_count
       attr_reader :interaction
       attr_reader :patterns
-      attr_reader :delay_shutdown
 
-      def initialize(steepfile:, steep_command:, typecheck_count:, interaction:, patterns: [], delay_shutdown: false)
+      def initialize(steepfile:, steep_command:, typecheck_count:, interaction:, patterns: [])
         @steepfile = steepfile
         @steep_command = steep_command
         @typecheck_count = typecheck_count
         @interaction = interaction
         @patterns = patterns
-        @delay_shutdown = delay_shutdown
       end
 
       def start(master)
@@ -32,8 +30,7 @@ module Steep
               steepfile: steepfile,
               steep_command: steep_command,
               index: [typecheck_count, i],
-              patterns: patterns,
-              delay_shutdown: delay_shutdown
+              patterns: patterns
             )
           )
         end

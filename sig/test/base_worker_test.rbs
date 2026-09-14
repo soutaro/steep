@@ -40,7 +40,7 @@ class BaseWorkerTest < Minitest::Test
 
   def project: () -> untyped
 
-  # Runs a worker, and shuts it down after the block returns -- even when an assertion fails,
+  # Runs a worker, and stops it after the block returns -- even when an assertion fails,
   # so that a regression fails the test instead of hanging it.
   #
   # @rbs (Queue) { () -> void } -> void

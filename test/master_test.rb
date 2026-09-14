@@ -869,13 +869,12 @@ end
       assert_equal 2, master.pending_typecheck_jobs.size
       assert_empty flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
 
-      # The worker attached later receives `initialize` and takes the jobs
+      # The worker attached later takes the jobs
       worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
       master.attach_worker(worker)
 
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal ["initialize", TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
-      assert_equal DEFAULT_CLI_LSP_INITIALIZE_PARAMS, jobs[0].message[:params]
+      assert_equal [TypeCheck__File::METHOD] * 2, jobs.map { _1.message[:method] }
       assert_empty master.pending_typecheck_jobs
     end
   end
@@ -894,7 +893,7 @@ end
       master = Server::Master.new(project: project, reader: worker_reader, writer: worker_writer)
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      # No request goes to a worker, and the client gets the response at once
+      # The client gets the response at once
       master.process_message_from_client({ id: "shutdown", method: "shutdown", params: nil })
 
       assert_equal [{ id: "shutdown", result: nil }], flush_queue(master.write_queue).map { _1.message }
@@ -932,9 +931,9 @@ end
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
       assert_equal [TypeCheck__File::METHOD] * 2, jobs.map { _1.message[:method] }
 
-      # The client shuts the server down while the type check is running
+      # The client shuts the server down while the type check is running: the workers hear nothing until `exit`
       master.process_message_from_client({ id: "shutdown", method: "shutdown", params: nil })
-      assert_equal ["shutdown"], flush_queue(master.write_queue).select { _1.dest == worker }.map { _1.message[:method] }
+      assert_equal [{ id: "shutdown", result: nil }], flush_queue(master.write_queue).map { _1.message }
 
       # The response to a job sends no more job to the worker
       master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: { diagnostics: [], entries: [], stats: nil }, signature: nil } })
@@ -1631,11 +1630,6 @@ end
       master.attach_worker(worker)
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
-
-      # The files are loaded when the worker responds to `initialize`
-      jobs = flush_queue(master.write_queue)
-      request = jobs.find { _1.dest == worker && _1.message[:method] == "initialize" } or raise
-      master.result_controller.process_response({ id: request.message[:id], result: nil })
       flush_queue(master.write_queue)
 
       # The entries of the library RBS files are collected in the environment thread, and stored in the main thread
@@ -1696,9 +1690,6 @@ end
       master.attach_worker(worker)
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
-      jobs = flush_queue(master.write_queue)
-      request = jobs.find { _1.dest == worker && _1.message[:method] == "initialize" } or raise
-      master.result_controller.process_response({ id: request.message[:id], result: nil })
       flush_queue(master.write_queue)
 
       # The worker receives the RBS files before the type check, and the Ruby file with its request

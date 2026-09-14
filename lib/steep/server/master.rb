@@ -362,10 +362,6 @@ module Steep
           start_worker_thread(worker)
         end
 
-        if initialize_params
-          result_controller << send_request(method: "initialize", params: initialize_params, worker: worker)
-        end
-
         if worker.type == :typecheck && current_type_check_request
           deliver_contents(worker, signature_paths_to_deliver)
           dispatch_typecheck_jobs()
@@ -420,77 +416,69 @@ module Steep
         when "initialize"
           assign_initialize_params(message[:params])
 
-          result_controller << group_request do |group|
-            each_worker do |worker|
-              group << send_request(method: "initialize", params: message[:params], worker: worker)
-            end
-
-            group.on_completion do
-              enqueue_write_job SendMessageJob.to_client(
-                message: {
-                  id: id,
-                  result: LSP::Interface::InitializeResult.new(
-                    capabilities: LSP::Interface::ServerCapabilities.new(
-                      text_document_sync: LSP::Interface::TextDocumentSyncOptions.new(
-                        change: LSP::Constant::TextDocumentSyncKind::INCREMENTAL,
-                        open_close: true
-                      ),
-                      hover_provider: {
-                        workDoneProgress: true,
-                        partialResults: true,
-                        partialResult: true
-                      },
-                      completion_provider: LSP::Interface::CompletionOptions.new(
-                        trigger_characters: [".", "@", ":"],
-                        work_done_progress: true
-                      ),
-                      signature_help_provider: {
-                        triggerCharacters: ["("]
-                      },
-                      workspace_symbol_provider: true,
-                      definition_provider: true,
-                      declaration_provider: false,
-                      implementation_provider: true,
-                      type_definition_provider: true
-                    ),
-                    server_info: {
-                      name: "steep",
-                      version: VERSION
-                    }
-                  )
+          enqueue_write_job SendMessageJob.to_client(
+            message: {
+              id: id,
+              result: LSP::Interface::InitializeResult.new(
+                capabilities: LSP::Interface::ServerCapabilities.new(
+                  text_document_sync: LSP::Interface::TextDocumentSyncOptions.new(
+                    change: LSP::Constant::TextDocumentSyncKind::INCREMENTAL,
+                    open_close: true
+                  ),
+                  hover_provider: {
+                    workDoneProgress: true,
+                    partialResults: true,
+                    partialResult: true
+                  },
+                  completion_provider: LSP::Interface::CompletionOptions.new(
+                    trigger_characters: [".", "@", ":"],
+                    work_done_progress: true
+                  ),
+                  signature_help_provider: {
+                    triggerCharacters: ["("]
+                  },
+                  workspace_symbol_provider: true,
+                  definition_provider: true,
+                  declaration_provider: false,
+                  implementation_provider: true,
+                  type_definition_provider: true
+                ),
+                server_info: {
+                  name: "steep",
+                  version: VERSION
                 }
               )
+            }
+          )
 
-              progress = work_done_progress(SecureRandom.uuid)
-              if typecheck_automatically
-                progress.begin("Type checking", "loading projects...", request_id: fresh_request_id)
-              end
-
-              Steep.measure("Load files from disk...") do
-                controller.load(command_line_args: commandline_args)
-              end
-
-              environment_queue << -> { load_library_entries() }
-
-              if typecheck_automatically
-                progress.end()
-              end
-
-              reset_project_file_mtimes()
-
-              if file_system_watcher_supported?
-                setup_file_system_watcher()
-              end
-
-              # controller.changed_paths.clear()
-
-              # if typecheck_automatically
-              #   if request = controller.make_request(guid: progress.guid, include_unchanged: true, progress: progress)
-              #     start_type_check(request: request, last_request: nil)
-              #   end
-              # end
-            end
+          progress = work_done_progress(SecureRandom.uuid)
+          if typecheck_automatically
+            progress.begin("Type checking", "loading projects...", request_id: fresh_request_id)
           end
+
+          Steep.measure("Load files from disk...") do
+            controller.load(command_line_args: commandline_args)
+          end
+
+          environment_queue << -> { load_library_entries() }
+
+          if typecheck_automatically
+            progress.end()
+          end
+
+          reset_project_file_mtimes()
+
+          if file_system_watcher_supported?
+            setup_file_system_watcher()
+          end
+
+          # controller.changed_paths.clear()
+
+          # if typecheck_automatically
+          #   if request = controller.make_request(guid: progress.guid, include_unchanged: true, progress: progress)
+          #     start_type_check(request: request, last_request: nil)
+          #   end
+          # end
 
         when "workspace/didChangeWatchedFiles"
           updated_watched_files = [] #: Array[Pathname]
@@ -793,15 +781,8 @@ module Steep
           @shutting_down = true
           start_type_checking_queue.cancel
 
-          result_controller << group_request do |group|
-            each_worker do |worker|
-              group << send_request(method: "shutdown", worker: worker)
-            end
-
-            group.on_completion do
-              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: nil })
-            end
-          end
+          # The workers stop at `exit`
+          enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: nil })
 
         when "exit"
           broadcast_notification(message)

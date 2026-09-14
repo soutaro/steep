@@ -32,15 +32,12 @@ module Steep
       # The command line patterns given to the typecheck workers
       attr_reader patterns: Array[String]
 
-      attr_reader delay_shutdown: bool
-
       def initialize: (
         steepfile: Pathname?,
         steep_command: String?,
         typecheck_count: Integer,
         interaction: bool,
-        ?patterns: Array[String],
-        ?delay_shutdown: bool
+        ?patterns: Array[String]
       ) -> void
     end
   end

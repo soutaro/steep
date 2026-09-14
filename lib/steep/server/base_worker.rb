@@ -6,23 +6,11 @@ module Steep
       attr_reader :project
       attr_reader :reader, :writer, :queue
 
-      ShutdownJob = _ = Struct.new(:id, keyword_init: true)
-
       def initialize(project:, reader:, writer:)
         @project = project
         @reader = reader
         @writer = writer
         @skip_job = false
-        @shutdown = false
-        @skip_jobs_after_shutdown = false
-      end
-
-      def skip_jobs_after_shutdown!(flag = true)
-        @skip_jobs_after_shutdown = flag
-      end
-
-      def skip_jobs_after_shutdown?
-        @skip_jobs_after_shutdown
       end
 
       def skip_job?
@@ -45,42 +33,37 @@ module Steep
           Steep.logger.push_tags(*tags)
           Steep.logger.tagged "background" do
             while job = queue.pop
-              case job
-              when ShutdownJob
-                writer.write(id: job.id, result: nil)
+              if skip_job?
+                Steep.logger.info "Skipping job..."
               else
-                if skip_job?
-                  Steep.logger.info "Skipping job..."
-                else
-                  begin
-                    handle_job(job)
-                  rescue => exn
-                    Steep.log_error exn
+                begin
+                  handle_job(job)
+                rescue => exn
+                  Steep.log_error exn
 
-                    # Jobs that carry an `id` answer a request. Reply with an error response, or the
-                    # client would wait for a response that never arrives.
-                    if job.respond_to?(:id) && (id = job.id)
-                      writer.write(
-                        {
-                          id: id,
-                          error: {
-                            code: LSP::Constant::ErrorCodes::INTERNAL_ERROR,
-                            message: "Unexpected error: #{exn.message} (#{exn.class})"
-                          }
-                        }
-                      )
-                    end
-
+                  # Jobs that carry an `id` answer a request. Reply with an error response, or the
+                  # client would wait for a response that never arrives.
+                  if job.respond_to?(:id) && (id = job.id)
                     writer.write(
                       {
-                        method: "window/showMessage",
-                        params: {
-                          type: LSP::Constant::MessageType::ERROR,
+                        id: id,
+                        error: {
+                          code: LSP::Constant::ErrorCodes::INTERNAL_ERROR,
                           message: "Unexpected error: #{exn.message} (#{exn.class})"
                         }
                       }
                     )
                   end
+
+                  writer.write(
+                    {
+                      method: "window/showMessage",
+                      params: {
+                        type: LSP::Constant::MessageType::ERROR,
+                        message: "Unexpected error: #{exn.message} (#{exn.class})"
+                      }
+                    }
+                  )
                 end
               end
             end
@@ -92,33 +75,16 @@ module Steep
             reader.read do |request|
               Steep.logger.info "Received message from master: #{request[:method]}(#{request[:id]})"
               case request[:method]
-              when "shutdown"
-                queue << ShutdownJob.new(id: request[:id])
-                @skip_job = skip_jobs_after_shutdown?
-                @shutdown = true
-                queue.close
               when "exit"
                 break
               else
-                if @shutdown
-                  # The queue is closed: a request after `shutdown` is an error in LSP, and a notification is ignored
-                  if id = request[:id]
-                    writer.write(
-                      {
-                        id: id,
-                        error: {
-                          code: LSP::Constant::ErrorCodes::INVALID_REQUEST,
-                          message: "The worker is shutting down"
-                        }
-                      }
-                    )
-                  end
-                else
-                  handle_request(request)
-                end
+                handle_request(request)
               end
             end
           ensure
+            # Finish the running job and skip the queued ones, on `exit` or when the master is gone
+            @skip_job = true
+            queue.close
             thread.join
           end
         end

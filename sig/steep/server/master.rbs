@@ -134,7 +134,7 @@ module Steep
       # `true` once `#start` has started the threads, so that the workers attached later get their threads immediately
       @running: bool
 
-      # `true` once the client has sent `shutdown`: the workers have been told to shut down, and get no more job
+      # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
       @shutting_down: bool
 
       # Queue for processing incoming jobs and postpone a work
@@ -236,8 +236,7 @@ module Steep
 
       # Adds a worker to the master
       #
-      # The worker receives the `initialize` request when the client has sent one already, and a typecheck worker
-      # receives the RBS files and takes the pending jobs when a type check is running.
+      # A typecheck worker receives the RBS files and takes the pending jobs when a type check is running.
       #
       # Call it on the main thread: directly before `#start`, or through `job_queue` after it.
       #

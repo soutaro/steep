@@ -111,8 +111,7 @@ module Steep
           steepfile: @project.steepfile_path,
           steep_command: nil,
           typecheck_count: job_count,
-          interaction: true,
-          delay_shutdown: true
+          interaction: true
         )
 
         master = ::Steep::Server::Master.new(

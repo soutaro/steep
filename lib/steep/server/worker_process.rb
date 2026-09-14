@@ -22,7 +22,7 @@ module Steep
         @known_versions = {}
       end
 
-      def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, delay_shutdown: false, patterns: [])
+      def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, patterns: [])
         args = ["--name=#{name}"]
         args << "--steepfile=#{steepfile}" if steepfile
         args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
@@ -34,10 +34,6 @@ module Steep
         if (max, this = index)
           args << "--max-index=#{max}"
           args << "--index=#{this}"
-        end
-
-        if delay_shutdown
-          args << "--delay-shutdown"
         end
 
         steep_command ||= "steep"

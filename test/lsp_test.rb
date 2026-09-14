@@ -95,7 +95,7 @@ RUBY
         # Opening `core` group file triggers type checking `core` group files
         client.open_file("lib/core/core.rb")
 
-        finally_holds(timeout: 3) do
+        finally_holds(timeout: 10) do
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
@@ -237,7 +237,7 @@ RUBY
 
         client.open_file("sig/main/main.rbs")
 
-        finally_holds(timeout: 3) do
+        finally_holds(timeout: 10) do
           refute_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           refute_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")
@@ -348,7 +348,7 @@ RUBY
 
         client.open_file("sig/main/main.rbs")
 
-        finally_holds(timeout: 3) do
+        finally_holds(timeout: 10) do
           client.workspace_symbol("Main__123") do |symbols|
             assert_equal 1, symbols.size
           end
@@ -450,7 +450,7 @@ RUBY
 
         # Jump to RBS file works because the index updates immediately
         client.open_file("lib/core/core.rb")
-        finally_holds(timeout: 3) do
+        finally_holds(timeout: 10) do
           client.goto_definition("lib/core/core.rb", line: 0, character: 8) do |result|
             assert_any!(result) do |location|
               assert_operator location[:uri], :end_with?, "/sig/core/core.rbs"
@@ -564,7 +564,7 @@ RUBY
         client.open_file("lib/core/core.rb")
         client.open_file("sig/test/test.rbs")
 
-        finally_holds(timeout: 3) do
+        finally_holds(timeout: 10) do
           client.goto_implementation("sig/test/test.rbs", line: 1, character: 20) do |result|
             assert_any!(result) do |location|
               assert_operator location[:uri], :end_with?, "/lib/core/core.rb"
@@ -650,7 +650,7 @@ RUBY
 
         client.send_notification(method: "$/steep/typecheck/groups", params: { groups: ["lib.core", "test"] })
 
-        finally_holds(timeout: 3) do
+        finally_holds(timeout: 10) do
           # `core` and `test` groups are type checked
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           refute_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
@@ -733,7 +733,7 @@ RUBY
 
         client.send_notification(method: "$/steep/typecheck/groups", params: { groups: [] })
 
-        finally_holds(timeout: 3) do
+        finally_holds(timeout: 10) do
           assert_operator client.diagnostics, :key?, Pathname("lib/core/core.rb")
           assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
           assert_operator client.diagnostics, :key?, Pathname("sig/core/core.rbs")

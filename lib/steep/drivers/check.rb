@@ -359,8 +359,7 @@ module Steep
           steep_command: jobs_option.steep_command,
           typecheck_count: jobs_option.jobs_count_value,
           interaction: false,
-          patterns: command_line_patterns,
-          delay_shutdown: true
+          patterns: command_line_patterns
         )
 
         master = Server::Master.new(

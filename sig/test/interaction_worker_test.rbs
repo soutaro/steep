@@ -22,11 +22,7 @@ class InteractionWorkerTest < Minitest::Test
   # @rbs (Server::InteractionWorker) { (Thread) -> void } -> void
   def run_worker: (Server::InteractionWorker) { (Thread) -> void } -> void
 
-  def shutdown!: () -> untyped
-
   def dirs: () -> untyped
-
-  def test_handle_request_initialize: () -> untyped
 
   def test_handle_request_file_load: () -> untyped
 
