@@ -61,21 +61,30 @@ module Steep
         )
       end
 
-      def merge(local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {})
-        local_variable_types = self.local_variable_types.merge(local_variable_types)
-        instance_variable_types = self.instance_variable_types.merge(instance_variable_types)
-        global_types = self.global_types.merge(global_types)
-        constant_types = self.constant_types.merge(constant_types)
-        pure_method_calls = self.pure_method_calls.merge(pure_method_calls)
-
+      # A merge usually updates one of the tables, and a default of `{}` allocates a hash for
+      # each of the other four
+      def merge(local_variable_types: nil, instance_variable_types: nil, global_types: nil, constant_types: nil, pure_method_calls: nil)
         TypeEnv.new(
           constant_env,
-          local_variable_types: local_variable_types,
-          instance_variable_types: instance_variable_types,
-          global_types:  global_types,
-          constant_types: constant_types,
-          pure_method_calls: pure_method_calls
+          local_variable_types: merge_table(self.local_variable_types, local_variable_types),
+          instance_variable_types: merge_table(self.instance_variable_types, instance_variable_types),
+          global_types: merge_table(self.global_types, global_types),
+          constant_types: merge_table(self.constant_types, constant_types),
+          pure_method_calls: merge_table(self.pure_method_calls, pure_method_calls)
         )
+      end
+
+      # Returns `table` updated with `update`, sharing `table` itself when there is nothing to update
+      #
+      # `Hash#merge` copies a table even for an empty update. The tables are never modified in
+      # place, so sharing one is safe.
+      #
+      def merge_table(table, update)
+        if update.nil? || update.empty?
+          table
+        else
+          table.merge(update)
+        end
       end
 
       def [](name)
