@@ -50,7 +50,7 @@ class BaseWorkerTest < Minitest::Test
     end
   end
 
-  # Runs a worker, and shuts it down after the block returns -- even when an assertion fails,
+  # Runs a worker, and stops it after the block returns -- even when an assertion fails,
   # so that a regression fails the test instead of hanging it.
   #
   # @rbs (Queue) { () -> void } -> void
@@ -62,8 +62,6 @@ class BaseWorkerTest < Minitest::Test
     begin
       yield
     ensure
-      master_writer.write(id: -1, method: :shutdown, params: nil)
-      pop_until(read_queue) {|message| message[:id] == -1 }
       master_writer.write(method: :exit)
 
       thread.join

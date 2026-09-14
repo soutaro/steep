@@ -110,7 +110,6 @@ module Steep
         workers = ::Steep::Server::WorkerProcess.start_typecheck_workers(
           steepfile: @project.steepfile_path,
           args: [],
-          delay_shutdown: true,
           steep_command: nil,
           count: job_count
         )

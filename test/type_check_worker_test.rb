@@ -35,27 +35,11 @@ class TypeCheckWorkerTest < Minitest::Test
     writer_pipe[1].close
   end
 
-  def shutdown!
-    master_writer.write(
-      id: -123,
-      method: :shutdown,
-      params: nil
-    )
-
-    master_reader do |response|
-      break if response[:id] == -123
-    end
-
-    master_writer.write(
-      method: :exit
-    )
-  end
-
   def assignment
     @assignment ||= Services::PathAssignment.all
   end
 
-  def test_worker_shutdown
+  def test_worker_exit
     in_tmpdir do
       with_master_read_queue do |master_read_queue|
         project = Project.new(steepfile_path: current_dir + "Steepfile")
@@ -74,16 +58,7 @@ class TypeCheckWorkerTest < Minitest::Test
             reader: worker_reader,
             writer: worker_writer)
         ) do |worker|
-          master_writer.write(
-            id: 123,
-            method: :shutdown,
-            params: nil
-          )
-
-          while response = master_read_queue.pop
-            break if response[:id] == 123
-          end
-
+          # The worker stops at `exit`, without a `shutdown` request
           master_writer.write(
             method: :exit
           )

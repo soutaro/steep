@@ -81,9 +81,6 @@ module Steep
 
       def handle_request(request)
         case request[:method]
-        when "initialize"
-          writer.write({ id: request[:id], result: nil })
-
         when CustomMethods::FileLoad::METHOD
           params = request[:params] #: CustomMethods::FileLoad::params
           input = params[:content]

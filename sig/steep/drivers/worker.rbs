@@ -11,8 +11,6 @@ module Steep
 
       attr_accessor worker_name: String
 
-      attr_accessor delay_shutdown: bool
-
       attr_accessor max_index: Integer
 
       attr_accessor index: Integer

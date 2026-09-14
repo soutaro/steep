@@ -482,7 +482,6 @@ BANNER
           opts.on("--typecheck") { command.worker_type = :typecheck }
           handle_steepfile_option(opts, command)
           opts.on("--name=NAME") {|name| command.worker_name = name }
-          opts.on("--delay-shutdown") { command.delay_shutdown = true }
           opts.on("--max-index=COUNT") {|count| command.max_index = Integer(count) }
           opts.on("--index=INDEX") {|index| command.index = Integer(index) }
         end.parse!(argv)

@@ -30,36 +30,8 @@ class InteractionWorkerTest < Minitest::Test
     writer_pipe[1].close
   end
 
-  def shutdown!
-    master_writer.write(
-      method: :shutdown,
-      params: nil
-    )
-
-    master_writer.write(
-      method: :exit
-    )
-  end
-
   def dirs
     @dirs ||= []
-  end
-
-  def test_handle_request_initialize
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-EOF
-
-      worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
-
-      worker.handle_request({ method: "initialize", id: 1, params: nil })
-      worker.handle_request({ method: FileLoad::METHOD, params: { content: {} } })
-    end
   end
 
   def test_handle_request_file_load
@@ -73,9 +45,6 @@ end
 EOF
 
       worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
-
-      worker.handle_request({ method: "initialize", id: 1, params: nil })
-      flush_queue(worker.queue)
 
       worker.handle_request(
         {
@@ -101,9 +70,6 @@ end
 EOF
 
       worker = InteractionWorker.new(project: project, reader: worker_reader, writer: worker_writer)
-
-      worker.handle_request({ method: "initialize", id: 1, params: nil })
-      flush_queue(worker.queue)
 
       worker.handle_request(
         {

@@ -5,7 +5,6 @@ module Steep
 
       attr_accessor :worker_type
       attr_accessor :worker_name
-      attr_accessor :delay_shutdown
       attr_accessor :max_index
       attr_accessor :index
       attr_accessor :commandline_args
@@ -39,10 +38,6 @@ module Steep
                    else
                      raise "Unknown worker type: #{worker_type}"
                    end
-
-          unless delay_shutdown
-            worker.skip_jobs_after_shutdown!
-          end
 
           Steep.logger.info "Starting #{worker_type} worker..."
 
