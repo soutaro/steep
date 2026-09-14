@@ -85,7 +85,16 @@ module Steep
         when AST::Types::Name::Applying
           type.args.any? {|ty| apply?(ty) }
         else
-          type.each_child.any? {|t| apply?(t) }
+          # `each_child` without a block allocates an enumerator, and every type of every
+          # substituted method type is walked through here
+          applies = false
+          type.each_child do |t|
+            if apply?(t)
+              applies = true
+              break
+            end
+          end
+          applies
         end
       end
 

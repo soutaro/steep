@@ -36,7 +36,17 @@ module Steep
 
       def subst(s)
         return self if s.empty?
-        return self if each_type.none? {|t| s.apply?(t) }
+
+        # `each_type` without a block allocates an enumerator, and this runs for every method
+        # type of every call site
+        applies = false
+        each_type do |t|
+          if s.apply?(t)
+            applies = true
+            break
+          end
+        end
+        return self unless applies
 
         if type_params.any? {|param| s.key?(param.name) }
           s_ = s.except(type_params.map(&:name))
