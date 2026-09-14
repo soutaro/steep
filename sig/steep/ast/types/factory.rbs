@@ -99,6 +99,12 @@ module Steep
 
         def absolute_type_name: (TypeName type_name, context: RBS::Resolver::context) -> TypeName?
 
+        # The type of a class without type arguments depends on nothing but the environment
+        # the factory is bound to, while building it asks the definition builder for the
+        # singleton definition. The type check of a `case`/`when` asks for one per class of
+        # every pattern, for each of the types the union it narrows is made of.
+        @instance_type_cache: Hash[TypeName, Name::Instance]
+
         def instance_type: (TypeName type_name, ?args: Array[t]?) -> t
 
         def try_singleton_type: (t) -> t?

@@ -18,6 +18,7 @@ module Steep
           @type_cache = {}
           @method_type_cache = {}
           @method_type_cache.compare_by_identity
+          @instance_type_cache = {}
         end
 
         def type_name_resolver
@@ -477,16 +478,25 @@ module Steep
         def instance_type(type_name, args: nil)
           raise unless type_name.class?
 
+          # The type of a class without type arguments depends on nothing but the environment
+          # the factory is bound to, while building it asks the definition builder for the
+          # singleton definition. The type check of a `case`/`when` asks for one per class of
+          # every pattern, for each of the types the union it narrows is made of.
+          if args.nil?
+            if cached = @instance_type_cache[type_name]
+              return cached
+            end
+          end
+
           definition = definition_builder.build_singleton(type_name)
           def_args = definition.type_params.map { Any.instance }
 
           if args
             raise if def_args.size != args.size
+            AST::Types::Name::Instance.new(name: type_name, args: args)
           else
-            args = def_args
+            @instance_type_cache[type_name] = AST::Types::Name::Instance.new(name: type_name, args: def_args)
           end
-
-          AST::Types::Name::Instance.new(name: type_name, args: args)
         end
 
         def try_instance_type(type)
