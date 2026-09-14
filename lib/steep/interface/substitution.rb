@@ -39,15 +39,23 @@ module Steep
           self_type.is_a?(AST::Types::Self)
       end
 
+      # The variables the substitution replaces
+      #
+      # A substitution of a generic type asks for the domain, while building the set copies the
+      # keys of the dictionary. The memo is dropped by the operations that update the
+      # substitution in place.
+      #
       def domain
-        set = Set.new
+        @domain ||= begin
+          set = Set.new #: Set[AST::Types::variable]
 
-        set.merge(dictionary.keys)
-        set << AST::Types::Self.instance if self_type
-        set << AST::Types::Class.instance if module_type
-        set << AST::Types::Instance.instance if instance_type
+          set.merge(dictionary.keys)
+          set << AST::Types::Self.instance if self_type
+          set << AST::Types::Class.instance if module_type
+          set << AST::Types::Instance.instance if instance_type
 
-        set
+          set
+        end
       end
 
       def to_s
@@ -124,11 +132,13 @@ module Steep
         vars.each do |var|
           dictionary.delete(var)
         end
+        @domain = nil
 
         self
       end
 
       def merge!(s, overwrite: false)
+        @domain = nil
         dictionary.transform_values! {|ty| ty.subst(s) }
         dictionary.merge!(s.dictionary) do |key, a, b|
           if a == b
