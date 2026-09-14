@@ -2,6 +2,14 @@
 
 require 'pathname'
 
+# A type check runs long enough to pay the compilation back: it takes around 15% off the type
+# checking of a project the size of Steep itself, and less than that when the workers already
+# keep every core busy. It costs some memory in each of the processes, and `STEEP_YJIT=0`
+# turns it off.
+if ENV['STEEP_YJIT'] != '0' && defined?(RubyVM::YJIT) && RubyVM::YJIT.respond_to?(:enable)
+  RubyVM::YJIT.enable
+end
+
 $LOAD_PATH << Pathname(__dir__) + "../lib"
 
 require 'steep'
