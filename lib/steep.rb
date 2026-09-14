@@ -129,6 +129,7 @@ require "steep/server/change_buffer"
 require "steep/server/base_worker"
 require "steep/server/worker_process"
 require "steep/server/spawn_launcher"
+require "steep/server/fork_launcher"
 require "steep/server/interaction_worker"
 require "steep/server/type_check_worker"
 require "steep/server/target_group_files"
@@ -199,6 +200,7 @@ module Steep
 
     if output.is_a?(String)
       io = File.open(output, "a")
+      io.sync = true
     else
       io = output
     end

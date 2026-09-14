@@ -1,0 +1,45 @@
+module Steep
+  module Server
+    # Forks each worker from the master, once the environment thread has loaded the RBS environment
+    #
+    # A forked worker inherits the `TypeCheckService` of the master, with the RBS environment of every target and the
+    # contents of every project file, so it takes jobs right away and shares the memory of the environment with the
+    # master through copy-on-write. When the RBS files change, the master retires the typecheck workers, the
+    # environment thread forks a new generation after it has applied the changes, and the interaction worker is
+    # replaced when the new one is attached.
+    #
+    class ForkLauncher
+      include _WorkerLauncher
+
+      # The number of typecheck workers in a generation
+      attr_reader typecheck_count: Integer
+
+      # Whether to fork the interaction worker
+      attr_reader interaction: bool
+
+      # The command line patterns given to the typecheck workers
+      attr_reader patterns: Array[String]
+
+      attr_reader master: Master?
+
+      # The number of the generations forked so far
+      attr_reader generation: Integer
+
+      def initialize: (typecheck_count: Integer, interaction: bool, ?patterns: Array[String]) -> void
+
+      # Forks a generation of the workers on the environment thread, and attaches them through `Master#job_queue`
+      #
+      # `versions` become the `known_versions` of the workers, because they inherit the file contents.
+      #
+      def fork_generation: (Master master, Hash[Pathname, Integer] versions) -> void
+
+      def fork_worker: (Master master, WorkerProcess::worker_type `type`, name: String, index: [Integer, Integer]?, versions: Hash[Pathname, Integer]) -> WorkerProcess
+
+      # Runs in the child process: closes the IOs inherited from the master, and runs the worker until `exit`
+      #
+      # Never returns. The process exits with `Process.exit!`, so the `at_exit` handlers of the master do not run.
+      #
+      def run_worker: (WorkerProcess::worker_type `type`, name: String, index: [Integer, Integer]?, project: Project, service: Services::TypeCheckService, socket: UNIXSocket) -> bot
+    end
+  end
+end

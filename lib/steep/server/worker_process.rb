@@ -10,6 +10,7 @@ module Steep
       attr_reader :wait_thread
       attr_reader :index
       attr_reader :known_versions
+      attr_accessor :in_flight
 
       def initialize(type:, reader:, writer:, stderr:, wait_thread:, name:, index: nil)
         @type = type
@@ -20,6 +21,25 @@ module Steep
         @name = name
         @index = index
         @known_versions = {}
+        @in_flight = 0
+        @retiring = false
+        @exiting = false
+      end
+
+      def retire!
+        @retiring = true
+      end
+
+      def retiring?
+        @retiring
+      end
+
+      def exiting!
+        @exiting = true
+      end
+
+      def exiting?
+        @exiting
       end
 
       def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, patterns: [])

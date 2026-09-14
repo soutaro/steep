@@ -23,17 +23,12 @@ module Steep
 
       attr_reader assignment: PathAssignment
 
-      attr_reader service: TypeCheckService
+      @service: TypeCheckService?
+
+      # The type check service of the worker: the one given at construction, or a fresh one for the project
+      def service: () -> TypeCheckService
 
       attr_reader commandline_args: Array[String]
-
-      class WorkspaceSymbolJob
-        attr_reader id: String
-
-        attr_reader query: String
-
-        def initialize: (id: String, query: String) -> void
-      end
 
       class TypeCheckCodeJob
         # The id of the `$/steep/typecheck/file` request
@@ -94,7 +89,8 @@ module Steep
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
         assignment: PathAssignment,
-        commandline_args: Array[String]
+        commandline_args: Array[String],
+        ?service: TypeCheckService?
       ) -> void
 
       def handle_request: (untyped request) -> void
@@ -102,7 +98,7 @@ module Steep
       # Enqueues the job of a `$/steep/typecheck/file` request, loading the content given with the request
       def enqueue_typecheck_job: (String id, CustomMethods::TypeCheck__File::params params) -> void
 
-      type job = WorkspaceSymbolJob
+      type job = TypeCheckCodeJob
                | TypeCheckCodeJob
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
@@ -146,7 +142,6 @@ module Steep
       #
       def signature_entries: (Project::Target target, Pathname path) -> Array[TypeCheckDatabase::Entry]?
 
-      def workspace_symbol_result: (untyped query) -> untyped
     end
   end
 end

@@ -10,11 +10,24 @@ module Steep
       def start: (Master master) -> void
 
       def stop: () -> void
+
+      # Called on the main thread of the master when file changes are handed to the environment thread
+      #
+      # `signature_changed` tells whether the RBS environment is going to change.
+      #
+      def environment_changing: (Master master, signature_changed: bool) -> void
+
+      # Called on the environment thread of the master after the changes are applied to the environment
+      #
+      # `versions` are the versions of the file contents the environment reflects, by relative path.
+      #
+      def environment_updated: (Master master, signature_changed: bool, versions: Hash[Pathname, Integer]) -> void
     end
 
     # Spawns each worker as a `steep worker` process at `Master#start`
     #
-    # Each worker loads the RBS environment by itself.
+    # Each worker loads the RBS environment by itself, and the master sends the changed RBS files to the workers
+    # before the requests, so the environment updates of the master need nothing from the launcher.
     #
     class SpawnLauncher
       include _WorkerLauncher

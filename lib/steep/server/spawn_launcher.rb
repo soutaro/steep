@@ -38,6 +38,12 @@ module Steep
 
       def stop
       end
+
+      def environment_changing(master, signature_changed:)
+      end
+
+      def environment_updated(master, signature_changed:, versions:)
+      end
     end
   end
 end

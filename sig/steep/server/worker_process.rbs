@@ -35,6 +35,13 @@ module Steep
       #
       attr_reader known_versions: Hash[Pathname, Integer]
 
+      # The number of the requests sent to the worker that are not answered yet
+      attr_accessor in_flight: Integer
+
+      @retiring: bool
+
+      @exiting: bool
+
       def initialize: (
         type: worker_type,
         reader: LSP::Transport::Io::Reader,
@@ -56,6 +63,16 @@ module Steep
         ?patterns: Array[String],
         ?index: [Integer, Integer]?
       ) -> WorkerProcess
+
+      # Marks the worker as retiring: the master sends it no more job, and `exit` once it has answered every request
+      def retire!: () -> void
+
+      def retiring?: () -> bool
+
+      # Marks the worker as exiting: the master has sent `exit`, and expects the process to exit
+      def exiting!: () -> void
+
+      def exiting?: () -> bool
 
       def redirect_to: (self) -> void
 

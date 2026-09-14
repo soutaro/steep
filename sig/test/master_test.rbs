@@ -59,6 +59,16 @@ class MasterTest < Minitest::Test
 
   def test_type_check_request__no_jobs_after_shutdown: () -> untyped
 
+  def test_workspace_symbol_from_master: () -> untyped
+
+  def test_attach_workers__dispatch_across_workers: () -> untyped
+
+  def test_retire_typecheck_workers: () -> untyped
+
+  def test_attach_workers__replaces_interaction_worker: () -> untyped
+
+  def test_fork_launcher__type_check_and_refork: () -> untyped
+
   def test_type_check_request__start: () -> untyped
 
   def test_code_type_check: () -> untyped

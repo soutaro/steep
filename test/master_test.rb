@@ -941,6 +941,263 @@ end
     end
   end
 
+  def test_workspace_symbol_from_master
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      master = Server::Master.new(project: project, reader: worker_reader, writer: worker_writer)
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+
+      # The symbols come from the environments of the master, on the environment thread, without a worker
+      master.process_message_from_client({ id: "symbol", method: "workspace/symbol", params: { query: "Customer" } })
+
+      master.environment_queue.pop.call until master.environment_queue.empty?
+      master.job_queue.pop.call until master.job_queue.empty?
+
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol" } or raise
+      symbols = response.message[:result]
+      assert_any!(symbols) do |symbol|
+        assert_equal "Customer", symbol.name
+        assert_operator symbol.location[:uri].to_s, :end_with?, "/sig/customer.rbs"
+      end
+    end
+  end
+
+  def test_attach_workers__dispatch_across_workers
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      end
+
+      master = Server::Master.new(project: project, reader: worker_reader, writer: worker_writer)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      master.process_message_from_client({
+        id: "guid",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [],
+          code_paths: [
+            ["lib", (current_dir + "lib/a.rb").to_s],
+            ["lib", (current_dir + "lib/b.rb").to_s],
+            ["lib", (current_dir + "lib/c.rb").to_s]
+          ],
+          inline_paths: []
+        }
+      })
+      flush_queue(master.write_queue)
+
+      # The workers attached together share the pending jobs from the start
+      worker1 = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-1", index: 0)
+      worker2 = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-2", index: 1)
+      master.attach_workers([worker1, worker2])
+
+      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal(
+        [
+          ["test-1", Steep::PathHelper.to_uri(current_dir + "lib/a.rb").to_s],
+          ["test-2", Steep::PathHelper.to_uri(current_dir + "lib/b.rb").to_s],
+          ["test-1", Steep::PathHelper.to_uri(current_dir + "lib/c.rb").to_s]
+        ],
+        jobs.map { [_1.dest.name, _1.message[:params][:uri]] }
+      )
+    end
+  end
+
+  def test_retire_typecheck_workers
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      end
+
+      worker = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "old", index: 0)
+
+      master = Server::Master.new(project: project, reader: worker_reader, writer: worker_writer)
+      master.attach_worker(worker)
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+
+      master.process_message_from_client({
+        id: "guid",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [],
+          code_paths: [
+            ["lib", (current_dir + "lib/a.rb").to_s],
+            ["lib", (current_dir + "lib/b.rb").to_s],
+            ["lib", (current_dir + "lib/c.rb").to_s]
+          ],
+          inline_paths: []
+        }
+      })
+
+      # Two jobs are in flight, one is pending
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal [TypeCheck__File::METHOD] * 2, jobs.map { _1.message[:method] }
+      assert_equal 2, worker.in_flight
+      assert_equal 1, master.pending_typecheck_jobs.size
+
+      # A retired worker gets no more job, and stays until it answers the requests in flight
+      master.retire_typecheck_workers
+      assert_empty master.typecheck_workers
+      assert_equal [worker], master.retiring_workers
+      assert_predicate worker, :retiring?
+      refute_predicate worker, :exiting?
+      assert_empty flush_queue(master.write_queue).select { _1.dest == worker }
+
+      # The next worker takes the pending job
+      successor = Server::WorkerProcess.new(type: :typecheck, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "new", index: 0)
+      master.attach_worker(successor)
+      jobs2 = flush_queue(master.write_queue).select { _1.dest == successor }
+      assert_equal [Steep::PathHelper.to_uri(current_dir + "lib/c.rb").to_s], jobs2.map { _1.message[:params][:uri] }
+
+      # The retired worker gets `exit` once its last response has arrived
+      jobs.each do |job|
+        master.result_controller.process_response({ id: job.message[:id], result: { source: { diagnostics: [], entries: [], stats: nil }, signature: nil } })
+      end
+      assert_predicate worker, :exiting?
+      assert_equal ["exit"], flush_queue(master.write_queue).select { _1.dest == worker }.map { _1.message[:method] }
+    end
+  end
+
+  def test_attach_workers__replaces_interaction_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+      (current_dir + "lib").mkpath
+      (current_dir + "lib/a.rb").write("1 + 2\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      old_worker = Server::WorkerProcess.new(type: :interaction, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction-old", index: nil)
+
+      master = Server::Master.new(project: project, reader: worker_reader, writer: worker_writer)
+      master.attach_worker(old_worker)
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+
+      hover = {
+        id: "hover-1",
+        method: "textDocument/hover",
+        params: { textDocument: { uri: Steep::PathHelper.to_uri(current_dir + "lib/a.rb").to_s }, position: { line: 0, character: 0 } }
+      }
+      master.process_message_from_client(hover)
+      request = flush_queue(master.write_queue).find { _1.dest == old_worker && _1.message[:method] == "textDocument/hover" } or raise
+
+      # The new interaction worker takes over, and the old one retires after its response
+      new_worker = Server::WorkerProcess.new(type: :interaction, reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction-new", index: nil)
+      master.attach_worker(new_worker)
+      assert_equal new_worker, master.interaction_worker
+      assert_equal [old_worker], master.retiring_workers
+      assert_empty flush_queue(master.write_queue).select { _1.dest == old_worker }
+
+      # The new worker receives the file before the request
+      master.process_message_from_client(hover.merge(id: "hover-2"))
+      assert_equal [FileLoad::METHOD, "textDocument/hover"], flush_queue(master.write_queue).select { _1.dest == new_worker }.map { _1.message[:method] }
+
+      master.result_controller.process_response({ id: request.message[:id], result: nil })
+      assert_equal ["exit"], flush_queue(master.write_queue).select { _1.dest == old_worker }.map { _1.message[:method] }
+    end
+  end
+
+  def test_fork_launcher__type_check_and_refork
+    skip "fork() is not available on this platform" unless Steep.can_fork?
+
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/foo.rb").write("class Foo\nend\n")
+      (current_dir + "sig/foo.rbs").write("class Bar\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      launcher = Server::ForkLauncher.new(typecheck_count: 1, interaction: true)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
+        master.start()
+      end
+
+      ui = LSPDouble.new(reader: master_reader, writer: master_writer)
+      ui.start do
+        # The first generation is forked once the environment is loaded
+        finally_holds do
+          assert_equal 1, launcher.generation
+          assert_equal 1, master.typecheck_workers.size
+          refute_nil master.interaction_worker
+        end
+
+        ui.open_file(project.absolute_path(Pathname("lib/foo.rb")))
+
+        finally_holds do
+          assert_equal(
+            ["Ruby::UnknownConstant"],
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))&.map { _1[:code] }
+          )
+        end
+
+        # An RBS change forks the next generation, which checks with the new environment, and the old workers exit
+        ui.open_file(project.absolute_path(Pathname("sig/foo.rbs")))
+        ui.edit_file(project.absolute_path(Pathname("sig/foo.rbs")), content: "class Foo\nend\n", version: 1)
+        ui.save_file(project.absolute_path(Pathname("sig/foo.rbs")))
+
+        finally_holds do
+          assert_equal 2, launcher.generation
+          assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+          assert_empty master.retiring_workers
+        end
+      end
+
+      main_thread.join
+    end
+  end
+
   def test_type_check_request__start
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -1632,8 +1889,10 @@ end
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
       flush_queue(master.write_queue)
 
-      # The entries of the library RBS files are collected in the environment thread, and stored in the main thread
+      # The environment is updated first, then the entries of the library RBS files are collected in the environment
+      # thread and stored in the main thread
       assert_equal [], master.type_check_database.definitions("::String")
+      master.environment_queue.pop.call
       master.environment_queue.pop.call
       master.job_queue.pop.call
 
@@ -1648,7 +1907,9 @@ end
 
       # The entries collected in the environments of the two targets are merged: the core RBS files are stored once
       service = master.controller.type_check_service or raise
-      entries = Server::TypeCheckDatabase.rbs_entries_by_path(service.signature_services.fetch(:lib).latest_env)
+      signature_service = service.signature_services.fetch(:lib)
+      library_paths = signature_service.env_rbs_paths
+      entries = Server::TypeCheckDatabase.rbs_entries_by_path(signature_service.latest_env).select { |path, _| library_paths.include?(path) }
       assert_equal entries.sum { |_, entries| entries.size }, master.type_check_database.entry_count
 
       master.process_message_from_client({ id: "definition", method: Query__Definition::METHOD, params: { name: "::String" } })

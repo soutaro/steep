@@ -13,6 +13,10 @@ module Steep
         def default_jobs_count: () -> Integer
 
         def jobs_count_value: () -> Integer
+
+        # The launcher of the workers: `ForkLauncher` where `fork` is available and no `steep_command` is given,
+        # `SpawnLauncher` otherwise
+        def worker_launcher: (project: Project, interaction: bool, ?patterns: Array[String], ?typecheck_count: Integer) -> Server::_WorkerLauncher
       end
     end
   end

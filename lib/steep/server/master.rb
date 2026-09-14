@@ -175,8 +175,10 @@ module Steep
       attr_reader :launcher
       attr_reader :interaction_worker
       attr_reader :typecheck_workers
+      attr_reader :retiring_workers
       attr_reader :worker_threads
       attr_reader :worker_waiter
+      attr_reader :waiting_workers
 
       attr_reader :job_queue, :write_queue
 
@@ -198,7 +200,6 @@ module Steep
       attr_reader :typecheck_quiescent_callbacks
       attr_reader :environment_queue
       attr_reader :pending_typecheck_jobs
-      attr_reader :typecheck_jobs_in_flight
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
@@ -209,10 +210,13 @@ module Steep
         @launcher = launcher
         @interaction_worker = nil
         @typecheck_workers = []
+        @retiring_workers = []
         @worker_threads = []
         @worker_waiter = ThreadWaiter.new()
+        @waiting_workers = {}
         @running = false
         @shutting_down = false
+        @environment_updated = false
         @current_type_check_request = nil
         @typecheck_automatically = true
         @commandline_args = []
@@ -220,7 +224,6 @@ module Steep
         @write_queue = SizedQueue.new(100)
         @environment_queue = Thread::Queue.new
         @pending_typecheck_jobs = []
-        @typecheck_jobs_in_flight = {}
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
         @project_file_mtimes = nil
@@ -320,9 +323,21 @@ module Steep
           end
 
           worker_waiter << loop_thread
-          worker_waiter.wait_one()
 
-          unless job_queue.closed?
+          while thread = worker_waiter.wait_one()
+            break if job_queue.closed?
+
+            if (worker = waiting_workers[thread]) && worker.exiting?
+              # A retired worker exited as told
+              Steep.logger.info { "Retired worker exited: #{worker.name}" }
+              begin
+                job_queue << -> { retiring_workers.delete(worker) }
+              rescue ClosedQueueError
+                # The server is exiting
+              end
+              next
+            end
+
             # A worker process exited, or the main loop stopped, before the client sent `exit`
             each_worker do |worker|
               worker.kill(force: true)
@@ -348,22 +363,34 @@ module Steep
       end
 
       def attach_worker(worker)
-        Steep.logger.info { "Attaching worker: #{worker.name}" }
+        attach_workers([worker])
+      end
 
-        case worker.type
-        when :interaction
-          raise "Interaction worker is already attached" if interaction_worker
-          @interaction_worker = worker
-        when :typecheck
-          typecheck_workers << worker
+      def attach_workers(workers)
+        workers.each do |worker|
+          Steep.logger.info { "Attaching worker: #{worker.name}" }
+
+          case worker.type
+          when :interaction
+            if current = interaction_worker
+              retire_worker(current)
+            end
+            @interaction_worker = worker
+          when :typecheck
+            typecheck_workers << worker
+          end
+
+          if @running
+            start_worker_thread(worker)
+          end
         end
 
-        if @running
-          start_worker_thread(worker)
-        end
-
-        if worker.type == :typecheck && current_type_check_request
-          deliver_contents(worker, signature_paths_to_deliver)
+        if current_type_check_request
+          workers.each do |worker|
+            if worker.type == :typecheck
+              deliver_contents(worker, signature_paths_to_deliver)
+            end
+          end
           dispatch_typecheck_jobs()
         end
       end
@@ -378,7 +405,37 @@ module Steep
           end
         end
 
+        waiting_workers[worker.wait_thread] = worker
         worker_waiter << worker.wait_thread
+      end
+
+      def retire_typecheck_workers
+        typecheck_workers.dup.each do |worker|
+          retire_worker(worker)
+        end
+      end
+
+      def retire_worker(worker)
+        Steep.logger.info { "Retiring worker: #{worker.name}" }
+
+        case worker.type
+        when :interaction
+          @interaction_worker = nil if interaction_worker.equal?(worker)
+        when :typecheck
+          typecheck_workers.delete(worker)
+        end
+
+        retiring_workers << worker
+        worker.retire!
+        exit_worker_if_retired(worker)
+      end
+
+      def exit_worker_if_retired(worker)
+        return unless worker.retiring? && !worker.exiting? && worker.in_flight == 0
+
+        Steep.logger.info { "Stopping retired worker: #{worker.name}" }
+        worker.exiting!
+        send_notification({ method: "exit", params: nil }, worker: worker)
       end
 
       def enqueue_worker_message(worker, message)
@@ -391,6 +448,7 @@ module Steep
         if block
           yield interaction_worker if interaction_worker
           typecheck_workers.each(&block)
+          retiring_workers.each(&block)
         else
           enum_for :each_worker
         end
@@ -466,6 +524,7 @@ module Steep
             controller.load(command_line_args: commandline_args)
           end
 
+          update_environment()
           environment_queue << -> { load_library_entries() }
 
           if typecheck_automatically
@@ -630,17 +689,12 @@ module Steep
 
         when "workspace/symbol"
           update_environment()
+          query = message[:params][:query] #: String
 
-          result_controller << group_request do |group|
-            typecheck_workers.each do |worker|
-              deliver_contents(worker, signature_paths_to_deliver)
-              group << send_request(method: "workspace/symbol", params: message[:params], worker: worker)
-            end
-
-            group.on_completion do |handlers|
-              result = handlers.flat_map(&:result)
-              result.uniq!
-              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: result })
+          environment_queue << -> do
+            result = workspace_symbol_result(query)
+            job_queue << -> do
+              enqueue_write_job SendMessageJob.to_client(message: { id: id, result: result })
             end
           end
 
@@ -916,7 +970,7 @@ module Steep
         request = current_type_check_request or return
 
         until pending_typecheck_jobs.empty?
-          workers = typecheck_workers.select {|worker| typecheck_jobs_in_flight.fetch(worker, 0) < TYPECHECK_JOBS_PER_WORKER }
+          workers = typecheck_workers.select {|worker| worker.in_flight < TYPECHECK_JOBS_PER_WORKER }
           break if workers.empty?
 
           workers.each do |worker|
@@ -955,12 +1009,8 @@ module Steep
           end
         end
 
-        typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) + 1
-
         result_controller << send_request(method: CustomMethods::TypeCheck__File::METHOD, params: params, worker: worker) do |handler|
           handler.on_completion do |response|
-            typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) - 1
-
             result = response[:result] #: CustomMethods::TypeCheck__File::result?
             on_type_check_update(
               guid: request.guid,
@@ -1047,6 +1097,15 @@ module Steep
         message = { method: method, id: id, params: params }
         ResultHandler.new(request: message).tap do |handler|
           yield handler if block
+
+          completion = handler.completion_handler
+          worker.in_flight += 1
+          handler.on_completion do |response|
+            worker.in_flight -= 1
+            completion&.call(response)
+            exit_worker_if_retired(worker)
+          end
+
           enqueue_write_job SendMessageJob.to_worker(worker, message: message)
         end
       end
@@ -1162,14 +1221,27 @@ module Steep
       end
 
       def update_environment
-        changes = controller.pop_file_changes
-        return if changes.empty?
         service = controller.type_check_service or return
+        changes = controller.pop_file_changes
+
+        # The first update runs even without changes, so that the launcher hears that the environment is loaded
+        return if changes.empty? && @environment_updated
+        @environment_updated = true
+
+        signature_changed = changes.each_key.any? do |path|
+          absolute_path = project.absolute_path(path)
+          controller.files.signature_paths.registered_path?(absolute_path) || controller.files.inline_paths.registered_path?(absolute_path)
+        end
+        versions = controller.file_contents.transform_values(&:version)
+
+        launcher&.environment_changing(self, signature_changed: signature_changed)
 
         environment_queue << -> do
           Steep.measure("Updating the environments with #{changes.size} files") do
             service.update(changes: changes)
           end
+
+          launcher&.environment_updated(self, signature_changed: signature_changed, versions: versions)
         end
       end
 
@@ -1209,6 +1281,40 @@ module Steep
 
       def signature_paths_to_deliver
         controller.files.signature_paths.paths.to_a + controller.files.inline_paths.paths.to_a
+      end
+
+      def workspace_symbol_result(query)
+        service = controller.type_check_service or return []
+
+        Steep.measure "Generating workspace symbol list for query=`#{query}`" do
+          provider = Index::SignatureSymbolProvider.new(project: project, assignment: Services::PathAssignment.all)
+          project.targets.each do |target|
+            provider.indexes[target] = service.signature_services.fetch(target.name).latest_rbs_index
+          end
+
+          # A file loaded into the environments of several targets gives the same symbols several times
+          seen = Set[] #: Set[Array[untyped]]
+
+          provider.query_symbol(query).filter_map do |symbol|
+            location = symbol.location
+            uri = PathHelper.to_uri(project.absolute_path(Pathname(location.buffer.name))).to_s
+            range = {
+              start: { line: location.start_line - 1, character: location.start_column },
+              end: { line: location.end_line - 1, character: location.end_column }
+            }
+
+            key = [symbol.name, symbol.kind, uri, range, symbol.container_name] #: Array[untyped]
+            next if seen.include?(key)
+            seen << key
+
+            LSP::Interface::SymbolInformation.new(
+              name: symbol.name,
+              kind: symbol.kind,
+              location: { uri: uri, range: range },
+              container_name: symbol.container_name
+            )
+          end
+        end
       end
 
       def load_library_entries

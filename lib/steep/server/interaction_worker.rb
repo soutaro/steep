@@ -12,11 +12,11 @@ module Steep
 
       attr_reader :service, :mutex
 
-      def initialize(project:, reader:, writer:, queue: Queue.new)
+      def initialize(project:, reader:, writer:, queue: Queue.new, service: nil)
         super(project: project, reader: reader, writer: writer)
         @queue = queue
         @mutex = Mutex.new
-        @service = Services::TypeCheckService.new(project: project)
+        @service = service || Services::TypeCheckService.new(project: project)
         @buffered_changes = {}
         @last_job_mutex = Mutex.new
       end
