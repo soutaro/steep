@@ -15,6 +15,8 @@ module Steep
 
       attr_reader super_type: Subject
 
+      @hash: Integer?
+
       def initialize: (sub_type: Subject, super_type: Subject) -> void
 
       def hash: () -> Integer
@@ -40,6 +42,13 @@ module Steep
       def block?: () -> bool
 
       type relation_type = :type | :interface | :method | :function | :params | :block
+
+      # The predicate that tells if the relation is of each kind
+      #
+      # Interpolating the name of the predicate allocates a string for every assertion, and
+      # `#type!` is asserted on every subtyping check.
+      #
+      PREDICATES: Hash[relation_type, Symbol]
 
       def assert_type: (relation_type `type`) -> void
 

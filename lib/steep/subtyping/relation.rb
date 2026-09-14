@@ -10,7 +10,9 @@ module Steep
       end
 
       def hash
-        self.class.hash ^ sub_type.hash ^ super_type.hash
+        # A relation is the key of the subtyping caches, and the same one is looked up
+        # once per cache
+        @hash ||= self.class.hash ^ sub_type.hash ^ super_type.hash
       end
 
       def ==(other)
@@ -53,8 +55,22 @@ module Steep
           (!super_type || super_type.is_a?(Interface::Block))
       end
 
+      # The predicate that tells if the relation is of each kind
+      #
+      # Interpolating the name of the predicate allocates a string for every assertion, and
+      # `#type!` is asserted on every subtyping check.
+      #
+      PREDICATES = {
+        type: :type?,
+        interface: :interface?,
+        method: :method?,
+        function: :function?,
+        params: :params?,
+        block: :block?
+      } #: Hash[relation_type, Symbol]
+
       def assert_type(type)
-        unless __send__(:"#{type}?")
+        unless __send__(PREDICATES.fetch(type))
           raise "#{type}? is expected but: sub_type=#{sub_type.class}, super_type=#{super_type.class}"
         end
       end
