@@ -13,15 +13,20 @@ module Steep
         # @type block: String
         "#{datetime.strftime('%Y-%m-%d %H:%M:%S.%L')}: #{severity}: #{formatted_tags} #{msg}\n"
       end
-      @thread_key = "steep_tagged_logging_tags:#{object_id}"
+      # A symbol key spares `Thread#[]` the interning of a string on every lookup, and the
+      # type check tags every node it visits
+      @thread_key = :"steep_tagged_logging_tags:#{object_id}"
       current_tags << "Steep #{VERSION}"
     end
 
     def tagged(tag)
-      current_tags << tag
-      yield
-    ensure
-      current_tags.pop
+      tags = current_tags
+      tags << tag
+      begin
+        yield
+      ensure
+        tags.pop
+      end
     end
 
     def current_tags

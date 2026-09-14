@@ -3723,7 +3723,7 @@ module Steep
       fails = []
 
       method.overloads.each do |overload|
-        Steep.logger.tagged overload.method_type.to_s do
+        Steep.logger.tagged(-> { overload.method_type.to_s }) do
           typing.new_child() do |child_typing|
             constr = self.with_new_typing(child_typing)
 

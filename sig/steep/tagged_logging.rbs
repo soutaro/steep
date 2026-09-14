@@ -2,7 +2,7 @@ module Steep
   class TaggedLogging < ::Logger
     type tag = String | ^() -> String
 
-    @thread_key: String
+    @thread_key: Symbol
 
     # Pushes `tag` while the block runs.
     #
