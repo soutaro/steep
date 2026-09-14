@@ -39,7 +39,7 @@ module Steep
         "{ #{array.join(", ")} }"
       end
 
-      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {})
+      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {}, pure_node_descendants: {})
         @constant_env = constant_env
         @local_variable_types = local_variable_types
         @instance_variable_types = instance_variable_types
@@ -47,7 +47,10 @@ module Steep
         @constant_types = constant_types
         @pure_method_calls = pure_method_calls
 
-        @pure_node_descendants = {}
+        # The descendants of a node don't change, so the table is shared with the envs derived
+        # from this one -- an env is copied for every update, and recomputing the descendants
+        # of the pure nodes of each copy costs a walk of their subtrees
+        @pure_node_descendants = pure_node_descendants
       end
 
       def update(local_variable_types: self.local_variable_types, instance_variable_types: self.instance_variable_types, global_types: self.global_types, constant_types: self.constant_types, pure_method_calls: self.pure_method_calls)
@@ -57,7 +60,8 @@ module Steep
           instance_variable_types: instance_variable_types,
           global_types: global_types,
           constant_types: constant_types,
-          pure_method_calls: pure_method_calls
+          pure_method_calls: pure_method_calls,
+          pure_node_descendants: @pure_node_descendants
         )
       end
 
@@ -70,7 +74,8 @@ module Steep
           instance_variable_types: merge_table(self.instance_variable_types, instance_variable_types),
           global_types: merge_table(self.global_types, global_types),
           constant_types: merge_table(self.constant_types, constant_types),
-          pure_method_calls: merge_table(self.pure_method_calls, pure_method_calls)
+          pure_method_calls: merge_table(self.pure_method_calls, pure_method_calls),
+          pure_node_descendants: @pure_node_descendants
         )
       end
 
