@@ -58,7 +58,11 @@ module Steep
         end
 
         begin
-          master.job_queue << -> { master.attach_workers(workers) }
+          master.job_queue << -> do
+            # The previous generation, if any is still working, has the older environment
+            master.retire_typecheck_workers
+            master.attach_workers(workers)
+          end
         rescue ClosedQueueError
           # The server is exiting, and the workers are of no use
           workers.each do |worker|
