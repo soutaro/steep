@@ -101,12 +101,14 @@ targets.each do |target|
   gc0 = gc_snap.()
   allocated0 = GC.stat(:total_allocated_objects)
   errors = 0
+  files = [] #: Array[Steep::Services::TypeCheckService::SourceFile]
 
   check_time = Benchmark.realtime do
     profile.(-> do
       source_paths.each do |path|
         begin
-          service.typecheck_source(path: path, target: target)
+          file = service.typecheck_source(path: path, target: target)
+          files << file if file
         rescue => _
           errors += 1
         end
@@ -116,9 +118,13 @@ targets.each do |target|
 
   allocated = GC.stat(:total_allocated_objects) - allocated0
   gc_ms, major_gc, minor_gc = gc_delta.(gc0)
-  after = gc_memsize.()
 
-  diagnostics = source_paths.sum {|path| service.diagnostics.fetch(path, []).size }
+  # Count the diagnostics and drop the files before measuring the retained size:
+  # the type check drops the results of each file, and the bench keeps them only to count.
+  diagnostics = files.sum {|file| file.diagnostics.size }
+  files.clear
+
+  after = gc_memsize.()
 
   result[:targets][target.name] = {
     files: source_paths.size,
