@@ -1190,6 +1190,12 @@ module Steep
           signature_service = service.signature_services.fetch(target.name)
           library_paths = signature_service.env_rbs_paths
 
+          # The targets share most of their library RBS files, while collecting the entries
+          # walks the whole environment. The entries of a file are the same in every
+          # environment that loads it, which the `uniq!` below relied on, so an environment
+          # that carries no new library file has nothing to add.
+          next if library_paths.all? {|path| entries_by_path.key?(path) }
+
           Steep.measure("Collecting the entries of the library RBS files of target=#{target.name}") do
             TypeCheckDatabase.rbs_entries_by_path(signature_service.latest_env).each do |path, entries|
               next unless library_paths.include?(path)
