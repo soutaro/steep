@@ -37,7 +37,7 @@ module Steep
       def run
         @project = load_config()
 
-        launcher = Server::SpawnLauncher.new(
+        launcher = Server::ProcessLauncher.new(
           steepfile: project.steepfile_path,
           steep_command: jobs_option.steep_command,
           typecheck_count: jobs_option.jobs_count_value,

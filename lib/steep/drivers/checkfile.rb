@@ -101,7 +101,7 @@ module Steep
 
         Steep.logger.info { "Starting #{count} workers for #{files.size} files..." }
 
-        launcher = Server::SpawnLauncher.new(
+        launcher = Server::ProcessLauncher.new(
           steepfile: project.steepfile_path,
           steep_command: jobs_option.steep_command,
           typecheck_count: count,

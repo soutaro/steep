@@ -354,7 +354,7 @@ module Steep
         server_reader = LSP::Transport::Io::Reader.new(server_read)
         server_writer = LSP::Transport::Io::Writer.new(server_write)
 
-        launcher = Server::SpawnLauncher.new(
+        launcher = Server::ProcessLauncher.new(
           steepfile: project.steepfile_path,
           steep_command: jobs_option.steep_command,
           typecheck_count: jobs_option.jobs_count_value,

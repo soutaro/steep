@@ -17,7 +17,7 @@ module Steep
     # The process is forked from the driver process when `fork` is available and no `steep_command` is given, or
     # spawned as a `steep worker` command otherwise. Each worker loads the RBS environment by itself.
     #
-    class SpawnLauncher
+    class ProcessLauncher
       include _WorkerLauncher
 
       attr_reader steepfile: Pathname?
