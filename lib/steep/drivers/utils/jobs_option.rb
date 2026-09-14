@@ -20,6 +20,20 @@ module Steep
             1
           end
         end
+
+        def worker_launcher(project:, interaction:, patterns: [], typecheck_count: jobs_count_value)
+          if Steep.can_fork? && !steep_command
+            Server::ForkLauncher.new(typecheck_count: typecheck_count, interaction: interaction, patterns: patterns)
+          else
+            Server::SpawnLauncher.new(
+              steepfile: project.steepfile_path,
+              steep_command: steep_command,
+              typecheck_count: typecheck_count,
+              interaction: interaction,
+              patterns: patterns
+            )
+          end
+        end
       end
     end
   end

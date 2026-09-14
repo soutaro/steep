@@ -716,43 +716,4 @@ class TypeCheckWorkerTest < Minitest::Test
   end
 
 
-  def test_job_workspace_symbol
-    in_tmpdir do
-      project = Project.new(steepfile_path: current_dir + "Steepfile")
-      Project::DSL.parse(project, <<EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-EOF
-
-      worker = Server::TypeCheckWorker.new(
-        project: project,
-        assignment: assignment,
-        commandline_args: [],
-        reader: worker_reader,
-        writer: worker_writer
-      )
-
-      worker.service.update(changes: {
-        Pathname("sig/foo.rbs") => [ContentChange.string(<<RBS)]
-class NewClassName
-  def new_class_method: () -> void
-end
-RBS
-      }) {}
-
-      symbols = worker.workspace_symbol_result("")
-
-      symbols.find {|symbol| symbol.name == "NewClassName" }.tap do |symbol|
-        assert_equal "#{file_scheme}#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
-        assert_equal "", symbol.container_name
-      end
-
-      symbols.find {|symbol| symbol.name == "#new_class_method" }.tap do |symbol|
-        assert_equal "#{file_scheme}#{current_dir}/sig/foo.rbs", symbol.location[:uri].to_s
-        assert_equal "NewClassName", symbol.container_name
-      end
-    end
-  end
 end

@@ -122,11 +122,20 @@ module Steep
 
       attr_reader typecheck_workers: Array[WorkerProcess]
 
+      # The workers that get no more request, and exit once they have answered the requests in flight
+      #
+      # See `#retire_worker`.
+      #
+      attr_reader retiring_workers: Array[WorkerProcess]
+
       # The threads reading the messages from the workers
       attr_reader worker_threads: Array[Thread]
 
       # Waits for the exit of the workers and the main loop
       attr_reader worker_waiter: ThreadWaiter
+
+      # The workers by the thread that waits for their exit, for `#start` to tell a retired worker from a crashed one
+      attr_reader waiting_workers: Hash[Thread, WorkerProcess]
 
       # The logger tags of the master, for the threads started after `#start`
       @logger_tags: Array[TaggedLogging::tag]?
@@ -136,6 +145,9 @@ module Steep
 
       # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
       @shutting_down: bool
+
+      # `true` once the environment thread has been handed the first update, at `initialize`
+      @environment_updated: bool
 
       # Queue for processing incoming jobs and postpone a work
       #
@@ -200,9 +212,6 @@ module Steep
       #
       attr_reader pending_typecheck_jobs: Array[TypeCheckController::Request::job]
 
-      # The number of `$/steep/typecheck/file` requests each worker is working on
-      attr_reader typecheck_jobs_in_flight: Hash[WorkerProcess, Integer]
-
       # The number of `$/steep/typecheck/file` requests a worker gets ahead, to keep it busy while a response travels
       TYPECHECK_JOBS_PER_WORKER: Integer
 
@@ -236,14 +245,34 @@ module Steep
 
       # Adds a worker to the master
       #
-      # A typecheck worker receives the RBS files and takes the pending jobs when a type check is running.
-      #
-      # Call it on the main thread: directly before `#start`, or through `job_queue` after it.
+      # See `#attach_workers`.
       #
       def attach_worker: (WorkerProcess worker) -> void
 
+      # Adds workers to the master
+      #
+      # A new interaction worker replaces the current one, which retires. The typecheck workers receive the RBS
+      # files and share the pending jobs when a type check is running: the jobs are dispatched once after all of
+      # them are attached, so that they spread across the workers.
+      #
+      # Call it on the main thread: directly before `#start`, or through `job_queue` after it.
+      #
+      def attach_workers: (Array[WorkerProcess] workers) -> void
+
       # Starts the thread reading the messages from the worker, and waits for the exit of the worker
       def start_worker_thread: (WorkerProcess worker) -> void
+
+      # Retires every typecheck worker, so that the jobs wait for the workers attached next
+      def retire_typecheck_workers: () -> void
+
+      # Removes the worker from the workers that take requests
+      #
+      # The worker gets `exit` once it has answered the requests in flight, and its exit is expected.
+      #
+      def retire_worker: (WorkerProcess worker) -> void
+
+      # Sends `exit` to a retiring worker that has answered every request
+      def exit_worker_if_retired: (WorkerProcess worker) -> void
 
       # Hands the pending jobs of the current type check to the workers that have room for more
       #
@@ -283,8 +312,9 @@ module Steep
 
       # Hands the buffered file changes to the environment thread
       #
-      # Called when a type check starts, so that the environments and the file contents in `controller.type_check_service`
-      # follow the files the same way the typecheck workers do.
+      # Called at `initialize`, when a type check starts, and before an interaction request, so that the environments
+      # and the file contents in `controller.type_check_service` follow the files. The launcher hears about the
+      # update on both threads, to replace the workers forked from the environment.
       #
       def update_environment: () -> void
 
@@ -294,6 +324,12 @@ module Steep
       # shared by targets is collected in every environment that has it, and the entries are merged.
       #
       def load_library_entries: () -> void
+
+      # The symbols of the RBS environments of every target matching the query, for `workspace/symbol`
+      #
+      # Called on the environment thread.
+      #
+      def workspace_symbol_result: (String query) -> Array[untyped]
 
       # Stops the language server workers by sending SIGTERM
       #
