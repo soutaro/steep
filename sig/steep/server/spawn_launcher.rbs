@@ -12,12 +12,11 @@ module Steep
       def stop: () -> void
     end
 
-    # Starts each worker as a process that runs the `steep worker` driver, at `Master#start`
+    # Spawns each worker as a `steep worker` process at `Master#start`
     #
-    # The process is forked from the driver process when `fork` is available and no `steep_command` is given, or
-    # spawned as a `steep worker` command otherwise. Each worker loads the RBS environment by itself.
+    # Each worker loads the RBS environment by itself.
     #
-    class ProcessLauncher
+    class SpawnLauncher
       include _WorkerLauncher
 
       attr_reader steepfile: Pathname?

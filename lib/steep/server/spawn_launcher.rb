@@ -1,6 +1,6 @@
 module Steep
   module Server
-    class ProcessLauncher
+    class SpawnLauncher
       attr_reader :steepfile
       attr_reader :steep_command
       attr_reader :typecheck_count

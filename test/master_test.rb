@@ -1010,7 +1010,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      launcher = Server::ProcessLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: true)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: true)
 
       master = Server::Master.new(
         project: project,
@@ -1089,7 +1089,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      launcher = Server::ProcessLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: true)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: true)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
@@ -1161,7 +1161,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      launcher = Server::ProcessLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2, interaction: true)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2, interaction: true)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
@@ -1208,7 +1208,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      launcher = Server::ProcessLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2, interaction: true)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2, interaction: true)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
@@ -1402,7 +1402,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      launcher = Server::ProcessLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: false)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: false)
 
       master = Server::Master.new(
         project: project,
@@ -1482,7 +1482,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      launcher = Server::ProcessLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: false)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1, interaction: false)
 
       master = Server::Master.new(
         project: project,

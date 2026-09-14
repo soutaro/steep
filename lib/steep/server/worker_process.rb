@@ -23,76 +23,6 @@ module Steep
       end
 
       def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, delay_shutdown: false, patterns: [])
-        if Steep.can_fork? && !steep_command
-          fork_worker(
-            type,
-            name: name,
-            steepfile: steepfile,
-            index: index,
-            delay_shutdown: delay_shutdown,
-            patterns: patterns
-          )
-        else
-          spawn_worker(
-            type,
-            name: name,
-            steepfile: steepfile,
-            steep_command: steep_command || "steep",
-            index: index,
-            delay_shutdown: delay_shutdown,
-            patterns: patterns
-          )
-        end
-      end
-
-      def self.fork_worker(type, name:, steepfile:, index:, delay_shutdown:, patterns:)
-        stdin_in, stdin_out = IO.pipe
-        stdout_in, stdout_out = IO.pipe
-
-        worker = Drivers::Worker.new(stdout: stdout_out, stdin: stdin_in, stderr: STDERR)
-
-        worker.steepfile = steepfile
-        worker.worker_type = type
-        worker.worker_name = name
-        worker.delay_shutdown = delay_shutdown
-        if (max, this = index)
-          worker.max_index = max
-          worker.index = this
-        end
-        worker.commandline_args = patterns
-
-        pid = fork do
-          Process.setpgid(0, 0)
-          Steep.ui_logger.level = :fatal
-          stdin_out.close
-          stdout_in.close
-          worker.run()
-        end
-
-        pid or raise
-
-        writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_out)
-        reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_in)
-
-        # @type var wait_thread: Thread & _ProcessWaitThread
-        wait_thread = _ = Thread.new { Process.waitpid(pid) }
-        wait_thread.define_singleton_method(:pid) { pid }
-
-        stdin_in.close
-        stdout_out.close
-
-        new(
-          type: type,
-          reader: reader,
-          writer: writer,
-          stderr: STDERR,
-          wait_thread: wait_thread,
-          name: name,
-          index: index&.[](1)
-        )
-      end
-
-      def self.spawn_worker(type, name:, steepfile:, steep_command:, index:, delay_shutdown:, patterns:)
         args = ["--name=#{name}"]
         args << "--steepfile=#{steepfile}" if steepfile
         args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
@@ -110,6 +40,7 @@ module Steep
           args << "--delay-shutdown"
         end
 
+        steep_command ||= "steep"
         command = case type
                   when :interaction
                     [steep_command, "worker", "--interaction", *args, *patterns]
