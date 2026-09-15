@@ -61,6 +61,13 @@ module Steep
       #
       attr_reader closed_shape_cache: Hash[AST::Types::t, Shape?]
 
+      # The shapes of `self`, keyed by the type it resolves to
+      #
+      # The shape of a type that `#config_free_shape?` accepts depends on nothing but the type,
+      # and the type check asks for the shape of `self` once for every method it calls on it.
+      #
+      @self_shape_cache: Hash[AST::Types::t, Shape?]
+
       attr_reader implicitly_returns_nil: bool
 
       def initialize: (AST::Types::Factory, implicitly_returns_nil: bool) -> void
@@ -117,7 +124,14 @@ module Steep
       #
       def raw_shape: (AST::Types::t, Config) -> Shape?
 
+      # Returns the shape of `self` when it resolves to the type
+      #
+      # The shape of a type that `#config_free_shape?` accepts depends on nothing but the type,
+      # and the type check asks for the shape of `self` once for every method it calls on it.
+      #
       def self_shape: (AST::Types::t, Config) -> Shape?
+
+      def self_shape0: (AST::Types::t, Config) -> Shape?
 
       # Returns a shape of instance type and interface type
       #

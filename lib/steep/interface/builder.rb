@@ -62,6 +62,7 @@ module Steep
         @union_shape_cache = {}
         @singleton_shape_cache = {}
         @closed_shape_cache = {}
+        @self_shape_cache = {}
         @method_overload_cache = {}
         @method_overload_index = {}
         @method_entry_cache = {}
@@ -244,7 +245,24 @@ module Steep
         end
       end
 
+      # Returns the shape of `self` when it resolves to `type`
+      #
+      # The shape of a type that `#config_free_shape?` accepts depends on nothing but `type`,
+      # and the type check asks for the shape of `self` once for every method it calls on it.
+      #
       def self_shape(type, config)
+        unless type.free_variables.empty? && config_free_shape?(type)
+          return self_shape0(type, config)
+        end
+
+        if @self_shape_cache.key?(type)
+          @self_shape_cache.fetch(type)
+        else
+          @self_shape_cache[type] = self_shape0(type, config)
+        end
+      end
+
+      def self_shape0(type, config)
         case type
         when AST::Types::Self, AST::Types::Instance, AST::Types::Class
           raise
