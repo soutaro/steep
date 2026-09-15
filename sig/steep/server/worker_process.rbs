@@ -10,14 +10,6 @@ module Steep
     # 2. Receiving a LSP message from the process
     # 3. Killing the process
     #
-    # The process may be invoked by
-    #
-    # 1. `#fork` if available, or
-    # 2. `#spawn` otherwise
-    #
-    # `#fork` version is faster because it skips loading libraries.
-    #
-    #
     class WorkerProcess
       interface _ProcessWaitThread
         def pid: () -> Integer
@@ -28,6 +20,8 @@ module Steep
       attr_reader writer: LSP::Transport::Io::Writer
 
       attr_reader stderr: IO?
+
+      attr_reader type: worker_type
 
       attr_reader name: String
 
@@ -42,6 +36,7 @@ module Steep
       attr_reader known_versions: Hash[Pathname, Integer]
 
       def initialize: (
+        type: worker_type,
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
         stderr: IO?,
@@ -52,6 +47,7 @@ module Steep
 
       type worker_type = :interaction | :typecheck
 
+      # Spawns a `steep worker` process, with `steep_command` or `steep` in the path
       def self.start_worker: (
         worker_type `type`,
         name: String,
@@ -60,30 +56,6 @@ module Steep
         ?patterns: Array[String],
         ?index: [Integer, Integer]?
       ) -> WorkerProcess
-
-      def self.fork_worker: (
-        worker_type `type`,
-        name: String,
-        steepfile: Pathname?,
-        patterns: Array[String],
-        index: [Integer, Integer]?
-      ) -> WorkerProcess
-
-      def self.spawn_worker: (
-        worker_type `type`,
-        name: String,
-        steepfile: Pathname?,
-        steep_command: ::String,
-        patterns: Array[String],
-        index: [Integer, Integer]?
-      ) -> WorkerProcess
-
-      def self.start_typecheck_workers: (
-        steepfile: Pathname?,
-        args: Array[String],
-        steep_command: ::String?,
-        ?count: Integer
-      ) -> Array[WorkerProcess]
 
       def redirect_to: (self) -> void
 

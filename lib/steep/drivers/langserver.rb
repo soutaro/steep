@@ -37,15 +37,18 @@ module Steep
       def run
         @project = load_config()
 
-        interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: project.steepfile_path, steep_command: jobs_option.steep_command)
-        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: jobs_option.steep_command, count: jobs_option.jobs_count_value)
+        launcher = Server::SpawnLauncher.new(
+          steepfile: project.steepfile_path,
+          steep_command: jobs_option.steep_command,
+          typecheck_count: jobs_option.jobs_count_value,
+          interaction: true
+        )
 
         master = Server::Master.new(
           project: project,
           reader: reader,
           writer: writer,
-          interaction_worker: interaction_worker,
-          typecheck_workers: typecheck_workers
+          launcher: launcher
         )
         master.typecheck_automatically = true
 
