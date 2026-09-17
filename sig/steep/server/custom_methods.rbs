@@ -171,6 +171,149 @@ module Steep
         def self.response: (String id, result) -> untyped
       end
 
+      # Position in a file and range of text, in the LSP convention -- zero-based lines and characters
+      type position = { line: Integer, character: Integer }
+
+      type range = { start: position, end: position }
+
+      # Request for the hover content at a position, sent from master to the interaction worker
+      #
+      # The interaction worker type checks the file on demand and returns what is at the position. It sends the
+      # types as strings and the declarations as names -- `::Foo`, `::Foo#bar`, or `::Foo.bar` -- because the
+      # master resolves the names in its own environment when it renders the documentation. No declaration nor
+      # comment travels between the processes.
+      #
+      module Hover
+        METHOD: String
+
+        type params = {
+          uri: String,
+          position: position
+        }
+
+        # * `variable` is a local variable: `name` and `type`
+        # * `type` is an expression: `type`
+        # * `type_assertion` is a type assertion: `original_type` and `asserted_type`
+        # * `method_call` is a method call: `return_type` of the call, `method_types` of the definitions, `methods`
+        #   the names of the definitions, `special` when a custom typing rule applies, and `error` when no method
+        #   type is compatible with the call
+        # * `definition` is a method definition: `method` the name of the definition, `method_type` the type
+        #   being checked, and `method_types` the ones declared
+        # * `constant` is a constant: `name`
+        # * `type_name` is a class, module, interface, or type alias written in a type: `name`
+        #
+        type content_kind = "variable" | "type" | "type_assertion" | "method_call" | "definition" | "constant" | "type_name"
+
+        type content = {
+          kind: content_kind,
+          ?name: String,
+          ?type: String,
+          ?original_type: String,
+          ?asserted_type: String,
+          ?return_type: String?,
+          ?special: bool,
+          ?error: bool,
+          ?method_types: Array[String],
+          ?methods: Array[String],
+          ?method: String,
+          ?method_type: String
+        }
+
+        # `target` is the name of the target the file belongs to, and `range` is the text the content is about
+        type result = {
+          target: String,
+          range: range,
+          content: content
+        }
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result?) -> untyped
+      end
+
+      # Request for the completion items at a position, sent from master to the interaction worker
+      #
+      # The worker returns the candidates, and the master renders them with the documentation from its environment.
+      #
+      module Completion
+        METHOD: String
+
+        type params = {
+          uri: String,
+          position: position,
+          trigger: String?
+        }
+
+        # * `local_variable` and `instance_variable`: `name` and `type`
+        # * `constant`: `name` to insert and `full_name` of the constant
+        # * `method`: `name`, `method_types` of the overloads, and `methods` the names of the definitions, empty
+        #   for a method generated for the receiver type
+        # * `keyword_argument`: `name` with the trailing colon
+        # * `type_name`: `name` to insert and `full_name` of the type
+        # * `builtin_type`: `name` of a builtin type of RBS, like `untyped`
+        # * `text`: a snippet, with `label`, `text`, and `help_text`
+        #
+        type item_kind = "local_variable" | "instance_variable" | "constant" | "method" | "keyword_argument" | "type_name" | "builtin_type" | "text"
+
+        # `range` is the text the item replaces
+        type item = {
+          kind: item_kind,
+          range: range,
+          ?name: String,
+          ?type: String,
+          ?full_name: String,
+          ?method_types: Array[String],
+          ?methods: Array[String],
+          ?label: String,
+          ?text: String,
+          ?help_text: String?
+        }
+
+        # `incomplete` tells that the environment has an error and the items may be incomplete
+        type result = {
+          target: String,
+          incomplete: bool,
+          items: Array[item]
+        }
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result?) -> untyped
+      end
+
+      # Request for the signature help at a position, sent from master to the interaction worker
+      #
+      module SignatureHelp
+        METHOD: String
+
+        type params = {
+          uri: String,
+          position: position
+        }
+
+        # `method_type` is an overload of the method being called, `parameters` are its parameters in the order of
+        # the signature, `active_parameter` is the index of the parameter at the position, and `method` is the
+        # name of the definition, absent for a method without definition
+        type signature = {
+          method_type: String,
+          parameters: Array[String],
+          active_parameter: Integer?,
+          method: String?
+        }
+
+        # `active_signature` is the index of the overload the call is resolved to
+        type help = { target: String, signatures: Array[signature], active_signature: Integer? }
+
+        # `signature_help` is `nil` when the position is not in the arguments of a method call, and `syntax_error`
+        # tells that the file cannot be parsed, so that the master keeps showing the last signature help while the
+        # user types
+        type result = { signature_help: help?, syntax_error: bool }
+
+        def self.request: (String id, params) -> untyped
+
+        def self.response: (String id, result?) -> untyped
+      end
+
       # Request to resolve what is at a cursor position, sent from master to the interaction worker
       #
       # The interaction worker type checks the file on demand, like hover, and returns what is at the position.

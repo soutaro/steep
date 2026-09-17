@@ -12,7 +12,10 @@ module Steep
 
         attr_reader active_parameter: Integer?
 
-        def initialize: (RBS::MethodType, RBS::AST::Comment?, Integer?) -> void
+        # The name of the definition the overload comes from, `nil` for a method without definition
+        attr_reader method_name: method_name?
+
+        def initialize: (RBS::MethodType, RBS::AST::Comment?, Integer?, method_name?) -> void
 
         def parameters: () -> Array[String]?
       end

@@ -344,6 +344,189 @@ end
     end
   end
 
+  def test_hover_via_interaction_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      interaction_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: interaction_worker,
+        typecheck_workers: []
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.controller.load(command_line_args: [])
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/hover",
+          id: "hover_id",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+            position: { line: 3, character: 9 }
+          }
+        }
+      )
+
+      # The request is forwarded to the interaction worker as `$/steep/hover`
+      jobs = flush_queue(master.write_queue)
+      request = jobs.find { |job| job.message[:method] == Hover::METHOD } or raise
+      assert_equal interaction_worker, request.dest
+      assert_equal(
+        { uri: "#{file_scheme}#{current_dir}/lib/foo.rb", position: { line: 3, character: 9 } },
+        request.message[:params]
+      )
+
+      # The result is rendered on the environment thread, and the response goes through the job queue
+      master.result_controller.process_response(
+        {
+          id: request.message[:id],
+          result: {
+            target: "lib",
+            range: { start: { line: 3, character: 8 }, end: { line: 3, character: 10 } },
+            content: { kind: "variable", name: "xs", type: "::Array[::Integer]" }
+          }
+        }
+      )
+      assert_empty flush_queue(master.write_queue)
+
+      master.environment_queue.pop.call
+      master.job_queue.pop.call
+
+      jobs = flush_queue(master.write_queue)
+      assert_equal 1, jobs.size
+      jobs[0].tap do |job|
+        assert_equal :client, job.dest
+        assert_equal "hover_id", job.message[:id]
+
+        hover = job.message[:result]
+        assert_instance_of LSP::Interface::Hover, hover
+        assert_equal({ start: { line: 3, character: 8 }, end: { line: 3, character: 10 } }.to_json, hover.range.to_json)
+        assert_equal "**Local variable** `xs: ::Array[::Integer]`\n", hover.contents.value
+      end
+
+      # Nothing at the position
+      master.process_message_from_client(
+        {
+          method: "textDocument/hover",
+          id: "hover_id2",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+            position: { line: 0, character: 0 }
+          }
+        }
+      )
+      request = flush_queue(master.write_queue).find { |job| job.message[:method] == Hover::METHOD } or raise
+      master.result_controller.process_response({ id: request.message[:id], result: nil })
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "hover_id2", result: nil })],
+        flush_queue(master.write_queue)
+      )
+    end
+  end
+
+  def test_signature_help_via_interaction_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      interaction_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        interaction_worker: interaction_worker,
+        typecheck_workers: []
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.controller.load(command_line_args: [])
+
+      request_signature_help = -> (id, line) do
+        master.process_message_from_client(
+          {
+            method: "textDocument/signatureHelp",
+            id: id,
+            params: {
+              textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+              position: { line: line, character: 9 }
+            }
+          }
+        )
+        flush_queue(master.write_queue).find { |job| job.message[:method] == SignatureHelp::METHOD } or raise
+      end
+
+      # A syntax error before any signature help is answered with nil
+      request = request_signature_help["help1", 3]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help1", result: nil })],
+        flush_queue(master.write_queue)
+      )
+
+      # A signature help is rendered and remembered
+      request = request_signature_help["help2", 3]
+      master.result_controller.process_response(
+        {
+          id: request.message[:id],
+          result: {
+            signature_help: {
+              target: "lib",
+              signatures: [{ method_type: "(::String) -> void", parameters: ["::String"], active_parameter: 0, method: nil }],
+              active_signature: 0
+            },
+            syntax_error: false
+          }
+        }
+      )
+      master.environment_queue.pop.call
+      master.job_queue.pop.call
+
+      jobs = flush_queue(master.write_queue)
+      assert_equal 1, jobs.size
+      help = jobs[0].message[:result]
+      assert_instance_of LSP::Interface::SignatureHelp, help
+      assert_equal ["(::String) -> void"], help.signatures.map(&:label)
+
+      # A syntax error on the same line is answered with the last signature help
+      request = request_signature_help["help3", 3]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help3", result: help })],
+        flush_queue(master.write_queue)
+      )
+
+      # A syntax error on another line is answered with nil
+      request = request_signature_help["help4", 4]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help4", result: nil })],
+        flush_queue(master.write_queue)
+      )
+    end
+  end
+
   def test_goto_definition_via_interaction_worker
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

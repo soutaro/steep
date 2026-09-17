@@ -1,9 +1,13 @@
-use LanguageServer::Protocol::Transport::Io::*, Thread::Queue, RBS::AST::Comment
-use Steep::Services::CompletionProvider, Steep::Services::TypeNameCompletion
-use RBS::TypeName, RBS::Namespace
+use LanguageServer::Protocol::Transport::Io::*, Thread::Queue
+use Steep::Services::CompletionProvider, Steep::Services::HoverProvider
 
 module Steep
   module Server
+    # The interaction worker answers the hover, completion, signature help, and source symbol requests of the master
+    #
+    # It type checks the file on demand and returns what is at the position, with the types as strings and the
+    # declarations as names. The master renders the documentation from its own environment.
+    #
     class InteractionWorker < BaseWorker
       include ChangeBuffer
 
@@ -28,9 +32,9 @@ module Steep
 
         attr_reader column: Integer
 
-        attr_reader trigger: String
+        attr_reader trigger: String?
 
-        def initialize: (id: String, path: Pathname, line: Integer, column: Integer, trigger: String) -> void
+        def initialize: (id: String, path: Pathname, line: Integer, column: Integer, trigger: String?) -> void
       end
 
       class SignatureHelpJob
@@ -61,12 +65,6 @@ module Steep
 
       type job = HoverJob | CompletionJob | SignatureHelpJob | SourceSymbolJob
 
-      module LSP = LanguageServer::Protocol
-
-      @last_signature_help_line: Integer
-
-      @last_signature_help_result: LanguageServer::Protocol::Interface::SignatureHelp
-
       attr_reader service: Services::TypeCheckService
 
       attr_reader mutex: Mutex
@@ -87,20 +85,34 @@ module Steep
 
       def handle_request: (lsp_request) -> void
 
-      def process_hover: (HoverJob job) -> LanguageServer::Protocol::Interface::Hover?
+      # Returns what is at the position of the job, `nil` when nothing is there
+      def process_hover: (HoverJob job) -> CustomMethods::Hover::result?
+
+      # Translates a hover content to the wire, with the types as strings and the declarations as names
+      def hover_content: (HoverProvider::Ruby::content | HoverProvider::RBS::content) -> CustomMethods::Hover::content
+
+      # The name a class or module declaration declares
+      def declared_type_name: (HoverProvider::ClassTypeContent::decl) -> RBS::TypeName
 
       # Returns what is at the position of the job, type checking the file on demand like hover
       def process_source_symbol: (SourceSymbolJob job) -> CustomMethods::Source__Symbol::result
 
-      def process_completion: (CompletionJob job) -> LanguageServer::Protocol::Interface::CompletionList?
+      # Returns the completion candidates at the position of the job, `nil` when the file is not in the project
+      def process_completion: (CompletionJob job) -> CustomMethods::Completion::result?
 
-      def process_signature_help: (SignatureHelpJob) -> LanguageServer::Protocol::Interface::SignatureHelp?
+      def completion_item: (CompletionProvider::item item) -> CustomMethods::Completion::item
 
-      def format_completion_item_for_rbs: (Services::SignatureService, RBS::TypeName, CompletionJob job, String complete_text, Integer prefix_size) -> LanguageServer::Protocol::Interface::CompletionItem
+      # The builtin types of RBS, like `untyped`, as candidates replacing the `prefix_size` characters before the position
+      def builtin_type_items: (Integer prefix_size, Integer line, Integer column) -> Array[CustomMethods::Completion::item]
 
-      def format_completion_item: (CompletionProvider::item item) -> LanguageServer::Protocol::Interface::CompletionItem
+      # The range of the `prefix_size` characters before the position
+      def range_before: (Integer line, Integer column, Integer prefix_size) -> CustomMethods::range
 
-      def builtin_types: (Integer prefix_size, Integer line, Integer column) -> Array[LanguageServer::Protocol::Interface::CompletionItem]
+      # Returns the signature help at the position of the job, `nil` when the file is not in the project
+      def process_signature_help: (SignatureHelpJob) -> CustomMethods::SignatureHelp::result?
+
+      # The target of a Ruby or RBS file of the project
+      def target_for: (Pathname) -> Project::Target?
     end
   end
 end

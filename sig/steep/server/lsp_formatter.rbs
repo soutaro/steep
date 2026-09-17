@@ -2,18 +2,17 @@ use RBS::TypeName
 
 module Steep
   module Server
-    # LSPFormatter translates hover content and completion item to markdown string
+    # LSPFormatter renders the results of the interaction worker into LSP responses
     #
-    # The class has four main methods:
+    # The interaction worker sends what is at a position with the names of the declarations involved -- see
+    # `CustomMethods::Hover`, `CustomMethods::Completion`, and `CustomMethods::SignatureHelp`. The formatter runs
+    # in the master and resolves the names in the environment of the target to render the documentation.
     #
+    # * `hover`, `completion_list`, and `signature_help` translate a result to an LSP response
+    # * `format_hover_content` and `format_completion_docs` render the Markdown of a hover and a completion item
     # * `markup_content` translates a string to `MarkupContent` object
-    # * `format_hover_content` translates a hover content to Markdown string
-    # * `format_completion_docs` translates a completion item to a documentation
-    # * `format_rbs_completion_docs` generates docs for completion item of RBS
     #
     module LSPFormatter
-      include Services
-
       module LSP = LanguageServer::Protocol
 
       # Translate given String to MarkupContent
@@ -21,24 +20,59 @@ module Steep
       def self?.markup_content: (String?) -> LanguageServer::Protocol::Interface::MarkupContent?
                               | () { () -> String? } -> LanguageServer::Protocol::Interface::MarkupContent?
 
-      # Translates a hover content to String
+      def self?.hover: (CustomMethods::Hover::result, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::Hover
+
+      def self?.completion_list: (CustomMethods::Completion::result, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::CompletionList
+
+      def self?.signature_help: (CustomMethods::SignatureHelp::help, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::SignatureHelp
+
+      # The environment and the definition builder of the target
+      def self?.environment_of: (String target, Services::TypeCheckService) -> [RBS::Environment, RBS::DefinitionBuilder]
+
+      def self?.lsp_range: (CustomMethods::range) -> LanguageServer::Protocol::Interface::Range
+
+      # Renders the Markdown of a hover content
       #
-      def self?.format_hover_content: (Services::HoverProvider::Ruby::content | Services::HoverProvider::RBS::content) -> String
+      def self?.format_hover_content: (CustomMethods::Hover::content, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> String
 
-      # Translates a completion item to String
-      def self?.format_completion_docs: (Services::CompletionProvider::item) -> String
+      # Translates a completion item to LSP
+      def self?.completion_item: (CustomMethods::Completion::item, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> LanguageServer::Protocol::Interface::CompletionItem
 
-      # Translates a completion item for RBS to String
+      # Renders the documentation of a completion item, `nil` for an item without documentation
+      def self?.format_completion_docs: (CustomMethods::Completion::item, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> String?
+
+      # Renders the documentation of a type name
       def self?.format_rbs_completion_docs: (TypeName, summarizable_decl, Array[RBS::AST::Comment]) -> String
+
+      # The definition of the method in the environment, `nil` when the type or the method is unknown
+      def self?.method_definition: (method_name, builder: RBS::DefinitionBuilder) -> RBS::Definition::Method?
+
+      # The definitions of the method in the type it is named with, or every definition when none is in the type
+      #
+      # A method named `::Foo#bar` is defined in `::Foo`, but a singleton method `::Foo.new` comes from `initialize`.
+      #
+      def self?.method_definitions: (method_name, builder: RBS::DefinitionBuilder) -> Array[RBS::Definition::Method::TypeDef]
+
+      # The declaration of a class, module, interface, or type alias, `nil` when the name is unknown
+      def self?.type_name_decl: (TypeName, env: RBS::Environment) -> summarizable_decl?
+
+      # The comments of the declarations of a class, module, interface, or type alias
+      def self?.type_name_comments: (TypeName, env: RBS::Environment) -> Array[RBS::AST::Comment]
+
+      # The declaration of a constant, class, or module, with the comments of its declarations
+      #
+      # A declaration in Ruby code has `nil` comment.
+      #
+      def self?.constant_decl: (TypeName, env: RBS::Environment) -> [summarizable_decl?, Array[RBS::AST::Comment?]]
 
       def self?.format_comment: (RBS::AST::Comment?, ?header: String?) -> String?
                               | (RBS::AST::Comment?, ?header: String?) { (String) -> void } -> void
 
       def self?.format_comments: (Array[[String, RBS::AST::Comment?]]) -> String
 
-      def self?.local_variable: (Symbol, AST::Types::t) -> String
+      def self?.local_variable: (_ToS, _ToS) -> String
 
-      def self?.instance_variable: (Symbol, AST::Types::t) -> String
+      def self?.instance_variable: (_ToS, _ToS) -> String
 
       # Renders type application
       def self?.name_and_args: (TypeName name, Array[RBS::Types::t] args) -> String

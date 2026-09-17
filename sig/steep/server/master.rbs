@@ -188,6 +188,12 @@ module Steep
       # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
       @shutting_down: bool
 
+      # The line and the result of the last signature help, to keep showing it while the user types on the line
+      #
+      # The file has syntax errors between the keystrokes, and the interaction worker cannot answer then.
+      #
+      @last_signature_help: [Integer, LanguageServer::Protocol::Interface::SignatureHelp?]?
+
       # The number of `$/steep/typecheck/file` requests a worker gets ahead, to keep it busy while a response travels
       TYPECHECK_JOBS_PER_WORKER: Integer
 
@@ -251,6 +257,14 @@ module Steep
 
       # Applies the pending changes to the environments, and sends the worker the RBS files and the file of a request
       def deliver_contents_for_request: (WorkerProcess worker, Pathname path) -> void
+
+      # Answers a hover, completion, or signature help request of the client with the result from the interaction worker
+      #
+      # The worker sends what is at the position with the names of the declarations, and the master renders the
+      # documentation from its own environments on the environment thread, and then sends the response through
+      # `job_queue`. A signature help with `syntax_error` is answered with the last one of the line.
+      #
+      def respond_to_interaction: (untyped message, untyped result) -> void
 
       # The RBS files and inline RBS sources of the project, which every worker needs for its environments
       def signature_paths_to_deliver: () -> Array[Pathname]

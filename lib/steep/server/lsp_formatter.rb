@@ -1,8 +1,6 @@
 module Steep
   module Server
     module LSPFormatter
-      include Services
-
       LSP = LanguageServer::Protocol
 
       module_function
@@ -17,278 +15,426 @@ module Steep
         end
       end
 
-      def format_hover_content(content)
-        case content
-        when HoverProvider::VariableContent
-          local_variable(content.name, content.type)
+      def hover(result, service:)
+        env, builder = environment_of(result[:target], service)
 
-        when HoverProvider::MethodCallContent
+        LSP::Interface::Hover.new(
+          contents: LSP::Interface::MarkupContent.new(
+            kind: LSP::Constant::MarkupKind::MARKDOWN,
+            value: format_hover_content(result[:content], env: env, builder: builder)
+          ),
+          range: lsp_range(result[:range])
+        )
+      end
+
+      def completion_list(result, service:)
+        env, builder = environment_of(result[:target], service)
+
+        LSP::Interface::CompletionList.new(
+          is_incomplete: result[:incomplete],
+          items: result[:items].map {|item| completion_item(item, env: env, builder: builder) }
+        )
+      end
+
+      def signature_help(result, service:)
+        _, builder = environment_of(result[:target], service)
+
+        signatures = result[:signatures].map do |signature|
+          comment =
+            if method = signature[:method]
+              method_definitions(MethodName(method), builder: builder).first&.comment
+            end
+
+          LSP::Interface::SignatureInformation.new(
+            label: signature[:method_type],
+            parameters: signature[:parameters].map {|param| LSP::Interface::ParameterInformation.new(label: param) },
+            active_parameter: signature[:active_parameter],
+            documentation: comment&.yield_self do |comment|
+              LSP::Interface::MarkupContent.new(
+                kind: LSP::Constant::MarkupKind::MARKDOWN,
+                value: comment.string.gsub(/<!--(?~-->)-->/, "")
+              )
+            end
+          )
+        end
+
+        LSP::Interface::SignatureHelp.new(
+          signatures: signatures,
+          active_signature: result[:active_signature]
+        )
+      end
+
+      def environment_of(target, service)
+        signature_service = service.signature_services.fetch(target.to_sym)
+        [signature_service.latest_env, signature_service.latest_builder]
+      end
+
+      def lsp_range(range)
+        LSP::Interface::Range.new(
+          start: LSP::Interface::Position.new(line: range[:start][:line], character: range[:start][:character]),
+          end: LSP::Interface::Position.new(line: range[:end][:line], character: range[:end][:character])
+        )
+      end
+
+      def format_hover_content(content, env:, builder:)
+        case content[:kind]
+        when "variable"
+          local_variable(content.fetch(:name), content.fetch(:type))
+
+        when "type"
+          <<~MD
+            ```rbs
+            #{content.fetch(:type)}
+            ```
+          MD
+
+        when "type_assertion"
+          <<~MD
+            ```rbs
+            #{content.fetch(:asserted_type)}
+            ```
+
+            ↑ Converted from `#{content.fetch(:original_type)}`
+          MD
+
+        when "method_call"
           io = StringIO.new
-          call = content.method_call
 
-          case call
-          when TypeInference::MethodCall::Typed
+          unless content[:error]
             io.puts <<~MD
               ```rbs
-              #{call.actual_method_type.type.return_type}
+              #{content[:return_type]}
               ```
 
               ----
             MD
+          end
 
-            method_decls = call.method_decls.sort_by {|decl| decl.method_name.to_s }
-            method_types = method_decls.map(&:method_type)
+          if content[:special]
+            io.puts <<~MD
+              **💡 Custom typing rule applies**
 
-            if call.is_a?(TypeInference::MethodCall::Special)
-              method_types = [
-                call.actual_method_type.with(
-                  type: call.actual_method_type.type.with(return_type: call.return_type)
-                )
-              ]
+              ----
+            MD
+          end
 
-              header = <<~MD
-                **💡 Custom typing rule applies**
-
-                ----
-              MD
-            end
-          when TypeInference::MethodCall::Error
-            method_decls = call.method_decls.sort_by {|decl| decl.method_name.to_s }
-            method_types = method_decls.map {|decl| decl.method_type }
-
-            header = <<~MD
+          if content[:error]
+            io.puts <<~MD
               **🚨 No compatible method type found**
 
               ----
             MD
           end
 
-          method_names = method_decls.map {|decl| decl.method_name.relative }
-          docs = method_decls.map {|decl| [decl.method_name, decl.method_def.comment] }.to_h
-
-          if header
-            io.puts header
+          method_names = content.fetch(:methods).map {|name| MethodName(name) }
+          docs = method_names.uniq.each_with_object({}) do |method_name, hash| #$ Hash[method_name, RBS::AST::Comment?]
+            hash[method_name] = method_definitions(method_name, builder: builder).filter_map(&:comment).last
           end
 
           io.puts(
-            format_method_item_doc(method_types, method_names, docs)
+            format_method_item_doc(content.fetch(:method_types), method_names.map(&:relative), docs)
           )
 
           io.string
 
-        when HoverProvider::DefinitionContent
+        when "definition"
           io = StringIO.new
 
-          method_name =
-            if content.method_name.is_a?(SingletonMethodName)
-              "self.#{content.method_name.method_name}"
+          method_name = MethodName(content.fetch(:method))
+          name_string =
+            if method_name.is_a?(SingletonMethodName)
+              "self.#{method_name.method_name}"
             else
-              content.method_name.method_name
+              method_name.method_name.to_s
             end
 
-          prefix_size = "def ".size + method_name.size
-          method_types = content.definition.method_types
+          prefix_size = "def ".size + name_string.size
+          method_types = content.fetch(:method_types)
 
           io.puts <<~MD
             ```rbs
-            def #{method_name}: #{method_types.join("\n" + " "*prefix_size + "| ") }
+            def #{name_string}: #{method_types.join("\n" + " "*prefix_size + "| ") }
             ```
 
             ----
           MD
 
-          if content.definition.method_types.size > 1
+          if method_types.size > 1
             io.puts "**Internal method type**"
             io.puts <<~MD
               ```rbs
-              #{content.method_type}
+              #{content.fetch(:method_type)}
               ```
 
               ----
             MD
           end
 
+          comments = method_definition(method_name, builder: builder)&.comments || []
           io.puts format_comments(
-            content.definition.comments.map {|comment|
-              [content.method_name.relative.to_s, comment] #: [String, RBS::AST::Comment?]
+            comments.map {|comment|
+              [method_name.relative.to_s, comment] #: [String, RBS::AST::Comment?]
             }
           )
 
           io.string
-        when HoverProvider::ConstantContent
+
+        when "constant"
           io = StringIO.new
 
-          decl_summary =
-            case
-            when decl = content.class_decl
-              declaration_summary(decl.primary_decl)
-            when decl = content.constant_decl
-              declaration_summary(decl.decl)
-            when decl = content.class_alias
-              declaration_summary(decl.decl)
-            end
+          full_name = RBS::TypeName.parse(content.fetch(:name))
+          decl, comments = constant_decl(full_name, env: env)
 
           io.puts <<~MD
             ```rbs
-            #{decl_summary}
+            #{decl ? declaration_summary(decl) : full_name.relative!}
             ```
           MD
 
-          comments = content.comments.map {|comment|
-            [content.full_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
+          comments = comments.compact.map {|comment|
+            [full_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
           }
 
-          unless comments.all?(&:nil?)
+          unless comments.empty?
             io.puts "----"
             io.puts format_comments(comments)
           end
 
           io.string
-        when HoverProvider::TypeContent
-          <<~MD
-            ```rbs
-            #{content.type}
-            ```
-          MD
 
-        when HoverProvider::TypeAssertionContent
-          <<~MD
-            ```rbs
-            #{content.asserted_type}
-            ```
+        when "type_name"
+          io = StringIO.new
 
-            ↑ Converted from `#{content.original_type.to_s}`
-          MD
-
-        when HoverProvider::TypeAliasContent, HoverProvider::InterfaceTypeContent
-          io = StringIO.new()
+          type_name = RBS::TypeName.parse(content.fetch(:name))
+          decl = type_name_decl(type_name, env: env)
 
           io.puts <<~MD
             ```rbs
-            #{declaration_summary(content.decl)}
+            #{decl ? declaration_summary(decl) : type_name.relative!}
             ```
           MD
 
-          if comment = content.decl.comment
-            io.puts
-            io.puts "----"
-
-            io.puts format_comment(comment, header: content.decl.name.relative!.to_s)
-          end
-
-          io.string
-
-        when HoverProvider::ClassTypeContent
-          io = StringIO.new
-
-          io << <<~MD
-          ```rbs
-          #{declaration_summary(content.decl)}
-          ```
-          MD
-
-          comment =
-            case content.decl
-            when RBS::AST::Declarations::Base
-              content.decl.comment
-            when RBS::AST::Ruby::Declarations::Base
-              nil
+          case decl
+          when RBS::AST::Declarations::TypeAlias, RBS::AST::Declarations::Interface
+            if comment = decl.comment
+              io.puts
+              io.puts "----"
+              io.puts format_comment(comment, header: decl.name.relative!.to_s)
             end
-
-          if comment
-            io.puts "----"
-
-            class_name =
-              case content.decl
-              when RBS::AST::Declarations::ModuleAlias, RBS::AST::Declarations::ClassAlias
-                content.decl.new_name
-              when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
-                content.decl.name
-              else
-                raise
-              end
-
-            io << format_comments([[class_name.relative!.to_s, content.decl.comment]])
+          when RBS::AST::Declarations::Base
+            if comment = decl.comment
+              io.puts "----"
+              io << format_comments([[type_name.relative!.to_s, comment]])
+            end
           end
 
           io.string
+
         else
-          raise content.class.to_s
+          raise "Unknown hover content: #{content[:kind]}"
         end
       end
 
-      def format_completion_docs(item)
-        case item
-        when Services::CompletionProvider::LocalVariableItem
-          local_variable(item.identifier, item.type)
-        when Services::CompletionProvider::ConstantItem
-          io = StringIO.new
+      def completion_item(item, env:, builder:)
+        range = lsp_range(item[:range])
+        name = item[:name].to_s
 
-          io.puts <<~MD
-            ```rbs
-            #{declaration_summary(item.decl)}
-            ```
-          MD
+        case item[:kind]
+        when "local_variable"
+          LSP::Interface::CompletionItem.new(
+            label: name,
+            kind: LSP::Constant::CompletionItemKind::VARIABLE,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item[:type]),
+            documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
+            insert_text: name,
+            sort_text: name
+          )
 
-          unless item.comments.all?(&:nil?)
-            io.puts "----"
-            io.puts format_comments(
-              item.comments.map {|comment|
-                [item.full_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
-              }
-            )
-          end
+        when "instance_variable"
+          LSP::Interface::CompletionItem.new(
+            label: name,
+            kind: LSP::Constant::CompletionItemKind::FIELD,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item[:type]),
+            documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
+            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name)
+          )
 
-          io.string
-        when Services::CompletionProvider::InstanceVariableItem
-          instance_variable(item.identifier, item.type)
-        when Services::CompletionProvider::SimpleMethodNameItem
-          item_comment =
-            case item.method_member
-            when RBS::AST::Members::Base
-              item.method_member.comment
-            when RBS::AST::Ruby::Members::Base
-              nil
+        when "constant"
+          full_name = RBS::TypeName.parse(item.fetch(:full_name))
+          decl, _ = constant_decl(full_name, env: env)
+
+          kind =
+            if env.class_entry(full_name) || env.module_entry(full_name)
+              LSP::Constant::CompletionItemKind::CLASS
+            else
+              LSP::Constant::CompletionItemKind::CONSTANT
             end
-          format_method_item_doc(item.method_types, [], { item.method_name => item_comment })
-        when Services::CompletionProvider::ComplexMethodNameItem
-          method_names = item.method_names.map(&:relative).uniq
-          comments = item.method_definitions.transform_values do |member|
-            case member
-            when RBS::AST::Members::Base
-              member.comment
-            when RBS::AST::Ruby::Members::Base
-              nil
+
+          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
+          if AnnotationsHelper.deprecated_type_name?(full_name, env)
+            tags << LSP::Constant::CompletionItemTag::DEPRECATED
+          end
+
+          LSP::Interface::CompletionItem.new(
+            label: name,
+            kind: kind,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: decl ? declaration_summary(decl) : nil),
+            documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
+            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name),
+            tags: tags
+          )
+
+        when "method"
+          method_names = item.fetch(:methods).map {|method| MethodName(method) }.uniq
+
+          description =
+            if method_names.empty?
+              "(Generated)"
+            else
+              method_names.map {|method_name| method_name.relative.to_s }.uniq.join(", ")
             end
+
+          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
+          deprecated = method_names.any? do |method_name|
+            method_definitions(method_name, builder: builder).any? {|defn| AnnotationsHelper.deprecated_annotation?(defn.member_annotations) }
           end
-          format_method_item_doc(item.method_types, method_names, comments)
-        when Services::CompletionProvider::GeneratedMethodNameItem
-          format_method_item_doc(item.method_types, [], {}, "🤖 Generated method for receiver type")
-        when Services::CompletionProvider::TypeNameItem
-          io = StringIO.new
-
-          io.puts <<~MD
-            ```rbs
-            #{declaration_summary(item.decl)}
-            ```
-          MD
-
-          unless item.comments.empty?
-            io.puts "----"
-            io.puts format_comments(
-              item.comments.map {|comment|
-                [item.absolute_type_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
-              }
-            )
+          if deprecated
+            tags << LSP::Constant::CompletionItemTag::DEPRECATED
           end
 
-          io.string
-        when Services::CompletionProvider::KeywordArgumentItem
-          <<~MD
-            **Keyword argument**: `#{item.identifier}`
-          MD
+          LSP::Interface::CompletionItem.new(
+            label: name,
+            kind: LSP::Constant::CompletionItemKind::FUNCTION,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: description),
+            insert_text: name,
+            documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
+            tags: tags
+          )
+
+        when "keyword_argument"
+          LSP::Interface::CompletionItem.new(
+            label: name,
+            kind: LSP::Constant::CompletionItemKind::FIELD,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: 'Keyword argument'),
+            documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
+            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name)
+          )
+
+        when "type_name"
+          type_name = RBS::TypeName.parse(item.fetch(:full_name))
+          decl = type_name_decl(type_name, env: env)
+
+          kind =
+            case
+            when type_name.class?
+              LSP::Constant::CompletionItemKind::CLASS
+            when type_name.interface?
+              LSP::Constant::CompletionItemKind::INTERFACE
+            when type_name.alias?
+              LSP::Constant::CompletionItemKind::FIELD
+            end
+
+          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
+          if AnnotationsHelper.deprecated_type_name?(type_name, env)
+            tags << LSP::Constant::CompletionItemTag::DEPRECATED
+          end
+
+          LSP::Interface::CompletionItem.new(
+            label: name,
+            kind: kind,
+            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: decl ? declaration_summary(decl) : nil),
+            documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
+            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name),
+            tags: tags
+          )
+
+        when "builtin_type"
+          LSP::Interface::CompletionItem.new(
+            label: name,
+            detail: "(builtin type)",
+            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name),
+            kind: LSP::Constant::CompletionItemKind::KEYWORD,
+            filter_text: name,
+            sort_text: "zz__#{name}"
+          )
+
+        when "text"
+          help_text = item[:help_text]
+
+          LSP::Interface::CompletionItem.new(
+            label: item.fetch(:label),
+            label_details: help_text && LSP::Interface::CompletionItemLabelDetails.new(description: help_text),
+            kind: LSP::Constant::CompletionItemKind::SNIPPET,
+            insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
+            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: item.fetch(:text))
+          )
+
         else
-          raise
+          raise "Unknown completion item: #{item[:kind]}"
+        end
+      end
+
+      def format_completion_docs(item, env:, builder:)
+        case item[:kind]
+        when "local_variable"
+          local_variable(item.fetch(:name), item.fetch(:type))
+
+        when "instance_variable"
+          instance_variable(item.fetch(:name), item.fetch(:type))
+
+        when "constant"
+          io = StringIO.new
+
+          full_name = RBS::TypeName.parse(item.fetch(:full_name))
+          decl, comments = constant_decl(full_name, env: env)
+
+          io.puts <<~MD
+            ```rbs
+            #{decl ? declaration_summary(decl) : full_name.relative!}
+            ```
+          MD
+
+          unless comments.all?(&:nil?)
+            io.puts "----"
+            io.puts format_comments(
+              comments.map {|comment|
+                [full_name.relative!.to_s, comment] #: [String, RBS::AST::Comment?]
+              }
+            )
+          end
+
+          io.string
+
+        when "method"
+          method_names = item.fetch(:methods).map {|method| MethodName(method) }.uniq
+          method_types = item.fetch(:method_types)
+
+          if method_names.empty?
+            format_method_item_doc(method_types, [], {}, "🤖 Generated method for receiver type")
+          else
+            comments = method_names.each_with_object({}) do |method_name, hash| #$ Hash[method_name, RBS::AST::Comment?]
+              hash[method_name] = method_definitions(method_name, builder: builder).filter_map(&:comment).last
+            end
+            format_method_item_doc(method_types, method_names.map(&:relative).uniq, comments)
+          end
+
+        when "type_name"
+          type_name = RBS::TypeName.parse(item.fetch(:full_name))
+
+          if decl = type_name_decl(type_name, env: env)
+            format_rbs_completion_docs(type_name, decl, type_name_comments(type_name, env: env))
+          else
+            <<~MD
+              ```rbs
+              #{type_name.relative!}
+              ```
+            MD
+          end
+
+        when "keyword_argument"
+          <<~MD
+            **Keyword argument**: `#{item.fetch(:name)}`
+          MD
         end
       end
 
@@ -313,6 +459,104 @@ module Steep
         end
 
         io.string
+      end
+
+      def method_definition(method_name, builder:)
+        type_name = method_name.type_name
+        env = builder.env
+
+        definition =
+          case method_name
+          when InstanceMethodName
+            if type_name.interface?
+              env.interface_decls.key?(type_name) or return
+              builder.build_interface(type_name)
+            else
+              env.module_class_entry(type_name) or return
+              builder.build_instance(type_name)
+            end
+          when SingletonMethodName
+            env.module_class_entry(type_name) or return
+            builder.build_singleton(type_name)
+          end
+
+        definition.methods[method_name.method_name]
+      rescue RBS::BaseError => exn
+        Steep.logger.warn { "Cannot resolve the definition of #{method_name}: #{exn.inspect}" }
+        nil
+      end
+
+      def method_definitions(method_name, builder:)
+        definition = method_definition(method_name, builder: builder) or return []
+
+        defs = definition.defs.select {|defn| defn.defined_in == method_name.type_name }
+        defs.empty? ? definition.defs : defs
+      end
+
+      def type_name_decl(type_name, env:)
+        case
+        when type_name.alias?
+          env.type_alias_decls.fetch(type_name, nil)&.decl
+        when type_name.interface?
+          env.interface_decls.fetch(type_name, nil)&.decl
+        when type_name.class?
+          case entry = env.module_class_entry(type_name)
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            entry.primary_decl
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            entry.decl
+          end
+        end
+      end
+
+      def type_name_comments(type_name, env:)
+        comments = [] #: Array[RBS::AST::Comment]
+
+        case
+        when type_name.alias?
+          if comment = env.type_alias_decls.fetch(type_name, nil)&.decl&.comment
+            comments << comment
+          end
+        when type_name.interface?
+          if comment = env.interface_decls.fetch(type_name, nil)&.decl&.comment
+            comments << comment
+          end
+        when type_name.class?
+          case entry = env.module_class_entry(type_name)
+          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+            entry.each_decl do |decl|
+              if decl.is_a?(RBS::AST::Declarations::Base)
+                if comment = decl.comment
+                  comments << comment
+                end
+              end
+            end
+          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+            if comment = entry.decl.comment
+              comments << comment
+            end
+          end
+        end
+
+        comments
+      end
+
+      def constant_decl(full_name, env:)
+        case entry = env.constant_entry(full_name)
+        when RBS::Environment::ConstantEntry
+          [entry.decl, [entry.decl.comment]]
+        when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
+          comments = entry.each_decl.map do |decl|
+            if decl.is_a?(RBS::AST::Declarations::Base)
+              decl.comment
+            end
+          end
+          [entry.primary_decl, comments]
+        when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+          [entry.decl, [entry.decl.comment]]
+        else
+          [nil, []]
+        end
       end
 
       def format_comments(comments)
