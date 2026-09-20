@@ -77,6 +77,8 @@ class CLITest < Minitest::Test
 
   def test_check_inline_with_command_line_pattern: () -> untyped
 
+  def test_check_inline_save_expectations: () -> untyped
+
   def test_check_expression_success: () -> untyped
 
   def test_check_expression_failure: () -> untyped
