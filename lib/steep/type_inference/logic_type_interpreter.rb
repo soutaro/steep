@@ -199,11 +199,11 @@ module Steep
 
             if truthy_result.env[node] && falsy_result.env[node]
               if truthy_type
-                truthy_result = Result.new(type: truthy_type, env: truthy_result.env.refine_types(pure_call_types: { node => truthy_type }), unreachable: false)
+                truthy_result = Result.new(type: truthy_type, env: refine_pure_call(truthy_result.env, node, truthy_type), unreachable: false)
               end
 
               if falsy_type
-                falsy_result = Result.new(type: falsy_type, env: falsy_result.env.refine_types(pure_call_types: { node => falsy_type }), unreachable: false)
+                falsy_result = Result.new(type: falsy_type, env: refine_pure_call(falsy_result.env, node, falsy_type), unreachable: false)
               end
             end
 
@@ -285,8 +285,8 @@ module Steep
         when :send
           if env[node]
             [
-              env.refine_types(pure_call_types: { node => truthy_type }),
-              env.refine_types(pure_call_types: { node => falsy_type })
+              refine_pure_call(env, node, truthy_type),
+              refine_pure_call(env, node, falsy_type)
             ]
           else
             [env, env]
@@ -484,6 +484,60 @@ module Steep
           Result.new(type: type, env: truthy_env, unreachable: truthy_type.nil?),
           Result.new(type: type, env: falsy_env, unreachable: falsy_type.nil?)
         ]
+      end
+
+      def refine_pure_call(env, node, type)
+        lvar_types = {} #: Hash[Symbol, AST::Types::t]
+        if (name, narrowed = narrow_record_receiver(env, node, type))
+          lvar_types[name] = narrowed
+        end
+        # Refine both in one call: refining the lvar alone would invalidate the pure call.
+        env.refine_types(local_variable_types: lvar_types, pure_call_types: { node => type })
+      end
+
+      def narrow_record_receiver(env, node, type)
+        receiver, method, key_node, *rest = node.children
+        return unless method == :[] && rest.empty? && receiver&.type == :lvar
+        return unless key_node && (key_node.type == :sym || key_node.type == :str)
+
+        name = receiver.children[0] #: Symbol
+        key = key_node.children[0] #: Symbol | String
+        return if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+        members = union_members(env[name]) or return
+
+        return [name, BOT] if type.is_a?(AST::Types::Bot)
+
+        type_expanded = factory.flatten_union(factory.deep_expand_alias(type) || type)
+
+        kept = members.select do |member|
+          record = factory.deep_expand_alias(member)
+          next true unless record.is_a?(AST::Types::Record) && record.elements.key?(key)
+
+          key_type = record.elements[key]
+          return unless key_type.is_a?(AST::Types::Literal)
+          key_type = AST::Types::Union.build(types: [key_type, AST::Builtin.nil_type]) if record.optional?(key)
+
+          !disjoint?(key_type, type_expanded)
+        end
+
+        return if kept.size == members.size
+        [name, kept.empty? ? BOT : AST::Types::Union.build(types: kept)]
+      end
+
+      def union_members(type, visited = Set.new)
+        case type
+        when AST::Types::Union
+          type.types.flat_map {|member| union_members(member, visited) || [member] }
+        when AST::Types::Name::Alias
+          return if visited.include?(type.name)
+          union_members(factory.expand_alias(type), visited | [type.name])
+        end
+      end
+
+      def disjoint?(key_type, type_expanded)
+        factory.flatten_union(key_type).product(type_expanded).none? do |k, t|
+          subtyping?(sub_type: k, super_type: t) || subtyping?(sub_type: t, super_type: k)
+        end
       end
 
       def decompose_value(node)

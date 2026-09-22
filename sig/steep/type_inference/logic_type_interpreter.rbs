@@ -73,7 +73,18 @@ module Steep
       #
       def decompose_value: (Parser::AST::Node node) -> [Parser::AST::Node, Set[Symbol]]
 
+      # When `node` is `lvar[literal]` and the local variable is a union of record types,
+      # the local variable is narrowed too, dropping the members whose value of the key cannot be `type`.
+      #
+      def refine_pure_call: (TypeEnv env, Parser::AST::Node node, AST::Types::t type) -> TypeEnv
+
       private
+
+      def narrow_record_receiver: (TypeEnv env, Parser::AST::Node node, AST::Types::t type) -> [Symbol, AST::Types::t]?
+
+      def union_members: (AST::Types::t? `type`, ?Set[RBS::TypeName] visited) -> Array[AST::Types::t]?
+
+      def disjoint?: (AST::Types::t key_type, Array[AST::Types::t] type_expanded) -> bool
 
       # Assign local variables included in the assignment node and masgn node
       #
