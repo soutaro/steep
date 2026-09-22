@@ -1389,6 +1389,94 @@ class TypeCheckTest < Minitest::Test
     type event       = click_event | keyup_event
   RBS
 
+  def test_case_when__narrow_record_union
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          case event[:type]
+          when "CLICK"
+            event
+          when "KEYUP"
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::click_event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 7, column: 2)
+      assert_equal "::keyup_event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_case_when__narrow_record_union__else
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          case event[:type]
+          when "CLICK"
+            event
+          else
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::click_event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 7, column: 2)
+      assert_equal "::keyup_event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_case_when__narrow_record_union__multiple_patterns
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          case event[:type]
+          when "CLICK", "KEYUP"
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
   def test_if__narrow_record_union
     run_type_check_test(
       signatures: { "a.rbs" => RECORD_UNION_RBS },
@@ -1428,6 +1516,123 @@ class TypeCheckTest < Minitest::Test
 
       node, * = typing.source.find_nodes(line: 12, column: 2)
       assert_equal "::click_event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__non_literal_key
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type loose  = { type: String }
+          type strict = { type: "CLICK" }
+          type mixed  = loose | strict
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          m = (_ = nil) #: mixed
+
+          case m[:type]
+          when "CLICK"
+            m
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::mixed", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__optional_key
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type opt_click = { ?type: "CLICK", position: Integer }
+          type opt_keyup = { ?type: "KEYUP", key: String }
+          type opt_event = opt_click | opt_keyup
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: opt_event
+
+          case event[:type]
+          when "CLICK"
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::opt_click", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__alias_preserved
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          case event[:type]
+          when String
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_case_when__narrow_record_union__invalidates_dependent_pure_call
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+          event[:position]
+
+          case event[:type]
+          when "CLICK"
+            event[:position]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 6, column: 18)
+      assert_equal "::position", typing.type_of(node: node).to_s
     end
   end
 
@@ -1574,6 +1779,103 @@ class TypeCheckTest < Minitest::Test
 
       node, * = typing.source.find_nodes(line: 4, column: 2)
       assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__member_without_key_kept
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type click_event = { type: "CLICK", position: Integer }
+          type keyup_event = { type: "KEYUP", key: String }
+          type other       = { name: String }
+          type ev          = click_event | keyup_event | other
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          ev = (_ = nil) #: ev
+
+          case ev[:type]
+          when "CLICK"
+            ev
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "(::click_event | ::other)", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__union_key_type_no_narrow
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type e1 = { type: "A" | "B" }
+          type e2 = { type: "C" }
+          type ev = e1 | e2
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          ev = (_ = nil) #: ev
+
+          case ev[:type]
+          when "C"
+            ev
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::ev", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__nested_hash_key_no_narrow
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type e1 = { type: { kind: "A" } }
+          type e2 = { type: "C" }
+          type ev = e1 | e2
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          ev = (_ = nil) #: ev
+
+          case ev[:type]
+          when "C"
+            ev
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::ev", typing.type_of(node: node).to_s
     end
   end
 
