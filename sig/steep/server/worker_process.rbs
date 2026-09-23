@@ -50,7 +50,7 @@ module Steep
         ?index: Integer?
       ) -> void
 
-      type worker_type = :interaction | :typecheck
+      type worker_type = :typecheck
 
       def self.start_worker: (
         worker_type `type`,

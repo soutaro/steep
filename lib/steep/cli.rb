@@ -478,7 +478,6 @@ BANNER
           opts.banner = "Usage: steep worker [options] [dir]"
           handle_logging_options opts
 
-          opts.on("--interaction") { command.worker_type = :interaction }
           opts.on("--typecheck") { command.worker_type = :typecheck }
           handle_steepfile_option(opts, command)
           opts.on("--name=NAME") {|name| command.worker_name = name }

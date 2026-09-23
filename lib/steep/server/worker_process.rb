@@ -101,8 +101,6 @@ module Steep
         end
 
         command = case type
-                  when :interaction
-                    [steep_command, "worker", "--interaction", *args, *patterns]
                   when :typecheck
                     [steep_command, "worker", "--typecheck", *args, *patterns]
                   else

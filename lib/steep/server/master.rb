@@ -172,7 +172,6 @@ module Steep
       attr_reader :reader, :writer
       attr_reader :commandline_args
 
-      attr_reader :interaction_worker
       attr_reader :typecheck_workers
 
       attr_reader :job_queue, :write_queue
@@ -196,14 +195,14 @@ module Steep
       attr_reader :environment_queue
       attr_reader :pending_typecheck_jobs
       attr_reader :typecheck_jobs_in_flight
+      attr_reader :interaction_jobs_in_flight
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
-      def initialize(project:, reader:, writer:, interaction_worker:, typecheck_workers:, queue: Queue.new)
+      def initialize(project:, reader:, writer:, typecheck_workers:, queue: Queue.new)
         @project = project
         @reader = reader
         @writer = writer
-        @interaction_worker = interaction_worker
         @typecheck_workers = typecheck_workers
         @current_type_check_request = nil
         @typecheck_automatically = true
@@ -213,6 +212,7 @@ module Steep
         @environment_queue = Thread::Queue.new
         @pending_typecheck_jobs = []
         @typecheck_jobs_in_flight = {}
+        @interaction_jobs_in_flight = {}
         @shutting_down = false
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
@@ -233,15 +233,6 @@ module Steep
 
           # @type var worker_threads: Array[Thread]
           worker_threads = []
-
-          if interaction_worker
-            worker_threads << Thread.new do
-              Steep.logger.push_tags(*tags, "from-worker@interaction")
-              interaction_worker.reader.read do |message|
-                enqueue_worker_message(interaction_worker, message)
-              end
-            end
-          end
 
           typecheck_workers.each do |worker|
             worker_threads << Thread.new do
@@ -364,7 +355,6 @@ module Steep
 
       def each_worker(&block)
         if block
-          yield interaction_worker if interaction_worker
           typecheck_workers.each(&block)
         else
           enum_for :each_worker
@@ -580,29 +570,28 @@ module Steep
           end
 
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
-          if interaction_worker && (path = pathname(message[:params][:textDocument][:uri]))
-            deliver_contents_for_request(interaction_worker, path)
+          uri = message[:params][:textDocument][:uri] #: String
+          position = message[:params][:position] #: CustomMethods::position
 
-            uri = message[:params][:textDocument][:uri] #: String
-            position = message[:params][:position] #: CustomMethods::position
+          method, params =
+            case message[:method]
+            when "textDocument/hover"
+              [CustomMethods::Hover::METHOD, { uri: uri, position: position }]
+            when "textDocument/completion"
+              trigger = message[:params].dig(:context, :triggerCharacter) #: String?
+              [CustomMethods::Completion::METHOD, { uri: uri, position: position, trigger: trigger }]
+            else
+              [CustomMethods::SignatureHelp::METHOD, { uri: uri, position: position }]
+            end #: [String, untyped]
 
-            method, params =
-              case message[:method]
-              when "textDocument/hover"
-                [CustomMethods::Hover::METHOD, { uri: uri, position: position }]
-              when "textDocument/completion"
-                trigger = message[:params].dig(:context, :triggerCharacter) #: String?
-                [CustomMethods::Completion::METHOD, { uri: uri, position: position, trigger: trigger }]
-              else
-                [CustomMethods::SignatureHelp::METHOD, { uri: uri, position: position }]
-              end #: [String, untyped]
-
-            result_controller << send_request(method: method, params: params, worker: interaction_worker) do |handler|
-              handler.on_completion do |response|
-                respond_to_interaction(message, response[:result])
+          worker =
+            if path = pathname(uri)
+              send_interaction_request(method: method, params: params, path: path) do |result|
+                respond_to_interaction(message, result)
               end
             end
-          else
+
+          unless worker
             enqueue_write_job SendMessageJob.to_client(
               message: {
                 id: message[:id],
@@ -643,24 +632,22 @@ module Steep
               :type_definition
             end #: GotoResolver::kind
 
-          if interaction_worker && (path = pathname(message[:params][:textDocument][:uri]))
-            from =
-              if controller.files.signature_paths.registered_path?(path) || controller.files.library_path?(path)
-                :rbs
-              else
-                :ruby
-              end #: GotoResolver::from
+          worker =
+            if path = pathname(message[:params][:textDocument][:uri])
+              from =
+                if controller.files.signature_paths.registered_path?(path) || controller.files.library_path?(path)
+                  :rbs
+                else
+                  :ruby
+                end #: GotoResolver::from
 
-            params = {
-              uri: message[:params][:textDocument][:uri],
-              position: message[:params][:position]
-            } #: CustomMethods::Source__Symbol::params
+              params = {
+                uri: message[:params][:textDocument][:uri],
+                position: message[:params][:position]
+              } #: CustomMethods::Source__Symbol::params
 
-            deliver_contents_for_request(interaction_worker, path)
-
-            result_controller << send_request(method: CustomMethods::Source__Symbol::METHOD, params: params, worker: interaction_worker) do |handler|
-              handler.on_completion do |response|
-                result = response[:result] #: CustomMethods::Source__Symbol::result?
+              send_interaction_request(method: CustomMethods::Source__Symbol::METHOD, params: params, path: path) do |result|
+                # @type var result: CustomMethods::Source__Symbol::result?
                 locations =
                   if result
                     goto_resolver.goto(kind: kind, from: from, result: result)
@@ -676,7 +663,8 @@ module Steep
                 )
               end
             end
-          else
+
+          unless worker
             enqueue_write_job SendMessageJob.to_client(
               message: {
                 id: message[:id],
@@ -1182,6 +1170,28 @@ module Steep
       def deliver_contents_for_request(worker, path)
         update_environment()
         deliver_contents(worker, signature_paths_to_deliver + [path])
+      end
+
+      def worker_for_interaction
+        typecheck_workers.min_by do |worker|
+          typecheck_jobs_in_flight.fetch(worker, 0) + interaction_jobs_in_flight.fetch(worker, 0)
+        end
+      end
+
+      def send_interaction_request(method:, params:, path:)
+        worker = worker_for_interaction or return
+
+        deliver_contents_for_request(worker, path)
+        interaction_jobs_in_flight[worker] = interaction_jobs_in_flight.fetch(worker, 0) + 1
+
+        result_controller << send_request(method: method, params: params, worker: worker) do |handler|
+          handler.on_completion do |response|
+            interaction_jobs_in_flight[worker] = interaction_jobs_in_flight.fetch(worker, 0) - 1
+            yield response[:result]
+          end
+        end
+
+        worker
       end
 
       def respond_to_interaction(message, result)
