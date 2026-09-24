@@ -22,12 +22,20 @@ module Steep
         @command_socket = true
       end
 
+      # The reader and the writer work on duplicates of the standard streams, never on the streams themselves.
+      #
+      # Spawning a worker redirects the standard input and output of the child. Without `fork`, Ruby applies
+      # the redirection to the fds 0 and 1 of this process while it spawns the child and restores them
+      # afterwards. The `dup2` of the redirection waits for the lock of the fd in the C runtime, which the
+      # thread reading the stream holds while it is blocked in a read. The spawn would wait for the client
+      # to send something, with the GVL held, and the whole server would stop until then.
+      #
       def writer
-        @writer ||= LanguageServer::Protocol::Transport::Io::Writer.new(stdout)
+        @writer ||= LanguageServer::Protocol::Transport::Io::Writer.new(stdout.dup)
       end
 
       def reader
-        @reader ||= LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
+        @reader ||= LanguageServer::Protocol::Transport::Io::Reader.new(stdin.dup)
       end
 
       def project
