@@ -1382,6 +1382,543 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  RECORD_UNION_RBS = <<~RBS
+    type position    = { x: Integer, y: Integer }
+    type click_event = { type: "CLICK", position: position }
+    type keyup_event = { type: "KEYUP", key: String }
+    type event       = click_event | keyup_event
+  RBS
+
+  def test_case_when__narrow_record_union
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          case event[:type]
+          when "CLICK"
+            event
+          when "KEYUP"
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::click_event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 7, column: 2)
+      assert_equal "::keyup_event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_case_when__narrow_record_union__else
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          case event[:type]
+          when "CLICK"
+            event
+          else
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::click_event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 7, column: 2)
+      assert_equal "::keyup_event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_case_when__narrow_record_union__multiple_patterns
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          case event[:type]
+          when "CLICK", "KEYUP"
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_if__narrow_record_union
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          if event[:type] == "CLICK"
+            event
+          else
+            event
+          end
+
+          unless event[:type] == "CLICK"
+            event
+          else
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 4, column: 2)
+      assert_equal "::click_event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 6, column: 2)
+      assert_equal "::keyup_event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 10, column: 2)
+      assert_equal "::keyup_event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 12, column: 2)
+      assert_equal "::click_event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__non_literal_key
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type loose  = { type: String }
+          type strict = { type: "CLICK" }
+          type mixed  = loose | strict
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          m = (_ = nil) #: mixed
+
+          case m[:type]
+          when "CLICK"
+            m
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::mixed", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__optional_key
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type opt_click = { ?type: "CLICK", position: Integer }
+          type opt_keyup = { ?type: "KEYUP", key: String }
+          type opt_event = opt_click | opt_keyup
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: opt_event
+
+          case event[:type]
+          when "CLICK"
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::opt_click", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__alias_preserved
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          case event[:type]
+          when String
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_case_when__narrow_record_union__invalidates_dependent_pure_call
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+          event[:position]
+
+          case event[:type]
+          when "CLICK"
+            event[:position]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 6, column: 18)
+      assert_equal "::position", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_if__narrow_record_union__case_eq_reversed
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          if "CLICK" === event[:type]
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 4, column: 2)
+      assert_equal "::click_event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_if__narrow_record_union__eq_reversed_no_narrow
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          if "CLICK" == event[:type]
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 4, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_if__narrow_record_union__not_equal_no_narrow
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          if event[:type] != "CLICK"
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 4, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__optional_key_nil_check
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type a = { ?type: "A", x: Integer }
+          type b = { type: "B", y: Integer }
+          type v = a | b
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          v = (_ = nil) #: v
+
+          if v[:type].nil?
+            v[:x]
+          end
+
+          # Re-declared so the narrowing above doesn't leak into the env below.
+          v = (_ = nil) #: v
+
+          if v[:type]
+            v
+          else
+            v[:x]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 4, column: 7)
+      assert_equal "::Integer", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 11, column: 2)
+      assert_equal "::v", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 13, column: 7)
+      assert_equal "::Integer", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__is_a_no_narrow
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+
+          if event[:type].is_a?(String)
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 4, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__member_without_key_kept
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type click_event = { type: "CLICK", position: Integer }
+          type keyup_event = { type: "KEYUP", key: String }
+          type other       = { name: String }
+          type ev          = click_event | keyup_event | other
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          ev = (_ = nil) #: ev
+
+          case ev[:type]
+          when "CLICK"
+            ev
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "(::click_event | ::other)", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__union_key_type_no_narrow
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type e1 = { type: "A" | "B" }
+          type e2 = { type: "C" }
+          type ev = e1 | e2
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          ev = (_ = nil) #: ev
+
+          case ev[:type]
+          when "C"
+            ev
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::ev", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__nested_hash_key_no_narrow
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type e1 = { type: { kind: "A" } }
+          type e2 = { type: "C" }
+          type ev = e1 | e2
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          ev = (_ = nil) #: ev
+
+          case ev[:type]
+          when "C"
+            ev
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::ev", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__non_lvar_receiver_and_dynamic_key_no_narrow
+    run_type_check_test(
+      signatures: { "a.rbs" => RECORD_UNION_RBS },
+      code: {
+        "a.rb" => <<~RUBY
+          event = (_ = nil) #: event
+          k = :type #: Symbol
+
+          if (event2 = event)[:type] == "CLICK"
+            event2
+          end
+
+          if event[k] == "CLICK"
+            event
+          end
+
+          if event.fetch(:type) == "CLICK"
+            event
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 9, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 13, column: 2)
+      assert_equal "::event", typing.type_of(node: node).to_s
+    end
+  end
+
   def test_case_when__bool_value
     run_type_check_test(
       signatures: {
