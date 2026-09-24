@@ -191,33 +191,47 @@ module Steep
           position: position
         }
 
-        # * `variable` is a local variable: `name` and `type`
-        # * `type` is an expression: `type`
-        # * `type_assertion` is a type assertion: `original_type` and `asserted_type`
-        # * `method_call` is a method call: `return_type` of the call, `method_types` of the definitions, `methods`
-        #   the names of the definitions, `special` when a custom typing rule applies, and `error` when no method
-        #   type is compatible with the call
-        # * `definition` is a method definition: `method` the name of the definition, `method_type` the type
-        #   being checked, and `method_types` the ones declared
-        # * `constant` is a constant: `name`
-        # * `type_name` is a class, module, interface, or type alias written in a type: `name`
-        #
-        type content_kind = "variable" | "type" | "type_assertion" | "method_call" | "definition" | "constant" | "type_name"
+        # A local variable: its name and type
+        type variable_content = { kind: "variable", name: String, type: String }
 
-        type content = {
-          kind: content_kind,
-          ?name: String,
-          ?type: String,
-          ?original_type: String,
-          ?asserted_type: String,
-          ?return_type: String?,
-          ?special: bool,
-          ?error: bool,
-          ?method_types: Array[String],
-          ?methods: Array[String],
-          ?method: String,
-          ?method_type: String
+        # An expression: its type
+        type type_content = { kind: "type", type: String }
+
+        # A type assertion: the type of the expression and the asserted type
+        type type_assertion_content = { kind: "type_assertion", original_type: String, asserted_type: String }
+
+        # A method call
+        #
+        # `return_type` is the type of the call, `nil` when no method type is compatible with the call (`error`).
+        # `method_types` are the types of the definitions and `methods` their names, in the same order.
+        # `special` tells that a custom typing rule applies.
+        #
+        type method_call_content = {
+          kind: "method_call",
+          return_type: String?,
+          special: bool,
+          error: bool,
+          method_types: Array[String],
+          methods: Array[String]
         }
+
+        # A method definition: the name of the definition, the method type being checked, and the ones declared
+        type definition_content = { kind: "definition", method: String, method_type: String, method_types: Array[String] }
+
+        # A constant: its name
+        type constant_content = { kind: "constant", name: String }
+
+        # A class, module, interface, or type alias written in a type: its name
+        type type_name_content = { kind: "type_name", name: String }
+
+        # What is at the position, told apart by `kind`
+        type content = variable_content
+                     | type_content
+                     | type_assertion_content
+                     | method_call_content
+                     | definition_content
+                     | constant_content
+                     | type_name_content
 
         # `target` is the name of the target the file belongs to, and `range` is the text the content is about
         type result = {
@@ -244,30 +258,40 @@ module Steep
           trigger: String?
         }
 
-        # * `local_variable` and `instance_variable`: `name` and `type`
-        # * `constant`: `name` to insert and `full_name` of the constant
-        # * `method`: `name`, `method_types` of the overloads, and `methods` the names of the definitions, empty
-        #   for a method generated for the receiver type
-        # * `keyword_argument`: `name` with the trailing colon
-        # * `type_name`: `name` to insert and `full_name` of the type
-        # * `builtin_type`: `name` of a builtin type of RBS, like `untyped`
-        # * `text`: a snippet, with `label`, `text`, and `help_text`
-        #
-        type item_kind = "local_variable" | "instance_variable" | "constant" | "method" | "keyword_argument" | "type_name" | "builtin_type" | "text"
+        # A local variable: `name` is the text to insert, and `range` the text it replaces
+        type local_variable_item = { kind: "local_variable", range: range, name: String, type: String }
 
-        # `range` is the text the item replaces
-        type item = {
-          kind: item_kind,
-          range: range,
-          ?name: String,
-          ?type: String,
-          ?full_name: String,
-          ?method_types: Array[String],
-          ?methods: Array[String],
-          ?label: String,
-          ?text: String,
-          ?help_text: String?
-        }
+        # An instance variable
+        type instance_variable_item = { kind: "instance_variable", range: range, name: String, type: String }
+
+        # A constant: `full_name` is the name of the constant
+        type constant_item = { kind: "constant", range: range, name: String, full_name: String }
+
+        # A method: `method_types` are the overloads, and `methods` the names of the definitions, empty for a
+        # method generated for the receiver type
+        type method_item = { kind: "method", range: range, name: String, method_types: Array[String], methods: Array[String] }
+
+        # A keyword argument: `name` has the trailing colon
+        type keyword_argument_item = { kind: "keyword_argument", range: range, name: String }
+
+        # A type name: `full_name` is the name of the type
+        type type_name_item = { kind: "type_name", range: range, name: String, full_name: String }
+
+        # A builtin type of RBS, like `untyped`
+        type builtin_type_item = { kind: "builtin_type", range: range, name: String }
+
+        # A snippet
+        type text_item = { kind: "text", range: range, label: String, text: String, help_text: String? }
+
+        # A completion candidate, told apart by `kind`
+        type item = local_variable_item
+                  | instance_variable_item
+                  | constant_item
+                  | method_item
+                  | keyword_argument_item
+                  | type_name_item
+                  | builtin_type_item
+                  | text_item
 
         # `incomplete` tells that the environment has an error and the items may be incomplete
         type result = {

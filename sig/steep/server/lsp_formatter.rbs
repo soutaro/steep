@@ -31,6 +31,13 @@ module Steep
 
       def self?.lsp_range: (CustomMethods::range) -> LanguageServer::Protocol::Interface::Range
 
+      # The `kind` of a hover content or a completion item
+      #
+      # Reads the key as untyped: reading a key of a union of records goes through the union of the shapes of the
+      # records, which is very slow, and doesn't narrow the record anyway. The callers narrow with an assertion.
+      #
+      def self?.kind_of: (CustomMethods::Hover::content | CustomMethods::Completion::item) -> String
+
       # Renders the Markdown of a hover content
       #
       def self?.format_hover_content: (CustomMethods::Hover::content, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> String

@@ -265,8 +265,8 @@ module Steep
               range = range_before(job.line, job.column, prefix_size)
 
               completion_items = type_names.map do |absolute_name, relative_name|
-                { kind: "type_name", range: range, name: relative_name.to_s, full_name: absolute_name.to_s } #: CustomMethods::Completion::item
-              end
+                { kind: "type_name", range: range, name: relative_name.to_s, full_name: absolute_name.to_s } #: CustomMethods::Completion::type_name_item
+              end #: Array[CustomMethods::Completion::item]
 
               completion_items.concat builtin_type_items(prefix_size, job.line, job.column)
 
@@ -332,7 +332,7 @@ module Steep
         range = range_before(line, column, prefix_size)
 
         ["untyped", "void", "bool", "class", "module", "instance", "nil", "top", "bot"].map do |name|
-          { kind: "builtin_type", range: range, name: name } #: CustomMethods::Completion::item
+          { kind: "builtin_type", range: range, name: name } #: CustomMethods::Completion::builtin_type_item
         end
       end
 

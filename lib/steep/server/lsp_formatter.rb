@@ -76,28 +76,39 @@ module Steep
         )
       end
 
+      def kind_of(record)
+        # Reading a key of a union of records is very slow in Steep, so the kind is read as untyped
+        (_ = record)[:kind]
+      end
+
       def format_hover_content(content, env:, builder:)
-        case content[:kind]
+        kind = kind_of(content)
+
+        case kind
         when "variable"
-          local_variable(content.fetch(:name), content.fetch(:type))
+          content = content #: CustomMethods::Hover::variable_content
+          local_variable(content[:name], content[:type])
 
         when "type"
+          content = content #: CustomMethods::Hover::type_content
           <<~MD
             ```rbs
-            #{content.fetch(:type)}
+            #{content[:type]}
             ```
           MD
 
         when "type_assertion"
+          content = content #: CustomMethods::Hover::type_assertion_content
           <<~MD
             ```rbs
-            #{content.fetch(:asserted_type)}
+            #{content[:asserted_type]}
             ```
 
-            ↑ Converted from `#{content.fetch(:original_type)}`
+            ↑ Converted from `#{content[:original_type]}`
           MD
 
         when "method_call"
+          content = content #: CustomMethods::Hover::method_call_content
           io = StringIO.new
 
           unless content[:error]
@@ -126,21 +137,22 @@ module Steep
             MD
           end
 
-          method_names = content.fetch(:methods).map {|name| MethodName(name) }
+          method_names = content[:methods].map {|name| MethodName(name) }
           docs = method_names.uniq.each_with_object({}) do |method_name, hash| #$ Hash[method_name, RBS::AST::Comment?]
             hash[method_name] = method_definitions(method_name, builder: builder).filter_map(&:comment).last
           end
 
           io.puts(
-            format_method_item_doc(content.fetch(:method_types), method_names.map(&:relative), docs)
+            format_method_item_doc(content[:method_types], method_names.map(&:relative), docs)
           )
 
           io.string
 
         when "definition"
+          content = content #: CustomMethods::Hover::definition_content
           io = StringIO.new
 
-          method_name = MethodName(content.fetch(:method))
+          method_name = MethodName(content[:method])
           name_string =
             if method_name.is_a?(SingletonMethodName)
               "self.#{method_name.method_name}"
@@ -149,7 +161,7 @@ module Steep
             end
 
           prefix_size = "def ".size + name_string.size
-          method_types = content.fetch(:method_types)
+          method_types = content[:method_types]
 
           io.puts <<~MD
             ```rbs
@@ -163,7 +175,7 @@ module Steep
             io.puts "**Internal method type**"
             io.puts <<~MD
               ```rbs
-              #{content.fetch(:method_type)}
+              #{content[:method_type]}
               ```
 
               ----
@@ -180,9 +192,10 @@ module Steep
           io.string
 
         when "constant"
+          content = content #: CustomMethods::Hover::constant_content
           io = StringIO.new
 
-          full_name = RBS::TypeName.parse(content.fetch(:name))
+          full_name = RBS::TypeName.parse(content[:name])
           decl, comments = constant_decl(full_name, env: env)
 
           io.puts <<~MD
@@ -203,9 +216,10 @@ module Steep
           io.string
 
         when "type_name"
+          content = content #: CustomMethods::Hover::type_name_content
           io = StringIO.new
 
-          type_name = RBS::TypeName.parse(content.fetch(:name))
+          type_name = RBS::TypeName.parse(content[:name])
           decl = type_name_decl(type_name, env: env)
 
           io.puts <<~MD
@@ -231,16 +245,18 @@ module Steep
           io.string
 
         else
-          raise "Unknown hover content: #{content[:kind]}"
+          raise "Unknown hover content: #{kind}"
         end
       end
 
       def completion_item(item, env:, builder:)
-        range = lsp_range(item[:range])
-        name = item[:name].to_s
+        kind = kind_of(item)
 
-        case item[:kind]
+        case kind
         when "local_variable"
+          item = item #: CustomMethods::Completion::local_variable_item
+          name = item[:name]
+
           LSP::Interface::CompletionItem.new(
             label: name,
             kind: LSP::Constant::CompletionItemKind::VARIABLE,
@@ -251,16 +267,21 @@ module Steep
           )
 
         when "instance_variable"
+          item = item #: CustomMethods::Completion::instance_variable_item
+          name = item[:name]
+
           LSP::Interface::CompletionItem.new(
             label: name,
             kind: LSP::Constant::CompletionItemKind::FIELD,
             label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item[:type]),
             documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
-            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name)
+            text_edit: LSP::Interface::TextEdit.new(range: lsp_range(item[:range]), new_text: name)
           )
 
         when "constant"
-          full_name = RBS::TypeName.parse(item.fetch(:full_name))
+          item = item #: CustomMethods::Completion::constant_item
+          name = item[:name]
+          full_name = RBS::TypeName.parse(item[:full_name])
           decl, _ = constant_decl(full_name, env: env)
 
           kind =
@@ -280,12 +301,14 @@ module Steep
             kind: kind,
             label_details: LSP::Interface::CompletionItemLabelDetails.new(description: decl ? declaration_summary(decl) : nil),
             documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
-            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name),
+            text_edit: LSP::Interface::TextEdit.new(range: lsp_range(item[:range]), new_text: name),
             tags: tags
           )
 
         when "method"
-          method_names = item.fetch(:methods).map {|method| MethodName(method) }.uniq
+          item = item #: CustomMethods::Completion::method_item
+          name = item[:name]
+          method_names = item[:methods].map {|method| MethodName(method) }.uniq
 
           description =
             if method_names.empty?
@@ -312,16 +335,21 @@ module Steep
           )
 
         when "keyword_argument"
+          item = item #: CustomMethods::Completion::keyword_argument_item
+          name = item[:name]
+
           LSP::Interface::CompletionItem.new(
             label: name,
             kind: LSP::Constant::CompletionItemKind::FIELD,
             label_details: LSP::Interface::CompletionItemLabelDetails.new(description: 'Keyword argument'),
             documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
-            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name)
+            text_edit: LSP::Interface::TextEdit.new(range: lsp_range(item[:range]), new_text: name)
           )
 
         when "type_name"
-          type_name = RBS::TypeName.parse(item.fetch(:full_name))
+          item = item #: CustomMethods::Completion::type_name_item
+          name = item[:name]
+          type_name = RBS::TypeName.parse(item[:full_name])
           decl = type_name_decl(type_name, env: env)
 
           kind =
@@ -344,48 +372,55 @@ module Steep
             kind: kind,
             label_details: LSP::Interface::CompletionItemLabelDetails.new(description: decl ? declaration_summary(decl) : nil),
             documentation: markup_content { format_completion_docs(item, env: env, builder: builder) },
-            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name),
+            text_edit: LSP::Interface::TextEdit.new(range: lsp_range(item[:range]), new_text: name),
             tags: tags
           )
 
         when "builtin_type"
+          item = item #: CustomMethods::Completion::builtin_type_item
+          name = item[:name]
+
           LSP::Interface::CompletionItem.new(
             label: name,
             detail: "(builtin type)",
-            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: name),
+            text_edit: LSP::Interface::TextEdit.new(range: lsp_range(item[:range]), new_text: name),
             kind: LSP::Constant::CompletionItemKind::KEYWORD,
             filter_text: name,
             sort_text: "zz__#{name}"
           )
 
         when "text"
+          item = item #: CustomMethods::Completion::text_item
           help_text = item[:help_text]
 
           LSP::Interface::CompletionItem.new(
-            label: item.fetch(:label),
+            label: item[:label],
             label_details: help_text && LSP::Interface::CompletionItemLabelDetails.new(description: help_text),
             kind: LSP::Constant::CompletionItemKind::SNIPPET,
             insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
-            text_edit: LSP::Interface::TextEdit.new(range: range, new_text: item.fetch(:text))
+            text_edit: LSP::Interface::TextEdit.new(range: lsp_range(item[:range]), new_text: item[:text])
           )
 
         else
-          raise "Unknown completion item: #{item[:kind]}"
+          raise "Unknown completion item: #{kind}"
         end
       end
 
       def format_completion_docs(item, env:, builder:)
-        case item[:kind]
+        case kind_of(item)
         when "local_variable"
-          local_variable(item.fetch(:name), item.fetch(:type))
+          item = item #: CustomMethods::Completion::local_variable_item
+          local_variable(item[:name], item[:type])
 
         when "instance_variable"
-          instance_variable(item.fetch(:name), item.fetch(:type))
+          item = item #: CustomMethods::Completion::instance_variable_item
+          instance_variable(item[:name], item[:type])
 
         when "constant"
+          item = item #: CustomMethods::Completion::constant_item
           io = StringIO.new
 
-          full_name = RBS::TypeName.parse(item.fetch(:full_name))
+          full_name = RBS::TypeName.parse(item[:full_name])
           decl, comments = constant_decl(full_name, env: env)
 
           io.puts <<~MD
@@ -406,8 +441,9 @@ module Steep
           io.string
 
         when "method"
-          method_names = item.fetch(:methods).map {|method| MethodName(method) }.uniq
-          method_types = item.fetch(:method_types)
+          item = item #: CustomMethods::Completion::method_item
+          method_names = item[:methods].map {|method| MethodName(method) }.uniq
+          method_types = item[:method_types]
 
           if method_names.empty?
             format_method_item_doc(method_types, [], {}, "🤖 Generated method for receiver type")
@@ -419,7 +455,8 @@ module Steep
           end
 
         when "type_name"
-          type_name = RBS::TypeName.parse(item.fetch(:full_name))
+          item = item #: CustomMethods::Completion::type_name_item
+          type_name = RBS::TypeName.parse(item[:full_name])
 
           if decl = type_name_decl(type_name, env: env)
             format_rbs_completion_docs(type_name, decl, type_name_comments(type_name, env: env))
@@ -432,8 +469,9 @@ module Steep
           end
 
         when "keyword_argument"
+          item = item #: CustomMethods::Completion::keyword_argument_item
           <<~MD
-            **Keyword argument**: `#{item.fetch(:name)}`
+            **Keyword argument**: `#{item[:name]}`
           MD
         end
       end
