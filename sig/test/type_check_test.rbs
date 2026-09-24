@@ -108,6 +108,8 @@ class TypeCheckTest < Minitest::Test
   # values, so the truthy branch is reachable.
   def test_type_narrowing__literal_equality_with_supertype: () -> untyped
 
+  def test_type_narrowing__literal_equality_with_eql_and_equal: () -> untyped
+
   def test_argument_error__unexpected_unexpected_positional_argument: () -> untyped
 
   def test_type_assertion__type_error: () -> untyped
