@@ -78,13 +78,6 @@ module Steep
         index: [Integer, Integer]?
       ) -> WorkerProcess
 
-      def self.start_typecheck_workers: (
-        steepfile: Pathname?,
-        args: Array[String],
-        steep_command: ::String?,
-        ?count: Integer
-      ) -> Array[WorkerProcess]
-
       def redirect_to: (self) -> void
 
       def <<: (untyped message) -> void
