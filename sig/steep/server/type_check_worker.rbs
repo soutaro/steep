@@ -90,7 +90,7 @@ module Steep
       class HoverJob
         attr_reader id: String
 
-        # Relative path of the file
+        # Absolute path of the file
         attr_reader path: Pathname
 
         # 1-origin line
@@ -105,7 +105,7 @@ module Steep
       class CompletionJob
         attr_reader id: String
 
-        # Relative path of the file
+        # Absolute path of the file
         attr_reader path: Pathname
 
         # 1-origin line
@@ -122,7 +122,7 @@ module Steep
       class SignatureHelpJob
         attr_reader id: String
 
-        # Relative path of the file
+        # Absolute path of the file
         attr_reader path: Pathname
 
         # 1-origin line
@@ -265,7 +265,7 @@ module Steep
       # Returns the signature help at the position of the job, `nil` when the file is not in the project
       def process_signature_help: (SignatureHelpJob) -> CustomMethods::SignatureHelp::result?
 
-      # The target of a Ruby or RBS file of the project
+      # The target of a Ruby or RBS file of the project, given by its relative path
       def target_for: (Pathname) -> Project::Target?
 
       def workspace_symbol_result: (untyped query) -> untyped
