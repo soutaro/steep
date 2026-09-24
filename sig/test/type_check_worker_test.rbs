@@ -70,6 +70,8 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_handle_hover_job__definition_and_constant: () -> untyped
 
+  def test_handle_hover_job__library_rbs: () -> untyped
+
   def test_handle_alias_hover_job_success_on_rbs: () -> untyped
 
   def test_handle_interface_hover_job_success_on_rbs: () -> untyped

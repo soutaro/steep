@@ -1110,6 +1110,49 @@ RUBY
     end
   end
 
+  def test_handle_hover_job__library_rbs
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<~RUBY)
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      RUBY
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/foo.rbs") => [ContentChange.string(<<RBS)]
+class Foo
+end
+RBS
+        }
+      ) {}
+
+      # A library RBS file is known by its absolute path, and belongs to the target that loads it
+      path = RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "string.rbs"
+      lines = path.read.lines
+      line = lines.index {|text| text.include?("def =~: (Regexp regex) -> Integer?") } or raise
+      column = lines[line].index("Integer") or raise
+
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: path, line: line + 1, column: column + 2))
+
+      assert_equal "lib", response[:target]
+      assert_equal({ kind: "type_name", name: "::Integer" }, response[:content])
+
+      # A file of no target is unknown
+      assert_nil worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "other/foo.rb", line: 1, column: 1))
+    end
+  end
+
   def test_handle_alias_hover_job_success_on_rbs
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")

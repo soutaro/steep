@@ -271,9 +271,8 @@ module Steep
           Steep.measure "Generating hover response" do
             Steep.logger.info { "path=#{job.path}, line=#{job.line}, column=#{job.column}" }
 
-            relative_path = project.relative_path(job.path)
-            target = target_for(relative_path) or return
-            content = Services::HoverProvider.content_for(service: service, path: relative_path, line: job.line, column: job.column) or return
+            target = target_for(job.path) or return
+            content = Services::HoverProvider.content_for(service: service, path: job.path, line: job.line, column: job.column) or return
 
             {
               target: target.name.to_s,
@@ -515,7 +514,12 @@ module Steep
       end
 
       def target_for(path)
-        project.target_for_inline_source_path(path) || project.target_for_source_path(path) || project.target_for_signature_path(path)
+        relative_path = project.relative_path(path)
+
+        project.target_for_inline_source_path(relative_path) ||
+          project.target_for_source_path(relative_path) ||
+          project.target_for_signature_path(relative_path) ||
+          Services::HoverProvider.library_target(service, path)
       end
 
       def workspace_symbol_result(query)
