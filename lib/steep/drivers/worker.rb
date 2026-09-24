@@ -33,8 +33,6 @@ module Steep
                                                  writer: writer,
                                                  assignment: assignment,
                                                  commandline_args: commandline_args)
-                   when :interaction
-                     Server::InteractionWorker.new(project: project, reader: reader, writer: writer)
                    else
                      raise "Unknown worker type: #{worker_type}"
                    end

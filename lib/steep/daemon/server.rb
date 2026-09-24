@@ -114,18 +114,10 @@ module Steep
           count: job_count
         )
 
-        interaction_worker = ::Steep::Server::WorkerProcess.start_worker(
-          :interaction,
-          name: "interaction",
-          steepfile: @project.steepfile_path,
-          steep_command: nil
-        )
-
         master = ::Steep::Server::Master.new(
           project: @project,
           reader: server_reader,
           writer: server_writer,
-          interaction_worker: interaction_worker,
           typecheck_workers: workers
         )
         master.typecheck_automatically = false

@@ -2,9 +2,9 @@ use RBS::TypeName
 
 module Steep
   module Server
-    # LSPFormatter renders the results of the interaction worker into LSP responses
+    # LSPFormatter renders the results of the interaction requests into LSP responses
     #
-    # The interaction worker sends what is at a position with the names of the declarations involved -- see
+    # A typecheck worker sends what is at a position with the names of the declarations involved -- see
     # `CustomMethods::Hover`, `CustomMethods::Completion`, and `CustomMethods::SignatureHelp`. The formatter runs
     # in the master and resolves the names in the environment of the target to render the documentation.
     #

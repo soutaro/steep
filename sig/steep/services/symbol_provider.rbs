@@ -4,7 +4,7 @@ module Steep
   module Services
     # SymbolProvider finds what is at a cursor position
     #
-    # The interaction worker uses it to answer `$/steep/source/symbol`: the file is type checked on demand
+    # The typecheck workers use it to answer `$/steep/source/symbol`: the file is type checked on demand
     # against the latest buffer, like hover, and the master resolves the names found against its
     # `TypeCheckDatabase`.
     #

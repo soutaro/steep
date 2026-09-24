@@ -176,9 +176,9 @@ module Steep
 
       type range = { start: position, end: position }
 
-      # Request for the hover content at a position, sent from master to the interaction worker
+      # Request for the hover content at a position, sent from master to a typecheck worker
       #
-      # The interaction worker type checks the file on demand and returns what is at the position. It sends the
+      # The worker type checks the file on demand and returns what is at the position. It sends the
       # types as strings and the declarations as names -- `::Foo`, `::Foo#bar`, or `::Foo.bar` -- because the
       # master resolves the names in its own environment when it renders the documentation. No declaration nor
       # comment travels between the processes.
@@ -245,7 +245,7 @@ module Steep
         def self.response: (String id, result?) -> untyped
       end
 
-      # Request for the completion items at a position, sent from master to the interaction worker
+      # Request for the completion items at a position, sent from master to a typecheck worker
       #
       # The worker returns the candidates, and the master renders them with the documentation from its environment.
       #
@@ -305,7 +305,7 @@ module Steep
         def self.response: (String id, result?) -> untyped
       end
 
-      # Request for the signature help at a position, sent from master to the interaction worker
+      # Request for the signature help at a position, sent from master to a typecheck worker
       #
       module SignatureHelp
         METHOD: String
@@ -338,9 +338,9 @@ module Steep
         def self.response: (String id, result?) -> untyped
       end
 
-      # Request to resolve what is at a cursor position, sent from master to the interaction worker
+      # Request to resolve what is at a cursor position, sent from master to a typecheck worker
       #
-      # The interaction worker type checks the file on demand, like hover, and returns what is at the position.
+      # The worker type checks the file on demand, like hover, and returns what is at the position.
       # The master looks the names up in its `TypeCheckDatabase` to answer goto requests -- `constant`,
       # `type_name`, and `method_names` for definition and implementation, and the type names in `type` for
       # typeDefinition.

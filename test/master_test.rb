@@ -48,7 +48,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
@@ -111,7 +110,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -161,7 +159,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -206,7 +203,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
@@ -293,7 +289,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
@@ -344,7 +339,7 @@ end
     end
   end
 
-  def test_hover_via_interaction_worker
+  def test_hover_via_typecheck_worker
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -357,14 +352,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: interaction_worker,
-        typecheck_workers: []
+        typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
       master.controller.load(command_line_args: [])
@@ -380,14 +374,15 @@ end
         }
       )
 
-      # The request is forwarded to the interaction worker as `$/steep/hover`
+      # The request is forwarded to the typecheck worker as `$/steep/hover`
       jobs = flush_queue(master.write_queue)
       request = jobs.find { |job| job.message[:method] == Hover::METHOD } or raise
-      assert_equal interaction_worker, request.dest
+      assert_equal worker, request.dest
       assert_equal(
         { uri: "#{file_scheme}#{current_dir}/lib/foo.rb", position: { line: 3, character: 9 } },
         request.message[:params]
       )
+      assert_equal 1, master.interaction_jobs_in_flight[worker]
 
       # The result is rendered with the environment of the master, on the main thread
       master.result_controller.process_response(
@@ -400,6 +395,7 @@ end
           }
         }
       )
+      assert_equal 0, master.interaction_jobs_in_flight[worker]
 
       jobs = flush_queue(master.write_queue)
       assert_equal 1, jobs.size
@@ -434,7 +430,7 @@ end
     end
   end
 
-  def test_signature_help_via_interaction_worker
+  def test_signature_help_via_typecheck_worker
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -447,14 +443,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: interaction_worker,
-        typecheck_workers: []
+        typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
       master.controller.load(command_line_args: [])
@@ -531,7 +526,7 @@ end
     end
   end
 
-  def test_goto_definition_via_interaction_worker
+  def test_interaction_request_goes_to_the_least_loaded_worker
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -544,14 +539,128 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
+      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test1", index: 0)
+      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test2", index: 1)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        typecheck_workers: [worker1, worker2]
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.controller.load(command_line_args: [])
+
+      request_hover = -> (id) do
+        master.process_message_from_client(
+          {
+            method: "textDocument/hover",
+            id: id,
+            params: {
+              textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+              position: { line: 0, character: 0 }
+            }
+          }
+        )
+        flush_queue(master.write_queue).find { |job| job.message[:method] == Hover::METHOD } or raise
+      end
+
+      # The worker with the fewest type check jobs in flight takes the request
+      master.typecheck_jobs_in_flight[worker1] = 2
+      request1 = request_hover["hover1"]
+      assert_equal worker2, request1.dest
+      assert_equal({ worker2 => 1 }, master.interaction_jobs_in_flight)
+
+      # The interaction requests in flight count as the load, too
+      master.typecheck_jobs_in_flight[worker1] = 0
+      request2 = request_hover["hover2"]
+      assert_equal worker1, request2.dest
+      assert_equal({ worker2 => 1, worker1 => 1 }, master.interaction_jobs_in_flight)
+
+      # The response frees the worker
+      master.result_controller.process_response({ id: request1.message[:id], result: nil })
+      assert_equal({ worker2 => 0, worker1 => 1 }, master.interaction_jobs_in_flight)
+
+      request3 = request_hover["hover3"]
+      assert_equal worker2, request3.dest
+    end
+  end
+
+  def test_interaction_request_without_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        typecheck_workers: []
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.controller.load(command_line_args: [])
+
+      # Nothing answers hover, completion, and signature help
+      master.process_message_from_client(
+        {
+          method: "textDocument/hover",
+          id: "hover_id",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+            position: { line: 0, character: 0 }
+          }
+        }
+      )
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "hover_id", result: nil })],
+        flush_queue(master.write_queue)
+      )
+
+      # Goto finds no location
+      master.process_message_from_client(
+        {
+          method: "textDocument/definition",
+          id: "definition_id",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+            position: { line: 0, character: 0 }
+          }
+        }
+      )
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
+        flush_queue(master.write_queue)
+      )
+    end
+  end
+
+  def test_goto_definition_via_typecheck_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
       typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: interaction_worker,
         typecheck_workers: [typecheck_worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -576,10 +685,10 @@ end
         }
       )
 
-      # The request is forwarded to the interaction worker as `$/steep/source/symbol`
+      # The request is forwarded to the typecheck worker as `$/steep/source/symbol`
       jobs = flush_queue(master.write_queue)
       request = jobs.find { |job| job.message[:method] == Source__Symbol::METHOD } or raise
-      assert_equal interaction_worker, request.dest
+      assert_equal typecheck_worker, request.dest
       assert_equal(
         { uri: "#{file_scheme}#{current_dir}/lib/customer.rb", position: { line: 3, character: 9 } },
         request.message[:params]
@@ -626,7 +735,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: []
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -675,7 +783,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: []
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -737,7 +844,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -786,7 +892,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
 
@@ -822,7 +927,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
 
@@ -862,7 +966,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
 
@@ -912,7 +1015,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
 
@@ -955,7 +1057,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
 
@@ -1008,7 +1109,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker1, worker2]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -1058,7 +1158,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -1104,7 +1203,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
@@ -1156,14 +1254,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
       typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: interaction_worker,
         typecheck_workers: typecheck_workers
       )
 
@@ -1237,13 +1333,11 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
       typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
                                   typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
@@ -1311,13 +1405,11 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
       typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
                                   typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
@@ -1360,13 +1452,11 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
       typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
                                   typecheck_workers: typecheck_workers)
 
       main_thread = Thread.new do
@@ -1419,7 +1509,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: Object.new,
         typecheck_workers: [worker]
       )
 
@@ -1563,7 +1652,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: typecheck_workers
       )
 
@@ -1644,7 +1732,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: typecheck_workers
       )
 
@@ -1725,7 +1812,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
       master.assign_initialize_params(
@@ -1785,7 +1871,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
 
@@ -1846,7 +1931,6 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
         typecheck_workers: [worker]
       )
 

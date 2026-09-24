@@ -55,4 +55,38 @@ class TypeCheckWorkerTest < Minitest::Test
   def test_handle_job_typecheck_inline__type_decl_error: () -> untyped
 
   def test_job_workspace_symbol: () -> untyped
+
+  def test_interaction_jobs_go_ahead_of_typecheck_jobs: () -> untyped
+
+  def test_handle_job__latest_interaction_job_only: () -> untyped
+
+  def test_handle_request_hover: () -> untyped
+
+  def test_handle_source_symbol_request: () -> untyped
+
+  def test_process_source_symbol_job: () -> untyped
+
+  def test_handle_hover_job_success: () -> untyped
+
+  def test_handle_hover_job__definition_and_constant: () -> untyped
+
+  def test_handle_alias_hover_job_success_on_rbs: () -> untyped
+
+  def test_handle_interface_hover_job_success_on_rbs: () -> untyped
+
+  def test_handle_class_hover_job_success_on_rbs: () -> untyped
+
+  def test_handle_class_hover_strip_html_comment: () -> untyped
+
+  def test_handle_hover_invalid: () -> untyped
+
+  def test_handle_completion_request: () -> untyped
+
+  def test_handle_completion_request_inline: () -> untyped
+
+  def test_completion_on_signature: () -> untyped
+
+  def test_signature_help: () -> untyped
+
+  def test_signature_help__syntax_error: () -> untyped
 end

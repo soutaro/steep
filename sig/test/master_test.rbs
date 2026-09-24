@@ -33,11 +33,15 @@ class MasterTest < Minitest::Test
 
   def test_on_type_check_update_stores_results_in_database: () -> untyped
 
-  def test_hover_via_interaction_worker: () -> untyped
+  def test_hover_via_typecheck_worker: () -> untyped
 
-  def test_signature_help_via_interaction_worker: () -> untyped
+  def test_signature_help_via_typecheck_worker: () -> untyped
 
-  def test_goto_definition_via_interaction_worker: () -> untyped
+  def test_interaction_request_goes_to_the_least_loaded_worker: () -> untyped
+
+  def test_interaction_request_without_worker: () -> untyped
+
+  def test_goto_definition_via_typecheck_worker: () -> untyped
 
   def test_stats_from_database: () -> untyped
 

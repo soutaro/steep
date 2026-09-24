@@ -2,7 +2,7 @@ module Steep
   module Server
     # GotoResolver answers goto requests and `$/steep/query/definition` from the `TypeCheckDatabase`
     #
-    # What is at the cursor position comes from the interaction worker (`$/steep/source/symbol`) -- the constant,
+    # What is at the cursor position comes from a typecheck worker (`$/steep/source/symbol`) -- the constant,
     # the type name, or the methods written there, and the type of the expression there -- and the resolver looks
     # the definitions up in the database, applying the policy goto had when the typecheck workers answered it:
     #
