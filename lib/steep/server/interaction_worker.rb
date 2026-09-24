@@ -8,8 +8,6 @@ module Steep
       SignatureHelpJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       SourceSymbolJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
 
-      LSP = LanguageServer::Protocol
-
       attr_reader :service, :mutex
 
       def initialize(project:, reader:, writer:, queue: Queue.new)
@@ -32,26 +30,14 @@ module Steep
 
           case job
           when HoverJob
-            writer.write(
-              {
-                id: job.id,
-                result: process_latest_job(job) { process_hover(job) }
-              }
-            )
+            result = process_latest_job(job) { process_hover(job) }
+            writer.write(CustomMethods::Hover.response(job.id, result))
           when CompletionJob
-            writer.write(
-              {
-                id: job.id,
-                result: process_latest_job(job) { process_completion(job) }
-              }
-            )
+            result = process_latest_job(job) { process_completion(job) }
+            writer.write(CustomMethods::Completion.response(job.id, result))
           when SignatureHelpJob
-            writer.write(
-              {
-                id: job.id,
-                result: process_latest_job(job) { process_signature_help(job) }
-              }
-            )
+            result = process_latest_job(job) { process_signature_help(job) }
+            writer.write(CustomMethods::SignatureHelp.response(job.id, result))
           when SourceSymbolJob
             result = process_latest_job(job) { process_source_symbol(job) }
             result ||= {} #: CustomMethods::Source__Symbol::result
@@ -86,30 +72,34 @@ module Steep
           input = params[:content]
           load_files(input)
 
-        when "textDocument/hover"
+        when CustomMethods::Hover::METHOD
           id = request[:id]
+          params = request[:params] #: CustomMethods::Hover::params
 
-          path = project.relative_path(PathHelper.to_pathname!(request[:params][:textDocument][:uri]))
-          line = request[:params][:position][:line]+1
-          column = request[:params][:position][:character]
+          path = project.relative_path(PathHelper.to_pathname!(params[:uri]))
+          line = params[:position][:line] + 1
+          column = params[:position][:character]
 
           queue_job HoverJob.new(id: id, path: path, line: line, column: column)
 
-        when "textDocument/completion"
+        when CustomMethods::Completion::METHOD
           id = request[:id]
+          params = request[:params] #: CustomMethods::Completion::params
 
-          params = request[:params]
-
-          path = project.relative_path(PathHelper.to_pathname!(params[:textDocument][:uri]))
-          line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
-          trigger = params.dig(:context, :triggerCharacter)
+          path = project.relative_path(PathHelper.to_pathname!(params[:uri]))
+          line = params[:position][:line] + 1
+          column = params[:position][:character]
+          trigger = params[:trigger]
 
           queue_job CompletionJob.new(id: id, path: path, line: line, column: column, trigger: trigger)
-        when "textDocument/signatureHelp"
+
+        when CustomMethods::SignatureHelp::METHOD
           id = request[:id]
-          params = request[:params]
-          path = project.relative_path(PathHelper.to_pathname!(params[:textDocument][:uri]))
-          line, column = params[:position].yield_self {|hash| [hash[:line]+1, hash[:character]] }
+          params = request[:params] #: CustomMethods::SignatureHelp::params
+
+          path = project.relative_path(PathHelper.to_pathname!(params[:uri]))
+          line = params[:position][:line] + 1
+          column = params[:position][:character]
 
           queue_job SignatureHelpJob.new(id: id, path: path, line: line, column: column)
 
@@ -147,24 +137,95 @@ module Steep
           Steep.measure "Generating hover response" do
             Steep.logger.info { "path=#{job.path}, line=#{job.line}, column=#{job.column}" }
 
-            content = Services::HoverProvider.content_for(service: service, path: job.path, line: job.line, column: job.column)
-            if content
-              range = content.location.yield_self do |location|
-                lsp_range = location.as_lsp_range
-                start_position = LSP::Interface::Position.new(line: lsp_range[:start][:line], character: lsp_range[:start][:character])
-                end_position = LSP::Interface::Position.new(line: lsp_range[:end][:line], character: lsp_range[:end][:character])
-                LSP::Interface::Range.new(start: start_position, end: end_position)
-              end
+            target = target_for(job.path) or return
+            content = Services::HoverProvider.content_for(service: service, path: job.path, line: job.line, column: job.column) or return
 
-              LSP::Interface::Hover.new(
-                contents:  LSP::Interface::MarkupContent.new(kind: "markdown", value: LSPFormatter.format_hover_content(content).to_s),
-                range: range
-              )
-            end
+            {
+              target: target.name.to_s,
+              range: content.location.as_lsp_range,
+              content: hover_content(content)
+            }
           rescue Typing::UnknownNodeError => exn
             Steep.log_error exn, message: "Failed to compute hover: #{exn.inspect}"
             nil
           end
+        end
+      end
+
+      def hover_content(content)
+        case content
+        when Services::HoverProvider::VariableContent
+          { kind: "variable", name: content.name.to_s, type: content.type.to_s }
+        when Services::HoverProvider::TypeContent
+          { kind: "type", type: content.type.to_s }
+        when Services::HoverProvider::TypeAssertionContent
+          { kind: "type_assertion", original_type: content.original_type.to_s, asserted_type: content.asserted_type.to_s }
+        when Services::HoverProvider::MethodCallContent
+          call = content.method_call
+
+          case call
+          when TypeInference::MethodCall::Typed
+            method_decls = call.method_decls.sort_by {|decl| decl.method_name.to_s }
+            method_types = method_decls.map {|decl| decl.method_type.to_s }
+
+            if call.is_a?(TypeInference::MethodCall::Special)
+              method_types = [
+                call.actual_method_type.with(
+                  type: call.actual_method_type.type.with(return_type: call.return_type)
+                ).to_s
+              ]
+            end
+
+            {
+              kind: "method_call",
+              return_type: call.actual_method_type.type.return_type.to_s,
+              special: call.is_a?(TypeInference::MethodCall::Special),
+              error: false,
+              method_types: method_types,
+              methods: method_decls.map {|decl| decl.method_name.to_s }
+            }
+          when TypeInference::MethodCall::Error
+            method_decls = call.method_decls.sort_by {|decl| decl.method_name.to_s }
+
+            {
+              kind: "method_call",
+              return_type: nil,
+              special: false,
+              error: true,
+              method_types: method_decls.map {|decl| decl.method_type.to_s },
+              methods: method_decls.map {|decl| decl.method_name.to_s }
+            }
+          end
+        when Services::HoverProvider::DefinitionContent
+          {
+            kind: "definition",
+            method: content.method_name.to_s,
+            method_type: content.method_type.to_s,
+            method_types: content.definition.method_types.map(&:to_s)
+          }
+        when Services::HoverProvider::ConstantContent
+          { kind: "constant", name: content.full_name.to_s }
+        when Services::HoverProvider::TypeAliasContent, Services::HoverProvider::InterfaceTypeContent
+          { kind: "type_name", name: content.decl.name.to_s }
+        when Services::HoverProvider::ClassTypeContent
+          { kind: "type_name", name: declared_type_name(content.decl).to_s }
+        else
+          raise content.class.to_s
+        end
+      end
+
+      def declared_type_name(decl)
+        case decl
+        when RBS::AST::Declarations::Class, RBS::AST::Declarations::Module
+          decl.name
+        when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
+          decl.new_name
+        when RBS::AST::Ruby::Declarations::ClassDecl
+          decl.class_name
+        when RBS::AST::Ruby::Declarations::ModuleDecl
+          decl.module_name
+        when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
+          decl.new_name
         end
       end
 
@@ -181,8 +242,8 @@ module Steep
               provider = Services::CompletionProvider::Ruby.new(source_text: file.content, path: job.path, subtyping: subtyping)
 
               if (prefix_size, items = provider.run_at_comment(line: job.line, column: job.column))
-                completion_items = items.map { format_completion_item(_1) }
-                completion_items.concat builtin_types(prefix_size, job.line, job.column)
+                completion_items = items.map { completion_item(_1) }
+                completion_items.concat builtin_type_items(prefix_size, job.line, job.column)
               else
                 items = begin
                           provider.run(line: job.line, column: job.column)
@@ -190,260 +251,96 @@ module Steep
                           [] #: Array[Services::CompletionProvider::item]
                         end
 
-                completion_items = items.map do |item|
-                  format_completion_item(item)
-                end
+                completion_items = items.map { completion_item(_1) }
               end
 
               Steep.logger.debug "items = #{completion_items.inspect}"
 
-              LSP::Interface::CompletionList.new(
-                is_incomplete: false,
-                items: completion_items
-              )
+              { target: target.name.to_s, incomplete: false, items: completion_items }
             when target = project.target_for_signature_path(job.path)
               sig_service = service.signature_services[target.name] or raise
-              relative_path = job.path
 
-              completion = Services::CompletionProvider::RBS.new(relative_path, sig_service)
+              completion = Services::CompletionProvider::RBS.new(job.path, sig_service)
               prefix_size, type_names = completion.run(job.line, job.column)
+              range = range_before(job.line, job.column, prefix_size)
 
               completion_items = type_names.map do |absolute_name, relative_name|
-                format_completion_item_for_rbs(sig_service, absolute_name, job, relative_name.to_s, prefix_size)
-              end
+                { kind: "type_name", range: range, name: relative_name.to_s, full_name: absolute_name.to_s } #: CustomMethods::Completion::type_name_item
+              end #: Array[CustomMethods::Completion::item]
 
-              completion_items.concat(builtin_types(prefix_size, job.line, job.column))
+              completion_items.concat builtin_type_items(prefix_size, job.line, job.column)
 
-              LSP::Interface::CompletionList.new(
-                is_incomplete: !sig_service.status.is_a?(Services::SignatureService::LoadedStatus),
+              {
+                target: target.name.to_s,
+                incomplete: !sig_service.status.is_a?(Services::SignatureService::LoadedStatus),
                 items: completion_items
-              )
+              }
             end
           end
         end
       end
 
-      def format_completion_item_for_rbs(sig_service, type_name, job, complete_text, prefix_size)
-        range = LSP::Interface::Range.new(
-          start: LSP::Interface::Position.new(
-            line: job.line - 1,
-            character: job.column - prefix_size
-          ),
-          end: LSP::Interface::Position.new(
-            line: job.line - 1,
-            character: job.column
-          )
-        )
+      def completion_item(item)
+        range = {
+          start: { line: item.range.start.line - 1, character: item.range.start.column },
+          end: { line: item.range.end.line - 1, character: item.range.end.column }
+        } #: CustomMethods::range
 
-        type_name = sig_service.latest_env.normalize_type_name(type_name)
-
-        tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
-        if AnnotationsHelper.deprecated_type_name?(type_name, sig_service.latest_env)
-          tags << LSP::Constant::CompletionItemTag::DEPRECATED
-        end
-
-        case type_name.kind
-        when :class
-          env = sig_service.latest_env
-          class_entry = env.module_class_entry(type_name) or raise
-
-          case class_entry
-          when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-            comments = class_entry.each_decl.map {|decl| decl.is_a?(RBS::AST::Declarations::Base) ? decl.comment : nil }.compact
-            decl = class_entry.primary_decl
-          when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-            comments = [] #: Array[RBS::AST::Comment]
-            if comment = class_entry.decl.comment
-              comments << comment
-            end
-            decl = class_entry.decl
-          end
-
-          LSP::Interface::CompletionItem.new(
-            label: complete_text,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(decl)),
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, decl, comments) },
-            text_edit: LSP::Interface::TextEdit.new(
-              range: range,
-              new_text: complete_text
-            ),
-            kind: LSP::Constant::CompletionItemKind::CLASS,
-            tags: tags
-          )
-        when :alias
-          alias_decl = sig_service.latest_env.type_alias_decls[type_name]&.decl or raise
-
-          LSP::Interface::CompletionItem.new(
-            label: complete_text,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(alias_decl)),
-            text_edit: LSP::Interface::TextEdit.new(
-              range: range,
-              new_text: complete_text
-            ),
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, alias_decl, [alias_decl.comment].compact) },
-            kind: LSP::Constant::CompletionItemKind::FIELD,
-            tags: tags
-          )
-        when :interface
-          interface_decl = sig_service.latest_env.interface_decls[type_name]&.decl or raise
-
-          LSP::Interface::CompletionItem.new(
-            label: complete_text,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: LSPFormatter.declaration_summary(interface_decl)),
-            text_edit: LSP::Interface::TextEdit.new(
-              range: range,
-              new_text: complete_text
-            ),
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_rbs_completion_docs(type_name, interface_decl, [interface_decl.comment].compact) },
-            kind: LSP::Constant::CompletionItemKind::INTERFACE,
-            tags: tags
-          )
+        case item
+        when Services::CompletionProvider::LocalVariableItem
+          { kind: "local_variable", range: range, name: item.identifier.to_s, type: item.type.to_s }
+        when Services::CompletionProvider::InstanceVariableItem
+          { kind: "instance_variable", range: range, name: item.identifier.to_s, type: item.type.to_s }
+        when Services::CompletionProvider::ConstantItem
+          { kind: "constant", range: range, name: item.identifier.to_s, full_name: item.full_name.to_s }
+        when Services::CompletionProvider::SimpleMethodNameItem
+          {
+            kind: "method",
+            range: range,
+            name: item.identifier.to_s,
+            method_types: item.method_types.map(&:to_s),
+            methods: [item.method_name.to_s]
+          }
+        when Services::CompletionProvider::ComplexMethodNameItem
+          {
+            kind: "method",
+            range: range,
+            name: item.identifier.to_s,
+            method_types: item.method_types.map(&:to_s),
+            methods: item.method_names.map(&:to_s)
+          }
+        when Services::CompletionProvider::GeneratedMethodNameItem
+          {
+            kind: "method",
+            range: range,
+            name: item.identifier.to_s,
+            method_types: item.method_types.map(&:to_s),
+            methods: []
+          }
+        when Services::CompletionProvider::KeywordArgumentItem
+          { kind: "keyword_argument", range: range, name: item.identifier.to_s }
+        when Services::CompletionProvider::TypeNameItem
+          { kind: "type_name", range: range, name: item.relative_type_name.to_s, full_name: item.absolute_type_name.to_s }
+        when Services::CompletionProvider::TextItem
+          { kind: "text", range: range, label: item.label, text: item.text, help_text: item.help_text }
         else
           raise
         end
       end
 
-      def format_completion_item(item)
-        range = LSP::Interface::Range.new(
-          start: LSP::Interface::Position.new(
-            line: item.range.start.line-1,
-            character: item.range.start.column
-          ),
-          end: LSP::Interface::Position.new(
-            line: item.range.end.line-1,
-            character: item.range.end.column
-          )
-        )
+      def builtin_type_items(prefix_size, line, column)
+        range = range_before(line, column, prefix_size)
 
-        case item
-        when Services::CompletionProvider::LocalVariableItem
-          LSP::Interface::CompletionItem.new(
-            label: item.identifier.to_s,
-            kind: LSP::Constant::CompletionItemKind::VARIABLE,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.type.to_s),
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
-            insert_text: item.identifier.to_s,
-            sort_text: item.identifier.to_s
-          )
-        when Services::CompletionProvider::ConstantItem
-          case
-          when item.class? || item.module?
-            kind = LSP::Constant::CompletionItemKind::CLASS
-          else
-            kind = LSP::Constant::CompletionItemKind::CONSTANT
-          end
-
-          detail = LSPFormatter.declaration_summary(item.decl)
-
-          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
-          if item.deprecated?
-            tags << LSP::Constant::CompletionItemTag::DEPRECATED
-          end
-
-          LSP::Interface::CompletionItem.new(
-            label: item.identifier.to_s,
-            kind: kind,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: detail),
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
-            text_edit: LSP::Interface::TextEdit.new(
-              range: range,
-              new_text: item.identifier.to_s
-            ),
-            tags: tags
-          )
-        when Services::CompletionProvider::SimpleMethodNameItem
-          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
-          if item.deprecated
-            tags << LSP::Constant::CompletionItemTag::DEPRECATED
-          end
-
-          LSP::Interface::CompletionItem.new(
-            label: item.identifier.to_s,
-            kind: LSP::Constant::CompletionItemKind::FUNCTION,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.method_name.relative.to_s),
-            insert_text: item.identifier.to_s,
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
-            tags: tags
-          )
-        when Services::CompletionProvider::ComplexMethodNameItem
-          method_names = item.method_names.map(&:relative).uniq
-
-          LSP::Interface::CompletionItem.new(
-            label: item.identifier.to_s,
-            kind: LSP::Constant::CompletionItemKind::FUNCTION,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: method_names.join(", ")),
-            insert_text: item.identifier.to_s,
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
-          )
-        when Services::CompletionProvider::GeneratedMethodNameItem
-          LSP::Interface::CompletionItem.new(
-            label: item.identifier.to_s,
-            kind: LSP::Constant::CompletionItemKind::FUNCTION,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: "(Generated)"),
-            insert_text: item.identifier.to_s,
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) }
-          )
-        when Services::CompletionProvider::InstanceVariableItem
-          LSP::Interface::CompletionItem.new(
-            label: item.identifier.to_s,
-            kind: LSP::Constant::CompletionItemKind::FIELD,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: item.type.to_s),
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
-            text_edit: LSP::Interface::TextEdit.new(
-              range: range,
-              new_text: item.identifier.to_s
-            )
-          )
-        when Services::CompletionProvider::KeywordArgumentItem
-          LSP::Interface::CompletionItem.new(
-            label: item.identifier.to_s,
-            kind: LSP::Constant::CompletionItemKind::FIELD,
-            label_details: LSP::Interface::CompletionItemLabelDetails.new(description: 'Keyword argument'),
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
-            text_edit: LSP::Interface::TextEdit.new(
-              range: range,
-              new_text: item.identifier.to_s
-            )
-          )
-        when Services::CompletionProvider::TypeNameItem
-          kind =
-            case
-            when item.absolute_type_name.class?
-              LSP::Constant::CompletionItemKind::CLASS
-            when item.absolute_type_name.interface?
-              LSP::Constant::CompletionItemKind::INTERFACE
-            when item.absolute_type_name.alias?
-              LSP::Constant::CompletionItemKind::FIELD
-            end
-
-          tags = [] #: Array[LSP::Constant::CompletionItemTag::t]
-          if AnnotationsHelper.deprecated_type_name?(item.absolute_type_name, item.env)
-            tags << LSP::Constant::CompletionItemTag::DEPRECATED
-          end
-
-          LSP::Interface::CompletionItem.new(
-            label: item.relative_type_name.to_s,
-            kind: kind,
-            label_details: nil,
-            documentation: LSPFormatter.markup_content { LSPFormatter.format_completion_docs(item) },
-            text_edit: LSP::Interface::TextEdit.new(
-              range: range,
-              new_text: item.relative_type_name.to_s
-            ),
-            tags: tags
-          )
-          when Services::CompletionProvider::TextItem
-            LSP::Interface::CompletionItem.new(
-              label: item.label,
-              label_details: item.help_text && LSP::Interface::CompletionItemLabelDetails.new(description: item.help_text),
-              kind: LSP::Constant::CompletionItemKind::SNIPPET,
-              insert_text_format: LSP::Constant::InsertTextFormat::SNIPPET,
-              text_edit: LSP::Interface::TextEdit.new(
-                range: range,
-                new_text: item.text
-              )
-            )
+        ["untyped", "void", "bool", "class", "module", "instance", "nil", "top", "bot"].map do |name|
+          { kind: "builtin_type", range: range, name: name } #: CustomMethods::Completion::builtin_type_item
         end
+      end
+
+      def range_before(line, column, prefix_size)
+        {
+          start: { line: line - 1, character: column - prefix_size },
+          end: { line: line - 1, character: column }
+        }
       end
 
       def process_signature_help(job)
@@ -459,57 +356,27 @@ module Steep
 
             if (items, index = provider.run(line: job.line, column: job.column))
               signatures = items.map do |item|
-                params = item.parameters or raise
-
-                LSP::Interface::SignatureInformation.new(
-                  label: item.method_type.to_s,
-                  parameters: params.map { |param| LSP::Interface::ParameterInformation.new(label: param)},
+                {
+                  method_type: item.method_type.to_s,
+                  parameters: item.parameters || [],
                   active_parameter: item.active_parameter,
-                  documentation: item.comment&.yield_self do |comment|
-                    LSP::Interface::MarkupContent.new(
-                      kind: LSP::Constant::MarkupKind::MARKDOWN,
-                      value: comment.string.gsub(/<!--(?~-->)-->/, "")
-                    )
-                  end
-                )
+                  method: item.method_name&.to_s
+                } #: CustomMethods::SignatureHelp::signature
               end
 
-              @last_signature_help_line = job.line
-              @last_signature_help_result = LSP::Interface::SignatureHelp.new(
-                signatures: signatures,
-                active_signature: index
-              )
+              help = { target: target.name.to_s, signatures: signatures, active_signature: index } #: CustomMethods::SignatureHelp::help
             end
           end
+
+          { signature_help: help, syntax_error: false }
         end
       rescue Parser::SyntaxError
-        # Reuse the latest result to keep SignatureHelp opened while typing
-        @last_signature_help_result if @last_signature_help_line == job.line
+        # The master keeps showing the last signature help while typing
+        { signature_help: nil, syntax_error: true }
       end
 
-      def builtin_types(prefix_size, line, column)
-        ["untyped", "void", "bool", "class", "module", "instance", "nil", "top", "bot"].map do |name|
-          LSP::Interface::CompletionItem.new(
-            label: name,
-            detail: "(builtin type)",
-            text_edit: LSP::Interface::TextEdit.new(
-              range: LSP::Interface::Range.new(
-                start: LSP::Interface::Position.new(
-                  line: line - 1,
-                  character: column - prefix_size
-                ),
-                end: LSP::Interface::Position.new(
-                  line: line - 1,
-                  character: column
-                )
-              ),
-              new_text: name
-            ),
-            kind: LSP::Constant::CompletionItemKind::KEYWORD,
-            filter_text: name,
-            sort_text: "zz__#{name}"
-          )
-        end
+      def target_for(path)
+        project.target_for_inline_source_path(path) || project.target_for_source_path(path) || project.target_for_signature_path(path)
       end
     end
   end

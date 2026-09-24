@@ -580,28 +580,35 @@ module Steep
           end
 
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
-          if interaction_worker
-            if path = pathname(message[:params][:textDocument][:uri])
-              deliver_contents_for_request(interaction_worker, path)
+          if interaction_worker && (path = pathname(message[:params][:textDocument][:uri]))
+            deliver_contents_for_request(interaction_worker, path)
 
-              result_controller << send_request(method: message[:method], params: message[:params], worker: interaction_worker) do |handler|
-                handler.on_completion do |response|
-                  enqueue_write_job SendMessageJob.to_client(
-                    message: {
-                      id: message[:id],
-                      result: response[:result]
-                    }
-                  )
-                end
+            uri = message[:params][:textDocument][:uri] #: String
+            position = message[:params][:position] #: CustomMethods::position
+
+            method, params =
+              case message[:method]
+              when "textDocument/hover"
+                [CustomMethods::Hover::METHOD, { uri: uri, position: position }]
+              when "textDocument/completion"
+                trigger = message[:params].dig(:context, :triggerCharacter) #: String?
+                [CustomMethods::Completion::METHOD, { uri: uri, position: position, trigger: trigger }]
+              else
+                [CustomMethods::SignatureHelp::METHOD, { uri: uri, position: position }]
+              end #: [String, untyped]
+
+            result_controller << send_request(method: method, params: params, worker: interaction_worker) do |handler|
+              handler.on_completion do |response|
+                respond_to_interaction(message, response[:result])
               end
-            else
-              enqueue_write_job SendMessageJob.to_client(
-                message: {
-                  id: message[:id],
-                  result: nil
-                }
-              )
             end
+          else
+            enqueue_write_job SendMessageJob.to_client(
+              message: {
+                id: message[:id],
+                result: nil
+              }
+            )
           end
 
         when "workspace/symbol"
@@ -1175,6 +1182,48 @@ module Steep
       def deliver_contents_for_request(worker, path)
         update_environment()
         deliver_contents(worker, signature_paths_to_deliver + [path])
+      end
+
+      def respond_to_interaction(message, result)
+        id = message[:id]
+
+        if message[:method] == "textDocument/signatureHelp"
+          help = result #: CustomMethods::SignatureHelp::result?
+
+          if help && help[:syntax_error]
+            # The file cannot be parsed while the user types: keep the signature help the client is showing, if any
+            active_signature_help = message[:params].dig(:context, :activeSignatureHelp)
+            enqueue_write_job SendMessageJob.to_client(message: { id: id, result: active_signature_help })
+            return
+          end
+
+          result = help&.[](:signature_help)
+        end
+
+        service = controller.type_check_service
+
+        if result.nil? || service.nil?
+          enqueue_write_job SendMessageJob.to_client(message: { id: id, result: nil })
+          return
+        end
+
+        # Renders with the latest environments, without waiting for an update running on the environment thread
+        lsp_result =
+          begin
+            case message[:method]
+            when "textDocument/hover"
+              LSPFormatter.hover(result, service: service)
+            when "textDocument/completion"
+              LSPFormatter.completion_list(result, service: service)
+            when "textDocument/signatureHelp"
+              LSPFormatter.signature_help(result, service: service)
+            end
+          rescue => exn
+            Steep.log_error(exn, message: "Failed to format the result of #{message[:method]}: #{exn.inspect}")
+            nil
+          end
+
+        enqueue_write_job SendMessageJob.to_client(message: { id: id, result: lsp_result })
       end
 
       def signature_paths_to_deliver

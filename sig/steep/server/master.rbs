@@ -252,6 +252,19 @@ module Steep
       # Applies the pending changes to the environments, and sends the worker the RBS files and the file of a request
       def deliver_contents_for_request: (WorkerProcess worker, Pathname path) -> void
 
+      # Answers a hover, completion, or signature help request of the client with the result from the interaction worker
+      #
+      # The worker sends what is at the position with the names of the declarations, and the master renders the
+      # documentation from its own environments. The rendering runs on the main thread with the latest environments,
+      # without waiting for an update on the environment thread: an environment of the previous generation is good
+      # enough for the documentation, and a name it doesn't know is rendered without documentation.
+      #
+      # A signature help with `syntax_error` -- the file cannot be parsed while the user types -- is answered with
+      # the `activeSignatureHelp` of the request context, which the client sends while its signature help is
+      # showing, or `nil`.
+      #
+      def respond_to_interaction: (untyped message, untyped result) -> void
+
       # The RBS files and inline RBS sources of the project, which every worker needs for its environments
       def signature_paths_to_deliver: () -> Array[Pathname]
 

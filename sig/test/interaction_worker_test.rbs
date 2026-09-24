@@ -34,6 +34,8 @@ class InteractionWorkerTest < Minitest::Test
 
   def test_handle_hover_job_success: () -> untyped
 
+  def test_handle_hover_job__definition_and_constant: () -> untyped
+
   def test_handle_alias_hover_job_success_on_rbs: () -> untyped
 
   def test_handle_interface_hover_job_success_on_rbs: () -> untyped
@@ -49,4 +51,8 @@ class InteractionWorkerTest < Minitest::Test
   def test_handle_completion_request_inline: () -> untyped
 
   def test_completion_on_signature: () -> untyped
+
+  def test_signature_help: () -> untyped
+
+  def test_signature_help__syntax_error: () -> untyped
 end
