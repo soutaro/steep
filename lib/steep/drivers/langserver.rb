@@ -22,12 +22,20 @@ module Steep
         @command_socket = true
       end
 
+      # The reader and the writer work on duplicates of the standard streams, never on the streams themselves.
+      #
+      # Spawning a worker redirects the standard input and output of the child. Without `fork`, Ruby applies
+      # the redirection to the fds 0 and 1 of this process while it spawns the child and restores them
+      # afterwards. The `dup2` of the redirection waits for the lock of the fd in the C runtime, which the
+      # thread reading the stream holds while it is blocked in a read. The spawn would wait for the client
+      # to send something, with the GVL held, and the whole server would stop until then.
+      #
       def writer
-        @writer ||= LanguageServer::Protocol::Transport::Io::Writer.new(stdout)
+        @writer ||= LanguageServer::Protocol::Transport::Io::Writer.new(stdout.dup)
       end
 
       def reader
-        @reader ||= LanguageServer::Protocol::Transport::Io::Reader.new(stdin)
+        @reader ||= LanguageServer::Protocol::Transport::Io::Reader.new(stdin.dup)
       end
 
       def project
@@ -37,13 +45,17 @@ module Steep
       def run
         @project = load_config()
 
-        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: project.steepfile_path, args: [], steep_command: jobs_option.steep_command, count: jobs_option.jobs_count_value)
+        launcher = Server::SpawnLauncher.new(
+          steepfile: project.steepfile_path,
+          steep_command: jobs_option.steep_command,
+          typecheck_count: jobs_option.jobs_count_value
+        )
 
         master = Server::Master.new(
           project: project,
           reader: reader,
           writer: writer,
-          typecheck_workers: typecheck_workers
+          launcher: launcher
         )
         master.typecheck_automatically = true
 

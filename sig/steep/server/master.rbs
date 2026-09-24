@@ -115,8 +115,23 @@ module Steep
 
       attr_reader commandline_args: Array[String]
 
-      # The typecheck workers, which also answer the interaction requests
-      attr_reader typecheck_workers: Array[WorkerProcess]
+      # The launcher that starts and keeps the workers
+      #
+      # The master reaches the workers through the launcher only.
+      #
+      attr_reader launcher: _WorkerLauncher
+
+      # The threads reading the messages from the workers
+      attr_reader worker_threads: Array[Thread]
+
+      # Waits for the exit of a worker process, or the end of the main loop
+      attr_reader worker_waiter: ThreadWaiter
+
+      # The logger tags of the master, for the threads started after `#start`
+      @logger_tags: Array[TaggedLogging::tag]?
+
+      # `true` once `#start` is running its threads: the workers started then get their threads
+      @running: bool
 
       # Queue for processing incoming jobs and postpone a work
       #
@@ -208,11 +223,11 @@ module Steep
 
       @command_socket_mutex: Thread::Mutex
 
-      def initialize: (project: Project, reader: untyped, writer: untyped, typecheck_workers: Array[WorkerProcess], ?queue: Thread::Queue) -> void
+      def initialize: (project: Project, reader: untyped, writer: untyped, launcher: _WorkerLauncher, ?queue: Thread::Queue) -> void
 
       # Start the Steep language server
       #
-      # Returns after the language server shutdown.
+      # Returns after the language server shutdown, and stops the launcher.
       # The shutdown process starts by `exit` message.
       #
       # Raises an exception if the worker processes doesn't shutdown properly, like being `#kill`-ed.
@@ -220,6 +235,19 @@ module Steep
       # The only one cleanup it does is stopping the worker processes, by `SIGKILL`.
       #
       def start: () -> void
+
+      # The typecheck workers of the launcher, which also answer the interaction requests
+      def typecheck_workers: () -> Array[WorkerProcess]
+
+      # Starts the workers through the launcher, with the environments the project is loaded into, and their threads
+      #
+      # Called on the `initialize` request, once the project is loaded. The threads reading from the workers are
+      # started only while `#start` is running.
+      #
+      def start_workers: () -> void
+
+      # Starts the thread reading the messages from the worker, and waits for the exit of the worker
+      def start_worker_thread: (WorkerProcess worker) -> void
 
       # Hands the pending jobs of the current type check to the workers that have room for more
       #
@@ -299,7 +327,7 @@ module Steep
 
       # Stops the language server workers by sending SIGTERM
       #
-      # This skips the normal shutdown process defined in LSP.
+      # This skips the normal shutdown process defined in LSP, and stops the launcher.
       # The `#start` call will result in an exception.
       #
       def kill: () -> void

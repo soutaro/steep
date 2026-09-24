@@ -29,6 +29,69 @@ class MasterTest < Minitest::Test
     @dirs ||= []
   end
 
+  def test_start_workers_on_initialize
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      launcher = WorkersLauncher.new(worker)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      # The master reaches the workers through the launcher
+      assert_equal [worker], master.typecheck_workers
+      assert_nil launcher.started_service
+
+      # The launcher starts the workers with the environments the project is loaded into
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+
+      assert_same master.controller.type_check_service, launcher.started_service
+    end
+  end
+
+  def test_kill_stops_launcher
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      launcher = WorkersLauncher.new
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      refute launcher.stopped?
+      master.kill
+      assert launcher.stopped?
+    end
+  end
+
   def test_start_type_check_with_progress
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -48,7 +111,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
@@ -110,7 +173,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -159,7 +222,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -203,7 +266,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
@@ -289,7 +352,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
@@ -358,7 +421,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
       master.controller.load(command_line_args: [])
@@ -449,7 +512,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
       master.controller.load(command_line_args: [])
@@ -546,7 +609,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker1, worker2]
+        launcher: WorkersLauncher.new(worker1, worker2)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
       master.controller.load(command_line_args: [])
@@ -603,7 +666,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: []
+        launcher: WorkersLauncher.new
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
       master.controller.load(command_line_args: [])
@@ -661,7 +724,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [typecheck_worker]
+        launcher: WorkersLauncher.new(typecheck_worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -735,7 +798,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: []
+        launcher: WorkersLauncher.new
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -783,7 +846,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: []
+        launcher: WorkersLauncher.new
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -844,7 +907,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -892,7 +955,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       master.process_message_from_client(
@@ -927,7 +990,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       master.process_message_from_client(
@@ -966,7 +1029,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       assert_empty master.controller.dirty_code_paths
@@ -1015,7 +1078,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       assert_empty master.controller.dirty_code_paths
@@ -1057,7 +1120,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       assert_empty master.controller.open_paths
@@ -1109,7 +1172,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker1, worker2]
+        launcher: WorkersLauncher.new(worker1, worker2)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -1158,7 +1221,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -1203,7 +1266,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -1254,13 +1317,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1333,12 +1396,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  typecheck_workers: typecheck_workers)
+                                  launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1405,12 +1468,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  typecheck_workers: typecheck_workers)
+                                  launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1452,12 +1515,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  typecheck_workers: typecheck_workers)
+                                  launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1509,7 +1572,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       assert_empty master.controller.dirty_code_paths
@@ -1646,13 +1709,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1726,13 +1789,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1812,7 +1875,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(
         DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(
@@ -1871,7 +1934,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
@@ -1931,7 +1994,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })

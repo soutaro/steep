@@ -354,18 +354,18 @@ module Steep
         server_reader = LSP::Transport::Io::Reader.new(server_read)
         server_writer = LSP::Transport::Io::Writer.new(server_write)
 
-        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(
+        launcher = Server::SpawnLauncher.new(
           steepfile: project.steepfile_path,
-          args: command_line_patterns,
           steep_command: jobs_option.steep_command,
-          count: jobs_option.jobs_count_value
+          typecheck_count: jobs_option.jobs_count_value,
+          patterns: command_line_patterns
         )
 
         master = Server::Master.new(
           project: project,
           reader: server_reader,
           writer: server_writer,
-          typecheck_workers: typecheck_workers
+          launcher: launcher
         )
         master.typecheck_automatically = false
         master.commandline_args.push(*command_line_patterns)

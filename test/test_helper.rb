@@ -614,6 +614,35 @@ end
 module LSPTestHelper
   LSP = LanguageServer::Protocol
 
+  # A launcher with the workers given, for the tests of the master
+  class WorkersLauncher
+    attr_reader :typecheck_workers #: Array[Steep::Server::WorkerProcess]
+
+    # The service `#start` was called with
+    attr_reader :started_service #: Steep::Services::TypeCheckService?
+
+    # @rbs *workers: Steep::Server::WorkerProcess
+    def initialize(*workers)
+      @typecheck_workers = workers
+      @stopped = false
+    end
+
+    # @rbs (Steep::Services::TypeCheckService) -> void
+    def start(service)
+      @started_service = service
+    end
+
+    # @rbs () -> void
+    def stop
+      @stopped = true
+    end
+
+    # @rbs () -> bool
+    def stopped?
+      @stopped
+    end
+  end
+
   def reader_pipe
     @reader_pipe ||= IO.pipe
   end

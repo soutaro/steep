@@ -23,6 +23,10 @@ class MasterTest < Minitest::Test
 
   def dirs: () -> untyped
 
+  def test_start_workers_on_initialize: () -> untyped
+
+  def test_kill_stops_launcher: () -> untyped
+
   def test_start_type_check_with_progress: () -> untyped
 
   def test_start_type_check_with_progress_no_support: () -> untyped
