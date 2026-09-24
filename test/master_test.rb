@@ -389,7 +389,7 @@ end
         request.message[:params]
       )
 
-      # The result is rendered on the environment thread, and the response goes through the job queue
+      # The result is rendered with the environment of the master, on the main thread
       master.result_controller.process_response(
         {
           id: request.message[:id],
@@ -400,10 +400,6 @@ end
           }
         }
       )
-      assert_empty flush_queue(master.write_queue)
-
-      master.environment_queue.pop.call
-      master.job_queue.pop.call
 
       jobs = flush_queue(master.write_queue)
       assert_equal 1, jobs.size
@@ -463,30 +459,19 @@ end
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
       master.controller.load(command_line_args: [])
 
-      request_signature_help = -> (id, line) do
-        master.process_message_from_client(
-          {
-            method: "textDocument/signatureHelp",
-            id: id,
-            params: {
-              textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-              position: { line: line, character: 9 }
-            }
-          }
-        )
+      request_signature_help = -> (id, context = nil) do
+        params = {
+          textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+          position: { line: 3, character: 9 }
+        }
+        params[:context] = context if context
+
+        master.process_message_from_client({ method: "textDocument/signatureHelp", id: id, params: params })
         flush_queue(master.write_queue).find { |job| job.message[:method] == SignatureHelp::METHOD } or raise
       end
 
-      # A syntax error before any signature help is answered with nil
-      request = request_signature_help["help1", 3]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
-      assert_equal(
-        [Master::SendMessageJob.to_client(message: { id: "help1", result: nil })],
-        flush_queue(master.write_queue)
-      )
-
-      # A signature help is rendered and remembered
-      request = request_signature_help["help2", 3]
+      # A signature help is rendered on the main thread
+      request = request_signature_help["help1"]
       master.result_controller.process_response(
         {
           id: request.message[:id],
@@ -500,8 +485,6 @@ end
           }
         }
       )
-      master.environment_queue.pop.call
-      master.job_queue.pop.call
 
       jobs = flush_queue(master.write_queue)
       assert_equal 1, jobs.size
@@ -509,19 +492,40 @@ end
       assert_instance_of LSP::Interface::SignatureHelp, help
       assert_equal ["(::String) -> void"], help.signatures.map(&:label)
 
-      # A syntax error on the same line is answered with the last signature help
-      request = request_signature_help["help3", 3]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      # No signature help at the position closes the one showing
+      request = request_signature_help["help2"]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: false } })
       assert_equal(
-        [Master::SendMessageJob.to_client(message: { id: "help3", result: help })],
+        [Master::SendMessageJob.to_client(message: { id: "help2", result: nil })],
         flush_queue(master.write_queue)
       )
 
-      # A syntax error on another line is answered with nil
-      request = request_signature_help["help4", 4]
+      # A syntax error while the client shows a signature help is answered with the one showing, as the client sent it
+      active_signature_help = {
+        signatures: [{ label: "(::String) -> void", parameters: [{ label: "::String" }] }],
+        activeSignature: 0,
+        activeParameter: 0
+      }
+      request = request_signature_help["help3", { triggerKind: 3, isRetrigger: true, activeSignatureHelp: active_signature_help }]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help3", result: active_signature_help })],
+        flush_queue(master.write_queue)
+      )
+
+      # A syntax error with no signature help showing is answered with nil
+      request = request_signature_help["help4", { triggerKind: 2, triggerCharacter: "(", isRetrigger: false }]
       master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help4", result: nil })],
+        flush_queue(master.write_queue)
+      )
+
+      # ... and so is one from a client that sends no context
+      request = request_signature_help["help5"]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help5", result: nil })],
         flush_queue(master.write_queue)
       )
     end

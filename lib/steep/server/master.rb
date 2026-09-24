@@ -1186,15 +1186,14 @@ module Steep
 
       def respond_to_interaction(message, result)
         id = message[:id]
-        line = message[:params][:position][:line] #: Integer
 
         if message[:method] == "textDocument/signatureHelp"
           help = result #: CustomMethods::SignatureHelp::result?
 
           if help && help[:syntax_error]
-            # The file cannot be parsed while the user types: keep showing the last signature help on the line
-            last_line, last_help = @last_signature_help
-            enqueue_write_job SendMessageJob.to_client(message: { id: id, result: last_line == line ? last_help : nil })
+            # The file cannot be parsed while the user types: keep the signature help the client is showing, if any
+            active_signature_help = message[:params].dig(:context, :activeSignatureHelp)
+            enqueue_write_job SendMessageJob.to_client(message: { id: id, result: active_signature_help })
             return
           end
 
@@ -1208,34 +1207,23 @@ module Steep
           return
         end
 
-        # The documentation comes from the environment, which belongs to the environment thread
-        environment_queue << -> do
-          lsp_result =
-            begin
-              case message[:method]
-              when "textDocument/hover"
-                LSPFormatter.hover(result, service: service)
-              when "textDocument/completion"
-                LSPFormatter.completion_list(result, service: service)
-              when "textDocument/signatureHelp"
-                LSPFormatter.signature_help(result, service: service)
-              end
-            rescue => exn
-              Steep.log_error(exn, message: "Failed to format the result of #{message[:method]}: #{exn.inspect}")
-              nil
+        # Renders with the latest environments, without waiting for an update running on the environment thread
+        lsp_result =
+          begin
+            case message[:method]
+            when "textDocument/hover"
+              LSPFormatter.hover(result, service: service)
+            when "textDocument/completion"
+              LSPFormatter.completion_list(result, service: service)
+            when "textDocument/signatureHelp"
+              LSPFormatter.signature_help(result, service: service)
             end
-
-          job_queue << -> do
-            if message[:method] == "textDocument/signatureHelp"
-              case lsp_result
-              when LanguageServer::Protocol::Interface::SignatureHelp, nil
-                @last_signature_help = [line, lsp_result]
-              end
-            end
-
-            enqueue_write_job SendMessageJob.to_client(message: { id: id, result: lsp_result })
+          rescue => exn
+            Steep.log_error(exn, message: "Failed to format the result of #{message[:method]}: #{exn.inspect}")
+            nil
           end
-        end
+
+        enqueue_write_job SendMessageJob.to_client(message: { id: id, result: lsp_result })
       end
 
       def signature_paths_to_deliver

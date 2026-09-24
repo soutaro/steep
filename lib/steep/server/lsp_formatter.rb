@@ -65,8 +65,9 @@ module Steep
       end
 
       def environment_of(target, service)
-        signature_service = service.signature_services.fetch(target.to_sym)
-        [signature_service.latest_env, signature_service.latest_builder]
+        # Read the status once, so that the environment and the builder are of the same generation
+        builder = service.signature_services.fetch(target.to_sym).latest_builder
+        [builder.env, builder]
       end
 
       def lsp_range(range)

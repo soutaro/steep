@@ -26,7 +26,11 @@ module Steep
 
       def self?.signature_help: (CustomMethods::SignatureHelp::help, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::SignatureHelp
 
-      # The environment and the definition builder of the target
+      # The latest environment and definition builder of the target, of the same generation
+      #
+      # The signature service replaces its status as a whole when it finishes an update, so reading it once gives
+      # a consistent pair, whichever thread is updating the service.
+      #
       def self?.environment_of: (String target, Services::TypeCheckService) -> [RBS::Environment, RBS::DefinitionBuilder]
 
       def self?.lsp_range: (CustomMethods::range) -> LanguageServer::Protocol::Interface::Range
