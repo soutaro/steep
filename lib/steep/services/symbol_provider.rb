@@ -29,7 +29,9 @@ module Steep
           ruby_symbols(target, relative_path, line: line, column: column, result: result)
         when target_names = service.signature_file?(path)
           target_names.each do |target_name|
-            rbs_symbols(target_name, relative_path, line: line, column: column, result: result)
+            # An RBS file of the project is named by its relative path, and a library RBS file by its absolute path
+            signature_path = service.signature_services.fetch(target_name).files.key?(relative_path) ? relative_path : path
+            rbs_symbols(target_name, signature_path, line: line, column: column, result: result)
           end
         end
 

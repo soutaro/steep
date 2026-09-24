@@ -43,7 +43,7 @@ module Steep
 
       # Returns what is at the position
       #
-      # `path` is the absolute path of a Ruby file, an inline RBS file, or an RBS file of the project.
+      # `path` is the absolute path of a Ruby file, an inline RBS file, or an RBS file of the project or of a library.
       # The position is 1-origin line and 0-origin column.
       #
       def symbols_at: (path: Pathname, line: Integer, column: Integer) -> Result

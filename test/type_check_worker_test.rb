@@ -914,7 +914,7 @@ RBS
       q[0].tap do |job|
         assert_instance_of TypeCheckWorker::HoverJob, job
         assert_equal 123, job.id
-        assert_equal Pathname("lib/hello.rb"), job.path
+        assert_equal current_dir + "lib/hello.rb", job.path
         assert_equal 2, job.line
         assert_equal 2, job.column
       end
@@ -1034,7 +1034,7 @@ RUBY
         }
       ) {}
 
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("lib/foo.rb"), line: 1, column: 1))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "lib/foo.rb", line: 1, column: 1))
 
       assert_equal(
         {
@@ -1045,7 +1045,7 @@ RUBY
         response
       )
 
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("lib/foo.rb"), line: 2, column: 11))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "lib/foo.rb", line: 2, column: 11))
 
       assert_equal({ start: { line: 1, character: 10 }, end: { line: 1, character: 14 } }, response[:range])
       assert_equal(
@@ -1098,15 +1098,58 @@ RUBY
       ) {}
 
       # `bar` in `def self.bar`
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("lib/foo.rb"), line: 2, column: 12))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "lib/foo.rb", line: 2, column: 12))
       assert_equal(
         { kind: "definition", method: "::Foo.bar", method_type: "() -> ::Integer", method_types: ["() -> ::Integer"] },
         response[:content]
       )
 
       # `Foo` in the body
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("lib/foo.rb"), line: 3, column: 5))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "lib/foo.rb", line: 3, column: 5))
       assert_equal({ kind: "constant", name: "::Foo" }, response[:content])
+    end
+  end
+
+  def test_handle_hover_job__library_rbs
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.parse(project, <<~RUBY)
+        target :lib do
+          check "lib"
+          signature "sig"
+        end
+      RUBY
+
+      worker = Server::TypeCheckWorker.new(
+        project: project,
+        assignment: assignment,
+        commandline_args: [],
+        reader: worker_reader,
+        writer: worker_writer
+      )
+
+      worker.service.update(
+        changes: {
+          Pathname("sig/foo.rbs") => [ContentChange.string(<<RBS)]
+class Foo
+end
+RBS
+        }
+      ) {}
+
+      # A library RBS file is known by its absolute path, and belongs to the target that loads it
+      path = RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "string.rbs"
+      lines = path.read.lines
+      line = lines.index {|text| text.include?("def =~: (Regexp regex) -> Integer?") } or raise
+      column = lines[line].index("Integer") or raise
+
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: path, line: line + 1, column: column + 2))
+
+      assert_equal "lib", response[:target]
+      assert_equal({ kind: "type_name", name: "::Integer" }, response[:content])
+
+      # A file of no target is unknown
+      assert_nil worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "other/foo.rb", line: 1, column: 1))
     end
   end
 
@@ -1141,7 +1184,7 @@ RBS
         }
       ) {}
 
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 5, column: 11))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "sig/hello.rbs", line: 5, column: 11))
 
       assert_equal "lib", response[:target]
       assert_equal({ start: { line: 4, character: 10 }, end: { line: 4, character: 13 } }, response[:range])
@@ -1182,7 +1225,7 @@ RBS
         }
       ) {}
 
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 7, column: 13))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "sig/hello.rbs", line: 7, column: 13))
 
       assert_equal({ start: { line: 6, character: 12 }, end: { line: 6, character: 20 } }, response[:range])
       assert_equal({ kind: "type_name", name: "::_Fooable" }, response[:content])
@@ -1221,7 +1264,7 @@ RBS
         }
       ) {}
 
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 6, column: 10))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "sig/hello.rbs", line: 6, column: 10))
 
       assert_equal({ start: { line: 5, character: 8 }, end: { line: 5, character: 11 } }, response[:range])
       assert_equal({ kind: "type_name", name: "::Foo" }, response[:content])
@@ -1258,7 +1301,7 @@ RBS
         }
       ) {}
 
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("sig/hello.rbs"), line: 5, column: 15))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "sig/hello.rbs", line: 5, column: 15))
 
       assert_equal({ start: { line: 4, character: 13 }, end: { line: 4, character: 16 } }, response[:range])
       assert_equal({ kind: "type_name", name: "::Foo" }, response[:content])
@@ -1292,7 +1335,7 @@ RUBY
         }
       ) {}
 
-      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: Pathname("lib/foo.rb"), line: 1, column: 1))
+      response = worker.process_hover(TypeCheckWorker::HoverJob.new(path: current_dir + "lib/foo.rb", line: 1, column: 1))
       assert_nil response
     end
   end
@@ -1325,7 +1368,7 @@ RUBY
 
       response = worker.process_completion(
         TypeCheckWorker::CompletionJob.new(
-          path: Pathname("lib/hello.rb"),
+          path: current_dir + "lib/hello.rb",
           line: 3,
           column: 0,
           trigger: nil
@@ -1378,7 +1421,7 @@ RUBY
 
       response = worker.process_completion(
         TypeCheckWorker::CompletionJob.new(
-          path: Pathname("lib/inline.rb"),
+          path: current_dir + "lib/inline.rb",
           line: 6,
           column: 5,
           trigger: nil
@@ -1424,7 +1467,7 @@ RUBY
 
         response = worker.process_completion(
           TypeCheckWorker::CompletionJob.new(
-            path: Pathname("sig/hello.rbs"),
+            path: current_dir + "sig/hello.rbs",
             line: 3,
             column: 9,
             trigger: nil
@@ -1487,7 +1530,7 @@ RUBY
         }
       ) {}
 
-      response = worker.process_signature_help(TypeCheckWorker::SignatureHelpJob.new(path: Pathname("lib/foo.rb"), line: 1, column: 21))
+      response = worker.process_signature_help(TypeCheckWorker::SignatureHelpJob.new(path: current_dir + "lib/foo.rb", line: 1, column: 21))
 
       refute response[:syntax_error]
       response[:signature_help].tap do |help|
@@ -1503,7 +1546,7 @@ RUBY
       end
 
       # Outside of the arguments of a call
-      response = worker.process_signature_help(TypeCheckWorker::SignatureHelpJob.new(path: Pathname("lib/foo.rb"), line: 1, column: 1))
+      response = worker.process_signature_help(TypeCheckWorker::SignatureHelpJob.new(path: current_dir + "lib/foo.rb", line: 1, column: 1))
       assert_equal({ signature_help: nil, syntax_error: false }, response)
     end
   end
@@ -1533,7 +1576,7 @@ RUBY
         }
       ) {}
 
-      response = worker.process_signature_help(TypeCheckWorker::SignatureHelpJob.new(path: Pathname("lib/foo.rb"), line: 1, column: 6))
+      response = worker.process_signature_help(TypeCheckWorker::SignatureHelpJob.new(path: current_dir + "lib/foo.rb", line: 1, column: 6))
       assert_equal({ signature_help: nil, syntax_error: true }, response)
     end
   end

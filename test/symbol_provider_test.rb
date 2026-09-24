@@ -245,4 +245,22 @@ RUBY
 
     assert_equal({}, symbols_at(type_check, "lib/nothing.rb", 1, 0))
   end
+
+  def test_type_name_in_library_rbs
+    type_check = type_check_service do |changes|
+      changes[Pathname("sig/customer.rbs")] = [ContentChange.string(<<RBS)]
+class Customer
+end
+RBS
+    end
+
+    # A library RBS file is given by its absolute path, which names its buffer in the environment
+    path = RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "string.rbs"
+    lines = path.read.lines
+    line = lines.index {|text| text.include?("def =~: (Regexp regex) -> Integer?") } or raise
+    column = lines[line].index("Integer") or raise
+
+    result = SymbolProvider.new(service: type_check).symbols_at(path: path, line: line + 1, column: column + 2)
+    assert_equal "::Integer", result.type_name.to_s
+  end
 end

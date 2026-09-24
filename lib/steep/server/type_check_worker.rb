@@ -50,17 +50,17 @@ module Steep
         when CustomMethods::Hover::METHOD
           params = request[:params] #: CustomMethods::Hover::params
           path, line, column = position_of(params)
-          enqueue_interaction_job HoverJob.new(id: request[:id], path: project.relative_path(path), line: line, column: column)
+          enqueue_interaction_job HoverJob.new(id: request[:id], path: path, line: line, column: column)
 
         when CustomMethods::Completion::METHOD
           params = request[:params] #: CustomMethods::Completion::params
           path, line, column = position_of(params)
-          enqueue_interaction_job CompletionJob.new(id: request[:id], path: project.relative_path(path), line: line, column: column, trigger: params[:trigger])
+          enqueue_interaction_job CompletionJob.new(id: request[:id], path: path, line: line, column: column, trigger: params[:trigger])
 
         when CustomMethods::SignatureHelp::METHOD
           params = request[:params] #: CustomMethods::SignatureHelp::params
           path, line, column = position_of(params)
-          enqueue_interaction_job SignatureHelpJob.new(id: request[:id], path: project.relative_path(path), line: line, column: column)
+          enqueue_interaction_job SignatureHelpJob.new(id: request[:id], path: path, line: line, column: column)
 
         when CustomMethods::Source__Symbol::METHOD
           params = request[:params] #: CustomMethods::Source__Symbol::params
@@ -368,12 +368,14 @@ module Steep
           Steep.measure "Generating response" do
             Steep.logger.info "path: #{job.path}, line: #{job.line}, column: #{job.column}, trigger: #{job.trigger}"
 
+            path = project.relative_path(job.path)
+
             case
-            when target = project.target_for_inline_source_path(job.path) || project.target_for_source_path(job.path)
-              file = service.source_files[job.path] or return
+            when target = project.target_for_inline_source_path(path) || project.target_for_source_path(path)
+              file = service.source_files[path] or return
               subtyping = service.signature_services.fetch(target.name).current_subtyping or return
 
-              provider = Services::CompletionProvider::Ruby.new(source_text: file.content, path: job.path, subtyping: subtyping)
+              provider = Services::CompletionProvider::Ruby.new(source_text: file.content, path: path, subtyping: subtyping)
 
               if (prefix_size, items = provider.run_at_comment(line: job.line, column: job.column))
                 completion_items = items.map { completion_item(_1) }
@@ -391,10 +393,10 @@ module Steep
               Steep.logger.debug "items = #{completion_items.inspect}"
 
               { target: target.name.to_s, incomplete: false, items: completion_items }
-            when target = project.target_for_signature_path(job.path)
+            when target = project.target_for_signature_path(path)
               sig_service = service.signature_services[target.name] or raise
 
-              completion = Services::CompletionProvider::RBS.new(job.path, sig_service)
+              completion = Services::CompletionProvider::RBS.new(path, sig_service)
               prefix_size, type_names = completion.run(job.line, job.column)
               range = range_before(job.line, job.column, prefix_size)
 
@@ -479,8 +481,10 @@ module Steep
 
       def process_signature_help(job)
         Steep.logger.tagged("##{__method__}") do
-          if target = project.target_for_inline_source_path(job.path) || project.target_for_source_path(job.path)
-            file = service.source_files[job.path] or return
+          path = project.relative_path(job.path)
+
+          if target = project.target_for_inline_source_path(path) || project.target_for_source_path(path)
+            file = service.source_files[path] or return
             subtyping = service.signature_services.fetch(target.name).current_subtyping or return
             source =
               Source.parse(file.content, path: file.path, factory: subtyping.factory)
@@ -510,7 +514,12 @@ module Steep
       end
 
       def target_for(path)
-        project.target_for_inline_source_path(path) || project.target_for_source_path(path) || project.target_for_signature_path(path)
+        relative_path = project.relative_path(path)
+
+        project.target_for_inline_source_path(relative_path) ||
+          project.target_for_source_path(relative_path) ||
+          project.target_for_signature_path(relative_path) ||
+          Services::HoverProvider.library_target(service, path)
       end
 
       def workspace_symbol_result(query)

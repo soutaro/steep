@@ -90,7 +90,7 @@ module Steep
       class HoverJob
         attr_reader id: String
 
-        # Relative path of the file
+        # Absolute path of the file
         attr_reader path: Pathname
 
         # 1-origin line
@@ -105,7 +105,7 @@ module Steep
       class CompletionJob
         attr_reader id: String
 
-        # Relative path of the file
+        # Absolute path of the file
         attr_reader path: Pathname
 
         # 1-origin line
@@ -122,7 +122,7 @@ module Steep
       class SignatureHelpJob
         attr_reader id: String
 
-        # Relative path of the file
+        # Absolute path of the file
         attr_reader path: Pathname
 
         # 1-origin line
@@ -242,7 +242,10 @@ module Steep
       # Returns what is at the position of the job, type checking the file on demand like hover
       def process_source_symbol: (SourceSymbolJob job) -> CustomMethods::Source__Symbol::result
 
-      # Returns what is at the position of the job, `nil` when nothing is there
+      # Returns what is at the position of the job, `nil` when nothing is there or the file is unknown
+      #
+      # The file may be a Ruby file or an RBS file of the project, or a library RBS file.
+      #
       def process_hover: (HoverJob job) -> CustomMethods::Hover::result?
 
       # Translates a hover content to the wire, with the types as strings and the declarations as names
@@ -265,8 +268,11 @@ module Steep
       # Returns the signature help at the position of the job, `nil` when the file is not in the project
       def process_signature_help: (SignatureHelpJob) -> CustomMethods::SignatureHelp::result?
 
-      # The target of a Ruby or RBS file of the project
-      def target_for: (Pathname) -> Project::Target?
+      # The target of a Ruby or RBS file of the project, or the first target that loads a library RBS file
+      #
+      # `nil` for any other file.
+      #
+      def target_for: (Pathname absolute_path) -> Project::Target?
 
       def workspace_symbol_result: (untyped query) -> untyped
     end

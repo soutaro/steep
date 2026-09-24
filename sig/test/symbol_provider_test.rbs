@@ -36,4 +36,6 @@ class SymbolProviderTest < Minitest::Test
   def test_type_of_expression: () -> untyped
 
   def test_unknown_file: () -> untyped
+
+  def test_type_name_in_library_rbs: () -> untyped
 end
