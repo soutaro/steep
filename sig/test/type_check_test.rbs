@@ -160,6 +160,32 @@ class TypeCheckTest < Minitest::Test
 
   def test_data_struct_annotation: () -> untyped
 
+  def test_data_define_block: () -> untyped
+
+  def test_data_define_block__body_type_mismatch: () -> untyped
+
+  def test_data_define_block__undeclared_method: () -> untyped
+
+  def test_data_define_block__singleton_method: () -> untyped
+
+  def test_data_define_block__cbase: () -> untyped
+
+  def test_data_define_block__empty_body: () -> untyped
+
+  def test_data_define_block__super_reader: () -> untyped
+
+  def test_data_define_block__implements_annotation: () -> untyped
+
+  def test_data_define_block__nonclass_constant: () -> untyped
+
+  def test_data_define_block__initialize_super: () -> untyped
+
+  def test_data_define_block__unassigned: () -> untyped
+
+  def test_data_define_block__undeclared_constant: () -> untyped
+
+  def test_struct_new_block: () -> untyped
+
   def test_any_upperbound: () -> untyped
 
   def test_generics_upperbound_default: () -> untyped

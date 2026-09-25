@@ -2390,6 +2390,459 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_data_define_block
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Measure < Data
+            attr_reader amount(): Integer
+            attr_reader unit(): String
+
+            def self.new: (Integer amount, String unit) -> instance
+                        | (amount: Integer, unit: String) -> instance
+
+            def to_s: () -> String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Measure = Data.define(:amount, :unit) do
+            def to_s
+              "\#{amount} \#{unit}"
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_data_define_block__body_type_mismatch
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Measure < Data
+            attr_reader amount(): Integer
+
+            def to_s: () -> String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Measure = Data.define(:amount) do
+            def to_s
+              amount
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 10
+            severity: ERROR
+            message: |-
+              Cannot allow method body have type `::Integer` because declared as type `::String`
+                ::Integer <: ::String
+                  ::Numeric <: ::String
+                    ::Object <: ::String
+                      ::BasicObject <: ::String
+            code: Ruby::MethodBodyTypeMismatch
+      YAML
+    )
+  end
+
+  def test_data_define_block__undeclared_method
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Measure < Data
+            attr_reader amount(): Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Measure = Data.define(:amount) do
+            def foo
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 9
+            severity: ERROR
+            message: Method `::Measure#foo` is not declared in RBS
+            code: Ruby::UndeclaredMethodDefinition
+      YAML
+    )
+  end
+
+  def test_data_define_block__singleton_method
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Measure < Data
+            attr_reader amount(): Integer
+
+            def self.new: (amount: Integer) -> instance
+            def self.parse: (String) -> Measure
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Measure = Data.define(:amount) do
+            def self.parse(string)
+              new(amount: Integer(string))
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_data_define_block__cbase
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Measure < Data
+            attr_reader amount(): Integer
+
+            def to_s: () -> String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Measure = ::Data.define(:amount) do
+            def to_s
+              amount.to_s
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_data_define_block__empty_body
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Measure < Data
+            attr_reader amount(): Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Measure = Data.define(:amount) do
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_data_define_block__super_reader
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Measure < Data
+            attr_reader amount(): Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Measure = Data.define(:amount) do
+            def amount = super
+          end
+        RUBY
+      },
+      # `Data.define` defines the readers on the returned class itself, so a reader override in
+      # the block replaces them and `super` raises NoMethodError at runtime. The diagnostic
+      # matches the runtime behavior. (The inheritance form `class Measure < Data.define(...)`
+      # keeps the readers on the anonymous superclass, so `super` works there.)
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 15
+              end:
+                line: 2
+                character: 20
+            severity: ERROR
+            message: No superclass method `amount` defined
+            code: Ruby::UnexpectedSuper
+      YAML
+    )
+  end
+
+  def test_data_define_block__implements_annotation
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Measure < Data
+            attr_reader amount(): Integer
+          end
+
+          class Other
+            def foo: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Measure = Data.define(:amount) do
+            # @implements Other
+
+            def foo
+              1
+            end
+          end
+        RUBY
+      },
+      # An explicit `@implements` annotation takes precedence over the assigned constant
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_data_define_block__nonclass_constant
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          Frame: Integer
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Frame = Data.define(:a) do
+            def b = 1
+          end
+        RUBY
+      },
+      # The constant is declared but is not a class
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 7
+            severity: ERROR
+            message: Method `b` is defined in undeclared module
+            code: Ruby::MethodDefinitionInUndeclaredModule
+      YAML
+    )
+  end
+
+  def test_data_define_block__initialize_super
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Frame < Data
+            attr_reader name(): String
+            attr_reader elems(): Array[String]
+
+            def self.new: (name: String, ?elems: Array[String]) -> instance
+
+            def initialize: (name: String, ?elems: Array[String]) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Frame = Data.define(:name, :elems) do
+            def initialize(name:, elems: [])
+              super(name: name, elems: elems)
+            end
+          end
+        RUBY
+      },
+      # The `UnexpectedKeywordArgument` diagnostics are a pre-existing limitation, not specific to
+      # the block form: RBS core doesn't declare `Data#initialize`, so `super` resolves to
+      # `Object#initialize`. `class Frame < Data.define(:name, :elems)` reports exactly the same.
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 10
+              end:
+                line: 3
+                character: 14
+            severity: ERROR
+            message: Unexpected keyword argument
+            code: Ruby::UnexpectedKeywordArgument
+          - range:
+              start:
+                line: 3
+                character: 22
+              end:
+                line: 3
+                character: 27
+            severity: ERROR
+            message: Unexpected keyword argument
+            code: Ruby::UnexpectedKeywordArgument
+      YAML
+    )
+  end
+
+  def test_data_define_block__unassigned
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          ::Data.define(:foo) do
+            def self.bar
+            end
+          end
+        RUBY
+      },
+      # No `Ruby::UnexpectedError` -- the `def self.bar` used to crash with
+      # `Unexpected self_type: untyped` because the type of `self` in the block cannot be solved
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 11
+              end:
+                line: 2
+                character: 14
+            severity: ERROR
+            message: Method `bar` is defined in undeclared module
+            code: Ruby::MethodDefinitionInUndeclaredModule
+      YAML
+    )
+  end
+
+  def test_data_define_block__undeclared_constant
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Frame = Data.define(:a) do
+            def self.b
+            end
+          end
+        RUBY
+      },
+      # No `Ruby::UnexpectedError` even when the constant is not declared in RBS
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 5
+            severity: ERROR
+            message: 'Cannot find the declaration of constant: `Frame`'
+            code: Ruby::UnknownConstant
+          - range:
+              start:
+                line: 2
+                character: 11
+              end:
+                line: 2
+                character: 12
+            severity: ERROR
+            message: Method `b` is defined in undeclared module
+            code: Ruby::MethodDefinitionInUndeclaredModule
+      YAML
+    )
+  end
+
+  def test_struct_new_block
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class World < Struct[untyped]
+            attr_accessor size(): Integer
+
+            def double_size: () -> Integer
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          World = Struct.new(:size) do
+            def double_size
+              size * 2
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_any_upperbound
     run_type_check_test(
       signatures: {
