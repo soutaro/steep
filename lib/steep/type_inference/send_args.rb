@@ -31,7 +31,7 @@ module Steep
 
           def node_type
             case node.type
-            when :splat
+            when :splat, :forwarded_restarg
               AST::Builtin::Array.instance_type(type)
             else
               type
@@ -40,6 +40,18 @@ module Steep
         end
 
         class SplatArg
+          attr_reader :node
+          attr_accessor :type
+
+          def initialize(node:)
+            @node = node
+            @type = nil
+          end
+
+          include Equatable
+        end
+
+        class ForwardedRestArg
           attr_reader :node
           attr_accessor :type
 
@@ -115,30 +127,35 @@ module Steep
             nil
           when !node && !param
             nil
-          when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Required)
-            [
-              NodeParamPair.new(node: node, param: param),
-              update(index: index+1, positional_params: positional_params&.tail)
-            ]
-          when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Optional)
-            [
-              NodeParamPair.new(node: node, param: param),
-              update(index: index+1, positional_params: positional_params&.tail)
-            ]
-          when node && node.type != :splat && param.is_a?(Interface::Function::Params::PositionalParams::Rest)
-            [
-              NodeParamPair.new(node: node, param: param),
-              update(index: index+1)
-            ]
-          when node && node.type != :splat && !param
-            [
-              UnexpectedArg.new(node: node),
-              update(index: index + 1)
-            ]
           when node && node.type == :splat
             [
               SplatArg.new(node: node),
               self
+            ]
+          when node && node.type == :forwarded_restarg
+            [
+              ForwardedRestArg.new(node: node),
+              self
+            ]
+          when node && param.is_a?(Interface::Function::Params::PositionalParams::Required)
+            [
+              NodeParamPair.new(node: node, param: param),
+              update(index: index+1, positional_params: positional_params&.tail)
+            ]
+          when node && param.is_a?(Interface::Function::Params::PositionalParams::Optional)
+            [
+              NodeParamPair.new(node: node, param: param),
+              update(index: index+1, positional_params: positional_params&.tail)
+            ]
+          when node && param.is_a?(Interface::Function::Params::PositionalParams::Rest)
+            [
+              NodeParamPair.new(node: node, param: param),
+              update(index: index+1)
+            ]
+          when node && !param
+            [
+              UnexpectedArg.new(node: node),
+              update(index: index + 1)
             ]
           end
         end
@@ -205,6 +222,18 @@ module Steep
         end
 
         class SplatArg
+          attr_reader :node
+          attr_accessor :type
+
+          def initialize(node:)
+            @node = node
+            @type = nil
+          end
+
+          include Equatable
+        end
+
+        class ForwardedKwRestArg
           attr_reader :node
           attr_accessor :type
 
@@ -385,6 +414,11 @@ module Steep
             when :kwsplat
               [
                 SplatArg.new(node: node),
+                self
+              ]
+            when :forwarded_kwrestarg
+              [
+                ForwardedKwRestArg.new(node: node),
                 self
               ]
             end
@@ -585,7 +619,7 @@ module Steep
               yield value
 
               case value
-              when PositionalArgs::SplatArg
+              when PositionalArgs::SplatArg, PositionalArgs::ForwardedRestArg
                 type = value.type
 
                 case type
@@ -645,7 +679,7 @@ module Steep
                 yield a
 
                 case a
-                when KeywordArgs::SplatArg
+                when KeywordArgs::SplatArg, KeywordArgs::ForwardedKwRestArg
                   case type = a.type
                   when nil
                     raise
