@@ -3709,6 +3709,41 @@ EOF
     end
   end
 
+  def test_def_with_splat_anonymous_forwarding
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: (*Integer) -> untyped
+end
+class B < A
+  def initialize: (String, *Integer) -> untyped
+end
+class C < A
+  def initialize: (*String) -> untyped
+end
+      EOF
+      source = parse_ruby(<<-'EOF')
+class B < A
+  def initialize(x, *) = super(*)
+end
+class C < A
+  def initialize(*) = super(*)
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
+              error.actual == parse_type("::Array[::String]") &&
+              error.expected == parse_type("::Array[::Integer]")
+          end
+        end
+      end
+    end
+  end
+
   def test_def_with_splat_kwargs
     with_checker do |checker|
       source = parse_ruby(<<EOF)
@@ -3724,6 +3759,237 @@ EOF
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
         assert_all(typing.errors) {|error| error.is_a?(Diagnostic::Ruby::UndeclaredMethodDefinition) }
+      end
+    end
+  end
+
+  def test_def_with_splat_kwargs_anonymous_forwarding
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: (**Integer) -> untyped
+end
+class B < A
+  def initialize: (String, **Integer) -> untyped
+end
+class C < A
+  def initialize: (**String) -> untyped
+end
+      EOF
+      source = parse_ruby(<<-'EOF')
+class B < A
+  def initialize(x, **) = super(**)
+end
+class C < A
+  def initialize(**) = super(**)
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
+              error.actual == parse_type("::Hash[::Symbol, ::String]") &&
+              error.expected == parse_type("::Hash[::Symbol, ::Integer]")
+          end
+        end
+      end
+    end
+  end
+
+  def test_def_with_splat_kwargs_block_anonymous_forwarding
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: (*Integer, **Integer) { () -> void } -> untyped
+end
+class B < A
+  def initialize: (*Integer, **Integer) { () -> void } -> untyped
+end
+class C < A
+  def initialize: (*String, **String) { () -> void } -> untyped
+end
+      EOF
+      source = parse_ruby(<<-'EOF')
+class B < A
+  def initialize(*, **, &) = super(*, **, &)
+end
+class C < A
+  def initialize(*, **, &) = super(*, **, &)
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
+              error.actual == parse_type("::Array[::String]") &&
+              error.expected == parse_type("::Array[::Integer]")
+          end
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::ArgumentTypeMismatch) &&
+              error.actual == parse_type("::Hash[::Symbol, ::String]") &&
+              error.expected == parse_type("::Hash[::Symbol, ::Integer]")
+          end
+        end
+      end
+    end
+  end
+
+  def test_array_with_anonymous_forwarding
+    with_checker <<-EOF do |checker|
+class A
+  def foo: (*Integer) -> Array[Integer]
+  def bar: (*Integer) -> Array[Integer | String]
+  def baz: (*Integer) -> [Array[Integer]]
+  def qux: (*Integer) -> []
+end
+      EOF
+      source = parse_ruby(<<-'EOF')
+class A
+  def foo(*) = [*]
+  def bar(*) = ["a", *]
+  def baz(*) = [*]
+  def qux(*) = [*]
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::MethodBodyTypeMismatch) &&
+              error.actual == parse_type("::Array[::Integer]") &&
+              error.expected == parse_type("[::Array[::Integer]]")
+          end
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::MethodBodyTypeMismatch) &&
+              error.actual == parse_type("::Array[::Integer]") &&
+              error.expected == parse_type("[]")
+          end
+        end
+      end
+    end
+  end
+
+  def test_hash_with_anonymous_forwarding
+    with_checker <<-EOF do |checker|
+class A
+  def foo: (**Integer) -> Hash[Symbol, Integer]
+  def bar: (**String) -> Hash[Symbol, Integer | String]
+  def baz: (**Integer) -> Hash[Symbol, String]
+end
+      EOF
+      source = parse_ruby(<<-'EOF')
+class A
+  def foo(**) = {**}
+  def bar(**) = {k: 1, **}
+  def baz(**) = {**}
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::MethodBodyTypeMismatch) &&
+              error.actual == parse_type("::Hash[::Symbol, ::Integer]") &&
+              error.expected == parse_type("::Hash[::Symbol, ::String]")
+          end
+        end
+      end
+    end
+  end
+
+  def test_def_with_untyped_params_anonymous_forwarding
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: (*Integer, **Integer) -> untyped
+end
+class B < A
+  def initialize: (?) -> untyped
+end
+class C < A
+  def initialize: (?) -> untyped
+end
+      EOF
+      source = parse_ruby(<<-'EOF')
+class B < A
+  def initialize(*, **) = super(*, **)
+end
+class C < A
+  def initialize(*args, **opts) = super(*args, **opts)
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_forwarded_restarg_without_rest_param
+    with_checker do |checker|
+      source = parse_ruby(<<-'EOF')
+def foo(*) = bar(*)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        # Type `*` outside of the method, where the anonymous rest parameter is not available
+        type, _ = construction.synthesize(dig(source.node, 2, 2))
+
+        assert_equal parse_type("::Array[untyped]"), type
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_forwarded_kwrestarg_without_kwrest_param
+    with_checker do |checker|
+      source = parse_ruby(<<-'EOF')
+def foo(**) = bar(**)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        # Type `**` outside of the method, where the anonymous keyword rest parameter is not available
+        type, _ = construction.synthesize(dig(source.node, 2, 2, 0))
+
+        assert_equal parse_type("::Hash[::Symbol, untyped]"), type
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_def_with_mismatched_params_anonymous_forwarding
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: (*Integer, **Integer) -> untyped
+end
+class B < A
+  def initialize: (Integer) -> untyped
+end
+      EOF
+      # `**` has no type, because `*` doesn't match the method type
+      source = parse_ruby(<<-'EOF')
+class B < A
+  def initialize(*, **) = super(*, **)
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any errors do |error|
+            error.is_a?(Diagnostic::Ruby::DifferentMethodParameterKind)
+          end
+        end
       end
     end
   end

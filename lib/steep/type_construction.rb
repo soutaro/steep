@@ -39,9 +39,12 @@ module Steep
 
     SPECIAL_LVAR_NAMES = Set[:_, :__any__, :__skip__]
 
-    # a synthetic variable name for anonymous block params (can't conflict with
-    # user variables since Ruby doesn't allow * in local variable names).
+    # Synthetic variable names for anonymous kinds of syntax i.e. anonymous
+    # block params and anonymous splats. They can't conflict with user
+    # variables since Ruby doesn't allow * in local variable names.
     ANONYMOUS_BLOCK_PASSABLE_LVAR = :"*block"
+    ANONYMOUS_FORWARD_RESTARG_LVAR = :*
+    ANONYMOUS_FORWARD_KWRESTARG_LVAR = :**
 
     include ModuleHelper
 
@@ -238,6 +241,10 @@ module Steep
           unless SPECIAL_LVAR_NAMES.include?(param.name)
             hash[param.name] = param.var_type
           end
+        elsif param.is_a?(TypeInference::MethodParams::PositionalRestParameter)
+          hash[ANONYMOUS_FORWARD_RESTARG_LVAR] = param.var_type
+        elsif param.is_a?(TypeInference::MethodParams::KeywordRestParameter)
+          hash[ANONYMOUS_FORWARD_KWRESTARG_LVAR] = param.var_type
         elsif param.is_a?(TypeInference::MethodParams::BlockParameter)
           hash[ANONYMOUS_BLOCK_PASSABLE_LVAR] = param.var_type
         end
@@ -2707,6 +2714,14 @@ module Steep
         when :forwarded_args, :forward_arg
           add_typing(node, type: AST::Builtin.any_type)
 
+        when :forwarded_restarg
+          type = context.type_env[ANONYMOUS_FORWARD_RESTARG_LVAR] || AST::Builtin::Array.instance_type(AST::Builtin.any_type)
+          add_typing node, type: type
+
+        when :forwarded_kwrestarg
+          type = context.type_env[ANONYMOUS_FORWARD_KWRESTARG_LVAR] || AST::Builtin::Hash.instance_type(AST::Builtin::Symbol.instance_type, AST::Builtin.any_type)
+          add_typing node, type: type
+
         else
           typing.add_error(Diagnostic::Ruby::UnsupportedSyntax.new(node: node))
           add_typing(node, type: AST::Builtin.any_type)
@@ -3889,6 +3904,10 @@ module Steep
               .try_tuple_type!(arg.node.children[0])
           arg.type = arg_type
 
+        when TypeInference::SendArgs::PositionalArgs::ForwardedRestArg
+          arg_type, _ = constr.synthesize(arg.node)
+          arg.type = arg_type
+
         when TypeInference::SendArgs::PositionalArgs::MissingArg
           # ignore
 
@@ -3926,6 +3945,10 @@ module Steep
           end
 
           arg.type = type
+
+        when TypeInference::SendArgs::KeywordArgs::ForwardedKwRestArg
+          arg_type, _ = constr.synthesize(arg.node)
+          arg.type = arg_type
 
         when TypeInference::SendArgs::KeywordArgs::MissingKeyword
           # ignore
@@ -5011,7 +5034,8 @@ module Steep
       element_types = [] #: Array[AST::Types::t]
 
       array_node.children.each_with_index do |child, index|
-        if child.type == :splat
+        case child.type
+        when :splat
           type, constr = constr.synthesize(child.children[0])
           typing.add_typing(child, type, nil)
           if converted_type = try_convert(type, :to_a)
@@ -5024,6 +5048,9 @@ module Steep
           else
             element_types << type
           end
+        when :forwarded_restarg
+          # The anonymous rest parameter is an array, which cannot be used to construct a tuple
+          return
         else
           child_hint =
             if hint
@@ -5124,8 +5151,14 @@ module Steep
 
       each_child_node(node) do |child|
         case child.type
-        when :splat
-          type, constr = constr.synthesize(child.children[0], hint: hint)
+        when :splat, :forwarded_restarg
+          splat_value = if child.type == :splat
+                          child.children[0]
+                        else
+                          # `*` in `[*]` has no child node, and has the type of the anonymous rest parameter itself
+                          child
+                        end
+          type, constr = constr.synthesize(splat_value, hint: hint)
 
           type = try_convert(type, :to_a) || type
 
@@ -5269,6 +5302,13 @@ module Steep
                   value_types << type.args.fetch(1)
                 end
               end
+            end
+          when :forwarded_kwrestarg
+            type, constr = constr.synthesize(elem, hint: hint_hash)
+            if AST::Builtin::Hash.instance_type?(type)
+              # @type var type: AST::Types::Name::Instance
+              key_types << type.args.fetch(0)
+              value_types << type.args.fetch(1)
             end
           else
             raise

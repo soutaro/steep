@@ -22,6 +22,10 @@ module Steep
 
     ANONYMOUS_BLOCK_PASSABLE_LVAR: Symbol
 
+    ANONYMOUS_FORWARD_RESTARG_LVAR: Symbol
+
+    ANONYMOUS_FORWARD_KWRESTARG_LVAR: Symbol
+
     include NodeHelper
 
     include ModuleHelper

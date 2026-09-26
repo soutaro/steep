@@ -36,6 +36,17 @@ module Steep
           include Equatable
         end
 
+        # Anonymous rest argument forwarding (`foo(*)`)
+        class ForwardedRestArg
+          attr_reader node: Parser::AST::Node
+
+          attr_accessor type: AST::Types::t?
+
+          def initialize: (node: Parser::AST::Node) -> void
+
+          include Equatable
+        end
+
         class UnexpectedArg
           attr_reader node: Parser::AST::Node
 
@@ -52,7 +63,7 @@ module Steep
           include Equatable
         end
 
-        type arg = NodeParamPair | NodeTypePair | SplatArg | error_arg
+        type arg = NodeParamPair | NodeTypePair | SplatArg | ForwardedRestArg | error_arg
 
         type error_arg = UnexpectedArg | MissingArg
 
@@ -114,6 +125,17 @@ module Steep
           include Equatable
         end
 
+        # Anonymous keyword rest argument forwarding (`foo(**)`)
+        class ForwardedKwRestArg
+          attr_reader node: Parser::AST::Node
+
+          attr_accessor type: AST::Types::t?
+
+          def initialize: (node: Parser::AST::Node) -> void
+
+          include Equatable
+        end
+
         class UnexpectedKeyword
           attr_reader keyword: Symbol?
 
@@ -136,7 +158,7 @@ module Steep
           def initialize: (keywords: Set[Symbol]) -> void
         end
 
-        type arg = ArgTypePairs | SplatArg | error_arg
+        type arg = ArgTypePairs | SplatArg | ForwardedKwRestArg | error_arg
 
         type error_arg = UnexpectedKeyword | MissingKeyword
 
