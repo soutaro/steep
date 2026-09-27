@@ -24,13 +24,15 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
   def test_location: () -> untyped
 
-  def test_inline_file_has_results_in_both_tables: () -> untyped
+  def test_inline_file_has_entries_in_sources_and_rbs: () -> untyped
 
-  def test_signatures_merge_targets: () -> untyped
+  def test_rbs_merge_targets: () -> untyped
 
   def test_update_replaces_previous_result: () -> untyped
 
   def test_update_signature_replaces_only_the_target: () -> untyped
+
+  def test_update_rbs_replaces_only_the_target: () -> untyped
 
   def test_remove_releases_everything: () -> untyped
 

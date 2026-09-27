@@ -7,6 +7,7 @@ module Steep
       ValidateAppSignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
       TypeCheckInlineCodeJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
+      IndexSignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
 
       HoverJob = _ = Struct.new(:id, :path, :line, :column, keyword_init: true)
       CompletionJob = _ = Struct.new(:id, :path, :line, :column, :trigger, keyword_init: true)
@@ -106,6 +107,8 @@ module Steep
             ValidateLibrarySignatureJob.new(id: id, path: path, target: target)
           when "inline"
             TypeCheckInlineCodeJob.new(id: id, path: path, target: target)
+          when "index"
+            IndexSignatureJob.new(id: id, path: path, target: target)
           else
             raise "Unknown kind of type check: #{params[:kind]}"
           end
@@ -168,6 +171,19 @@ module Steep
             source: source,
             signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path), stats: nil }
           )
+
+        when IndexSignatureJob
+          Steep.logger.info { "Processing IndexSignatureJob for id=#{job.id}, path=#{job.path}, target=#{job.target.name}" }
+
+          relative_path = project.relative_path(job.path)
+          buffer_path =
+            if project.target_for_signature_path(relative_path) || project.target_for_inline_source_path(relative_path)
+              relative_path
+            else
+              job.path
+            end
+
+          respond(job.id, signature: { diagnostics: nil, entries: signature_entries(job.target, buffer_path), stats: nil })
 
         when HoverJob
           result = process_latest_interaction_job(job) { process_hover(job) }

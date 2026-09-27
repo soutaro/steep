@@ -21,6 +21,11 @@ class MasterTest < Minitest::Test
 
   include Server::CustomMethods
 
+  # Drops the index jobs handed out on `initialize`, so that the jobs of the next type check go to the workers
+  #
+  # @rbs (Server::Master, Array[Server::Master::SendMessageJob]) -> void
+  def drop_index_jobs: (Server::Master, Array[Server::Master::SendMessageJob]) -> void
+
   def dirs: () -> untyped
 
   def test_start_workers_on_initialize: () -> untyped
@@ -87,7 +92,9 @@ class MasterTest < Minitest::Test
 
   def test__initialize__file_system_watcher_setup: () -> untyped
 
-  def test_library_entries_loaded_on_initialize: () -> untyped
+  def test_index_on_initialize: () -> untyped
+
+  def test_index_changed_signatures_after_type_check: () -> untyped
 
   def test_start_type_check_delivers_file_contents: () -> untyped
 end

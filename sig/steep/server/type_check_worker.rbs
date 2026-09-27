@@ -14,6 +14,8 @@ module Steep
     # * `ValidateLibrarySignatureJob` validates a *library* RBS file
     # * `TypeCheckCodeJob` type checks a ruby code
     # * `TypeCheckInlineCodeJob` type checks a Ruby file with inline RBS declarations, and validates the declarations
+    # * `IndexSignatureJob` reports the declarations in an RBS file (or the inline RBS declarations in a Ruby file)
+    #   without validating them
     #
     # An interaction request becomes an urgent job, which goes ahead of the type check jobs waiting in the queue,
     # because the user is waiting for the answer. The worker type checks the file on demand and returns what is at
@@ -66,6 +68,20 @@ module Steep
         # The id of the `$/steep/typecheck/file` request
         attr_reader id: String
 
+        attr_reader path: Pathname
+
+        attr_reader target: Project::Target
+
+        def initialize: (id: String, path: Pathname, target: Project::Target) -> void
+      end
+
+      # Reports the entries of the declarations in the file, of the library, the RBS files, or the inline RBS
+      # declarations of the project, without validating them
+      class IndexSignatureJob
+        # The id of the `$/steep/typecheck/file` request
+        attr_reader id: String
+
+        # The absolute path of the file
         attr_reader path: Pathname
 
         attr_reader target: Project::Target
@@ -182,6 +198,7 @@ module Steep
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
                | TypeCheckInlineCodeJob
+               | IndexSignatureJob
                | interaction_job
 
       # Runs a job and writes its response, after applying the buffered changes to the service

@@ -25,6 +25,19 @@ class MasterTest < Minitest::Test
 
   include Server::CustomMethods
 
+  # Drops the index jobs handed out on `initialize`, so that the jobs of the next type check go to the workers
+  #
+  # @rbs (Server::Master, Array[Server::Master::SendMessageJob]) -> void
+  def drop_index_jobs(master, jobs)
+    master.pending_index_jobs.clear
+
+    jobs.each do |job|
+      if job.message[:method] == TypeCheck__File::METHOD && job.message[:params][:kind] == "index"
+        master.result_controller.process_response({ id: job.message[:id], result: nil })
+      end
+    end
+  end
+
   def dirs
     @dirs ||= []
   end
@@ -728,10 +741,9 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.type_check_database.update_signature(
+      master.type_check_database.update_rbs(
         path: current_dir + "sig/customer.rbs",
         target: :lib,
-        diagnostics: [],
         entries: [
           Server::TypeCheckDatabase::Entry.new(name: "::Customer#name", role: :definition, start_line: 1, start_character: 6, end_line: 1, end_character: 10)
         ]
@@ -810,7 +822,7 @@ end
         stats: { typed_calls: 3, untyped_calls: 1, error_calls: 0 }
       )
       master.type_check_database.update_source(path: current_dir + "lib/broken.rb", target: :lib, diagnostics: [], entries: [], stats: nil)
-      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [], entries: [])
+      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [])
 
       master.process_message_from_client({ method: Stats::METHOD, id: "stats" })
 
@@ -852,7 +864,7 @@ end
 
       diagnostic = { message: "error", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } } }
       master.type_check_database.update_source(path: current_dir + "lib/customer.rb", target: :lib, diagnostics: [diagnostic], entries: [])
-      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [], entries: [])
+      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [])
 
       # The requested files, with `nil` for a file that is not type checked
       master.process_message_from_client(
@@ -1958,7 +1970,7 @@ end
     end
   end
 
-  def test_library_entries_loaded_on_initialize
+  def test_index_on_initialize
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -1990,34 +2002,97 @@ end
       )
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
-      flush_queue(master.write_queue)
 
-      # The entries of the library RBS files are collected in the environment thread, and stored in the main thread
-      assert_equal [], master.type_check_database.definitions("::String")
-      master.environment_queue.pop.call
-      master.job_queue.pop.call
+      # Every RBS file of the project is indexed in its target, and every library RBS file in every target
+      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal 2, jobs.size
 
-      assert_any!(master.type_check_database.definitions("::String")) do |location|
-        assert_equal :rbs, location.source
-        assert_operator location.path.to_s, :end_with?, "/core/string.rbs"
-        refute master.type_check_database.checked?(location.path)
+      index_jobs = (jobs.map { [_1.message[:params][:target].to_sym, PathHelper.to_pathname!(_1.message[:params][:uri])] } + master.pending_index_jobs.keys)
+      assert_equal [:lib, current_dir + "sig/customer.rbs"], index_jobs[0]
+      assert_equal ["index"], jobs.map { _1.message[:params][:kind] }.uniq
+      [:lib, :test].each do |target|
+        library_paths = master.controller.files.each_library_path(project.targets.find { _1.name == target } || raise).to_a
+        refute_empty library_paths
+        assert_equal library_paths, index_jobs.filter_map { |t, path| path if t == target && path != current_dir + "sig/customer.rbs" }
       end
 
-      # The project RBS files are not in the database until the workers validate them
-      assert_equal [], master.type_check_database.definitions("::Customer")
+      # The entries are stored when the worker responds, without making the file checked, and the next job is handed out
+      master.result_controller.process_response(
+        {
+          id: jobs[0].message[:id],
+          result: { source: nil, signature: { diagnostics: nil, entries: [["::Customer", 0, 0, 6, 0, 14]], stats: nil } }
+        }
+      )
 
-      # The entries collected in the environments of the two targets are merged: the core RBS files are stored once
-      service = master.controller.type_check_service or raise
-      entries = Server::TypeCheckDatabase.rbs_entries_by_path(service.signature_services.fetch(:lib).latest_env)
-      assert_equal entries.sum { |_, entries| entries.size }, master.type_check_database.entry_count
+      assert_equal [[current_dir + "sig/customer.rbs", :rbs, 0]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.source, _1.start_line] }
+      refute master.type_check_database.checked?(current_dir + "sig/customer.rbs")
 
-      master.process_message_from_client({ id: "definition", method: Query__Definition::METHOD, params: { name: "::String" } })
-      jobs = flush_queue(master.write_queue)
-      assert_equal "type_name", jobs[0].message[:result][:kind]
-      assert_any!(jobs[0].message[:result][:locations]) do |location|
-        assert_equal "rbs", location[:source]
-        assert_operator location[:uri], :end_with?, "/core/string.rbs"
-      end
+      next_jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal ["index"], next_jobs.map { _1.message[:params][:kind] }
+
+      master.process_message_from_client({ id: "definition", method: Query__Definition::METHOD, params: { name: "::Customer" } })
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "definition" } or raise
+      assert_equal "type_name", response.message[:result][:kind]
+      assert_equal [PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s], response.message[:result][:locations].map { _1[:uri] }
+    end
+  end
+
+  def test_index_changed_signatures_after_type_check
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+      (current_dir + "sig/account.rbs").write("class Account\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(worker)
+      )
+      master.typecheck_automatically = false
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      drop_index_jobs(master, flush_queue(master.write_queue))
+
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      master.controller.push_file_change(current_dir + "sig/account.rbs", "class Account\n  def id: () -> Integer\nend\n")
+
+      # The type check validates `sig/customer.rbs`, and `sig/account.rbs` is indexed after the type check jobs
+      master.process_message_from_client({
+        id: "check",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal ["code", "signature"], jobs.map { _1.message[:params][:kind] }
+      assert_equal [[:lib, current_dir + "sig/account.rbs"]], master.pending_index_jobs.keys
+
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: nil } })
+
+      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal [["index", PathHelper.to_uri(current_dir + "sig/account.rbs").to_s]], jobs.map { [_1.message[:params][:kind], _1.message[:params][:uri]] }
+      assert_empty master.pending_index_jobs
     end
   end
 
@@ -2050,9 +2125,14 @@ end
       )
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
-      flush_queue(master.write_queue)
 
-      # The worker receives the RBS files before the type check, and the Ruby file with its request
+      # The worker receives the RBS files on `initialize`, before the index jobs
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal FileLoad::METHOD, jobs[0].message[:method]
+      assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
+      drop_index_jobs(master, jobs)
+
+      # The Ruby file goes to the worker with its request
       master.process_message_from_client({
         id: "check-1",
         method: TypeCheck::METHOD,
@@ -2065,14 +2145,13 @@ end
       })
 
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal [FileLoad::METHOD, TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
-      assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
-      assert_equal "code", jobs[1].message[:params][:kind]
-      assert_equal "class Customer\nend\n", jobs[1].message[:params][:content]
-      assert_equal "signature", jobs[2].message[:params][:kind]
-      refute_operator jobs[2].message[:params], :key?, :content
+      assert_equal [TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal "code", jobs[0].message[:params][:kind]
+      assert_equal "class Customer\nend\n", jobs[0].message[:params][:content]
+      assert_equal "signature", jobs[1].message[:params][:kind]
+      refute_operator jobs[1].message[:params], :key?, :content
 
-      jobs.drop(1).each do |job|
+      jobs.each do |job|
         master.result_controller.process_response({ id: job.message[:id], result: { source: nil, signature: nil } })
       end
       flush_queue(master.write_queue)

@@ -196,8 +196,16 @@ module Steep
       #
       attr_reader pending_typecheck_jobs: Array[TypeCheckController::Request::job]
 
-      # The number of `$/steep/typecheck/file` requests each worker is working on
+      # The number of `$/steep/typecheck/file` requests each worker is working on, including the index jobs
       attr_reader typecheck_jobs_in_flight: Hash[WorkerProcess, Integer]
+
+      # The files to index, as the target and the absolute path, in the order to hand out to the workers
+      #
+      # The index jobs have the entries of the declarations reported for the files that are not validated: the library
+      # RBS files, and the RBS files of the groups not type checked. They go to the workers that have room after the
+      # jobs of the current type check.
+      #
+      attr_reader pending_index_jobs: Hash[[Symbol, Pathname], true]
 
       # The number of interaction requests -- hover, completion, signature help, and source symbol -- each worker is working on
       attr_reader interaction_jobs_in_flight: Hash[WorkerProcess, Integer]
@@ -249,18 +257,38 @@ module Steep
       # Starts the thread reading the messages from the worker, and waits for the exit of the worker
       def start_worker_thread: (WorkerProcess worker) -> void
 
-      # Hands the pending jobs of the current type check to the workers that have room for more
+      # Hands the pending jobs of the current type check, and then the pending index jobs, to the workers that have
+      # room for more
       #
       # Each worker with room takes one job per round, so that the files are spread across the workers from the
       # start, and a worker checks each file of a small project alone. Nothing is sent after `shutdown`.
       #
       def dispatch_typecheck_jobs: () -> void
 
+      # Sends a `$/steep/typecheck/file` request to index the file in the target, and stores the entries in the
+      # database when the response comes back
+      #
+      def send_index_job: (WorkerProcess worker, Symbol target_name, Pathname path) -> void
+
+      # Adds the files to index to `pending_index_jobs`, and delivers the RBS files to the workers
+      #
+      # The jobs are handed out by the next `#dispatch_typecheck_jobs`, after the jobs of the type check that follows.
+      #
+      def enqueue_index_jobs: (Array[[Symbol, Pathname]] target_paths) -> void
+
+      # Indexes every RBS file of the project in its target, and every library RBS file in every target that loads it
+      #
+      # Called on `initialize`: the definitions and references of the declarations are not found until the workers
+      # report them.
+      #
+      def index_all_signatures: () -> void
+
       # Sends a `$/steep/typecheck/file` request of the job to the worker, with the content of the Ruby file when the
       # worker doesn't have it yet, and stores the result in the database when the response comes back
       #
       # The response of a request that is superseded by a newer type check is ignored, except for handing the next
-      # job to the worker.
+      # job to the worker. A validation of an RBS file drops the pending index job of the file, because it reports the
+      # entries too.
       #
       def send_typecheck_job: (WorkerProcess worker, TypeCheckController::Request request, TypeCheckController::Request::job job) -> void
 
@@ -314,16 +342,10 @@ module Steep
       # Hands the buffered file changes to the environment thread
       #
       # Called when a type check starts, so that the environments and the file contents in `controller.type_check_service`
-      # follow the files the same way the typecheck workers do.
+      # follow the files the same way the typecheck workers do. The changed RBS files and Ruby files with inline RBS
+      # declarations are added to the index jobs.
       #
       def update_environment: () -> void
-
-      # Collects the entries of the library RBS files of every target and stores them in the database through `job_queue`
-      #
-      # Runs in the environment thread. The type names in a file resolve in the environment of each target, so a file
-      # shared by targets is collected in every environment that has it, and the entries are merged.
-      #
-      def load_library_entries: () -> void
 
       # The symbols of the RBS declarations matching `query` in the environments of every target, for `workspace/symbol`
       #
