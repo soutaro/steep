@@ -21,9 +21,7 @@ module Steep
 
       attr_reader indexes: Hash[Project::Target, RBSIndex]
 
-      attr_reader assignment: Services::PathAssignment
-
-      def initialize: (project: Project, assignment: Services::PathAssignment) -> void
+      def initialize: (project: Project) -> void
 
       def self.test_type_name: (String query, RBS::TypeName type_name) -> bool
 
@@ -32,8 +30,6 @@ module Steep
       def self.test_global_name: (String query, Symbol global_name) -> bool
 
       def self.test_method_name: (String query, method_name) -> bool
-
-      def assigned?: (Project::Target, Pathname) -> bool
 
       def query_symbol: (String query) -> Array[SymbolInformation]
     end

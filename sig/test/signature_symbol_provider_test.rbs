@@ -17,8 +17,6 @@ class SignatureSymbolProviderTest < Minitest::Test
 
   def dirs: () -> untyped
 
-  def assignment: () -> untyped
-
   def test_find_class_symbol: () -> untyped
 
   def test_find_method_symbol: () -> untyped

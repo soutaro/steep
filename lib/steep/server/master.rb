@@ -628,17 +628,13 @@ module Steep
 
         when "workspace/symbol"
           update_environment()
+          query = message[:params][:query] #: String
 
-          result_controller << group_request do |group|
-            typecheck_workers.each do |worker|
-              deliver_contents(worker, signature_paths_to_deliver)
-              group << send_request(method: "workspace/symbol", params: message[:params], worker: worker)
-            end
-
-            group.on_completion do |handlers|
-              result = handlers.flat_map(&:result)
-              result.uniq!
-              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: result })
+          # Answers from the environments of the master, after the environment thread applies the changes above
+          environment_queue << -> do
+            result = workspace_symbol_result(query)
+            job_queue << -> do
+              enqueue_write_job SendMessageJob.to_client(message: { id: id, result: result })
             end
           end
 
@@ -1270,6 +1266,37 @@ module Steep
 
       def signature_paths_to_deliver
         controller.files.signature_paths.paths.to_a + controller.files.inline_paths.paths.to_a
+      end
+
+      def workspace_symbol_result(query)
+        service = controller.type_check_service or return []
+
+        Steep.measure "Generating workspace symbol list for query=`#{query}`" do
+          provider = Index::SignatureSymbolProvider.new(project: project)
+          project.targets.each do |target|
+            provider.indexes[target] = service.signature_services.fetch(target.name).latest_rbs_index
+          end
+
+          symbols = provider.query_symbol(query).map do |symbol|
+            location = symbol.location
+
+            LSP::Interface::SymbolInformation.new(
+              name: symbol.name,
+              kind: symbol.kind,
+              location: {
+                uri: PathHelper.to_uri(project.absolute_path(Pathname(location.buffer.name))).to_s,
+                range: {
+                  start: { line: location.start_line - 1, character: location.start_column },
+                  end: { line: location.end_line - 1, character: location.end_column }
+                }
+              },
+              container_name: symbol.container_name
+            )
+          end
+
+          # A file loaded into the environments of several targets gives the same symbols once for each target
+          symbols.uniq(&:to_hash)
+        end
       end
 
       def load_library_entries
