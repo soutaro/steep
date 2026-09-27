@@ -184,7 +184,6 @@ module Steep
 
       attr_reader :initialize_params
       attr_accessor :typecheck_automatically
-      attr_accessor :index_signatures
       attr_reader :start_type_checking_queue
 
       attr_reader :type_check_database
@@ -213,7 +212,6 @@ module Steep
         @running = false
         @current_type_check_request = nil
         @typecheck_automatically = true
-        @index_signatures = false
         @commandline_args = []
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
@@ -955,7 +953,6 @@ module Steep
       end
 
       def enqueue_index_jobs(target_paths)
-        return unless index_signatures
         return if target_paths.empty?
 
         target_paths.each do |target_path|

@@ -58,7 +58,6 @@ module Steep
           launcher: launcher
         )
         master.typecheck_automatically = true
-        master.index_signatures = true
 
         socket = start_command_socket(master)
 
