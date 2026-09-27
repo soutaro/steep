@@ -2000,6 +2000,7 @@ end
         writer: worker_writer,
         launcher: WorkersLauncher.new(worker)
       )
+      master.index_signatures = true
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
 
@@ -2065,6 +2066,7 @@ end
         launcher: WorkersLauncher.new(worker)
       )
       master.typecheck_automatically = false
+      master.index_signatures = true
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
       drop_index_jobs(master, flush_queue(master.write_queue))
@@ -2125,14 +2127,9 @@ end
       )
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
 
-      # The worker receives the RBS files on `initialize`, before the index jobs
-      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal FileLoad::METHOD, jobs[0].message[:method]
-      assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
-      drop_index_jobs(master, jobs)
-
-      # The Ruby file goes to the worker with its request
+      # The worker receives the RBS files before the type check, and the Ruby file with its request
       master.process_message_from_client({
         id: "check-1",
         method: TypeCheck::METHOD,
@@ -2145,13 +2142,14 @@ end
       })
 
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal [TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
-      assert_equal "code", jobs[0].message[:params][:kind]
-      assert_equal "class Customer\nend\n", jobs[0].message[:params][:content]
-      assert_equal "signature", jobs[1].message[:params][:kind]
-      refute_operator jobs[1].message[:params], :key?, :content
+      assert_equal [FileLoad::METHOD, TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
+      assert_equal "code", jobs[1].message[:params][:kind]
+      assert_equal "class Customer\nend\n", jobs[1].message[:params][:content]
+      assert_equal "signature", jobs[2].message[:params][:kind]
+      refute_operator jobs[2].message[:params], :key?, :content
 
-      jobs.each do |job|
+      jobs.drop(1).each do |job|
         master.result_controller.process_response({ id: job.message[:id], result: { source: nil, signature: nil } })
       end
       flush_queue(master.write_queue)

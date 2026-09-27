@@ -120,6 +120,7 @@ module Steep
           launcher: launcher
         )
         master.typecheck_automatically = false
+        master.index_signatures = true
 
         master_thread = Thread.start do
           Thread.current.abort_on_exception = true

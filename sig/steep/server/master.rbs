@@ -168,6 +168,13 @@ module Steep
       #
       attr_accessor typecheck_automatically: bool
 
+      # `true` to have the workers index the RBS files, for the servers that answer the queries of the definitions
+      #
+      # The RBS files are indexed on the startup and when they are changed, after the jobs of the type check. The
+      # commands that only type check the files leave it `false`, so that the workers do nothing else. Defaults to `false`.
+      #
+      attr_accessor index_signatures: bool
+
       attr_reader start_type_checking_queue: DelayQueue
 
       # The type check results reported by the typecheck workers
@@ -271,6 +278,8 @@ module Steep
       def send_index_job: (WorkerProcess worker, Symbol target_name, Pathname path) -> void
 
       # Adds the files to index to `pending_index_jobs`, and delivers the RBS files to the workers
+      #
+      # Does nothing unless `index_signatures` is `true`.
       #
       # The jobs are handed out by the next `#dispatch_typecheck_jobs`, after the jobs of the type check that follows.
       #
