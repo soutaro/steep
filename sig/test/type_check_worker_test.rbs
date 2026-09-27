@@ -24,8 +24,6 @@ class TypeCheckWorkerTest < Minitest::Test
   # @rbs (Server::TypeCheckWorker) { (Thread) -> void } -> void
   def run_worker: (Server::TypeCheckWorker) { (Thread) -> void } -> void
 
-  def assignment: () -> untyped
-
   def test_worker_exit: () -> untyped
 
   def test_handle_request_initialize: () -> untyped
@@ -53,8 +51,6 @@ class TypeCheckWorkerTest < Minitest::Test
   def test_handle_job_typecheck_inline__implementation_error: () -> untyped
 
   def test_handle_job_typecheck_inline__type_decl_error: () -> untyped
-
-  def test_job_workspace_symbol: () -> untyped
 
   def test_interaction_jobs_go_ahead_of_typecheck_jobs: () -> untyped
 

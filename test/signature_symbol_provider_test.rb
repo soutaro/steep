@@ -15,10 +15,6 @@ class SignatureSymbolProviderTest < Minitest::Test
     @dirs ||= []
   end
 
-  def assignment
-    Services::PathAssignment.all
-  end
-
   def test_find_class_symbol
     in_tmpdir do
       project = Project.new(steepfile_path: current_dir + "Steepfile")
@@ -60,7 +56,7 @@ RBS
       builder = RBSIndex::Builder.new(index: index)
       builder.env(env)
 
-      provider = SignatureSymbolProvider.new(project: project, assignment: assignment)
+      provider = SignatureSymbolProvider.new(project: project)
       provider.indexes[project.targets[0]] = index
 
       provider.query_symbol("").tap do |symbols|
@@ -159,7 +155,7 @@ RBS
       builder = RBSIndex::Builder.new(index: index)
       builder.env(env)
 
-      provider = SignatureSymbolProvider.new(assignment: assignment, project: project)
+      provider = SignatureSymbolProvider.new(project: project)
       provider.indexes[project.targets[0]] = index
 
       provider.query_symbol("").tap do |symbols|
@@ -268,7 +264,7 @@ RBS
       builder = RBSIndex::Builder.new(index: index)
       builder.env(env)
 
-      provider = SignatureSymbolProvider.new(assignment: assignment, project: project)
+      provider = SignatureSymbolProvider.new(project: project)
       provider.indexes[project.targets[0]] = index
 
       provider.query_symbol("").tap do |symbols|

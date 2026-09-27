@@ -1,10 +1,8 @@
 module Steep
   module Server
     class TypeCheckWorker < BaseWorker
-      attr_reader :project, :assignment
-      attr_reader :commandline_args
+      attr_reader :project
 
-      WorkspaceSymbolJob = _ = Struct.new(:query, :id, keyword_init: true)
       TypeCheckCodeJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
       ValidateAppSignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
@@ -17,14 +15,12 @@ module Steep
 
       include ChangeBuffer
 
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
+      def initialize(project:, reader:, writer:)
         super(project: project, reader: reader, writer: writer)
 
-        @assignment = assignment
         @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = WorkerQueue.new
-        @commandline_args = commandline_args
         @rbs_entries_cache = {}
         @interaction_mutex = Mutex.new
         @last_interaction_job = nil
@@ -40,9 +36,6 @@ module Steep
           input = request[:params][:content]
           load_files(input)
 
-        when "workspace/symbol"
-          query = request[:params][:query]
-          queue << WorkspaceSymbolJob.new(id: request[:id], query: query)
         when CustomMethods::TypeCheck__File::METHOD
           params = request[:params] #: CustomMethods::TypeCheck__File::params
           enqueue_typecheck_job(request[:id], params)
@@ -174,12 +167,6 @@ module Steep
             job.id,
             source: source,
             signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path), stats: nil }
-          )
-
-        when WorkspaceSymbolJob
-          writer.write(
-            id: job.id,
-            result: workspace_symbol_result(job.query)
           )
 
         when HoverJob
@@ -520,36 +507,6 @@ module Steep
           project.target_for_source_path(relative_path) ||
           project.target_for_signature_path(relative_path) ||
           Services::HoverProvider.library_target(service, path)
-      end
-
-      def workspace_symbol_result(query)
-        Steep.measure "Generating workspace symbol list for query=`#{query}`" do
-          provider = Index::SignatureSymbolProvider.new(project: project, assignment: assignment)
-          project.targets.each do |target|
-            index = service.signature_services.fetch(target.name).latest_rbs_index
-            provider.indexes[target] = index
-          end
-
-          symbols = provider.query_symbol(query)
-
-          symbols.map do |symbol|
-            LSP::Interface::SymbolInformation.new(
-              name: symbol.name,
-              kind: symbol.kind,
-              location: symbol.location.yield_self do |location|
-                path = Pathname(location.buffer.name)
-                {
-                  uri: Steep::PathHelper.to_uri(project.absolute_path(path)),
-                  range: {
-                    start: { line: location.start_line - 1, character: location.start_column },
-                    end: { line: location.end_line - 1, character: location.end_column }
-                  }
-                }
-              end,
-              container_name: symbol.container_name
-            )
-          end
-        end
       end
     end
   end

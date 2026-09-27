@@ -8,12 +8,10 @@ module Steep
 
       attr_reader :project
       attr_reader :indexes
-      attr_reader :assignment
 
-      def initialize(project:, assignment:)
+      def initialize(project:)
         @indexes = {}
         @project = project
-        @assignment = assignment
       end
 
       def self.test_type_name(query, type_name)
@@ -39,20 +37,10 @@ module Steep
         end
       end
 
-      def assigned?(target, path)
-        if path.relative?
-          if project.targets.any? {|target| target.possible_signature_file?(path) }
-            path = project.absolute_path(path)
-          end
-        end
-
-        assignment =~ [target, path]
-      end
-
       def query_symbol(query)
         symbols = [] #: Array[SymbolInformation]
 
-        indexes.each do |target, index|
+        indexes.each_value do |index|
           index.each_entry do |entry|
             case entry
             when RBSIndex::TypeEntry
@@ -63,7 +51,6 @@ module Steep
 
               entry.declarations.each do |decl|
                 location = decl.location or next
-                next unless assigned?(target, Pathname(location.buffer.name))
 
                 case decl
                 when RBS::AST::Declarations::Class
@@ -125,7 +112,6 @@ module Steep
 
               entry.declarations.each do |decl|
                 location = decl.location or next
-                next unless assigned?(target, Pathname(location.buffer.name))
 
                 case decl
                 when RBS::AST::Members::MethodDefinition
@@ -172,7 +158,6 @@ module Steep
 
               entry.declarations.each do |decl|
                 loc = decl.location or next
-                next unless assigned?(target, Pathname(loc.buffer.name))
 
                 symbols << SymbolInformation.new(
                   name: entry.const_name.name.to_s,
@@ -186,7 +171,6 @@ module Steep
 
               entry.declarations.each do |decl|
                 next unless decl.location
-                next unless assigned?(target, Pathname(decl.location.buffer.name))
 
                 symbols << SymbolInformation.new(
                   name: decl.name.to_s,

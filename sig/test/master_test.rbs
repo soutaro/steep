@@ -77,6 +77,8 @@ class MasterTest < Minitest::Test
 
   def test_workspace_symbol: () -> untyped
 
+  def test_workspace_symbol_from_master: () -> untyped
+
   def test_untitled_file_notifications: () -> untyped
 
   def test_type_check_request__empty: () -> untyped

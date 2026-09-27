@@ -42,7 +42,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
       launcher = WorkersLauncher.new(worker)
 
       master = Server::Master.new(
@@ -105,7 +105,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -167,7 +167,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -216,7 +216,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -260,7 +260,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -346,7 +346,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -415,7 +415,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -506,7 +506,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -602,8 +602,8 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test1", index: 0)
-      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test2", index: 1)
+      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test1")
+      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test2")
 
       master = Server::Master.new(
         project: project,
@@ -718,7 +718,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -901,7 +901,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -949,7 +949,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -984,7 +984,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1023,7 +1023,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1072,7 +1072,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1114,7 +1114,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1165,8 +1165,8 @@ end
         end
       end
 
-      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-1", index: 0)
-      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-2", index: 1)
+      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-1")
+      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-2")
 
       master = Server::Master.new(
         project: project,
@@ -1215,7 +1215,7 @@ end
         end
       end
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1260,7 +1260,7 @@ end
         end
       end
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1553,6 +1553,58 @@ end
     end
   end
 
+  def test_workspace_symbol_from_master
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig/lib"
+end
+
+target :test do
+  check "test"
+  signature "sig/test"
+end
+      EOF
+
+      (current_dir + "sig/lib").mkpath
+      (current_dir + "sig/test").mkpath
+      (current_dir + "sig/lib/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new()
+      )
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+
+      # The symbols come from the environments of the master as they are, without any worker, and without waiting for
+      # the environment thread to apply `sig/lib/customer.rbs`
+      master.process_message_from_client({ id: "symbol-1", method: "workspace/symbol", params: { query: "Customer" } })
+
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-1" } or raise
+      assert_empty response.message[:result].select { _1.name == "Customer" }
+
+      master.environment_queue.pop.call until master.environment_queue.empty?
+
+      master.process_message_from_client({ id: "symbol-2", method: "workspace/symbol", params: { query: "Customer" } })
+
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-2" } or raise
+      symbols = response.message[:result].select { _1.name == "Customer" }
+
+      # `sig/lib/customer.rbs` is loaded into the environments of both targets, and reported once
+      assert_equal 1, symbols.size
+      assert_operator symbols[0].location[:uri], :end_with?, "/sig/lib/customer.rbs"
+    end
+  end
+
   def test_untitled_file_notifications
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -1566,7 +1618,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1869,7 +1921,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1928,7 +1980,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
@@ -1988,7 +2040,7 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,

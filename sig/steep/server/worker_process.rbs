@@ -33,8 +33,6 @@ module Steep
 
       attr_reader wait_thread: Thread & _ProcessWaitThread
 
-      attr_reader index: Integer?
-
       # The versions of the file contents the worker has received, by relative path
       #
       # See `Master#deliver_contents`.
@@ -46,8 +44,7 @@ module Steep
         writer: LSP::Transport::Io::Writer,
         stderr: IO?,
         wait_thread: Thread & _ProcessWaitThread,
-        name: String,
-        ?index: Integer?
+        name: String
       ) -> void
 
       type worker_type = :typecheck
@@ -56,26 +53,20 @@ module Steep
         worker_type `type`,
         name: String,
         steepfile: Pathname?,
-        steep_command: String?,
-        ?patterns: Array[String],
-        ?index: [Integer, Integer]?
+        steep_command: String?
       ) -> WorkerProcess
 
       def self.fork_worker: (
         worker_type `type`,
         name: String,
-        steepfile: Pathname?,
-        patterns: Array[String],
-        index: [Integer, Integer]?
+        steepfile: Pathname?
       ) -> WorkerProcess
 
       def self.spawn_worker: (
         worker_type `type`,
         name: String,
         steepfile: Pathname?,
-        steep_command: ::String,
-        patterns: Array[String],
-        index: [Integer, Integer]?
+        steep_command: ::String
       ) -> WorkerProcess
 
       def redirect_to: (self) -> void
