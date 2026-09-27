@@ -1585,13 +1585,18 @@ end
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
       flush_queue(master.write_queue)
 
-      # The symbols come from the environments of the master, without any worker
-      master.process_message_from_client({ id: "symbol", method: "workspace/symbol", params: { query: "Customer" } })
+      # The symbols come from the environments of the master as they are, without any worker, and without waiting for
+      # the environment thread to apply `sig/lib/customer.rbs`
+      master.process_message_from_client({ id: "symbol-1", method: "workspace/symbol", params: { query: "Customer" } })
+
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-1" } or raise
+      assert_empty response.message[:result].select { _1.name == "Customer" }
 
       master.environment_queue.pop.call until master.environment_queue.empty?
-      master.job_queue.pop.call until master.job_queue.empty?
 
-      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol" } or raise
+      master.process_message_from_client({ id: "symbol-2", method: "workspace/symbol", params: { query: "Customer" } })
+
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-2" } or raise
       symbols = response.message[:result].select { _1.name == "Customer" }
 
       # `sig/lib/customer.rbs` is loaded into the environments of both targets, and reported once

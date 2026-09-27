@@ -630,13 +630,8 @@ module Steep
           update_environment()
           query = message[:params][:query] #: String
 
-          # Answers from the environments of the master, after the environment thread applies the changes above
-          environment_queue << -> do
-            result = workspace_symbol_result(query)
-            job_queue << -> do
-              enqueue_write_job SendMessageJob.to_client(message: { id: id, result: result })
-            end
-          end
+          # Answers from the environments as they are, without waiting for the update running on the environment thread
+          enqueue_write_job SendMessageJob.to_client(message: { id: id, result: workspace_symbol_result(query) })
 
         when CustomMethods::Stats::METHOD
           enqueue_write_job SendMessageJob.to_client(
@@ -1277,14 +1272,21 @@ module Steep
             provider.indexes[target] = service.signature_services.fetch(target.name).latest_rbs_index
           end
 
-          symbols = provider.query_symbol(query).map do |symbol|
+          uris = {} #: Hash[String, String]
+          seen = Set[] #: Set[Array[untyped]]
+
+          provider.query_symbol(query).filter_map do |symbol|
             location = symbol.location
+            buffer_name = location.buffer.name.to_s
+
+            # A file loaded into the environments of several targets gives the same symbols once for each target
+            next unless seen.add?([symbol.name, symbol.kind, symbol.container_name, buffer_name, location.start_pos, location.end_pos])
 
             LSP::Interface::SymbolInformation.new(
               name: symbol.name,
               kind: symbol.kind,
               location: {
-                uri: PathHelper.to_uri(project.absolute_path(Pathname(location.buffer.name))).to_s,
+                uri: uris[buffer_name] ||= PathHelper.to_uri(project.absolute_path(Pathname(buffer_name))).to_s,
                 range: {
                   start: { line: location.start_line - 1, character: location.start_column },
                   end: { line: location.end_line - 1, character: location.end_column }
@@ -1293,9 +1295,6 @@ module Steep
               container_name: symbol.container_name
             )
           end
-
-          # A file loaded into the environments of several targets gives the same symbols once for each target
-          symbols.uniq(&:to_hash)
         end
       end
 

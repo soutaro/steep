@@ -327,7 +327,8 @@ module Steep
 
       # The symbols of the RBS declarations matching `query` in the environments of every target, for `workspace/symbol`
       #
-      # Runs in the environment thread. A file loaded into the environments of several targets is reported once.
+      # Runs in the main loop with the environments as they are, without waiting for an update running on the
+      # environment thread. A file loaded into the environments of several targets is reported once.
       #
       def workspace_symbol_result: (String query) -> Array[LSP::Interface::SymbolInformation]
 
