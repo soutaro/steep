@@ -1,0 +1,23 @@
+module Steep
+  module Server
+    # A launcher starts the typecheck workers of a master and keeps them
+    #
+    # The master calls `#start` once, when it has loaded the environments of the project on the `initialize`
+    # request, and `#stop` once after the server has shut down or the master has been killed. The master reaches
+    # the workers through `#typecheck_workers` only, and never holds them itself.
+    #
+    interface _WorkerLauncher
+      # Starts the workers, given the environments of the master
+      def start: (Services::TypeCheckService) -> void
+
+      # Releases what the launcher keeps besides the workers
+      #
+      # The master stops the workers itself, with `exit` or by killing them.
+      #
+      def stop: () -> void
+
+      # The typecheck workers, empty before `#start`
+      def typecheck_workers: () -> Array[WorkerProcess]
+    end
+  end
+end

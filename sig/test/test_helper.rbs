@@ -140,6 +140,26 @@ end
 module LSPTestHelper
   LSP: untyped
 
+  # A launcher with the workers given, for the tests of the master
+  class WorkersLauncher
+    attr_reader typecheck_workers: Array[Steep::Server::WorkerProcess]
+
+    # The service `#start` was called with
+    attr_reader started_service: Steep::Services::TypeCheckService?
+
+    # @rbs *workers: Steep::Server::WorkerProcess
+    def initialize: (*Steep::Server::WorkerProcess workers) -> untyped
+
+    # @rbs (Steep::Services::TypeCheckService) -> void
+    def start: (Steep::Services::TypeCheckService) -> void
+
+    # @rbs () -> void
+    def stop: () -> void
+
+    # @rbs () -> bool
+    def stopped?: () -> bool
+  end
+
   def reader_pipe: () -> untyped
 
   def writer_pipe: () -> untyped

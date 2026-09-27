@@ -120,19 +120,6 @@ module Steep
         new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
       end
 
-      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max || raise)
-        count.times.map do |i|
-          start_worker(
-            :typecheck,
-            name: "typecheck@#{i}",
-            steepfile: steepfile,
-            steep_command: steep_command,
-            index: [count, i],
-            patterns: args,
-          )
-        end
-      end
-
       def redirect_to(worker)
         @writer = worker.writer
       end

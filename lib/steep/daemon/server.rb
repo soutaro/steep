@@ -107,18 +107,17 @@ module Steep
 
         Steep.logger.info { "Starting #{job_count} typecheck worker(s)..." }
 
-        workers = ::Steep::Server::WorkerProcess.start_typecheck_workers(
+        launcher = ::Steep::Server::SpawnLauncher.new(
           steepfile: @project.steepfile_path,
-          args: [],
           steep_command: nil,
-          count: job_count
+          typecheck_count: job_count
         )
 
         master = ::Steep::Server::Master.new(
           project: @project,
           reader: server_reader,
           writer: server_writer,
-          typecheck_workers: workers
+          launcher: launcher
         )
         master.typecheck_automatically = false
 

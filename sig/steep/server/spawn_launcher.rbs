@@ -1,0 +1,32 @@
+module Steep
+  module Server
+    # Starts each typecheck worker as a `steep worker` process
+    #
+    # The workers load the RBS environments by themselves, so the environments of the master are not used.
+    #
+    class SpawnLauncher
+      include _WorkerLauncher
+
+      attr_reader steepfile: Pathname?
+
+      # The command to run the workers with, `nil` to fork this process or run `steep`
+      attr_reader steep_command: String?
+
+      # The number of typecheck workers
+      attr_reader typecheck_count: Integer
+
+      # The command line patterns given to the typecheck workers
+      attr_reader patterns: Array[String]
+
+      attr_reader typecheck_workers: Array[WorkerProcess]
+
+      # `typecheck_count` defaults to the number of processors minus one
+      def initialize: (
+        steepfile: Pathname?,
+        steep_command: String?,
+        ?typecheck_count: Integer,
+        ?patterns: Array[String]
+      ) -> void
+    end
+  end
+end

@@ -172,7 +172,9 @@ module Steep
       attr_reader :reader, :writer
       attr_reader :commandline_args
 
-      attr_reader :typecheck_workers
+      attr_reader :launcher
+      attr_reader :worker_threads
+      attr_reader :worker_waiter
 
       attr_reader :job_queue, :write_queue
 
@@ -199,11 +201,14 @@ module Steep
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
-      def initialize(project:, reader:, writer:, typecheck_workers:, queue: Queue.new)
+      def initialize(project:, reader:, writer:, launcher:, queue: Queue.new)
         @project = project
         @reader = reader
         @writer = writer
-        @typecheck_workers = typecheck_workers
+        @launcher = launcher
+        @worker_threads = []
+        @worker_waiter = ThreadWaiter.new()
+        @running = false
         @current_type_check_request = nil
         @typecheck_automatically = true
         @commandline_args = []
@@ -230,18 +235,8 @@ module Steep
       def start
         Steep.logger.tagged "master" do
           tags = Steep.logger.current_tags.dup
-
-          # @type var worker_threads: Array[Thread]
-          worker_threads = []
-
-          typecheck_workers.each do |worker|
-            worker_threads << Thread.new do
-              Steep.logger.push_tags(*tags, "from-worker@#{worker.name}")
-              worker.reader.read do |message|
-                enqueue_worker_message(worker, message)
-              end
-            end
-          end
+          @logger_tags = tags
+          @running = true
 
           read_client_thread = Thread.new do
             reader.read do |message|
@@ -316,16 +311,12 @@ module Steep
             end
           end
 
-          waiter = ThreadWaiter.new(each_worker.to_a) {|worker| worker.wait_thread }
-          # @type var th: Thread & WorkerProcess::_ProcessWaitThread
-          while th = _ = waiter.wait_one()
-            if each_worker.any? { |worker| worker.pid == th.pid }
-              break # The worker unexpectedly exited
-            end
-          end
+          # Returns when a worker process exits, or the main loop stops
+          worker_waiter << loop_thread
+          worker_waiter.wait_one()
 
           unless job_queue.closed?
-            # Exit by error
+            # A worker process exited, or the main loop stopped, before the client sent `exit`
             each_worker do |worker|
               worker.kill(force: true)
             end
@@ -344,7 +335,40 @@ module Steep
 
           environment_queue.close()
           environment_thread.join
+
+          launcher.stop
         end
+      end
+
+      def typecheck_workers
+        launcher.typecheck_workers
+      end
+
+      def start_workers
+        service = controller.type_check_service or raise "The project is not loaded yet"
+
+        Steep.measure("Starting the workers...") do
+          launcher.start(service)
+        end
+
+        if @running
+          typecheck_workers.each do |worker|
+            start_worker_thread(worker)
+          end
+        end
+      end
+
+      def start_worker_thread(worker)
+        tags = @logger_tags || []
+
+        worker_threads << Thread.new do
+          Steep.logger.push_tags(*tags, "from-worker@#{worker.name}")
+          worker.reader.read do |message|
+            enqueue_worker_message(worker, message)
+          end
+        end
+
+        worker_waiter << worker.wait_thread
       end
 
       def enqueue_worker_message(worker, message)
@@ -430,6 +454,8 @@ module Steep
           Steep.measure("Load files from disk...") do
             controller.load(command_line_args: commandline_args)
           end
+
+          start_workers()
 
           environment_queue << -> { load_library_entries() }
 
@@ -1025,6 +1051,11 @@ module Steep
       def group_request()
         GroupHandler.new().tap do |group|
           yield group
+
+          if group.handlers.empty?
+            # No response completes an empty group
+            group.completion_handler&.call([])
+          end
         end
       end
 
@@ -1032,6 +1063,7 @@ module Steep
         each_worker do |worker|
           worker.kill
         end
+        launcher.stop
       end
 
       def enqueue_write_job(job)
