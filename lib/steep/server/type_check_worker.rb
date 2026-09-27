@@ -1,8 +1,7 @@
 module Steep
   module Server
     class TypeCheckWorker < BaseWorker
-      attr_reader :project, :assignment
-      attr_reader :commandline_args
+      attr_reader :project
 
       TypeCheckCodeJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
       ValidateAppSignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
@@ -16,14 +15,12 @@ module Steep
 
       include ChangeBuffer
 
-      def initialize(project:, reader:, writer:, assignment:, commandline_args:)
+      def initialize(project:, reader:, writer:)
         super(project: project, reader: reader, writer: writer)
 
-        @assignment = assignment
         @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = WorkerQueue.new
-        @commandline_args = commandline_args
         @rbs_entries_cache = {}
         @interaction_mutex = Mutex.new
         @last_interaction_job = nil

@@ -27,11 +27,7 @@ module Steep
     class TypeCheckWorker < BaseWorker
       attr_reader project: Project
 
-      attr_reader assignment: PathAssignment
-
       attr_reader service: TypeCheckService
-
-      attr_reader commandline_args: Array[String]
 
       class TypeCheckCodeJob
         # The id of the `$/steep/typecheck/file` request
@@ -162,9 +158,7 @@ module Steep
       def initialize: (
         project: Project,
         reader: LSP::Transport::Io::Reader,
-        writer: LSP::Transport::Io::Writer,
-        assignment: PathAssignment,
-        commandline_args: Array[String]
+        writer: LSP::Transport::Io::Writer
       ) -> void
 
       def handle_request: (untyped request) -> void

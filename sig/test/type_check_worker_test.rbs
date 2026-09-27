@@ -24,8 +24,6 @@ class TypeCheckWorkerTest < Minitest::Test
   # @rbs (Server::TypeCheckWorker) { (Thread) -> void } -> void
   def run_worker: (Server::TypeCheckWorker) { (Thread) -> void } -> void
 
-  def assignment: () -> untyped
-
   def test_worker_exit: () -> untyped
 
   def test_handle_request_initialize: () -> untyped

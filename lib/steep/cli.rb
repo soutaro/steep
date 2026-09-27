@@ -475,20 +475,16 @@ BANNER
     def process_worker
       Drivers::Worker.new(stdout: stdout, stderr: stderr, stdin: stdin).tap do |command|
         OptionParser.new do |opts|
-          opts.banner = "Usage: steep worker [options] [dir]"
+          opts.banner = "Usage: steep worker [options]"
           handle_logging_options opts
 
           opts.on("--typecheck") { command.worker_type = :typecheck }
           handle_steepfile_option(opts, command)
           opts.on("--name=NAME") {|name| command.worker_name = name }
-          opts.on("--max-index=COUNT") {|count| command.max_index = Integer(count) }
-          opts.on("--index=INDEX") {|index| command.index = Integer(index) }
         end.parse!(argv)
 
         # Disable any `ui_logger` output in workers
         Steep.ui_logger.level = :fatal
-
-        command.commandline_args.push(*argv)
       end.run
     end
 

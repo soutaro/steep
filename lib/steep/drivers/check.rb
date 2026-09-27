@@ -357,8 +357,7 @@ module Steep
         launcher = Server::SpawnLauncher.new(
           steepfile: project.steepfile_path,
           steep_command: jobs_option.steep_command,
-          typecheck_count: jobs_option.jobs_count_value,
-          patterns: command_line_patterns
+          typecheck_count: jobs_option.jobs_count_value
         )
 
         master = Server::Master.new(

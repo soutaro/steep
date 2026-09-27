@@ -35,10 +35,6 @@ class TypeCheckWorkerTest < Minitest::Test
     writer_pipe[1].close
   end
 
-  def assignment
-    @assignment ||= Services::PathAssignment.all
-  end
-
   def test_worker_exit
     in_tmpdir do
       with_master_read_queue do |master_read_queue|
@@ -53,8 +49,6 @@ class TypeCheckWorkerTest < Minitest::Test
         run_worker(
           Server::TypeCheckWorker.new(
             project: project,
-            assignment: assignment,
-            commandline_args: [],
             reader: worker_reader,
             writer: worker_writer)
         ) do |worker|
@@ -80,8 +74,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -113,8 +105,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -150,8 +140,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -222,8 +210,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -264,8 +250,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -340,8 +324,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -382,8 +364,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -428,8 +408,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -470,8 +448,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -543,8 +519,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -596,8 +570,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -639,8 +611,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -683,8 +653,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -728,8 +696,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -776,8 +742,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
         worker = Server::TypeCheckWorker.new(
           project: project,
-          assignment: assignment,
-          commandline_args: [],
           reader: worker_reader,
           writer: worker_writer
         )
@@ -852,8 +816,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -893,8 +855,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -933,8 +893,6 @@ class TypeCheckWorkerTest < Minitest::Test
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -979,8 +937,6 @@ RUBY
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1034,8 +990,6 @@ RUBY
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1082,8 +1036,6 @@ RUBY
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1125,8 +1077,6 @@ RBS
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1164,8 +1114,6 @@ RBS
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1204,8 +1152,6 @@ RBS
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1243,8 +1189,6 @@ RBS
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1280,8 +1224,6 @@ RBS
 
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1311,8 +1253,6 @@ RUBY
       RUBY
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1358,8 +1298,6 @@ RUBY
       RUBY
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1408,8 +1346,6 @@ RUBY
         RUBY
         worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1470,8 +1406,6 @@ RUBY
       RUBY
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
@@ -1522,8 +1456,6 @@ RUBY
       RUBY
       worker = Server::TypeCheckWorker.new(
         project: project,
-        assignment: assignment,
-        commandline_args: [],
         reader: worker_reader,
         writer: worker_writer
       )
