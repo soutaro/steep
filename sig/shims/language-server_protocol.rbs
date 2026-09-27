@@ -480,7 +480,19 @@ module LanguageServer
 
       CompletionOptions: __todo__
 
-      SymbolInformation: __todo__
+      class SymbolInformation
+        include _Base
+
+        attr_reader name: String
+
+        attr_reader kind: Constant::SymbolKind::t
+
+        attr_reader location: Location::json
+
+        attr_reader container_name: String?
+
+        def initialize: (name: String, kind: Constant::SymbolKind::t, location: Location::json, ?container_name: String?) -> void
+      end
     end
   end
 end
