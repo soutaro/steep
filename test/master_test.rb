@@ -1565,7 +1565,7 @@ end
     end
   end
 
-  def test_workspace_symbol_from_master
+  def test_workspace_symbol_from_database
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -1580,10 +1580,6 @@ target :test do
 end
       EOF
 
-      (current_dir + "sig/lib").mkpath
-      (current_dir + "sig/test").mkpath
-      (current_dir + "sig/lib/customer.rbs").write("class Customer\nend\n")
-
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
@@ -1597,23 +1593,55 @@ end
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
       flush_queue(master.write_queue)
 
-      # The symbols come from the environments of the master as they are, without any worker, and without waiting for
-      # the environment thread to apply `sig/lib/customer.rbs`
+      # Nothing is found until the workers index the RBS files
       master.process_message_from_client({ id: "symbol-1", method: "workspace/symbol", params: { query: "Customer" } })
-
       response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-1" } or raise
-      assert_empty response.message[:result].select { _1.name == "Customer" }
+      assert_empty response.message[:result]
 
-      master.environment_queue.pop.call until master.environment_queue.empty?
+      entry = -> (name, kind, line, start, finish, role: :definition) {
+        Server::TypeCheckDatabase::Entry.new(name: name, role: role, kind: kind, start_line: line, start_character: start, end_line: line, end_character: finish)
+      }
+      path = Pathname("/gems/customer/customer.rbs")
+      entries = [
+        entry["::Customer", :class, 0, 6, 14],
+        entry["::Customer#name", :attribute, 1, 14, 18],
+        entry["::Customer.find", :method, 2, 11, 15],
+        entry["::Customer::VERSION", :constant, 3, 2, 9],
+        entry["::Customer::Address", :class, 5, 8, 15],
+        entry["$customer", :global, 8, 0, 9],
+        entry["::Customer", nil, 9, 11, 19, role: :reference]
+      ]
 
-      master.process_message_from_client({ id: "symbol-2", method: "workspace/symbol", params: { query: "Customer" } })
+      # A library RBS file indexed in the two targets
+      master.type_check_database.update_rbs(path: path, target: :lib, entries: entries)
+      master.type_check_database.update_rbs(path: path, target: :test, entries: entries)
 
+      master.process_message_from_client({ id: "symbol-2", method: "workspace/symbol", params: { query: "customer" } })
       response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-2" } or raise
-      symbols = response.message[:result].select { _1.name == "Customer" }
+      symbols = response.message[:result]
 
-      # `sig/lib/customer.rbs` is loaded into the environments of both targets, and reported once
-      assert_equal 1, symbols.size
-      assert_operator symbols[0].location[:uri], :end_with?, "/sig/lib/customer.rbs"
+      # Each declaration once, sorted by the name, without the reference
+      assert_equal(
+        [
+          ["#name", LSP::Constant::SymbolKind::PROPERTY, "Customer"],
+          ["$customer", LSP::Constant::SymbolKind::VARIABLE, nil],
+          [".find", LSP::Constant::SymbolKind::METHOD, "Customer"],
+          ["Address", LSP::Constant::SymbolKind::CLASS, "Customer"],
+          ["Customer", LSP::Constant::SymbolKind::CLASS, ""],
+          ["VERSION", LSP::Constant::SymbolKind::CONSTANT, "Customer"]
+        ],
+        symbols.map { [_1.name, _1.kind, _1.attributes[:containerName]] }
+      )
+
+      # The location is the name of the declaration
+      customer = symbols.find { _1.name == "Customer" } or raise
+      assert_equal PathHelper.to_uri(path).to_s, customer.location[:uri]
+      assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 14 } }, customer.location[:range])
+
+      # The query matches the fully qualified names
+      master.process_message_from_client({ id: "symbol-3", method: "workspace/symbol", params: { query: "customer::" } })
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-3" } or raise
+      assert_equal ["Address", "VERSION"], response.message[:result].map(&:name)
     end
   end
 

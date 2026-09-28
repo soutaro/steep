@@ -216,6 +216,9 @@ module Steep
       # The number of `$/steep/typecheck/file` requests a worker gets ahead, to keep it busy while a response travels
       TYPECHECK_JOBS_PER_WORKER: Integer
 
+      # The `SymbolKind` of the declarations in `workspace/symbol` results
+      WORKSPACE_SYMBOL_KINDS: Hash[TypeCheckDatabase::Entry::kind, LSP::Constant::SymbolKind::t]
+
       # The mtimes of the project files when they were loaded or reloaded
       #
       # `nil` until the initial project load finishes.
@@ -347,12 +350,20 @@ module Steep
       #
       def update_environment: () -> void
 
-      # The symbols of the RBS declarations matching `query` in the environments of every target, for `workspace/symbol`
+      # The symbols of the RBS declarations matching `query` in `TypeCheckDatabase`, for `workspace/symbol`
       #
-      # Runs in the main loop with the environments as they are, without waiting for an update running on the
-      # environment thread. A file loaded into the environments of several targets is reported once.
+      # The declarations of an RBS file are found once the workers index or validate the file, so the symbols may be
+      # missing for a while after `initialize`. The location of a symbol is the name of the declaration.
       #
       def workspace_symbol_result: (String query) -> Array[LSP::Interface::SymbolInformation]
+
+      # The name and the container name of the symbol of a declaration, from its fully qualified name
+      #
+      # * `::Foo::Bar` is `Bar` in `Foo`, and `::Foo` is `Foo` in `""`, for the types and constants
+      # * `::Foo::Bar#baz` is `#baz` and `::Foo::Bar.baz` is `.baz` in `Foo::Bar`, for the methods and attributes
+      # * A global has no container name
+      #
+      def workspace_symbol_name: (String name, TypeCheckDatabase::Entry::kind kind) -> [String, String?]
 
       # Stops the language server workers by sending SIGTERM
       #

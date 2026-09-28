@@ -20,6 +20,14 @@ class TypeCheckWorkerTest < Minitest::Test
     @dirs ||= []
   end
 
+  # Returns the wire entries as `[name, kind (or role without kind), start_line, start_character, end_line, end_character]`
+  def summarize_entries(entries) #: Array[Array[untyped]]
+    entries.map do |wire|
+      entry = Server::TypeCheckDatabase::Entry.from_wire(wire)
+      [entry.name, entry.kind || entry.role, entry.start_line, entry.start_character, entry.end_line, entry.end_character]
+    end
+  end
+
   # @rbs (Server::TypeCheckWorker) { (Thread) -> void } -> void
   def run_worker(worker)
     t = Thread.new do
@@ -294,30 +302,30 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_equal "guid", message[:id]
           assert_empty message[:result][:signature][:diagnostics]
 
-          entries = message[:result][:signature][:entries]
+          entries = summarize_entries(message[:result][:signature][:entries])
 
           # Class, methods (`def`, `attr_reader`, and `alias`)
-          assert_includes entries, ["::Hello", 0, 0, 6, 0, 11]
-          assert_includes entries, ["::Hello#world", 0, 1, 6, 1, 11]
-          assert_includes entries, ["::Hello#name", 0, 2, 14, 2, 18]
-          assert_includes entries, ["::Hello#greet", 0, 3, 8, 3, 13]
+          assert_includes entries, ["::Hello", :class, 0, 6, 0, 11]
+          assert_includes entries, ["::Hello#world", :method, 1, 6, 1, 11]
+          assert_includes entries, ["::Hello#name", :attribute, 2, 14, 2, 18]
+          assert_includes entries, ["::Hello#greet", :method, 3, 8, 3, 13]
 
           # Interface, type alias, constant, and global
-          assert_includes entries, ["::_Greeter", 0, 6, 10, 6, 18]
-          assert_includes entries, ["::_Greeter#greet", 0, 7, 6, 7, 11]
-          assert_includes entries, ["::greeting", 0, 10, 5, 10, 13]
-          assert_includes entries, ["::VERSION", 0, 12, 0, 12, 7]
-          assert_includes entries, ["$hello", 0, 14, 0, 14, 6]
+          assert_includes entries, ["::_Greeter", :interface, 6, 10, 6, 18]
+          assert_includes entries, ["::_Greeter#greet", :method, 7, 6, 7, 11]
+          assert_includes entries, ["::greeting", :type_alias, 10, 5, 10, 13]
+          assert_includes entries, ["::VERSION", :constant, 12, 0, 12, 7]
+          assert_includes entries, ["$hello", :global, 14, 0, 14, 6]
 
           # References to the types written in the file, including the ones declared in other files
-          assert_includes entries, ["::String", 1, 2, 20, 2, 26]
-          assert_includes entries, ["::Hello#world", 1, 3, 14, 3, 19]
-          assert_includes entries, ["::String", 1, 10, 16, 10, 22]
-          assert_includes entries, ["::String", 1, 12, 9, 12, 15]
-          assert_includes entries, ["::Hello", 1, 14, 8, 14, 13]
+          assert_includes entries, ["::String", :reference, 2, 20, 2, 26]
+          assert_includes entries, ["::Hello#world", :reference, 3, 14, 3, 19]
+          assert_includes entries, ["::String", :reference, 10, 16, 10, 22]
+          assert_includes entries, ["::String", :reference, 12, 9, 12, 15]
+          assert_includes entries, ["::Hello", :reference, 14, 8, 14, 13]
 
           # Declarations of other files are not included
-          refute entries.any? {|name, role, *| name == "::String" && role == 0 }
+          refute entries.any? {|name, kind, *| name == "::String" && kind != :reference }
         end
       end
     end
@@ -448,9 +456,9 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_nil message[:result][:source]
           assert_nil message[:result][:signature][:diagnostics]
 
-          entries = message[:result][:signature][:entries]
-          assert_includes entries, ["::Hello", 0, 0, 6, 0, 11]
-          assert_includes entries, ["::Hello#world", 0, 1, 6, 1, 11]
+          entries = summarize_entries(message[:result][:signature][:entries])
+          assert_includes entries, ["::Hello", :class, 0, 6, 0, 11]
+          assert_includes entries, ["::Hello#world", :method, 1, 6, 1, 11]
           refute entries.any? {|name, *| name.start_with?("::Greeter") }
         end
 
@@ -461,9 +469,9 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_nil message[:result][:source]
           assert_nil message[:result][:signature][:diagnostics]
 
-          entries = message[:result][:signature][:entries]
-          assert_includes entries, ["::Greeter", 0, 0, 6, 0, 13]
-          assert_includes entries, ["::Greeter#greet", 0, 2, 6, 2, 11]
+          entries = summarize_entries(message[:result][:signature][:entries])
+          assert_includes entries, ["::Greeter", :class, 0, 6, 0, 13]
+          assert_includes entries, ["::Greeter#greet", :method, 2, 6, 2, 11]
           refute entries.any? {|name, *| name.start_with?("::Hello") }
         end
 
@@ -476,8 +484,8 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_nil message[:result][:source]
           assert_nil message[:result][:signature][:diagnostics]
 
-          entries = message[:result][:signature][:entries]
-          assert entries.any? {|name, role, *| name == "::String" && role == 0 }
+          entries = summarize_entries(message[:result][:signature][:entries])
+          assert_includes entries.select { _1[0] == "::String" }.map { _1[1] }, :class
         end
       end
     end

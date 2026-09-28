@@ -19,11 +19,15 @@ module Steep
         env.class_alias_decls.each do |name, entry|
           decl = entry.decl
           case decl
-          when RBS::AST::Declarations::ClassAlias, RBS::AST::Declarations::ModuleAlias
-            definition(name.to_s, child_location(decl.location, :new_name))
+          when RBS::AST::Declarations::ClassAlias
+            definition(name.to_s, :class, child_location(decl.location, :new_name))
+            reference(decl.old_name, child_location(decl.location, :old_name))
+          when RBS::AST::Declarations::ModuleAlias
+            definition(name.to_s, :module, child_location(decl.location, :new_name))
             reference(decl.old_name, child_location(decl.location, :old_name))
           when RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
-            definition(name.to_s, decl.name_location)
+            kind = decl.annotation.is_a?(RBS::AST::Ruby::Annotations::ModuleAliasAnnotation) ? :module : :class #: TypeCheckDatabase::Entry::kind
+            definition(name.to_s, kind, decl.name_location)
             if (annotation = decl.annotation) && (old_name = annotation.type_name)
               reference(old_name, annotation.type_name_location)
             end
@@ -32,14 +36,14 @@ module Steep
 
         env.interface_decls.each do |name, entry|
           decl = entry.decl
-          definition(name.to_s, child_location(decl.location, :name))
+          definition(name.to_s, :interface, child_location(decl.location, :name))
           type_params(decl.type_params)
           members(name, decl.members)
         end
 
         env.type_alias_decls.each do |name, entry|
           decl = entry.decl
-          definition(name.to_s, child_location(decl.location, :name))
+          definition(name.to_s, :type_alias, child_location(decl.location, :name))
           type_params(decl.type_params)
           type(decl.type)
         end
@@ -48,17 +52,17 @@ module Steep
           decl = entry.decl
           case decl
           when RBS::AST::Declarations::Constant
-            definition(name.to_s, child_location(decl.location, :name))
+            definition(name.to_s, :constant, child_location(decl.location, :name))
             type(decl.type)
           when RBS::AST::Ruby::Declarations::ConstantDecl
-            definition(name.to_s, decl.name_location)
+            definition(name.to_s, :constant, decl.name_location)
             type(decl.type)
           end
         end
 
         env.global_decls.each do |name, entry|
           decl = entry.decl
-          definition(name.to_s, child_location(decl.location, :name))
+          definition(name.to_s, :global, child_location(decl.location, :name))
           type(decl.type)
         end
 
@@ -70,7 +74,7 @@ module Steep
       def class_decl(name, decl)
         case decl
         when RBS::AST::Declarations::Class
-          definition(name.to_s, child_location(decl.location, :name))
+          definition(name.to_s, :class, child_location(decl.location, :name))
           if super_class = decl.super_class
             reference(super_class.name, child_location(super_class.location, :name))
             super_class.args.each { |arg| type(arg) }
@@ -78,7 +82,7 @@ module Steep
           type_params(decl.type_params)
           members(name, decl.members)
         when RBS::AST::Declarations::Module
-          definition(name.to_s, child_location(decl.location, :name))
+          definition(name.to_s, :module, child_location(decl.location, :name))
           decl.self_types.each do |self_type|
             reference(self_type.name, child_location(self_type.location, :name))
             self_type.args.each { |arg| type(arg) }
@@ -86,14 +90,14 @@ module Steep
           type_params(decl.type_params)
           members(name, decl.members)
         when RBS::AST::Ruby::Declarations::ClassDecl
-          definition(name.to_s, decl.name_location)
+          definition(name.to_s, :class, decl.name_location)
           if super_class = decl.super_class
             reference(super_class.type_name, super_class.type_name_location)
             super_class.type_args.each { |arg| type(arg) }
           end
           members(name, decl.members)
         when RBS::AST::Ruby::Declarations::ModuleDecl
-          definition(name.to_s, decl.name_location)
+          definition(name.to_s, :module, decl.name_location)
           members(name, decl.members)
         end
       end
@@ -103,29 +107,29 @@ module Steep
           case member
           when RBS::AST::Members::MethodDefinition
             location = child_location(member.location, :name)
-            method_definition(type_name, member.name, :instance, location) if member.instance?
-            method_definition(type_name, member.name, :singleton, location) if member.singleton?
+            method_definition(type_name, member.name, :instance, :method, location) if member.instance?
+            method_definition(type_name, member.name, :singleton, :method, location) if member.singleton?
             member.overloads.each do |overload|
               method_type(overload.method_type)
             end
           when RBS::AST::Members::AttrReader, RBS::AST::Members::AttrWriter, RBS::AST::Members::AttrAccessor
             location = child_location(member.location, :name)
             unless member.is_a?(RBS::AST::Members::AttrWriter)
-              method_definition(type_name, member.name, member.kind, location)
+              method_definition(type_name, member.name, member.kind, :attribute, location)
             end
             unless member.is_a?(RBS::AST::Members::AttrReader)
-              method_definition(type_name, :"#{member.name}=", member.kind, location)
+              method_definition(type_name, :"#{member.name}=", member.kind, :attribute, location)
             end
             type(member.type)
           when RBS::AST::Members::Alias
             new_name = child_location(member.location, :new_name)
             old_name = child_location(member.location, :old_name)
             if member.instance?
-              method_definition(type_name, member.new_name, :instance, new_name)
+              method_definition(type_name, member.new_name, :instance, :method, new_name)
               method_reference(type_name, member.old_name, :instance, old_name)
             end
             if member.singleton?
-              method_definition(type_name, member.new_name, :singleton, new_name)
+              method_definition(type_name, member.new_name, :singleton, :method, new_name)
               method_reference(type_name, member.old_name, :singleton, old_name)
             end
           when RBS::AST::Members::InstanceVariable, RBS::AST::Members::ClassVariable, RBS::AST::Members::ClassInstanceVariable
@@ -134,7 +138,7 @@ module Steep
             reference(member.name, child_location(member.location, :name))
             member.args.each { |arg| type(arg) }
           when RBS::AST::Ruby::Members::DefMember
-            method_definition(type_name, member.name, member.kind, member.name_location)
+            method_definition(type_name, member.name, member.kind, :method, member.name_location)
             member.overloads.each do |overload|
               method_type(overload.method_type)
             end
@@ -181,16 +185,16 @@ module Steep
         type.each_type { |arg| type(arg) }
       end
 
-      def definition(name, location)
-        push(name, :definition, location)
+      def definition(name, kind, location)
+        push(name, :definition, location, kind: kind)
       end
 
       def reference(type_name, location)
         push(type_name.to_s, :reference, location)
       end
 
-      def method_definition(type_name, method_name, kind, location)
-        push(method_name_string(type_name, method_name, kind), :definition, location)
+      def method_definition(type_name, method_name, kind, entry_kind, location)
+        push(method_name_string(type_name, method_name, kind), :definition, location, kind: entry_kind)
       end
 
       def method_reference(type_name, method_name, kind, location)
@@ -208,7 +212,7 @@ module Steep
         end
       end
 
-      def push(name, role, location)
+      def push(name, role, location, kind: nil)
         return unless location
 
         buffer_name = location.buffer.name.to_s
@@ -220,6 +224,7 @@ module Steep
         (entries[path] ||= []) << TypeCheckDatabase::Entry.new(
           name: name,
           role: role,
+          kind: kind,
           start_line: location.start_line - 1,
           start_character: location.start_column,
           end_line: location.end_line - 1,

@@ -202,6 +202,17 @@ module Steep
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
+      WORKSPACE_SYMBOL_KINDS = {
+        class: LSP::Constant::SymbolKind::CLASS,
+        module: LSP::Constant::SymbolKind::MODULE,
+        interface: LSP::Constant::SymbolKind::INTERFACE,
+        type_alias: LSP::Constant::SymbolKind::ENUM,
+        constant: LSP::Constant::SymbolKind::CONSTANT,
+        global: LSP::Constant::SymbolKind::VARIABLE,
+        method: LSP::Constant::SymbolKind::METHOD,
+        attribute: LSP::Constant::SymbolKind::PROPERTY
+      } #: Hash[TypeCheckDatabase::Entry::kind, LSP::Constant::SymbolKind::t]
+
       def initialize(project:, reader:, writer:, launcher:, queue: Queue.new)
         @project = project
         @reader = reader
@@ -629,10 +640,7 @@ module Steep
           end
 
         when "workspace/symbol"
-          update_environment()
           query = message[:params][:query] #: String
-
-          # Answers from the environments as they are, without waiting for the update running on the environment thread
           enqueue_write_job SendMessageJob.to_client(message: { id: id, result: workspace_symbol_result(query) })
 
         when CustomMethods::Stats::METHOD
@@ -1345,37 +1353,40 @@ module Steep
       end
 
       def workspace_symbol_result(query)
-        service = controller.type_check_service or return []
-
         Steep.measure "Generating workspace symbol list for query=`#{query}`" do
-          provider = Index::SignatureSymbolProvider.new(project: project)
-          project.targets.each do |target|
-            provider.indexes[target] = service.signature_services.fetch(target.name).latest_rbs_index
-          end
+          uris = {} #: Hash[Pathname, String]
 
-          uris = {} #: Hash[String, String]
-          seen = Set[] #: Set[Array[untyped]]
-
-          provider.query_symbol(query).filter_map do |symbol|
-            location = symbol.location
-            buffer_name = location.buffer.name.to_s
-
-            # A file loaded into the environments of several targets gives the same symbols once for each target
-            next unless seen.add?([symbol.name, symbol.kind, symbol.container_name, buffer_name, location.start_pos, location.end_pos])
+          symbols = type_check_database.rbs_definitions(query).map do |definition|
+            name, container_name = workspace_symbol_name(definition.name, definition.kind)
+            location = definition.location
 
             LSP::Interface::SymbolInformation.new(
-              name: symbol.name,
-              kind: symbol.kind,
+              name: name,
+              kind: WORKSPACE_SYMBOL_KINDS.fetch(definition.kind),
               location: {
-                uri: uris[buffer_name] ||= PathHelper.to_uri(project.absolute_path(Pathname(buffer_name))).to_s,
-                range: {
-                  start: { line: location.start_line - 1, character: location.start_column },
-                  end: { line: location.end_line - 1, character: location.end_column }
-                }
+                uri: uris[location.path] ||= PathHelper.to_uri(location.path).to_s,
+                range: location.lsp_range
               },
-              container_name: symbol.container_name
+              container_name: container_name
             )
           end
+
+          symbols.sort_by!(&:name)
+        end
+      end
+
+      def workspace_symbol_name(name, kind)
+        case kind
+        when :method, :attribute
+          # `::Foo::Bar#baz` is `#baz` in `Foo::Bar`, and `::Foo::Bar.baz` is `.baz` in `Foo::Bar`
+          index = name.index(/[#.]/) or raise "Unexpected method name: #{name}"
+          [name[index..] || raise, name[0, index]&.delete_prefix("::")]
+        when :global
+          [name, nil]
+        else
+          # `::Foo::Bar` is `Bar` in `Foo`, and `::Foo` is `Foo` in `""`
+          namespace, _, base = name.delete_prefix("::").rpartition("::")
+          [base, namespace]
         end
       end
 

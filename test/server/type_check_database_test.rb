@@ -11,11 +11,12 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
   # @rbs!
   #   class TypeCheckDatabase = Steep::Server::TypeCheckDatabase
 
-  def entry(name, role:, at:) #: TypeCheckDatabase::Entry
+  def entry(name, role:, at:, kind: nil) #: TypeCheckDatabase::Entry
     start_line, start_character, end_line, end_character = at
     TypeCheckDatabase::Entry.new(
       name: name,
       role: role,
+      kind: kind,
       start_line: start_line,
       start_character: start_character,
       end_line: end_line,
@@ -272,6 +273,128 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
     assert_equal ["::Foo#bar", 1, 1, 2, 3, 4], e.to_wire
     assert_equal e, TypeCheckDatabase::Entry.from_wire(e.to_wire)
+
+    # The kind of a definition is in the code with the role
+    e = entry("::Foo#bar", role: :definition, kind: :method, at: [1, 2, 3, 4])
+
+    assert_equal ["::Foo#bar", 14, 1, 2, 3, 4], e.to_wire
+    assert_equal e, TypeCheckDatabase::Entry.from_wire(e.to_wire)
+
+    TypeCheckDatabase::KIND_CODES.each_key do |kind|
+      e = entry("::Foo", role: :definition, kind: kind, at: [1, 2, 3, 4])
+      assert_equal e, TypeCheckDatabase::Entry.from_wire(e.to_wire)
+    end
+  end
+
+  def test_definitions_with_kinds
+    database = TypeCheckDatabase.new()
+
+    database.update_rbs(
+      path: Pathname("sig/foo.rbs"),
+      target: :app,
+      entries: [
+        entry("::Foo", role: :definition, kind: :class, at: [0, 6, 0, 9]),
+        entry("::Foo", role: :reference, at: [1, 10, 1, 13])
+      ]
+    )
+
+    # The kind doesn't change the role of the entry
+    assert_equal [0], database.definitions("::Foo").map(&:start_line)
+    assert_equal [1], database.references("::Foo").map(&:start_line)
+  end
+
+  def test_rbs_definitions
+    database = TypeCheckDatabase.new()
+
+    database.update_rbs(
+      path: Pathname("sig/foo.rbs"),
+      target: :app,
+      entries: [
+        entry("::Foo", role: :definition, kind: :class, at: [0, 6, 0, 9]),
+        entry("::Foo#bar", role: :definition, kind: :method, at: [1, 6, 1, 9]),
+        entry("::Foo#name", role: :definition, kind: :attribute, at: [2, 16, 2, 20]),
+        entry("::Bar", role: :reference, at: [1, 13, 1, 16])
+      ]
+    )
+    database.update_rbs(
+      path: Pathname("sig/bar.rbs"),
+      target: :app,
+      entries: [
+        entry("::Bar", role: :definition, kind: :module, at: [0, 7, 0, 10]),
+        entry("$FOOBAR", role: :definition, kind: :global, at: [2, 0, 2, 7])
+      ]
+    )
+    # The definitions in Ruby code have no kind, and are not RBS declarations
+    database.update_source(
+      path: Pathname("lib/foo.rb"),
+      target: :app,
+      diagnostics: [],
+      entries: [entry("::Foo#bar", role: :definition, at: [1, 6, 1, 9])]
+    )
+
+    summary = -> (definitions) { definitions.map { [_1.name, _1.kind, _1.location.path, _1.location.start_line] }.sort }
+
+    # Every declaration for the empty query, without the references
+    assert_equal(
+      [
+        ["$FOOBAR", :global, Pathname("sig/bar.rbs"), 2],
+        ["::Bar", :module, Pathname("sig/bar.rbs"), 0],
+        ["::Foo", :class, Pathname("sig/foo.rbs"), 0],
+        ["::Foo#bar", :method, Pathname("sig/foo.rbs"), 1],
+        ["::Foo#name", :attribute, Pathname("sig/foo.rbs"), 2]
+      ],
+      summary[database.rbs_definitions("")]
+    )
+
+    # The fully qualified names including the query, ignoring the case
+    assert_equal(
+      [
+        ["$FOOBAR", :global, Pathname("sig/bar.rbs"), 2],
+        ["::Foo", :class, Pathname("sig/foo.rbs"), 0],
+        ["::Foo#bar", :method, Pathname("sig/foo.rbs"), 1],
+        ["::Foo#name", :attribute, Pathname("sig/foo.rbs"), 2]
+      ],
+      summary[database.rbs_definitions("foo")]
+    )
+    assert_equal(
+      [
+        ["$FOOBAR", :global, Pathname("sig/bar.rbs"), 2],
+        ["::Bar", :module, Pathname("sig/bar.rbs"), 0],
+        ["::Foo#bar", :method, Pathname("sig/foo.rbs"), 1]
+      ],
+      summary[database.rbs_definitions("BAR")]
+    )
+    assert_equal [], database.rbs_definitions("baz")
+
+    location = database.rbs_definitions("#name")[0]&.location or raise
+    assert_equal :rbs, location.source
+    assert_equal({ start: { line: 2, character: 16 }, end: { line: 2, character: 20 } }, location.lsp_range)
+  end
+
+  def test_rbs_definitions_merge_targets
+    database = TypeCheckDatabase.new()
+
+    path = Pathname("/gems/core/string.rbs")
+    [:app, :test].each do |target|
+      database.update_rbs(path: path, target: target, entries: [entry("::String", role: :definition, kind: :class, at: [0, 6, 0, 12])])
+    end
+
+    # The same entries in the targets are returned once
+    assert_equal [0], database.rbs_definitions("String").map { _1.location.start_line }
+    assert_equal [0], database.rbs_definitions("").map { _1.location.start_line }
+
+    database.update_rbs(
+      path: path,
+      target: :test,
+      entries: [
+        entry("::String", role: :definition, kind: :class, at: [0, 6, 0, 12]),
+        entry("::String", role: :definition, kind: :class, at: [5, 6, 5, 12])
+      ]
+    )
+
+    # The entries of the targets are merged when they differ
+    assert_equal [0, 5], database.rbs_definitions("String").map { _1.location.start_line }.sort
+    assert_equal [0, 5], database.rbs_definitions("").map { _1.location.start_line }.sort
   end
 
   def test_stats_follow_diagnostics
@@ -376,43 +499,47 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
       class Qux
       end
+
+      module MixinAlias = Mixin
     RBS
     _, directives, declarations = RBS::Parser.parse_signature(buffer)
     env.add_source(RBS::Source::RBS.new(buffer, directives, declarations))
 
-    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("sig/foo.rbs")).map(&:to_wire)
+    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("sig/foo.rbs")).map { [_1.name, _1.kind || _1.role, _1.start_line, _1.start_character, _1.end_line, _1.end_character] }
 
     # Declarations, at the names
-    assert_includes entries, ["::Foo", 0, 0, 6, 0, 9]
-    assert_includes entries, ["::Foo#bar", 0, 2, 6, 2, 9]
-    assert_includes entries, ["::Foo#baz", 0, 3, 16, 3, 19]
-    assert_includes entries, ["::Foo#baz=", 0, 3, 16, 3, 19]
-    assert_includes entries, ["::Foo#bar2", 0, 4, 8, 4, 12]
-    assert_includes entries, ["::Mixin", 0, 8, 7, 8, 12]
-    assert_includes entries, ["::_Foo", 0, 11, 10, 11, 14]
-    assert_includes entries, ["::_Foo#foo", 0, 12, 6, 12, 9]
-    assert_includes entries, ["::foo", 0, 15, 5, 15, 8]
-    assert_includes entries, ["::FOO", 0, 17, 0, 17, 3]
-    assert_includes entries, ["$foo", 0, 19, 0, 19, 4]
-    assert_includes entries, ["::Alias", 0, 21, 6, 21, 11]
+    assert_includes entries, ["::Foo", :class, 0, 6, 0, 9]
+    assert_includes entries, ["::Foo#bar", :method, 2, 6, 2, 9]
+    assert_includes entries, ["::Foo#baz", :attribute, 3, 16, 3, 19]
+    assert_includes entries, ["::Foo#baz=", :attribute, 3, 16, 3, 19]
+    assert_includes entries, ["::Foo#bar2", :method, 4, 8, 4, 12]
+    assert_includes entries, ["::Mixin", :module, 8, 7, 8, 12]
+    assert_includes entries, ["::_Foo", :interface, 11, 10, 11, 14]
+    assert_includes entries, ["::_Foo#foo", :method, 12, 6, 12, 9]
+    assert_includes entries, ["::foo", :type_alias, 15, 5, 15, 8]
+    assert_includes entries, ["::FOO", :constant, 17, 0, 17, 3]
+    assert_includes entries, ["$foo", :global, 19, 0, 19, 4]
+    assert_includes entries, ["::Alias", :class, 21, 6, 21, 11]
+    assert_includes entries, ["::MixinAlias", :module, 29, 7, 29, 17]
 
     # References, at the type names
-    assert_includes entries, ["::Bar", 1, 0, 14, 0, 17]      # Upper bound of the type parameter
-    assert_includes entries, ["::Bar", 1, 0, 21, 0, 24]      # Super class
-    assert_includes entries, ["::Mixin", 1, 1, 10, 1, 15]    # Mixin
-    assert_includes entries, ["::Qux", 1, 1, 16, 1, 19]      # Type argument of the mixin
-    assert_includes entries, ["::Qux", 1, 2, 12, 2, 15]      # Parameter type
-    assert_includes entries, ["::Bar", 1, 2, 20, 2, 23]      # Return type
-    assert_includes entries, ["::Qux", 1, 3, 21, 3, 24]      # Attribute type
-    assert_includes entries, ["::Foo#bar", 1, 4, 13, 4, 16]  # Old name of the alias
-    assert_includes entries, ["::Qux", 1, 5, 9, 5, 12]       # Instance variable type
-    assert_includes entries, ["::Bar", 1, 8, 18, 8, 21]      # Module self type
-    assert_includes entries, ["::Qux", 1, 12, 17, 12, 20]    # Return type of the interface method
-    assert_includes entries, ["::Qux", 1, 15, 11, 15, 14]    # Type alias
-    assert_includes entries, ["::Bar", 1, 15, 17, 15, 20]
-    assert_includes entries, ["::Qux", 1, 17, 5, 17, 8]      # Constant type
-    assert_includes entries, ["::Qux", 1, 19, 6, 19, 9]      # Global type
-    assert_includes entries, ["::Foo", 1, 21, 14, 21, 17]    # Class alias target
+    assert_includes entries, ["::Bar", :reference, 0, 14, 0, 17]      # Upper bound of the type parameter
+    assert_includes entries, ["::Bar", :reference, 0, 21, 0, 24]      # Super class
+    assert_includes entries, ["::Mixin", :reference, 1, 10, 1, 15]    # Mixin
+    assert_includes entries, ["::Qux", :reference, 1, 16, 1, 19]      # Type argument of the mixin
+    assert_includes entries, ["::Qux", :reference, 2, 12, 2, 15]      # Parameter type
+    assert_includes entries, ["::Bar", :reference, 2, 20, 2, 23]      # Return type
+    assert_includes entries, ["::Qux", :reference, 3, 21, 3, 24]      # Attribute type
+    assert_includes entries, ["::Foo#bar", :reference, 4, 13, 4, 16]  # Old name of the alias
+    assert_includes entries, ["::Qux", :reference, 5, 9, 5, 12]       # Instance variable type
+    assert_includes entries, ["::Bar", :reference, 8, 18, 8, 21]      # Module self type
+    assert_includes entries, ["::Qux", :reference, 12, 17, 12, 20]    # Return type of the interface method
+    assert_includes entries, ["::Qux", :reference, 15, 11, 15, 14]    # Type alias
+    assert_includes entries, ["::Bar", :reference, 15, 17, 15, 20]
+    assert_includes entries, ["::Qux", :reference, 17, 5, 17, 8]      # Constant type
+    assert_includes entries, ["::Qux", :reference, 19, 6, 19, 9]      # Global type
+    assert_includes entries, ["::Foo", :reference, 21, 14, 21, 17]    # Class alias target
+    assert_includes entries, ["::Mixin", :reference, 29, 20, 29, 25]  # Module alias target
 
     # Each entry is included once
     assert_equal entries.uniq, entries
@@ -438,25 +565,30 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
       module Mixin
       end
+
+      QuxAlias = Qux #: class-alias
+      MixinAlias = Mixin #: module-alias
     RUBY
     prism = Prism.parse(buffer.content)
     result = RBS::InlineParser.parse(buffer, prism)
     env.add_source(RBS::Source::Ruby.new(buffer, prism, result.declarations, result.diagnostics))
 
-    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("lib/foo.rb")).map(&:to_wire)
+    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("lib/foo.rb")).map { [_1.name, _1.kind || _1.role, _1.start_line, _1.start_character, _1.end_line, _1.end_character] }
 
     # Declarations, at the names in the Ruby file
-    assert_includes entries, ["::Foo", 0, 0, 6, 0, 9]
-    assert_includes entries, ["::Foo#foo", 0, 4, 6, 4, 9]
-    assert_includes entries, ["::Bar", 0, 8, 6, 8, 9]
+    assert_includes entries, ["::Foo", :class, 0, 6, 0, 9]
+    assert_includes entries, ["::Foo#foo", :method, 4, 6, 4, 9]
+    assert_includes entries, ["::Bar", :class, 8, 6, 8, 9]
+    assert_includes entries, ["::QuxAlias", :class, 17, 0, 17, 8]
+    assert_includes entries, ["::MixinAlias", :module, 18, 0, 18, 10]
 
     # References, at the type names in the Ruby file
-    assert_includes entries, ["::Bar", 1, 0, 12, 0, 15]      # Super class
-    assert_includes entries, ["::Qux", 1, 0, 18, 0, 21]      # Type argument of the super class
-    assert_includes entries, ["::Mixin", 1, 1, 10, 1, 15]    # Mixin
-    assert_includes entries, ["::Qux", 1, 1, 18, 1, 21]      # Type argument of the mixin
-    assert_includes entries, ["::Qux", 1, 3, 10, 3, 13]      # Parameter type in the annotation
-    assert_includes entries, ["::Bar", 1, 3, 18, 3, 21]      # Return type in the annotation
+    assert_includes entries, ["::Bar", :reference, 0, 12, 0, 15]    # Super class
+    assert_includes entries, ["::Qux", :reference, 0, 18, 0, 21]    # Type argument of the super class
+    assert_includes entries, ["::Mixin", :reference, 1, 10, 1, 15]  # Mixin
+    assert_includes entries, ["::Qux", :reference, 1, 18, 1, 21]    # Type argument of the mixin
+    assert_includes entries, ["::Qux", :reference, 3, 10, 3, 13]    # Parameter type in the annotation
+    assert_includes entries, ["::Bar", :reference, 3, 18, 3, 21]    # Return type in the annotation
   end
 
   def test_library_entries

@@ -21,6 +21,9 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def dirs: () -> untyped
 
+  # Returns the wire entries as `[name, kind (or role without kind), start_line, start_character, end_line, end_character]`
+  def summarize_entries: (untyped entries) -> Array[Array[untyped]]
+
   # @rbs (Server::TypeCheckWorker) { (Thread) -> void } -> void
   def run_worker: (Server::TypeCheckWorker) { (Thread) -> void } -> void
 
