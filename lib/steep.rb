@@ -100,8 +100,6 @@ require "steep/type_inference/case_when"
 
 require "steep/locator.rb"
 
-require "steep/index/rbs_index"
-require "steep/index/signature_symbol_provider"
 require "steep/index/source_index"
 
 require "steep/services/content_change"

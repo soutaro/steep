@@ -13,13 +13,6 @@ module Steep
           @last_builder = last_builder
         end
 
-        def rbs_index
-          @rbs_index ||= Index::RBSIndex.new().tap do |index|
-            builder = Index::RBSIndex::Builder.new(index: index)
-            builder.env(last_builder.env)
-          end
-        end
-
         def constant_resolver
           @constant_resolver ||= RBS::Resolver::ConstantResolver.new(builder: last_builder)
         end
@@ -33,13 +26,6 @@ module Steep
           @changed_paths = changed_paths
           @diagnostics = diagnostics
           @last_builder = last_builder
-        end
-
-        def rbs_index
-          @rbs_index ||= Index::RBSIndex.new().tap do |index|
-            builder = Index::RBSIndex::Builder.new(index: index)
-            builder.env(last_builder.env)
-          end
         end
 
         def constant_resolver
@@ -61,13 +47,6 @@ module Steep
             factory = AST::Types::Factory.new(builder: builder)
             interface_builder = Interface::Builder.new(factory, implicitly_returns_nil: implicitly_returns_nil)
             Subtyping::Check.new(builder: interface_builder)
-          end
-        end
-
-        def rbs_index
-          @rbs_index ||= Index::RBSIndex.new().tap do |index|
-            builder = Index::RBSIndex::Builder.new(index: index)
-            builder.env(self.builder.env)
           end
         end
 
@@ -152,10 +131,6 @@ module Steep
         when SyntaxErrorStatus, AncestorErrorStatus
           status.last_builder
         end
-      end
-
-      def latest_rbs_index
-        status.rbs_index
       end
 
       def latest_constant_resolver
