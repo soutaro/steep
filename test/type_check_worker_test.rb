@@ -172,9 +172,16 @@ class TypeCheckWorkerTest < Minitest::Test
             params: { guid: "guid1", kind: "library", target: "lib", uri: "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}" }
           }
         )
+        worker.handle_request(
+          {
+            id: "request-4",
+            method: TypeCheck__File::METHOD,
+            params: { guid: "index", kind: "index", target: "lib", uri: "#{file_scheme}#{current_dir}/sig/hello.rbs" }
+          }
+        )
 
         jobs = flush_queue(worker.queue)
-        assert_equal 3, jobs.size
+        assert_equal 4, jobs.size
 
         jobs[0].tap do |job|
           assert_instance_of TypeCheckWorker::TypeCheckCodeJob, job
@@ -190,6 +197,11 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_instance_of TypeCheckWorker::ValidateLibrarySignatureJob, job
           assert_equal "request-3", job.id
           assert_equal RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs", job.path
+        end
+        jobs[3].tap do |job|
+          assert_instance_of TypeCheckWorker::IndexSignatureJob, job
+          assert_equal "request-4", job.id
+          assert_equal current_dir + "sig/hello.rbs", job.path
         end
 
         assert_equal({ Pathname("lib/hello.rb") => [Services::ContentChange.string("class Foo\nend\n")] }, worker.pop_buffer)
@@ -390,6 +402,82 @@ class TypeCheckWorkerTest < Minitest::Test
         master_read_queue.deq.tap do |message|
           assert_equal "guid", message[:id]
           assert_empty message[:result][:signature][:diagnostics]
+        end
+      end
+    end
+  end
+
+  def test_handle_job_index_signature
+    in_tmpdir do
+      with_master_read_queue do |master_read_queue|
+        project = Project.new(steepfile_path: current_dir + "Steepfile")
+        Project::DSL.eval(project) do
+          target :lib do
+            check "lib", inline: true
+            signature "sig"
+          end
+        end
+
+        worker = Server::TypeCheckWorker.new(
+          project: project,
+          reader: worker_reader,
+          writer: worker_writer
+        )
+
+        {}.tap do |changes|
+          changes[Pathname("sig/hello.rbs")] = [Services::ContentChange.string(<<~RBS)]
+            class Hello
+              def world: () -> Unknown
+            end
+          RBS
+          changes[Pathname("lib/greeter.rb")] = [Services::ContentChange.string(<<~RUBY)]
+            class Greeter
+              # @rbs (String) -> String
+              def greet(name)
+                name
+              end
+            end
+          RUBY
+          worker.push_buffer { |buffer| buffer.merge!(changes) }
+        end
+
+        # An RBS file of the project, without the validation reporting the unknown type
+        worker.handle_job(TypeCheckWorker::IndexSignatureJob.new(id: "rbs", path: current_dir + "sig/hello.rbs", target: project.targets[0]))
+        master_read_queue.pop.tap do |message|
+          assert_equal "rbs", message[:id]
+          assert_nil message[:result][:source]
+          assert_nil message[:result][:signature][:diagnostics]
+
+          entries = message[:result][:signature][:entries]
+          assert_includes entries, ["::Hello", 0, 0, 6, 0, 11]
+          assert_includes entries, ["::Hello#world", 0, 1, 6, 1, 11]
+          refute entries.any? {|name, *| name.start_with?("::Greeter") }
+        end
+
+        # A Ruby file with inline RBS declarations
+        worker.handle_job(TypeCheckWorker::IndexSignatureJob.new(id: "inline", path: current_dir + "lib/greeter.rb", target: project.targets[0]))
+        master_read_queue.pop.tap do |message|
+          assert_equal "inline", message[:id]
+          assert_nil message[:result][:source]
+          assert_nil message[:result][:signature][:diagnostics]
+
+          entries = message[:result][:signature][:entries]
+          assert_includes entries, ["::Greeter", 0, 0, 6, 0, 13]
+          assert_includes entries, ["::Greeter#greet", 0, 2, 6, 2, 11]
+          refute entries.any? {|name, *| name.start_with?("::Hello") }
+        end
+
+        # A library RBS file, found by the absolute path
+        worker.handle_job(
+          TypeCheckWorker::IndexSignatureJob.new(id: "library", path: RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "string.rbs", target: project.targets[0])
+        )
+        master_read_queue.pop.tap do |message|
+          assert_equal "library", message[:id]
+          assert_nil message[:result][:source]
+          assert_nil message[:result][:signature][:diagnostics]
+
+          entries = message[:result][:signature][:entries]
+          assert entries.any? {|name, role, *| name == "::String" && role == 0 }
         end
       end
     end

@@ -44,8 +44,8 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     shared = diagnostic("shared")
 
     database.update_source(path: path, target: :app, diagnostics: [diagnostic("ruby")], entries: [])
-    database.update_signature(path: path, target: :app, diagnostics: [shared, diagnostic("app only")], entries: [])
-    database.update_signature(path: path, target: :test, diagnostics: [shared, diagnostic("test only")], entries: [])
+    database.update_signature(path: path, target: :app, diagnostics: [shared, diagnostic("app only")])
+    database.update_signature(path: path, target: :test, diagnostics: [shared, diagnostic("test only")])
 
     assert_equal ["ruby", "shared", "app only", "test only"], database.diagnostics(path).map { _1[:message] }
   end
@@ -113,12 +113,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
   def test_location
     database = TypeCheckDatabase.new()
 
-    database.update_signature(
-      path: Pathname("sig/a.rbs"),
-      target: :app,
-      diagnostics: [],
-      entries: [entry("::Foo", role: :definition, at: [1, 2, 3, 4])]
-    )
+    database.update_rbs(path: Pathname("sig/a.rbs"), target: :app, entries: [entry("::Foo", role: :definition, at: [1, 2, 3, 4])])
 
     location = database.definitions("::Foo")[0] || raise
     assert_equal Pathname("sig/a.rbs"), location.path
@@ -126,7 +121,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal({ start: { line: 1, character: 2 }, end: { line: 3, character: 4 } }, location.lsp_range)
   end
 
-  def test_inline_file_has_results_in_both_tables
+  def test_inline_file_has_entries_in_sources_and_rbs
     database = TypeCheckDatabase.new()
 
     path = Pathname("lib/a.rb")
@@ -136,34 +131,27 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
       diagnostics: [],
       entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
     )
-    database.update_signature(
-      path: path,
-      target: :app,
-      diagnostics: [],
-      entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
-    )
+    database.update_rbs(path: path, target: :app, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
 
     # The same range is reported twice, as Ruby code and as an inline declaration
     assert_equal [[path, :ruby, 0], [path, :rbs, 0]], summarize(database.definitions("::Foo"))
   end
 
-  def test_signatures_merge_targets
+  def test_rbs_merge_targets
     database = TypeCheckDatabase.new()
 
     path = Pathname("sig/a.rbs")
-    database.update_signature(
+    database.update_rbs(
       path: path,
       target: :app,
-      diagnostics: [],
       entries: [
         entry("::Foo", role: :definition, at: [0, 6, 0, 9]),
         entry("::Bar", role: :reference, at: [1, 12, 1, 15])
       ]
     )
-    database.update_signature(
+    database.update_rbs(
       path: path,
       target: :test,
-      diagnostics: [],
       entries: [
         entry("::Foo", role: :definition, at: [0, 6, 0, 9]),
         entry("::Test::Bar", role: :reference, at: [1, 12, 1, 15])
@@ -210,14 +198,32 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     database = TypeCheckDatabase.new()
 
     path = Pathname("sig/a.rbs")
-    database.update_signature(path: path, target: :app, diagnostics: [diagnostic("app")], entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
-    database.update_signature(path: path, target: :test, diagnostics: [diagnostic("test")], entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
+    database.update_signature(path: path, target: :app, diagnostics: [diagnostic("app")])
+    database.update_signature(path: path, target: :test, diagnostics: [diagnostic("test")])
 
-    database.update_signature(path: path, target: :app, diagnostics: [], entries: [])
-
+    database.update_signature(path: path, target: :app, diagnostics: [])
     assert_equal ["test"], database.diagnostics(path).map { _1[:message] }
+
+    # Skipping the validation keeps the diagnostics of the target
+    database.update_signature(path: path, target: :test, diagnostics: nil)
+    assert_equal ["test"], database.diagnostics(path).map { _1[:message] }
+  end
+
+  def test_update_rbs_replaces_only_the_target
+    database = TypeCheckDatabase.new()
+
+    path = Pathname("sig/a.rbs")
+    database.update_rbs(path: path, target: :app, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
+    database.update_rbs(path: path, target: :test, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
+
+    database.update_rbs(path: path, target: :app, entries: [])
     assert_equal [[path, :rbs, 0]], summarize(database.definitions("::Foo"))
     assert_equal 1, database.entry_count
+
+    # `nil` keeps the entries, for the signatures that fail to load
+    database.update_rbs(path: path, target: :test, entries: nil)
+    assert_equal [[path, :rbs, 0]], summarize(database.definitions("::Foo"))
+    assert_equal 1, database.pool.size
   end
 
   def test_remove_releases_everything
@@ -230,18 +236,10 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
       diagnostics: [diagnostic("a")],
       entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
     )
-    database.update_signature(
-      path: path,
-      target: :app,
-      diagnostics: [diagnostic("b")],
-      entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
-    )
-    database.update_signature(
-      path: path,
-      target: :test,
-      diagnostics: [diagnostic("c")],
-      entries: [entry("::Foo", role: :reference, at: [1, 0, 1, 3])]
-    )
+    database.update_signature(path: path, target: :app, diagnostics: [diagnostic("b")])
+    database.update_signature(path: path, target: :test, diagnostics: [diagnostic("c")])
+    database.update_rbs(path: path, target: :app, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
+    database.update_rbs(path: path, target: :test, entries: [entry("::Foo", role: :reference, at: [1, 0, 1, 3])])
 
     database.remove(path)
 
@@ -261,12 +259,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
       diagnostics: [],
       entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
     )
-    database.update_signature(
-      path: Pathname("sig/a.rbs"),
-      target: :app,
-      diagnostics: [],
-      entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
-    )
+    database.update_rbs(path: Pathname("sig/a.rbs"), target: :app, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
 
     database.remove(Pathname("sig/a.rbs"))
 
@@ -308,8 +301,12 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal [], database.paths
 
     database.update_source(path: Pathname("lib/a.rb"), target: :app, diagnostics: [], entries: [])
-    database.update_signature(path: Pathname("lib/a.rb"), target: :app, diagnostics: [], entries: [])
-    database.update_signature(path: Pathname("sig/a.rbs"), target: :app, diagnostics: [], entries: [])
+    database.update_signature(path: Pathname("lib/a.rb"), target: :app, diagnostics: [])
+    database.update_signature(path: Pathname("sig/a.rbs"), target: :app, diagnostics: [])
+
+    # The indexed files are not checked
+    database.update_rbs(path: Pathname("sig/b.rbs"), target: :app, entries: [])
+    refute_operator database, :checked?, Pathname("sig/b.rbs")
 
     assert_operator database, :checked?, Pathname("lib/a.rb")
     assert_operator database, :checked?, Pathname("sig/a.rbs")
@@ -325,10 +322,9 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     database = TypeCheckDatabase.new()
 
     path = Pathname("sig/foo.rbs")
-    database.update_signature(
+    database.update_rbs(
       path: path,
       target: :app,
-      diagnostics: [],
       entries: [
         entry("::Foo", role: :definition, at: [0, 6, 0, 9]),
         entry("::Foo#bar", role: :definition, at: [1, 6, 1, 9]),
@@ -467,8 +463,9 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     database = TypeCheckDatabase.new()
 
     path = Pathname("/gems/core/string.rbs")
-    database.update_library(
+    database.update_rbs(
       path: path,
+      target: :app,
       entries: [
         entry("::String", role: :definition, at: [0, 6, 0, 12]),
         entry("::Integer", role: :reference, at: [3, 20, 3, 27])
@@ -481,13 +478,13 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal [[path, :rbs, 3]], summarize(database.references("::Integer"))
     assert_equal 3, database.entry_count
 
-    # Library files are not type checked: they are not `checked?`, not in `paths`, and have no diagnostics
+    # Indexed library files are not validated: they are not `checked?`, not in `paths`, and have no diagnostics
     refute database.checked?(path)
     assert_equal [Pathname("lib/a.rb")], database.paths
     assert_equal [], database.diagnostics(path)
 
     # Updating replaces the entries of the file
-    database.update_library(path: path, entries: [entry("::String", role: :definition, at: [1, 6, 1, 12])])
+    database.update_rbs(path: path, target: :app, entries: [entry("::String", role: :definition, at: [1, 6, 1, 12])])
     assert_equal [[path, :rbs, 1]], summarize(database.definitions("::String"))
     assert_equal [], database.references("::Integer")
     assert_equal 2, database.entry_count

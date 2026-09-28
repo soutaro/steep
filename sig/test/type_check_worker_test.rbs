@@ -40,6 +40,8 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_handle_job_validate_lib_signature: () -> untyped
 
+  def test_handle_job_index_signature: () -> untyped
+
   def test_handle_job_typecheck_code: () -> untyped
 
   def test_handle_job_typecheck_code_entries: () -> untyped

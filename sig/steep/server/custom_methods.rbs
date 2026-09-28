@@ -80,7 +80,9 @@ module Steep
       module TypeCheck__File
         METHOD: String
 
-        type kind = "code" | "signature" | "library" | "inline"
+        # `"index"` reports the entries of the declarations in an RBS file, a library RBS file, or a Ruby file with inline
+        # RBS declarations, without validating them
+        type kind = "code" | "signature" | "library" | "inline" | "index"
 
         type params = {
           guid: String,
@@ -100,7 +102,8 @@ module Steep
         type file_result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry::wire]?, stats: Services::StatsCalculator::calls? }
 
         # `source` is the result of type checking Ruby code, and `signature` is the result of validating RBS declarations.
-        # A Ruby file with inline RBS declarations has both.
+        # A Ruby file with inline RBS declarations has both. An `"index"` request has only `signature`, with the entries
+        # and without the diagnostics.
         #
         type result = { source: file_result?, signature: file_result? }
 

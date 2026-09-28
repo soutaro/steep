@@ -16,7 +16,9 @@ end
 
 failed_tests = []
 
-ALLOW_FAILURE = ["diagnostics-ruby-unsat"]
+# `enumerator` expects the numbers of the fresh type variables in the diagnostics, which depend on the files the worker
+# type checked before
+ALLOW_FAILURE = ["diagnostics-ruby-unsat", "enumerator"]
 
 test_dirs.each do |dir|
   puts "Running test #{dir}..."

@@ -198,6 +198,7 @@ module Steep
       attr_reader :pending_typecheck_jobs
       attr_reader :typecheck_jobs_in_flight
       attr_reader :interaction_jobs_in_flight
+      attr_reader :pending_index_jobs
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
@@ -218,6 +219,7 @@ module Steep
         @pending_typecheck_jobs = []
         @typecheck_jobs_in_flight = {}
         @interaction_jobs_in_flight = {}
+        @pending_index_jobs = {}
         @shutting_down = false
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
@@ -457,7 +459,7 @@ module Steep
 
           start_workers()
 
-          environment_queue << -> { load_library_entries() }
+          index_all_signatures()
 
           if typecheck_automatically
             progress.end()
@@ -853,7 +855,12 @@ module Steep
               else
                 controller.make_request(guid: progress.guid, progress: progress)
               end
-            return unless request
+
+            unless request
+              # The index jobs of the changed files are left to hand out
+              dispatch_typecheck_jobs()
+              return
+            end
 
             request.needs_response = needs_response ? true : false
           end
@@ -877,6 +884,7 @@ module Steep
           if request.each_unchecked_target_path.to_a.empty?
             finish_type_check(request)
             @current_type_check_request = nil
+            dispatch_typecheck_jobs()
             return
           end
 
@@ -901,17 +909,78 @@ module Steep
 
       def dispatch_typecheck_jobs
         return if @shutting_down
-        request = current_type_check_request or return
+        request = current_type_check_request
 
-        until pending_typecheck_jobs.empty?
+        loop do
           workers = typecheck_workers.select {|worker| typecheck_jobs_in_flight.fetch(worker, 0) < TYPECHECK_JOBS_PER_WORKER }
           break if workers.empty?
 
           workers.each do |worker|
-            job = pending_typecheck_jobs.shift or break
-            send_typecheck_job(worker, request, job)
+            if request && (job = pending_typecheck_jobs.shift)
+              send_typecheck_job(worker, request, job)
+            elsif index_job = pending_index_jobs.shift
+              target_name, path = index_job[0]
+              send_index_job(worker, target_name, path)
+            else
+              return
+            end
           end
         end
+      end
+
+      def send_index_job(worker, target_name, path)
+        params = {
+          guid: "index",
+          kind: "index",
+          target: target_name.to_s,
+          uri: PathHelper.to_uri(path).to_s
+        } #: CustomMethods::TypeCheck__File::params
+
+        typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) + 1
+
+        result_controller << send_request(method: CustomMethods::TypeCheck__File::METHOD, params: params, worker: worker) do |handler|
+          handler.on_completion do |response|
+            typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) - 1
+
+            result = response[:result] #: CustomMethods::TypeCheck__File::result?
+            if entries = result&.[](:signature)&.[](:entries)
+              type_check_database.update_rbs(path: path, target: target_name, entries: entries.map { TypeCheckDatabase::Entry.from_wire(_1) })
+            end
+
+            dispatch_typecheck_jobs()
+          end
+        end
+      end
+
+      def enqueue_index_jobs(target_paths)
+        return if target_paths.empty?
+
+        target_paths.each do |target_path|
+          pending_index_jobs[target_path] = true
+        end
+
+        typecheck_workers.each do |worker|
+          deliver_contents(worker, signature_paths_to_deliver)
+        end
+      end
+
+      def index_all_signatures
+        target_paths = [] #: Array[[Symbol, Pathname]]
+
+        controller.files.signature_paths.each do |path, target|
+          target_paths << [target.name, path]
+        end
+        controller.files.inline_paths.each do |path, target|
+          target_paths << [target.name, path]
+        end
+        project.targets.each do |target|
+          controller.files.each_library_path(target) do |path|
+            target_paths << [target.name, path]
+          end
+        end
+
+        enqueue_index_jobs(target_paths)
+        dispatch_typecheck_jobs()
       end
 
       def send_typecheck_job(worker, request, job)
@@ -941,6 +1010,9 @@ module Steep
           if content = content_for(worker, path)
             params[:content] = content
           end
+        else
+          # The validation reports the entries of the declarations too
+          pending_index_jobs.delete([target_name, path])
         end
 
         typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) + 1
@@ -979,10 +1051,10 @@ module Steep
             end
 
             if signature
-              type_check_database.update_signature(
+              type_check_database.update_signature(path: path, target: target.name, diagnostics: signature[:diagnostics])
+              type_check_database.update_rbs(
                 path: path,
                 target: target.name,
-                diagnostics: signature[:diagnostics],
                 entries: signature[:entries]&.map { TypeCheckDatabase::Entry.from_wire(_1) }
               )
             end
@@ -1154,6 +1226,15 @@ module Steep
         return if changes.empty?
         service = controller.type_check_service or return
 
+        # The changed RBS files are indexed after the type check jobs, unless the type check validates them
+        target_paths = changes.each_key.filter_map do |relative_path|
+          path = project.absolute_path(relative_path)
+          if target = controller.files.signature_paths.target(path) || controller.files.inline_paths.target(path)
+            [target.name, path]
+          end
+        end #: Array[[Symbol, Pathname]]
+        enqueue_index_jobs(target_paths)
+
         environment_queue << -> do
           Steep.measure("Updating the environments with #{changes.size} files") do
             service.update(changes: changes)
@@ -1295,38 +1376,6 @@ module Steep
               container_name: symbol.container_name
             )
           end
-        end
-      end
-
-      def load_library_entries
-        service = controller.type_check_service or return
-
-        entries_by_path = {} #: Hash[Pathname, Array[TypeCheckDatabase::Entry]]
-
-        project.targets.each do |target|
-          signature_service = service.signature_services.fetch(target.name)
-          library_paths = signature_service.env_rbs_paths
-
-          Steep.measure("Collecting the entries of the library RBS files of target=#{target.name}") do
-            TypeCheckDatabase.rbs_entries_by_path(signature_service.latest_env).each do |path, entries|
-              next unless library_paths.include?(path)
-
-              if merged = entries_by_path[path]
-                merged.concat(entries)
-              else
-                entries_by_path[path] = entries
-              end
-            end
-          end
-        end
-
-        entries_by_path.each_value(&:uniq!)
-
-        job_queue << -> do
-          entries_by_path.each do |path, entries|
-            type_check_database.update_library(path: path, entries: entries)
-          end
-          Steep.logger.info { "Stored the entries of #{entries_by_path.size} library RBS files" }
         end
       end
 

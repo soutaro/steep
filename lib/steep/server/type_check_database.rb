@@ -177,11 +177,10 @@ module Steep
       def initialize
         @sources = {}
         @signatures = {}
-        @libraries = {}
+        @rbs = {}
         @pool = NamePool.new
         @source_paths = {}
-        @signature_paths = {}
-        @library_paths = {}
+        @rbs_paths = {}
       end
 
       def update_source(path:, target:, diagnostics:, entries:, stats: nil)
@@ -196,25 +195,20 @@ module Steep
         )
       end
 
-      def update_signature(path:, target:, diagnostics:, entries:)
+      def update_signature(path:, target:, diagnostics:)
         targets = (@signatures[path] ||= {})
-        targets[target] = replace_result(
-          targets.fetch(target, nil),
-          @signature_paths,
-          path: path,
-          target: target,
-          diagnostics: diagnostics,
-          entries: entries,
-          stats: nil
-        )
+        targets[target] = diagnostics || targets.fetch(target, nil) || []
       end
 
-      def update_library(path:, entries:)
-        if old = @libraries[path]
-          release_entries(@library_paths, path, old)
+      def update_rbs(path:, target:, entries:)
+        return unless entries
+
+        targets = (@rbs[path] ||= {})
+        if old = targets[target]
+          release_entries(@rbs_paths, path, old)
         end
 
-        @libraries[path] = pack_entries(@library_paths, path, entries)
+        targets[target] = pack_entries(@rbs_paths, path, entries)
       end
 
       def remove(path)
@@ -222,14 +216,12 @@ module Steep
           release_entries(@source_paths, path, result.entries)
         end
 
-        if targets = @signatures.delete(path)
-          targets.each_value do |result|
-            release_entries(@signature_paths, path, result.entries)
-          end
-        end
+        @signatures.delete(path)
 
-        if packed = @libraries.delete(path)
-          release_entries(@library_paths, path, packed)
+        if targets = @rbs.delete(path)
+          targets.each_value do |packed|
+            release_entries(@rbs_paths, path, packed)
+          end
         end
       end
 
@@ -259,8 +251,8 @@ module Steep
         end
 
         if targets = @signatures.fetch(path, nil)
-          targets.each_value do |result|
-            merged.concat(result.diagnostics)
+          targets.each_value do |diagnostics|
+            merged.concat(diagnostics)
           end
         end
 
@@ -283,14 +275,10 @@ module Steep
           count += result.entries.size / ENTRY_SIZE
         end
 
-        @signatures.each_value do |targets|
-          targets.each_value do |result|
-            count += result.entries.size / ENTRY_SIZE
+        @rbs.each_value do |targets|
+          targets.each_value do |packed|
+            count += packed.size / ENTRY_SIZE
           end
-        end
-
-        @libraries.each_value do |packed|
-          count += packed.size / ENTRY_SIZE
         end
 
         count
@@ -341,17 +329,11 @@ module Steep
           end
         end
 
-        if paths = @signature_paths.fetch(id, nil)
+        if paths = @rbs_paths.fetch(id, nil)
           paths.each_key do |path|
-            @signatures.fetch(path).each_value do |result|
-              collect_locations(locations, result.entries, id, role_code, path: path, source: :rbs)
+            @rbs.fetch(path).each_value do |packed|
+              collect_locations(locations, packed, id, role_code, path: path, source: :rbs)
             end
-          end
-        end
-
-        if paths = @library_paths.fetch(id, nil)
-          paths.each_key do |path|
-            collect_locations(locations, @libraries.fetch(path), id, role_code, path: path, source: :rbs)
           end
         end
 
