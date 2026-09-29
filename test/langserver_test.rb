@@ -33,7 +33,6 @@ EOF
 
       (current_dir + "lib/hello.rb").write <<Ruby
 class Hello
-  # @dynamic name
   attr_reader :name
 end
 Ruby
@@ -61,7 +60,7 @@ RBS
 
           lsp.edit_file(current_dir + "lib/hello.rb", content: <<RUBY, version: 1)
 class Hello
-  attr_reader :name
+  attr_reader :other_name
 
 end
 RUBY
