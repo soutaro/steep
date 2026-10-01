@@ -32,7 +32,8 @@ module Steep
     # database.diagnostics(Pathname("lib/foo.rb"))   # Diagnostics of the file, merged over the tables and the targets
     # database.definitions("::Foo#bar")              # Definitions of `Foo#bar` in the project
     # database.references("::Foo")                   # References of `Foo` in the project
-    # database.rbs_definitions("foo")                # RBS declarations whose names include `foo`, for `workspace/symbol`
+    # database.matching_names("foo")                 # Names including `foo`, ignoring the case
+    # database.rbs_definitions(["::Foo", "::Foo#bar"]) # RBS declarations of the names, for `workspace/symbol`
     # ```
     #
     # The queries return the locations in all targets, merged and deduplicated.
@@ -284,12 +285,19 @@ module Steep
       #
       def references: (String name) -> Array[Location]
 
-      # Returns the RBS declarations whose names include `query`, ignoring the case, or every declaration for `""`
+      # Returns the names in the database that include `query`, ignoring the case, or every name for `""`
       #
-      # The names are the fully qualified names of the entries, like `::Foo::Bar#baz`. The declarations are the definition
-      # entries with a kind, in the *RBS* table, and one found in several targets is returned once.
+      # The names are the fully qualified names of the entries, like `::Foo::Bar#baz`, of the definitions and the
+      # references in every table.
       #
-      def rbs_definitions: (String query) -> Array[Definition]
+      def matching_names: (String query) -> Array[String]
+
+      # Returns the RBS declarations of the names
+      #
+      # The declarations are the definition entries with a kind, in the *RBS* table, and one found in several targets is
+      # returned once. The files that have the names are read once for all of the names.
+      #
+      def rbs_definitions: (Array[String] names) -> Array[Definition]
 
       # Number of entries stored in the database
       def entry_count: () -> Integer

@@ -303,6 +303,33 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal [1], database.references("::Foo").map(&:start_line)
   end
 
+  def test_matching_names
+    database = TypeCheckDatabase.new()
+
+    database.update_rbs(
+      path: Pathname("sig/foo.rbs"),
+      target: :app,
+      entries: [
+        entry("::Foo", role: :definition, kind: :class, at: [0, 6, 0, 9]),
+        entry("::Foo#bar", role: :definition, kind: :method, at: [1, 6, 1, 9]),
+        entry("::Bar", role: :reference, at: [1, 13, 1, 16])
+      ]
+    )
+    database.update_source(
+      path: Pathname("lib/foo.rb"),
+      target: :app,
+      diagnostics: [],
+      entries: [entry("$FOOBAR", role: :reference, at: [0, 0, 0, 7])]
+    )
+
+    # The names of the definitions and the references in every table, including the query and ignoring the case
+    assert_equal ["$FOOBAR", "::Bar", "::Foo", "::Foo#bar"], database.matching_names("").sort
+    assert_equal ["$FOOBAR", "::Foo", "::Foo#bar"], database.matching_names("foo").sort
+    assert_equal ["$FOOBAR", "::Bar", "::Foo#bar"], database.matching_names("BAR").sort
+    assert_equal ["::Foo#bar"], database.matching_names("#bar")
+    assert_equal [], database.matching_names("baz")
+  end
+
   def test_rbs_definitions
     database = TypeCheckDatabase.new()
 
@@ -334,7 +361,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
     summary = -> (definitions) { definitions.map { [_1.name, _1.kind, _1.location.path, _1.location.start_line] }.sort }
 
-    # Every declaration for the empty query, without the references
+    # The declarations of the names, without the references
     assert_equal(
       [
         ["$FOOBAR", :global, Pathname("sig/bar.rbs"), 2],
@@ -343,30 +370,21 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
         ["::Foo#bar", :method, Pathname("sig/foo.rbs"), 1],
         ["::Foo#name", :attribute, Pathname("sig/foo.rbs"), 2]
       ],
-      summary[database.rbs_definitions("")]
-    )
-
-    # The fully qualified names including the query, ignoring the case
-    assert_equal(
-      [
-        ["$FOOBAR", :global, Pathname("sig/bar.rbs"), 2],
-        ["::Foo", :class, Pathname("sig/foo.rbs"), 0],
-        ["::Foo#bar", :method, Pathname("sig/foo.rbs"), 1],
-        ["::Foo#name", :attribute, Pathname("sig/foo.rbs"), 2]
-      ],
-      summary[database.rbs_definitions("foo")]
+      summary[database.rbs_definitions(database.matching_names(""))]
     )
     assert_equal(
       [
-        ["$FOOBAR", :global, Pathname("sig/bar.rbs"), 2],
         ["::Bar", :module, Pathname("sig/bar.rbs"), 0],
         ["::Foo#bar", :method, Pathname("sig/foo.rbs"), 1]
       ],
-      summary[database.rbs_definitions("BAR")]
+      summary[database.rbs_definitions(["::Bar", "::Foo#bar"])]
     )
-    assert_equal [], database.rbs_definitions("baz")
 
-    location = database.rbs_definitions("#name")[0]&.location or raise
+    # The names without declarations or not in the database give nothing
+    assert_equal [], database.rbs_definitions(["::Baz"])
+    assert_equal [], database.rbs_definitions([])
+
+    location = database.rbs_definitions(["::Foo#name"])[0]&.location or raise
     assert_equal :rbs, location.source
     assert_equal({ start: { line: 2, character: 16 }, end: { line: 2, character: 20 } }, location.lsp_range)
   end
@@ -380,8 +398,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     end
 
     # The same entries in the targets are returned once
-    assert_equal [0], database.rbs_definitions("String").map { _1.location.start_line }
-    assert_equal [0], database.rbs_definitions("").map { _1.location.start_line }
+    assert_equal [0], database.rbs_definitions(["::String"]).map { _1.location.start_line }
 
     database.update_rbs(
       path: path,
@@ -393,8 +410,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     )
 
     # The entries of the targets are merged when they differ
-    assert_equal [0, 5], database.rbs_definitions("String").map { _1.location.start_line }.sort
-    assert_equal [0, 5], database.rbs_definitions("").map { _1.location.start_line }.sort
+    assert_equal [0, 5], database.rbs_definitions(["::String"]).map { _1.location.start_line }.sort
   end
 
   def test_stats_follow_diagnostics

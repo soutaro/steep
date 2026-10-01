@@ -287,21 +287,26 @@ module Steep
         matching_locations(name, role: :reference)
       end
 
-      def rbs_definitions(query)
+      def matching_names(query)
         query = query.upcase
 
-        # The names matching the query, or `nil` for every name
-        names = nil #: Hash[Integer, String]?
-        paths = @rbs.keys
-
-        unless query.empty?
-          matches = {} #: Hash[Integer, String]
-          pool.each do |id, name|
-            matches[id] = name if name.upcase.include?(query)
-          end
-          names = matches
-          paths = matches.each_key.flat_map { @rbs_paths.fetch(_1, nil)&.keys || [] }.uniq
+        names = [] #: Array[String]
+        pool.each do |_, name|
+          names << name if query.empty? || name.upcase.include?(query)
         end
+        names
+      end
+
+      def rbs_definitions(names)
+        ids = {} #: Hash[Integer, String]
+        names.each do |name|
+          if id = pool.id_of(name)
+            ids[id] = name
+          end
+        end
+
+        # Each file is read once for all of the names
+        paths = ids.each_key.flat_map { @rbs_paths.fetch(_1, nil)&.keys || [] }.uniq
 
         definitions = [] #: Array[Definition]
 
@@ -317,7 +322,7 @@ module Steep
               code = packed.fetch(index + 1)
 
               if code & 1 == ROLE_CODES.fetch(:definition) && (kind = KINDS.fetch(code >> 1, nil))
-                name = names ? names.fetch(id, nil) : pool[id]
+                name = ids.fetch(id, nil)
 
                 if name && (!seen || seen.add?(packed[index, ENTRY_SIZE] || raise))
                   definitions << Definition.new(

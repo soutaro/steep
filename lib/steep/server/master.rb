@@ -1356,7 +1356,9 @@ module Steep
         Steep.measure "Generating workspace symbol list for query=`#{query}`" do
           uris = {} #: Hash[Pathname, String]
 
-          symbols = type_check_database.rbs_definitions(query).map do |definition|
+          names = type_check_database.matching_names(query)
+
+          symbols = type_check_database.rbs_definitions(names).map do |definition|
             name, container_name = workspace_symbol_name(definition.name, definition.kind)
             location = definition.location
 
