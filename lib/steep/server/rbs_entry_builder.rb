@@ -146,6 +146,16 @@ module Steep
             reference(member.module_name, member.name_location)
             member.type_args.each { |arg| type(arg) }
           when RBS::AST::Ruby::Members::AttributeMember
+            member.name_nodes.each do |node|
+              name = node.unescaped.to_sym
+              location = symbol_name_location(member.buffer, node)
+              unless member.is_a?(RBS::AST::Ruby::Members::AttrWriterMember)
+                method_definition(type_name, name, :instance, :attribute, location)
+              end
+              unless member.is_a?(RBS::AST::Ruby::Members::AttrReaderMember)
+                method_definition(type_name, :"#{name}=", :instance, :attribute, location)
+              end
+            end
             if attr_type = member.type
               type(attr_type)
             end
@@ -236,6 +246,11 @@ module Steep
         if location && location.key?(key)
           location[key]
         end
+      end
+
+      def symbol_name_location(buffer, node)
+        location = node.value_loc || node.location
+        RBS::Location.new(buffer, buffer.character_offset(location.start_offset), buffer.character_offset(location.end_offset))
       end
     end
   end

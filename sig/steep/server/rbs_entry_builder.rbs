@@ -56,6 +56,9 @@ module Steep
 
       # Returns the child location of the key, or `nil` if the location has no such child
       def child_location: (RBS::Location[untyped, untyped]? location, Symbol key) -> RBS::Location[untyped, untyped]?
+
+      # Returns the location of the name of a symbol literal, without the `:` and the quotes, like `name` of `:name`
+      def symbol_name_location: (RBS::Buffer buffer, Prism::SymbolNode node) -> RBS::Location[untyped, untyped]
     end
   end
 end

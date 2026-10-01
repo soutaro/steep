@@ -584,6 +584,12 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
       QuxAlias = Qux #: class-alias
       MixinAlias = Mixin #: module-alias
+
+      class Person
+        attr_reader :name #: Qux
+        attr_writer :age #: Bar
+        attr_accessor :email, :"nick" #: Qux
+      end
     RUBY
     prism = Prism.parse(buffer.content)
     result = RBS::InlineParser.parse(buffer, prism)
@@ -598,6 +604,16 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_includes entries, ["::QuxAlias", :class, 17, 0, 17, 8]
     assert_includes entries, ["::MixinAlias", :module, 18, 0, 18, 10]
 
+    # Attributes, at the names without `:` and the quotes, with the reader and writer methods of each name
+    assert_includes entries, ["::Person#name", :attribute, 21, 15, 21, 19]
+    refute_includes entries.map(&:first), "::Person#name="
+    assert_includes entries, ["::Person#age=", :attribute, 22, 15, 22, 18]
+    refute_includes entries.map(&:first), "::Person#age"
+    assert_includes entries, ["::Person#email", :attribute, 23, 17, 23, 22]
+    assert_includes entries, ["::Person#email=", :attribute, 23, 17, 23, 22]
+    assert_includes entries, ["::Person#nick", :attribute, 23, 26, 23, 30]
+    assert_includes entries, ["::Person#nick=", :attribute, 23, 26, 23, 30]
+
     # References, at the type names in the Ruby file
     assert_includes entries, ["::Bar", :reference, 0, 12, 0, 15]    # Super class
     assert_includes entries, ["::Qux", :reference, 0, 18, 0, 21]    # Type argument of the super class
@@ -605,6 +621,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_includes entries, ["::Qux", :reference, 1, 18, 1, 21]    # Type argument of the mixin
     assert_includes entries, ["::Qux", :reference, 3, 10, 3, 13]    # Parameter type in the annotation
     assert_includes entries, ["::Bar", :reference, 3, 18, 3, 21]    # Return type in the annotation
+    assert_includes entries, ["::Qux", :reference, 21, 23, 21, 26]  # Attribute type
   end
 
   def test_library_entries
