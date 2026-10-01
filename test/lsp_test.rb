@@ -316,6 +316,8 @@ RUBY
       RBS
       write_file("lib/inline/person.rb", <<~RUBY)
         class InlinePerson
+          attr_reader :name #: String
+
           def greet #: () -> String
             "Hello, \#{@name}!"
           end
@@ -380,6 +382,7 @@ RUBY
           client.workspace_symbol("InlinePerson") do |symbols|
             assert symbols.any? { _1[:name] == "InlinePerson" }
             assert symbols.any? { _1[:name] == "#greet" }
+            assert symbols.any? { _1[:name] == "#name" && _1[:kind] == LanguageServer::Protocol::Constant::SymbolKind::PROPERTY }
           end
         end
       ensure
