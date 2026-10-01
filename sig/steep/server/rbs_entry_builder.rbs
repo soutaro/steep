@@ -3,7 +3,8 @@ module Steep
     # Collects the entries of the declarations and the type references in an RBS environment, grouped by the path of the file
     #
     # The declarations -- classes, modules, interfaces, type aliases, constants, globals, and the methods defined by `def`,
-    # attribute members, and `alias` -- are `:definition` entries at the name of the declaration or member.
+    # attribute members, and `alias` -- are `:definition` entries at the name of the declaration or member, with the kind
+    # of the declaration.
     #
     # The type names written in the declarations are `:reference` entries at the type name: super classes, module self types,
     # mixins, class and module alias targets, the types in method types, attributes, variables, constants, globals, and
@@ -38,11 +39,12 @@ module Steep
 
       def type: (RBS::Types::t type) -> void
 
-      def definition: (String name, RBS::Location[untyped, untyped]? location) -> void
+      def definition: (String name, TypeCheckDatabase::Entry::kind kind, RBS::Location[untyped, untyped]? location) -> void
 
       def reference: (RBS::TypeName type_name, RBS::Location[untyped, untyped]? location) -> void
 
-      def method_definition: (RBS::TypeName type_name, Symbol method_name, Symbol kind, RBS::Location[untyped, untyped]? location) -> void
+      # `kind` is `:instance` or `:singleton`, and `entry_kind` is `:method` or `:attribute`
+      def method_definition: (RBS::TypeName type_name, Symbol method_name, Symbol kind, TypeCheckDatabase::Entry::kind entry_kind, RBS::Location[untyped, untyped]? location) -> void
 
       def method_reference: (RBS::TypeName type_name, Symbol method_name, Symbol kind, RBS::Location[untyped, untyped]? location) -> void
 
@@ -50,7 +52,7 @@ module Steep
       def method_name_string: (RBS::TypeName type_name, Symbol method_name, Symbol kind) -> String
 
       # Pushes an entry at the location, unless the location is `nil` or the same entry is already pushed
-      def push: (String name, TypeCheckDatabase::Entry::role role, RBS::Location[untyped, untyped]? location) -> void
+      def push: (String name, TypeCheckDatabase::Entry::role role, RBS::Location[untyped, untyped]? location, ?kind: TypeCheckDatabase::Entry::kind?) -> void
 
       # Returns the child location of the key, or `nil` if the location has no such child
       def child_location: (RBS::Location[untyped, untyped]? location, Symbol key) -> RBS::Location[untyped, untyped]?

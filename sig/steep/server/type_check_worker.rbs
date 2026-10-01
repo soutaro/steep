@@ -163,9 +163,9 @@ module Steep
       # The interaction job enqueued last, which is the only one to process
       @last_interaction_job: interaction_job?
 
-      # The declarations extracted from the latest `RBSIndex` of each target, grouped by path
+      # The entries of the declarations in the latest environment of each target, grouped by path
       #
-      # The index is kept with the entries to detect a newer index of the target.
+      # The environment is kept with the entries to detect a newer environment of the target.
       #
       @rbs_entries_cache: Hash[Symbol, [RBS::Environment, Hash[Pathname, Array[TypeCheckDatabase::Entry]]]]
 

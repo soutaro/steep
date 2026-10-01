@@ -341,9 +341,13 @@ RUBY
         client.send_request(method: "initialize", params: { }) {}
         client.send_notification(method: "initialized", params: { })
 
-        client.workspace_symbol do |symbols|
-          object = symbols.find { _1[:name] == "Object" }
-          assert_operator object[:location][:uri], :end_with?, "core/object.rbs"
+        # The library RBS files are found once the workers index them
+        finally_holds(timeout: 30) do
+          client.workspace_symbol do |symbols|
+            object = symbols.find { _1[:name] == "Object" }
+            assert object
+            assert_operator object&.dig(:location, :uri), :end_with?, "core/object.rbs"
+          end
         end
 
         client.open_file("sig/main/main.rbs")

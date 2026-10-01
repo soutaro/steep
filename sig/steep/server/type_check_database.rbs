@@ -32,6 +32,8 @@ module Steep
     # database.diagnostics(Pathname("lib/foo.rb"))   # Diagnostics of the file, merged over the tables and the targets
     # database.definitions("::Foo#bar")              # Definitions of `Foo#bar` in the project
     # database.references("::Foo")                   # References of `Foo` in the project
+    # database.matching_names("foo")                 # Names including `foo`, ignoring the case
+    # database.rbs_definitions(["::Foo", "::Foo#bar"]) # RBS declarations of the names, for `workspace/symbol`
     # ```
     #
     # The queries return the locations in all targets, merged and deduplicated.
@@ -48,14 +50,22 @@ module Steep
       #   a singleton method (`::Foo.bar`), an interface (`::_Foo`), a type alias (`::foo`), or a global variable (`$foo`),
       #   which tells the kind of the entity by its syntax
       # * The location is in LSP convention -- 0-origin lines and characters, end-exclusive
+      # * `kind` is the kind of the declaration that an RBS definition entry comes from, and `nil` for the references and
+      #   the definitions in Ruby code
       #
       class Entry
         # Whether the entry defines the name or references it
         type role = :definition | :reference
 
+        # The kind of the RBS declaration -- a class alias is a `:class` and a module alias is a `:module`, and an
+        # attribute is `:attribute` for both of its reader and writer methods
+        type kind = :class | :module | :interface | :type_alias | :constant | :global | :method | :attribute
+
         attr_reader name: String
 
         attr_reader role: role
+
+        attr_reader kind: kind?
 
         attr_reader start_line: Integer
 
@@ -67,11 +77,14 @@ module Steep
 
         # Array representation of an entry for `$/steep/typecheck/progress` notifications
         #
-        # `[name, role code, start_line, start_character, end_line, end_character]`
+        # `[name, code, start_line, start_character, end_line, end_character]`
         #
         type wire = Array[untyped]
 
-        def initialize: (name: String, role: role, start_line: Integer, start_character: Integer, end_line: Integer, end_character: Integer) -> void
+        def initialize: (name: String, role: role, start_line: Integer, start_character: Integer, end_line: Integer, end_character: Integer, ?kind: kind?) -> void
+
+        # The role and the kind in an `Integer` -- the lowest bit is the role, and the other bits are the kind, `0` for `nil`
+        def code: () -> Integer
 
         def to_wire: () -> wire
 
@@ -105,6 +118,17 @@ module Steep
         def lsp_range: () -> lsp_range
       end
 
+      # An RBS declaration found by `#rbs_definitions`
+      class Definition
+        attr_reader name: String
+
+        attr_reader kind: Entry::kind
+
+        attr_reader location: Location
+
+        def initialize: (name: String, kind: Entry::kind, location: Location) -> void
+      end
+
       # Interned strings with reference counting
       #
       # Each unique string is stored once and identified by an `Integer` id.
@@ -136,6 +160,9 @@ module Steep
 
         # Number of the strings in the pool
         def size: () -> Integer
+
+        # Yields the id and the string of each string in the pool
+        def each: () { ([Integer, String]) -> void } -> void
       end
 
       # The result of the last type checking of a Ruby file
@@ -157,6 +184,10 @@ module Steep
       ROLE_CODES: Hash[Entry::role, Integer]
 
       ROLES: Hash[Integer, Entry::role]
+
+      KIND_CODES: Hash[Entry::kind, Integer]
+
+      KINDS: Hash[Integer, Entry::kind]
 
       # Number of `Integer`s that represent one entry
       ENTRY_SIZE: Integer
@@ -254,6 +285,20 @@ module Steep
       #
       def references: (String name) -> Array[Location]
 
+      # Returns the names in the database that include `query`, ignoring the case, or every name for `""`
+      #
+      # The names are the fully qualified names of the entries, like `::Foo::Bar#baz`, of the definitions and the
+      # references in every table.
+      #
+      def matching_names: (String query) -> Array[String]
+
+      # Returns the RBS declarations of the names
+      #
+      # The declarations are the definition entries with a kind, in the *RBS* table, and one found in several targets is
+      # returned once. The files that have the names are read once for all of the names.
+      #
+      def rbs_definitions: (Array[String] names) -> Array[Definition]
+
       # Number of entries stored in the database
       def entry_count: () -> Integer
 
@@ -266,7 +311,8 @@ module Steep
 
       def matching_locations: (String name, role: Entry::role) -> Array[Location]
 
-      # Appends the locations of the entries of the name and the role in the packed `array` to `locations`
+      # Appends the locations of the entries of the name and the role (the code of the role, without the kind) in the
+      # packed `array` to `locations`
       def collect_locations: (Array[Location] locations, Array[Integer] array, Integer id, Integer role_code, path: Pathname, source: Location::source) -> void
 
       def release_entries: (Hash[Integer, Hash[Pathname, Integer]] name_paths, Pathname path, Array[Integer] array) -> void

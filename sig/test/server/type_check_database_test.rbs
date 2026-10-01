@@ -7,7 +7,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
   class TypeCheckDatabase = Steep::Server::TypeCheckDatabase
 
-  def entry: (untyped name, role: untyped, at: untyped) -> TypeCheckDatabase::Entry
+  def entry: (untyped name, role: untyped, at: untyped, ?kind: untyped) -> TypeCheckDatabase::Entry
 
   def diagnostic: (untyped message, ?line: untyped) -> untyped
 
@@ -39,6 +39,14 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
   def test_name_shared_between_files_survives_removal_of_one: () -> untyped
 
   def test_entry_wire_round_trip: () -> untyped
+
+  def test_definitions_with_kinds: () -> untyped
+
+  def test_matching_names: () -> untyped
+
+  def test_rbs_definitions: () -> untyped
+
+  def test_rbs_definitions_merge_targets: () -> untyped
 
   def test_stats_follow_diagnostics: () -> untyped
 

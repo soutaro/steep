@@ -2,17 +2,27 @@ module Steep
   module Server
     class TypeCheckDatabase
       Entry =
-        _ = Struct.new(:name, :role, :start_line, :start_character, :end_line, :end_character, keyword_init: true) do
+        _ = Struct.new(:name, :role, :start_line, :start_character, :end_line, :end_character, :kind, keyword_init: true) do
           # @implements Entry
 
+          def code
+            code = ROLE_CODES.fetch(role)
+            if kind = self.kind
+              code |= KIND_CODES.fetch(kind) << 1
+            end
+            code
+          end
+
           def to_wire
-            [name, ROLE_CODES.fetch(role), start_line, start_character, end_line, end_character]
+            [name, code, start_line, start_character, end_line, end_character]
           end
 
           def self.from_wire(array)
+            code = array[1] #: Integer
             Entry.new(
               name: array[0],
-              role: ROLES.fetch(array[1]),
+              role: ROLES.fetch(code & 1),
+              kind: KINDS.fetch(code >> 1, nil),
               start_line: array[2],
               start_character: array[3],
               end_line: array[4],
@@ -20,6 +30,8 @@ module Steep
             )
           end
         end
+
+      Definition = _ = Struct.new(:name, :kind, :location, keyword_init: true)
 
       Location =
         _ = Struct.new(:path, :source, :start_line, :start_character, :end_line, :end_character, keyword_init: true) do
@@ -77,12 +89,19 @@ module Steep
         def size
           @ids.size
         end
+
+        def each(&block)
+          @names.each(&block)
+        end
       end
 
       FileResult = _ = Struct.new(:target, :diagnostics, :entries, :stats, keyword_init: true)
 
       ROLE_CODES = { definition: 0, reference: 1 } #: Hash[Entry::role, Integer]
       ROLES = ROLE_CODES.invert #: Hash[Integer, Entry::role]
+
+      KIND_CODES = { class: 1, module: 2, interface: 3, type_alias: 4, constant: 5, global: 6, method: 7, attribute: 8 } #: Hash[Entry::kind, Integer]
+      KINDS = KIND_CODES.invert #: Hash[Integer, Entry::kind]
 
       ENTRY_SIZE = 6
 
@@ -268,6 +287,67 @@ module Steep
         matching_locations(name, role: :reference)
       end
 
+      def matching_names(query)
+        query = query.upcase
+
+        names = [] #: Array[String]
+        pool.each do |_, name|
+          names << name if query.empty? || name.upcase.include?(query)
+        end
+        names
+      end
+
+      def rbs_definitions(names)
+        ids = {} #: Hash[Integer, String]
+        names.each do |name|
+          if id = pool.id_of(name)
+            ids[id] = name
+          end
+        end
+
+        # Each file is read once for all of the names
+        paths = ids.each_key.flat_map { @rbs_paths.fetch(_1, nil)&.keys || [] }.uniq
+
+        definitions = [] #: Array[Definition]
+
+        paths.each do |path|
+          # The library RBS files have the same entries in every target, which are read once
+          arrays = @rbs.fetch(path).values.uniq
+          seen = arrays.size > 1 ? Set[] : nil #: Set[Array[Integer]]?
+
+          arrays.each do |packed|
+            index = 0
+            while index < packed.size
+              id = packed.fetch(index)
+              code = packed.fetch(index + 1)
+
+              if code & 1 == ROLE_CODES.fetch(:definition) && (kind = KINDS.fetch(code >> 1, nil))
+                name = ids.fetch(id, nil)
+
+                if name && (!seen || seen.add?(packed[index, ENTRY_SIZE] || raise))
+                  definitions << Definition.new(
+                    name: name,
+                    kind: kind,
+                    location: Location.new(
+                      path: path,
+                      source: :rbs,
+                      start_line: packed.fetch(index + 2),
+                      start_character: packed.fetch(index + 3),
+                      end_line: packed.fetch(index + 4),
+                      end_character: packed.fetch(index + 5)
+                    )
+                  )
+                end
+              end
+
+              index += ENTRY_SIZE
+            end
+          end
+        end
+
+        definitions
+      end
+
       def entry_count
         count = 0
 
@@ -311,7 +391,7 @@ module Steep
         entries.each do |entry|
           id = pool.intern(entry.name)
           track_name(name_paths, id, path)
-          packed << id << ROLE_CODES.fetch(entry.role) << entry.start_line << entry.start_character << entry.end_line << entry.end_character
+          packed << id << entry.code << entry.start_line << entry.start_character << entry.end_line << entry.end_character
         end
 
         packed
@@ -344,7 +424,7 @@ module Steep
       def collect_locations(locations, array, id, role_code, path:, source:)
         index = 0
         while index < array.size
-          if array.fetch(index) == id && array.fetch(index + 1) == role_code
+          if array.fetch(index) == id && array.fetch(index + 1) & 1 == role_code
             locations << Location.new(
               path: path,
               source: source,

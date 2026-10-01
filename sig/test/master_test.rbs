@@ -82,7 +82,7 @@ class MasterTest < Minitest::Test
 
   def test_workspace_symbol: () -> untyped
 
-  def test_workspace_symbol_from_master: () -> untyped
+  def test_workspace_symbol_from_database: () -> untyped
 
   def test_untitled_file_notifications: () -> untyped
 

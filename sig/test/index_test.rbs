@@ -9,8 +9,6 @@ class IndexTest < Minitest::Test
 
   include TypeConstructionHelper
 
-  RBSIndex: untyped
-
   SourceIndex: untyped
 
   def assert_node_set: (untyped nodes, *untyped locs) -> untyped
