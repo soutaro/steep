@@ -1,0 +1,20 @@
+# Generated from test/server/fork_launcher_test.rb with RBS::Inline
+
+class Steep::Server::ForkLauncherTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include Steep
+
+  def dirs: () -> untyped
+
+  # Reads the messages from the worker until the response of the request
+  #
+  # @rbs (Steep::Server::WorkerProcess, String) -> untyped
+  def read_response: (Steep::Server::WorkerProcess, String) -> untyped
+
+  def test_create: () -> untyped
+
+  def test_workers_start_with_the_environments: () -> untyped
+end

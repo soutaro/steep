@@ -16,9 +16,10 @@ module Steep
 
       include ChangeBuffer
 
-      def initialize(project:, reader:, writer:)
+      def initialize(project:, reader:, writer:, service: nil)
         super(project: project, reader: reader, writer: writer)
 
+        @service = service
         @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = WorkerQueue.new

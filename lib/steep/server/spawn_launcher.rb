@@ -13,6 +13,10 @@ module Steep
         @typecheck_workers = []
       end
 
+      def shares_environment?
+        false
+      end
+
       def start(_service)
         typecheck_count.times do |i|
           typecheck_workers << WorkerProcess.start_worker(

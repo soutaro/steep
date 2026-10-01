@@ -29,7 +29,10 @@ module Steep
     class TypeCheckWorker < BaseWorker
       attr_reader project: Project
 
-      attr_reader service: TypeCheckService
+      @service: TypeCheckService?
+
+      # The environments and the source files, loaded on the first call unless the worker is forked with them
+      def service: () -> TypeCheckService
 
       class TypeCheckCodeJob
         # The id of the `$/steep/typecheck/file` request
@@ -171,10 +174,13 @@ module Steep
 
       include ChangeBuffer
 
+      # `service` is the environments the worker starts with, given by forking the master, and the worker loads them
+      # by itself without it
       def initialize: (
         project: Project,
         reader: LSP::Transport::Io::Reader,
-        writer: LSP::Transport::Io::Writer
+        writer: LSP::Transport::Io::Writer,
+        ?service: Services::TypeCheckService?
       ) -> void
 
       def handle_request: (untyped request) -> void

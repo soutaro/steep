@@ -210,6 +210,18 @@ module Steep
       # The number of interaction requests -- hover, completion, signature help, and source symbol -- each worker is working on
       attr_reader interaction_jobs_in_flight: Hash[WorkerProcess, Integer]
 
+      # The versions of the files applied to the environments in `controller.type_check_service`
+      #
+      # The workers forked from the environments start with the files of these versions. Updated in the environment thread.
+      #
+      attr_reader environment_versions: Hash[Pathname, Integer]
+
+      # The environment thread waits on the queue while the main loop forks the workers, and `nil` before then
+      #
+      # Closed at the shutdown, so that the environment thread doesn't wait for the main loop that has stopped.
+      #
+      @workers_forked: Thread::Queue[true]?
+
       # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
       @shutting_down: bool
 
@@ -255,7 +267,14 @@ module Steep
       # Called on the `initialize` request, once the project is loaded. The threads reading from the workers are
       # started only while `#start` is running.
       #
+      # A launcher that `#shares_environment?` forks the workers later: the environment thread updates the environments
+      # with the files of the project, and waits while the main loop forks the workers. The workers start with the
+      # files of `environment_versions`, and get the newer contents and the pending type check jobs once forked.
+      #
       def start_workers: () -> void
+
+      # Starts the threads of the workers while `#start` is running
+      def start_worker_threads: () -> void
 
       # Starts the thread reading the messages from the worker, and waits for the exit of the worker
       def start_worker_thread: (WorkerProcess worker) -> void

@@ -621,15 +621,28 @@ module LSPTestHelper
     # The service `#start` was called with
     attr_reader :started_service #: Steep::Services::TypeCheckService?
 
+    # @rbs @workers: Array[Steep::Server::WorkerProcess]
+
+    # @rbs @shares_environment: bool
+
     # @rbs *workers: Steep::Server::WorkerProcess
-    def initialize(*workers)
-      @typecheck_workers = workers
+    # @rbs shares_environment: bool -- `true` to start the workers on `#start` like `ForkLauncher`, and `false` to have them from the beginning
+    def initialize(*workers, shares_environment: false)
+      @workers = workers
+      @shares_environment = shares_environment
+      @typecheck_workers = shares_environment ? [] : workers
       @stopped = false
     end
 
     # @rbs (Steep::Services::TypeCheckService) -> void
     def start(service)
       @started_service = service
+      typecheck_workers.replace(@workers) if shares_environment?
+    end
+
+    # @rbs () -> bool
+    def shares_environment?
+      @shares_environment
     end
 
     # @rbs () -> void
