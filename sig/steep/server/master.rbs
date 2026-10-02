@@ -117,9 +117,10 @@ module Steep
 
       # The launcher that starts and keeps the workers
       #
-      # The master reaches the workers through the launcher only.
+      # The master calls `#start` once on the `initialize` request, and `#stop` once after the server has shut down or the
+      # master has been killed. The master reaches the workers through the launcher only, and never holds them itself.
       #
-      attr_reader launcher: _WorkerLauncher
+      attr_reader launcher: SpawnLauncher | ForkLauncher
 
       # The threads reading the messages from the workers
       attr_reader worker_threads: Array[Thread]
@@ -246,7 +247,7 @@ module Steep
 
       @command_socket_mutex: Thread::Mutex
 
-      def initialize: (project: Project, reader: untyped, writer: untyped, launcher: _WorkerLauncher, ?queue: Thread::Queue) -> void
+      def initialize: (project: Project, reader: untyped, writer: untyped, launcher: SpawnLauncher | ForkLauncher, ?queue: Thread::Queue) -> void
 
       # Start the Steep language server
       #
@@ -267,9 +268,9 @@ module Steep
       # Called on the `initialize` request, once the project is loaded. The threads reading from the workers are
       # started only while `#start` is running.
       #
-      # A launcher that `#shares_environment?` forks the workers later: the environment thread updates the environments
-      # with the files of the project, and waits while the main loop forks the workers. The workers start with the
-      # files of `environment_versions`, and get the newer contents and the pending type check jobs once forked.
+      # `SpawnLauncher` starts the workers right away. `ForkLauncher` forks them later: the environment thread updates the
+      # environments with the files of the project, and waits while the main loop forks the workers. The workers start
+      # with the files of `environment_versions`, and get the newer contents and the pending type check jobs once forked.
       #
       def start_workers: () -> void
 

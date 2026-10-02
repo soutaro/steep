@@ -4,13 +4,9 @@ module Steep
       attr_reader :typecheck_count
       attr_reader :typecheck_workers
 
-      def initialize(typecheck_count: [Etc.nprocessors - 1, 1].max)
+      def initialize(typecheck_count:)
         @typecheck_count = typecheck_count
         @typecheck_workers = []
-      end
-
-      def shares_environment?
-        true
       end
 
       def start(service)

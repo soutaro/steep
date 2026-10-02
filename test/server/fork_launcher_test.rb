@@ -48,7 +48,6 @@ class Steep::Server::ForkLauncherTest < Minitest::Test
       service.update(changes: { Pathname("sig/customer.rbs") => [Services::ContentChange.string("class Customer\nend\n")] })
 
       launcher = Server::ForkLauncher.new(typecheck_count: 2)
-      assert_predicate launcher, :shares_environment?
       assert_empty launcher.typecheck_workers
 
       begin

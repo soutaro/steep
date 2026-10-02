@@ -96,7 +96,7 @@ end
       Project::DSL.parse(project, steepfile.read)
 
       worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
-      launcher = WorkersLauncher.new(worker, shares_environment: true)
+      launcher = ForkedWorkersLauncher.new(worker)
 
       master = Server::Master.new(
         project: project,

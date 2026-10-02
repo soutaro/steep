@@ -1,36 +1,10 @@
 module Steep
   module Server
-    # A launcher starts the typecheck workers of a master and keeps them
-    #
-    # The master calls `#start` once on the `initialize` request, and `#stop` once after the server has shut down or the
-    # master has been killed. The master reaches the workers through `#typecheck_workers` only, and never holds them itself.
-    #
-    # A launcher that `#shares_environment?` starts the workers from the environments of the master: the master calls
-    # `#start` on its main loop once the environments have the files of the project, while the environment thread waits,
-    # so that the environments are not being updated. Other launchers are started right after the project is loaded.
-    #
-    interface _WorkerLauncher
-      # Starts the workers, given the environments of the master
-      def start: (Services::TypeCheckService) -> void
-
-      # Releases what the launcher keeps besides the workers
-      #
-      # The master stops the workers itself, with `exit` or by killing them.
-      #
-      def stop: () -> void
-
-      # The typecheck workers, empty before `#start`
-      def typecheck_workers: () -> Array[WorkerProcess]
-
-      # `true` if the workers start with the environments of the master given to `#start`
-      def shares_environment?: () -> bool
-    end
-
-    # Makes the launcher of the workers
+    # Makes the launcher of the typecheck workers of a master
     module WorkerLauncher
       # Forks the workers with the environments of the master if the platform can fork and no `steep_command` is given,
       # and spawns `steep worker` processes otherwise
-      def self.create: (steepfile: Pathname?, steep_command: String?, typecheck_count: Integer) -> _WorkerLauncher
+      def self.create: (steepfile: Pathname?, steep_command: String?, typecheck_count: Integer) -> (SpawnLauncher | ForkLauncher)
     end
   end
 end

@@ -365,46 +365,47 @@ module Steep
       def start_workers
         service = controller.type_check_service or raise "The project is not loaded yet"
 
-        unless launcher.shares_environment?
+        case launcher
+        when SpawnLauncher
           Steep.measure("Starting the workers...") do
             launcher.start(service)
           end
 
           start_worker_threads()
-          return
-        end
 
-        # The workers are forked from the environments with the files of the project: the main loop forks them while the
-        # environment thread waits after the update, so that the environments are not being updated
-        update_environment()
+        when ForkLauncher
+          # The workers are forked from the environments with the files of the project: the main loop forks them while the
+          # environment thread waits after the update, so that the environments are not being updated
+          update_environment()
 
-        environment_queue << -> do
-          forked = @workers_forked = Thread::Queue.new
+          environment_queue << -> do
+            forked = @workers_forked = Thread::Queue.new
 
-          job_queue << -> do
-            # The workers forked after `exit` would never be told to exit
-            next if @shutting_down || job_queue.closed?
+            job_queue << -> do
+              # The workers forked after `exit` would never be told to exit
+              next if @shutting_down || job_queue.closed?
 
-            Steep.measure("Forking the workers...") do
-              launcher.start(service)
+              Steep.measure("Forking the workers...") do
+                launcher.start(service)
+              end
+
+              typecheck_workers.each do |worker|
+                worker.known_versions.replace(environment_versions)
+              end
+              start_worker_threads()
+
+              typecheck_workers.each do |worker|
+                deliver_contents(worker, signature_paths_to_deliver)
+              end
+              dispatch_typecheck_jobs()
+            ensure
+              forked << true
             end
 
-            typecheck_workers.each do |worker|
-              worker.known_versions.replace(environment_versions)
-            end
-            start_worker_threads()
-
-            typecheck_workers.each do |worker|
-              deliver_contents(worker, signature_paths_to_deliver)
-            end
-            dispatch_typecheck_jobs()
-          ensure
-            forked << true
+            forked.pop
+          rescue ClosedQueueError
+            # The main loop has stopped before forking the workers
           end
-
-          forked.pop
-        rescue ClosedQueueError
-          # The main loop has stopped before forking the workers
         end
       end
 

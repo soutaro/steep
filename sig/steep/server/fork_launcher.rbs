@@ -2,19 +2,29 @@ module Steep
   module Server
     # Forks each typecheck worker from the master, with the environments of the master
     #
+    # The master calls `#start` on its main loop once the environments have the files of the project, while the
+    # environment thread waits, so that the environments are not being updated.
+    #
     # The workers start without loading the environments, sharing the pages of the master until either side writes them.
     # The heap of the master is compacted with `Process.warmup` before forking, where available, to share more pages.
     #
     class ForkLauncher
-      include _WorkerLauncher
-
       # The number of typecheck workers
       attr_reader typecheck_count: Integer
 
+      # The typecheck workers, empty before `#start`
       attr_reader typecheck_workers: Array[WorkerProcess]
 
-      # `typecheck_count` defaults to the number of processors minus one
-      def initialize: (?typecheck_count: Integer) -> void
+      def initialize: (typecheck_count: Integer) -> void
+
+      # Forks the workers with the environments in the service
+      def start: (Services::TypeCheckService) -> void
+
+      # Releases what the launcher keeps besides the workers
+      #
+      # The master stops the workers itself, with `exit` or by killing them.
+      #
+      def stop: () -> void
     end
   end
 end
