@@ -360,10 +360,38 @@ module Steep
       def start_workers
         service = controller.type_check_service or raise "The project is not loaded yet"
 
-        Steep.measure("Starting the workers...") do
-          launcher.start(service)
-        end
+        case launcher
+        when SpawnLauncher
+          Steep.measure("Starting the workers...") do
+            launcher.start(service)
+          end
 
+          start_worker_threads()
+
+        when ForkLauncher
+          # The workers are forked from the environments with the files of the project. The main loop updates the
+          # environments itself, because the environment thread has no job yet, and nothing can run without the workers.
+          changes = controller.pop_file_changes
+          versions = changes.each_key.to_h { [_1, controller.file_contents.fetch(_1).version] } #: Hash[Pathname, Integer]
+
+          Steep.measure("Updating the environments with #{changes.size} files") do
+            service.update(changes: changes)
+          end
+
+          Steep.measure("Forking the workers...") do
+            launcher.start(service)
+          end
+
+          # The workers have the files in the environments
+          typecheck_workers.each do |worker|
+            worker.known_versions.replace(versions)
+          end
+
+          start_worker_threads()
+        end
+      end
+
+      def start_worker_threads
         if @running
           typecheck_workers.each do |worker|
             start_worker_thread(worker)

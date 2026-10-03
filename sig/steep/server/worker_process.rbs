@@ -62,6 +62,14 @@ module Steep
         steepfile: Pathname?
       ) -> WorkerProcess
 
+      # Forks a typecheck worker that starts with the environments of the master in `service`
+      #
+      # The child process closes the pipes of the `siblings` forked before it, and its standard input and output, so
+      # that it talks to the master through its own pipes only. It exits with `exit!`, skipping the `at_exit` hooks of
+      # the master.
+      #
+      def self.fork_typecheck_worker: (Services::TypeCheckService service, name: String, siblings: Array[WorkerProcess]) -> WorkerProcess
+
       def self.spawn_worker: (
         worker_type `type`,
         name: String,

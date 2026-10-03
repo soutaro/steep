@@ -140,10 +140,8 @@ end
 module LSPTestHelper
   LSP: untyped
 
-  # A launcher with the workers given, for the tests of the master
-  class WorkersLauncher
-    attr_reader typecheck_workers: Array[Steep::Server::WorkerProcess]
-
+  # A launcher with the workers given from the beginning, like `SpawnLauncher`, for the tests of the master
+  class WorkersLauncher < Steep::Server::SpawnLauncher
     # The service `#start` was called with
     attr_reader started_service: Steep::Services::TypeCheckService?
 
@@ -158,6 +156,23 @@ module LSPTestHelper
 
     # @rbs () -> bool
     def stopped?: () -> bool
+  end
+
+  # A launcher that gives the master the workers on `#start`, like `ForkLauncher`, for the tests of the master
+  class ForkedWorkersLauncher < Steep::Server::ForkLauncher
+    # The service `#start` was called with
+    attr_reader started_service: Steep::Services::TypeCheckService?
+
+    # The environments of each target when `#start` was called, which the workers would be forked with
+    attr_reader started_environments: Hash[Symbol, RBS::Environment]?
+
+    @workers: Array[Steep::Server::WorkerProcess]
+
+    # @rbs *workers: Steep::Server::WorkerProcess
+    def initialize: (*Steep::Server::WorkerProcess workers) -> untyped
+
+    # @rbs (Steep::Services::TypeCheckService) -> void
+    def start: (Steep::Services::TypeCheckService) -> void
   end
 
   def reader_pipe: () -> untyped

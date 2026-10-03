@@ -30,6 +30,8 @@ class MasterTest < Minitest::Test
 
   def test_start_workers_on_initialize: () -> untyped
 
+  def test_fork_workers_on_initialize: () -> untyped
+
   def test_kill_stops_launcher: () -> untyped
 
   def test_start_type_check_with_progress: () -> untyped
@@ -79,6 +81,8 @@ class MasterTest < Minitest::Test
   def test_signature_type_check: () -> untyped
 
   def test_code_interaction: () -> untyped
+
+  def test_forked_workers_type_check: () -> untyped
 
   def test_workspace_symbol: () -> untyped
 

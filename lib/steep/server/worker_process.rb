@@ -65,6 +65,62 @@ module Steep
         )
       end
 
+      def self.fork_typecheck_worker(service, name:, siblings:)
+        stdin_in, stdin_out = IO.pipe
+        stdout_in, stdout_out = IO.pipe
+
+        pid = fork do
+          status = 1
+
+          begin
+            Process.setpgid(0, 0)
+            Steep.ui_logger.level = :fatal
+            Steep.logger.current_tags.replace(["Steep #{VERSION}"])
+
+            # The worker talks to the master through its own pipes only
+            stdin_out.close
+            stdout_in.close
+            siblings.each do |sibling|
+              sibling.reader.close
+              sibling.writer.close
+            end
+            $stdin.reopen(File::NULL)
+            $stdout.reopen(File::NULL)
+
+            reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin_in)
+            writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout_out)
+
+            Steep.logger.tagged("typecheck:#{name}") do
+              Steep.logger.info "Starting typecheck worker forked from the master..."
+              TypeCheckWorker.new(project: service.project, reader: reader, writer: writer, service: service).run()
+            end
+
+            status = 0
+          rescue Interrupt
+            status = 0
+          rescue Exception => exn
+            Steep.log_error(exn)
+          ensure
+            # Skips the `at_exit` hooks of the master
+            exit!(status)
+          end
+        end
+
+        pid or raise
+
+        writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_out)
+        reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_in)
+
+        # @type var wait_thread: Thread & _ProcessWaitThread
+        wait_thread = _ = Thread.new { Process.waitpid(pid) }
+        wait_thread.define_singleton_method(:pid) { pid }
+
+        stdin_in.close
+        stdout_out.close
+
+        new(reader: reader, writer: writer, stderr: STDERR, wait_thread: wait_thread, name: name)
+      end
+
       def self.spawn_worker(type, name:, steepfile:, steep_command:)
         args = ["--name=#{name}"]
         args << "--steepfile=#{steepfile}" if steepfile

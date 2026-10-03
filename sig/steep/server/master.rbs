@@ -117,9 +117,10 @@ module Steep
 
       # The launcher that starts and keeps the workers
       #
-      # The master reaches the workers through the launcher only.
+      # The master calls `#start` once on the `initialize` request, and `#stop` once after the server has shut down or the
+      # master has been killed. The master reaches the workers through the launcher only, and never holds them itself.
       #
-      attr_reader launcher: _WorkerLauncher
+      attr_reader launcher: SpawnLauncher | ForkLauncher
 
       # The threads reading the messages from the workers
       attr_reader worker_threads: Array[Thread]
@@ -184,8 +185,9 @@ module Steep
 
       # Jobs that update or read the RBS environments in `controller.type_check_service`, run in the environment thread
       #
-      # Updating an environment takes seconds on a large project, so the main thread never does it. Jobs run one at a time,
-      # and a job that has a result for the main thread pushes another job to `job_queue`.
+      # Updating an environment takes seconds on a large project, so the main thread never does it, except the update with
+      # the files of the project before forking the workers in `#start_workers`. Jobs run one at a time, and a job that has a
+      # result for the main thread pushes another job to `job_queue`.
       #
       attr_reader environment_queue: Thread::Queue
 
@@ -234,7 +236,7 @@ module Steep
 
       @command_socket_mutex: Thread::Mutex
 
-      def initialize: (project: Project, reader: untyped, writer: untyped, launcher: _WorkerLauncher, ?queue: Thread::Queue) -> void
+      def initialize: (project: Project, reader: untyped, writer: untyped, launcher: SpawnLauncher | ForkLauncher, ?queue: Thread::Queue) -> void
 
       # Start the Steep language server
       #
@@ -255,7 +257,14 @@ module Steep
       # Called on the `initialize` request, once the project is loaded. The threads reading from the workers are
       # started only while `#start` is running.
       #
+      # `SpawnLauncher` starts the workers right away. `ForkLauncher` forks them once the environments have the files of the
+      # project, which the main thread updates by itself before the environment thread has any job, and the workers start
+      # with the files.
+      #
       def start_workers: () -> void
+
+      # Starts the threads of the workers while `#start` is running
+      def start_worker_threads: () -> void
 
       # Starts the thread reading the messages from the worker, and waits for the exit of the worker
       def start_worker_thread: (WorkerProcess worker) -> void

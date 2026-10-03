@@ -77,6 +77,72 @@ end
     end
   end
 
+  def test_fork_workers_on_initialize
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+      launcher = ForkedWorkersLauncher.new(worker)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      assert_empty master.typecheck_workers
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+
+      # The workers are forked from the environments with the files of the project
+      assert_same master.controller.type_check_service, launcher.started_service
+      assert (launcher.started_environments || raise).fetch(:lib).class_decls.key?(RBS::TypeName.parse("::Customer"))
+      assert_equal [worker], master.typecheck_workers
+      assert_empty master.environment_queue
+
+      # The worker has the files, and receives the index jobs only
+      assert_equal({ Pathname("lib/customer.rb") => 1, Pathname("sig/customer.rbs") => 1 }, worker.known_versions)
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      refute_empty jobs
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }.uniq
+      assert_equal ["index"], jobs.map { _1.message[:params][:kind] }.uniq
+      drop_index_jobs(master, jobs)
+
+      # A file changed after the fork is sent to the worker
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      master.process_message_from_client({
+        id: "check",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal FileLoad::METHOD, jobs[0].message[:method]
+      assert_equal({ "sig/customer.rbs" => "class Customer\n  def name: () -> String\nend\n" }, jobs[0].message[:params][:content])
+    end
+  end
+
   def test_kill_stops_launcher
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -1511,6 +1577,72 @@ x.ab
       end
 
       main_thread.join
+    end
+  end
+
+  def test_forked_workers_type_check
+    skip "The platform cannot fork" unless Steep.can_fork?
+
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/foo.rb").write("Foo.new.bar\n")
+      (current_dir + "sig/foo.rbs").write("class Foo\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      launcher = Server::ForkLauncher.new(typecheck_count: 2)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
+        master.start()
+      end
+
+      ui = LSPDouble.new(reader: master_reader, writer: master_writer)
+      ui.start do
+        # The workers have `Foo` in the environments forked from the master
+        ui.open_file(project.absolute_path(Pathname("lib/foo.rb")))
+
+        finally_holds do
+          assert_equal(
+            ["Ruby::NoMethod"],
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))&.map { _1[:code] }
+          )
+        end
+
+        # The workers receive the changed RBS file
+        ui.open_file(project.absolute_path(Pathname("sig/foo.rbs")))
+        ui.edit_file(project.absolute_path(Pathname("sig/foo.rbs")), content: <<-RBS, version: 0)
+class Foo
+  def bar: () -> void
+end
+        RBS
+        ui.save_file(project.absolute_path(Pathname("sig/foo.rbs")))
+
+        finally_holds do
+          assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+        end
+      end
+
+      main_thread.join
+
+      assert_equal 2, launcher.typecheck_workers.size
     end
   end
 
