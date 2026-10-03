@@ -293,7 +293,7 @@ module Steep
         if value_node
           if (call = initial_constr.typing.method_calls[value_node]).is_a?(MethodCall::Typed)
             if env[value_node]
-              env.merge(pure_method_calls: { value_node => [call, env[var_name]] })
+              logic.refine_pure_call(env, value_node, env[var_name] || raise)
             end
           end
         end
