@@ -62,6 +62,8 @@ class MasterTest < Minitest::Test
 
   def test_client_message_initialize_work_done_supported_yes: () -> untyped
 
+  def test_push_diagnostics__related_information: () -> untyped
+
   def test_client_message_document_did_change: () -> untyped
 
   def test_client_message_document_did_save: () -> untyped
