@@ -163,6 +163,9 @@ module LSPTestHelper
     # The service `#start` was called with
     attr_reader started_service: Steep::Services::TypeCheckService?
 
+    # The environments of each target when `#start` was called, which the workers would be forked with
+    attr_reader started_environments: Hash[Symbol, RBS::Environment]?
+
     @workers: Array[Steep::Server::WorkerProcess]
 
     # @rbs *workers: Steep::Server::WorkerProcess

@@ -2,8 +2,7 @@ module Steep
   module Server
     # Forks each typecheck worker from the master, with the environments of the master
     #
-    # The master calls `#start` on its main loop once the environments have the files of the project, while the
-    # environment thread waits, so that the environments are not being updated.
+    # The master calls `#start` on the `initialize` request, once the environments have the files of the project.
     #
     # The workers start without loading the environments, sharing the pages of the master until either side writes them.
     # The heap of the master is compacted with `Process.warmup` before forking, where available, to share more pages.

@@ -185,8 +185,9 @@ module Steep
 
       # Jobs that update or read the RBS environments in `controller.type_check_service`, run in the environment thread
       #
-      # Updating an environment takes seconds on a large project, so the main thread never does it. Jobs run one at a time,
-      # and a job that has a result for the main thread pushes another job to `job_queue`.
+      # Updating an environment takes seconds on a large project, so the main thread never does it, except the update with
+      # the files of the project before forking the workers in `#start_workers`. Jobs run one at a time, and a job that has a
+      # result for the main thread pushes another job to `job_queue`.
       #
       attr_reader environment_queue: Thread::Queue
 
@@ -210,18 +211,6 @@ module Steep
 
       # The number of interaction requests -- hover, completion, signature help, and source symbol -- each worker is working on
       attr_reader interaction_jobs_in_flight: Hash[WorkerProcess, Integer]
-
-      # The versions of the files applied to the environments in `controller.type_check_service`
-      #
-      # The workers forked from the environments start with the files of these versions. Updated in the environment thread.
-      #
-      attr_reader environment_versions: Hash[Pathname, Integer]
-
-      # The environment thread waits on the queue while the main loop forks the workers, and `nil` before then
-      #
-      # Closed at the shutdown, so that the environment thread doesn't wait for the main loop that has stopped.
-      #
-      @workers_forked: Thread::Queue[true]?
 
       # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
       @shutting_down: bool
@@ -268,9 +257,9 @@ module Steep
       # Called on the `initialize` request, once the project is loaded. The threads reading from the workers are
       # started only while `#start` is running.
       #
-      # `SpawnLauncher` starts the workers right away. `ForkLauncher` forks them later: the environment thread updates the
-      # environments with the files of the project, and waits while the main loop forks the workers. The workers start
-      # with the files of `environment_versions`, and get the newer contents and the pending type check jobs once forked.
+      # `SpawnLauncher` starts the workers right away. `ForkLauncher` forks them once the environments have the files of the
+      # project, which the main thread updates by itself before the environment thread has any job, and the workers start
+      # with the files.
       #
       def start_workers: () -> void
 

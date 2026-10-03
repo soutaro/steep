@@ -647,6 +647,9 @@ module LSPTestHelper
     # The service `#start` was called with
     attr_reader :started_service #: Steep::Services::TypeCheckService?
 
+    # The environments of each target when `#start` was called, which the workers would be forked with
+    attr_reader :started_environments #: Hash[Symbol, RBS::Environment]?
+
     # @rbs @workers: Array[Steep::Server::WorkerProcess]
 
     # @rbs *workers: Steep::Server::WorkerProcess
@@ -658,6 +661,7 @@ module LSPTestHelper
     # @rbs (Steep::Services::TypeCheckService) -> void
     def start(service)
       @started_service = service
+      @started_environments = service.signature_services.transform_values(&:latest_env)
       typecheck_workers.concat(@workers)
     end
   end

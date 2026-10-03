@@ -105,44 +105,41 @@ end
         launcher: launcher
       )
 
-      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
-      flush_queue(master.write_queue)
-
-      # The workers are forked once the environments have the files of the project
       assert_empty master.typecheck_workers
-      assert_nil launcher.started_service
 
-      update, fork = flush_queue(master.environment_queue)
-      update or raise
-      fork or raise
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
 
-      update.call
-      service = master.controller.type_check_service or raise
-      assert service.signature_services.fetch(:lib).latest_env.class_decls.key?(RBS::TypeName.parse("::Customer"))
-      assert_equal({ Pathname("lib/customer.rb") => 1, Pathname("sig/customer.rbs") => 1 }, master.environment_versions)
-
-      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
-
-      # The environment thread waits while the main loop forks the workers
-      environment_thread = Thread.new { fork.call }
-      job = master.job_queue.pop
-      assert_instance_of Proc, job
-      job.call
-      environment_thread.join
-
-      assert_same service, launcher.started_service
+      # The workers are forked from the environments with the files of the project
+      assert_same master.controller.type_check_service, launcher.started_service
+      assert (launcher.started_environments || raise).fetch(:lib).class_decls.key?(RBS::TypeName.parse("::Customer"))
       assert_equal [worker], master.typecheck_workers
+      assert_empty master.environment_queue
 
-      # The worker has the files in the environments, and receives the file changed after the update, and the index jobs
-      jobs = flush_queue(master.write_queue)
+      # The worker has the files, and receives the index jobs only
+      assert_equal({ Pathname("lib/customer.rb") => 1, Pathname("sig/customer.rbs") => 1 }, worker.known_versions)
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      refute_empty jobs
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }.uniq
+      assert_equal ["index"], jobs.map { _1.message[:params][:kind] }.uniq
+      drop_index_jobs(master, jobs)
+
+      # A file changed after the fork is sent to the worker
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      master.process_message_from_client({
+        id: "check",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
       assert_equal FileLoad::METHOD, jobs[0].message[:method]
       assert_equal({ "sig/customer.rbs" => "class Customer\n  def name: () -> String\nend\n" }, jobs[0].message[:params][:content])
-      assert_equal({ Pathname("lib/customer.rb") => 1, Pathname("sig/customer.rbs") => 2 }, worker.known_versions)
-
-      index_jobs = jobs.drop(1)
-      refute_empty index_jobs
-      assert_equal [TypeCheck__File::METHOD], index_jobs.map { _1.message[:method] }.uniq
-      assert_equal ["index"], index_jobs.map { _1.message[:params][:kind] }.uniq
     end
   end
 

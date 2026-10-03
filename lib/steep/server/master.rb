@@ -199,7 +199,6 @@ module Steep
       attr_reader :typecheck_jobs_in_flight
       attr_reader :interaction_jobs_in_flight
       attr_reader :pending_index_jobs
-      attr_reader :environment_versions
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
@@ -232,8 +231,6 @@ module Steep
         @typecheck_jobs_in_flight = {}
         @interaction_jobs_in_flight = {}
         @pending_index_jobs = {}
-        @environment_versions = {}
-        @workers_forked = nil
         @shutting_down = false
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
@@ -349,8 +346,6 @@ module Steep
 
           loop_thread.join
 
-          # Wakes the environment thread waiting for the workers to be forked by the main loop, which has stopped
-          @workers_forked&.close
           environment_queue.close()
           environment_thread.join
 
@@ -374,38 +369,25 @@ module Steep
           start_worker_threads()
 
         when ForkLauncher
-          # The workers are forked from the environments with the files of the project: the main loop forks them while the
-          # environment thread waits after the update, so that the environments are not being updated
-          update_environment()
+          # The workers are forked from the environments with the files of the project. The main loop updates the
+          # environments itself, because the environment thread has no job yet, and nothing can run without the workers.
+          changes = controller.pop_file_changes
+          versions = changes.each_key.to_h { [_1, controller.file_contents.fetch(_1).version] } #: Hash[Pathname, Integer]
 
-          environment_queue << -> do
-            forked = @workers_forked = Thread::Queue.new
-
-            job_queue << -> do
-              # The workers forked after `exit` would never be told to exit
-              next if @shutting_down || job_queue.closed?
-
-              Steep.measure("Forking the workers...") do
-                launcher.start(service)
-              end
-
-              typecheck_workers.each do |worker|
-                worker.known_versions.replace(environment_versions)
-              end
-              start_worker_threads()
-
-              typecheck_workers.each do |worker|
-                deliver_contents(worker, signature_paths_to_deliver)
-              end
-              dispatch_typecheck_jobs()
-            ensure
-              forked << true
-            end
-
-            forked.pop
-          rescue ClosedQueueError
-            # The main loop has stopped before forking the workers
+          Steep.measure("Updating the environments with #{changes.size} files") do
+            service.update(changes: changes)
           end
+
+          Steep.measure("Forking the workers...") do
+            launcher.start(service)
+          end
+
+          # The workers have the files in the environments
+          typecheck_workers.each do |worker|
+            worker.known_versions.replace(versions)
+          end
+
+          start_worker_threads()
         end
       end
 
@@ -1289,13 +1271,10 @@ module Steep
         end #: Array[[Symbol, Pathname]]
         enqueue_index_jobs(target_paths)
 
-        versions = changes.each_key.to_h { [_1, controller.file_contents.fetch(_1).version] } #: Hash[Pathname, Integer]
-
         environment_queue << -> do
           Steep.measure("Updating the environments with #{changes.size} files") do
             service.update(changes: changes)
           end
-          environment_versions.merge!(versions)
         end
       end
 
