@@ -1088,6 +1088,55 @@ end
     end
   end
 
+  def test_push_diagnostics__related_information
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(worker)
+      )
+
+      range = { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }
+      diagnostic = {
+        message: "Duplicated",
+        range: range,
+        relatedInformation: [
+          { location: { uri: Steep::PathHelper.to_uri(current_dir + "sig/b.rbs").to_s, range: range }, message: "Another definition" }
+        ]
+      }
+
+      # Removed if the client doesn't support it
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.push_diagnostics(current_dir + "sig/a.rbs", [diagnostic])
+      flush_queue(master.write_queue).tap do |jobs|
+        assert_equal [{ message: "Duplicated", range: range }], jobs.map { _1.message[:params][:diagnostics] }.flatten
+      end
+
+      # Kept if the client supports it
+      master.assign_initialize_params(
+        DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { textDocument: { publishDiagnostics: { relatedInformation: true } } })
+      )
+      master.push_diagnostics(current_dir + "sig/a.rbs", [diagnostic])
+      flush_queue(master.write_queue).tap do |jobs|
+        assert_equal [diagnostic], jobs.map { _1.message[:params][:diagnostics] }.flatten
+      end
+    end
+  end
+
   def test_client_message_document_did_change
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

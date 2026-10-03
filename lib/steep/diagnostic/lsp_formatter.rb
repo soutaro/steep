@@ -5,15 +5,17 @@ module Steep
 
       attr_reader :config
       attr_reader :default_severity
+      attr_reader :base_dir
 
       ERROR = :error
       WARNING = :warning
       INFORMATION = :information
       HINT = :hint
 
-      def initialize(config = {}, default_severity: ERROR)
+      def initialize(config = {}, default_severity: ERROR, base_dir: nil)
         @config = config
         @default_severity = default_severity
+        @base_dir = base_dir
 
         config.each do |klass, severity|
           validate_severity(klass, severity)
@@ -69,7 +71,29 @@ module Steep
 
           json[:tags] = tags unless tags.empty?
 
+          if diagnostic.is_a?(Signature::Base)
+            related_information = related_information(diagnostic)
+            json[:relatedInformation] = related_information unless related_information.empty?
+          end
+
           json
+        end
+      end
+
+      def related_information(diagnostic)
+        diagnostic.related_locations.filter_map do |location|
+          path = Pathname(location.buffer.name)
+          path = base_dir + path if base_dir
+
+          if path.absolute?
+            {
+              location: {
+                uri: PathHelper.to_uri(path).to_s,
+                range: location.as_lsp_range
+              },
+              message: diagnostic.related_location_message
+            }
+          end
         end
       end
 

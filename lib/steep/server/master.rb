@@ -444,6 +444,11 @@ module Steep
         initialize_params.dig(:capabilities, :workspace, :didChangeWatchedFiles, :dynamicRegistration) || false
       end
 
+      def related_information_supported?
+        initialize_params or raise "`initialize` request is not receiged yet"
+        initialize_params.dig(:capabilities, :textDocument, :publishDiagnostics, :relatedInformation) ? true : false
+      end
+
       def process_message_from_client(message)
         Steep.logger.info "Processing message from client: method=#{message[:method]}, id=#{message[:id]}"
         id = message[:id]
@@ -1690,6 +1695,10 @@ module Steep
 
       def push_diagnostics(path, diagnostics)
         if diagnostics
+          unless related_information_supported?
+            diagnostics = diagnostics.map { _1.except(:relatedInformation) }
+          end
+
           write_queue.push SendMessageJob.to_client(
             message: {
               method: :"textDocument/publishDiagnostics",

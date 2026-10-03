@@ -412,7 +412,7 @@ module LanguageServer
           source: String?,
           message: String,
           tags: Array[Constant::DiagnosticTag::t]?,
-          relatedInformation: RelatedInformation::json?,
+          relatedInformation: Array[DiagnosticRelatedInformation::json]?,
           data: untyped?
         }
 
@@ -430,7 +430,7 @@ module LanguageServer
 
         attr_reader tags: Array[Constant::DiagnosticTag::t]?
 
-        attr_reader related_information: RelatedInformation?
+        attr_reader related_information: Array[DiagnosticRelatedInformation]?
 
         attr_reader data: untyped?
 
@@ -442,12 +442,12 @@ module LanguageServer
           ?source: String?,
           message: String,
           ?tags: Array[Constant::DiagnosticTag::t]?,
-          ?related_information: RelatedInformation?,
+          ?related_information: Array[DiagnosticRelatedInformation]?,
           ?data: untyped
         ) -> void
       end
 
-      class RelatedInformation
+      class DiagnosticRelatedInformation
         include _Base
 
         type json = {

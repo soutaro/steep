@@ -399,6 +399,10 @@ module Steep
       #
       def work_done_progress_supported?: () -> bool
 
+      # Returns `true` if `relatedInformation` of diagnostics is supported by the client based on the `initialize` params
+      #
+      def related_information_supported?: () -> bool
+
       def process_message_from_client: (untyped message) -> void
 
       def process_message_from_worker: (untyped message, worker: WorkerProcess) -> void
@@ -500,6 +504,7 @@ module Steep
       #
       # * If `diagnostics` is `nil`, it skips sending notification
       # * If path is already pushed, the diagnostics will be merged
+      # * If the client doesn't support `relatedInformation`, it is removed from the diagnostics
       #
       def push_diagnostics: (Pathname path, Array[LSPDiagnostic::json]? diagnostics) -> void
 

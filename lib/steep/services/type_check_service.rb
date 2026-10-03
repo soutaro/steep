@@ -222,9 +222,18 @@ module Steep
                 end
               end
 
-              diagnostics = validator.each_error.select do |error|
-                error.location or raise
-                Pathname(error.location.buffer.name) == path
+              # Reports each error at its locations in the file, including the related locations
+              #
+              # The primary location of an error may be in a file that doesn't declare the validated type, like a method
+              # imported from an interface, and the validation of the file doesn't find the error.
+              #
+              diagnostics = validator.each_error.flat_map do |error|
+                location = error.location or raise
+                [location, *error.related_locations].filter_map do |loc|
+                  if Pathname(loc.buffer.name) == path
+                    error.relocate(loc)
+                  end
+                end
               end
             end
 

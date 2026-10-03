@@ -14,6 +14,9 @@ module Steep
 
       attr_reader default_severity: severity
 
+      # The directory the relative paths of the locations are resolved from, to make the URIs of the related locations
+      attr_reader base_dir: Pathname?
+
       ERROR: :error
 
       WARNING: :warning
@@ -22,7 +25,7 @@ module Steep
 
       HINT: :hint
 
-      def initialize: (?config config, ?default_severity: severity) -> void
+      def initialize: (?config config, ?default_severity: severity, ?base_dir: Pathname?) -> void
 
       def validate_class: (Class klass) -> void
 
@@ -31,6 +34,12 @@ module Steep
       def format: (Diagnostic::Ruby::Base | Diagnostic::Signature::Base) -> LSPDiagnostic::json?
 
       def severity_for: (Diagnostic::Ruby::Base | Diagnostic::Signature::Base) -> LSPDiagnosticSeverity::t?
+
+      # Returns the `relatedInformation` of the related locations of the diagnostic
+      #
+      # The locations in files with relative paths are skipped if `base_dir` is not given.
+      #
+      def related_information: (Diagnostic::Signature::Base) -> Array[LanguageServer::Protocol::Interface::DiagnosticRelatedInformation::json]
     end
   end
 end

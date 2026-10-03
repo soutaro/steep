@@ -125,7 +125,7 @@ module Steep
         when ValidateAppSignatureJob
           Steep.logger.info { "Processing ValidateAppSignature for id=#{job.id}, path=#{job.path}" }
 
-          formatter = Diagnostic::LSPFormatter.new({}, **{})
+          formatter = Diagnostic::LSPFormatter.new({}, base_dir: project.base_dir)
 
           relative_path = project.relative_path(job.path)
           diagnostics = service.validate_signature(path: relative_path, target: job.target)
@@ -138,7 +138,7 @@ module Steep
         when ValidateLibrarySignatureJob
           Steep.logger.info { "Processing ValidateLibrarySignature for id=#{job.id}, path=#{job.path}" }
 
-          formatter = Diagnostic::LSPFormatter.new({}, **{})
+          formatter = Diagnostic::LSPFormatter.new({}, base_dir: project.base_dir)
           diagnostics = service.validate_signature(path: job.path, target: job.target)
 
           respond(
@@ -157,7 +157,7 @@ module Steep
         when TypeCheckInlineCodeJob
           Steep.logger.info { "Processing TypeCheckInlineCodeJob for id=#{job.id}, path=#{job.path}, target=#{job.target.name}" }
           group_target = project.group_for_inline_source_path(job.path) || job.target
-          formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config)
+          formatter = Diagnostic::LSPFormatter.new(group_target.code_diagnostics_config, base_dir: project.base_dir)
           relative_path = project.relative_path(job.path)
           source = source_result(service.typecheck_source(path: relative_path, target: job.target), formatter)
           signature_diagnostics = service.validate_signature(path: relative_path, target: job.target).filter_map { formatter.format(_1) } #: Array[LanguageServer::Protocol::Interface::Diagnostic::json]?
