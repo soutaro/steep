@@ -1617,6 +1617,92 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_type_narrowing__literal_equality_with_eql_and_equal
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class A
+            def foo: () -> (String | :some_symbol)
+            def bar: () -> ("foo" | "bar")
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class A
+            def foo
+              "hello"
+            end
+
+            def bar
+              "foo"
+            end
+          end
+
+          a = A.new
+
+          x = a.foo
+          if x.eql?(:some_symbol)
+            # @type var sym: :some_symbol
+            sym = x
+          else
+            # @type var str: String
+            str = x
+          end
+
+          y = a.foo
+          if y.equal?(:some_symbol)
+            # @type var sym: :some_symbol
+            sym = y
+          else
+            # Symbols are interned, so the else branch is narrowed
+            # @type var str: String
+            str = y
+          end
+
+          z = a.bar
+          if z.eql?("foo")
+            # @type var foo: "foo"
+            foo = z
+          else
+            # @type var bar: "bar"
+            bar = z
+          end
+
+          w = a.bar
+          if w.equal?("foo")
+            # @type var foo: "foo"
+            foo = w
+          else
+            # Equal strings may be distinct objects, so the else branch is not narrowed
+            # @type var union: "foo" | "bar"
+            union = w
+            # @type var bar: "bar"
+            bar = w
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 50
+                character: 2
+              end:
+                line: 50
+                character: 9
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `("foo" | "bar")` to a variable of type `"bar"`
+                ("foo" | "bar") <: "bar"
+                  "foo" <: "bar"
+            code: Ruby::IncompatibleAssignment
+      YAML
+    )
+  end
+
   def test_argument_error__unexpected_unexpected_positional_argument
     run_type_check_test(
       signatures: {
