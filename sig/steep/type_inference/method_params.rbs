@@ -88,6 +88,11 @@ module Steep
 
       type param = PositionalParameter | KeywordParameter | PositionalRestParameter | KeywordRestParameter | BlockParameter
 
+      # Keys of anonymous parameters (`*`, `**`, and `&`) in `params`
+      ANONYMOUS_REST_KEY: Symbol
+      ANONYMOUS_KWREST_KEY: Symbol
+      ANONYMOUS_BLOCK_KEY: Symbol
+
       # The children of `:args` node
       attr_reader args: Array[Node]
 
