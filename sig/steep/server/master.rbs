@@ -212,6 +212,31 @@ module Steep
       # The number of interaction requests -- hover, completion, signature help, and source symbol -- each worker is working on
       attr_reader interaction_jobs_in_flight: Hash[WorkerProcess, Integer]
 
+      # The versions of the files applied to the environments in `controller.type_check_service`
+      #
+      # The workers forked from the environments start with the files of these versions. Updated by the environment
+      # thread, and read by the main loop while the environment thread waits for the workers to be forked.
+      #
+      attr_reader environment_versions: Hash[Pathname, Integer]
+
+      # The number of the generations of the workers asked for by the changes of the RBS files
+      #
+      # Only the update of the latest generation forks the workers, so that the changes coming one after another fork
+      # the workers once.
+      #
+      @environment_generation: Integer
+
+      # The retired workers told to exit, until their pipes are closed
+      attr_reader exiting_workers: Set[WorkerProcess]
+
+      # The `wait_thread` of the retired workers told to exit, which `#start` waits on without stopping the server
+      #
+      # Read by the thread of `#start`, and written by the main loop.
+      #
+      @exited_wait_threads: Set[Thread]
+
+      @exited_wait_threads_mutex: Thread::Mutex
+
       # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
       @shutting_down: bool
 
@@ -246,6 +271,7 @@ module Steep
       # Raises an exception if the worker processes doesn't shutdown properly, like being `#kill`-ed.
       # Exiting the process is assumed in the case of error.
       # The only one cleanup it does is stopping the worker processes, by `SIGKILL`.
+      # A retired worker that exits after the master tells it to is not an error.
       #
       def start: () -> void
 
@@ -268,6 +294,25 @@ module Steep
 
       # Starts the thread reading the messages from the worker, and waits for the exit of the worker
       def start_worker_thread: (WorkerProcess worker) -> void
+
+      # Closes the pipes of the retired worker that has exited, and forgets it
+      def close_exited_worker: (WorkerProcess worker) -> void
+
+      # The retired workers not told to exit yet
+      #
+      # They finish the jobs given to them, and answer the interaction requests until the next generation is forked.
+      #
+      def retiring_workers: () -> Array[WorkerProcess]
+
+      # Forks the workers of the generation from the environments, unless a newer generation is asked for
+      #
+      # Called on the main loop while the environment thread waits after updating the environments. The workers start
+      # with the files of `environment_versions`, and get the newer contents and the pending jobs.
+      #
+      def fork_workers: (Services::TypeCheckService service, Integer generation) -> void
+
+      # Tells the retiring workers with no job in flight to exit, once the next generation is forked
+      def release_retired_workers: () -> void
 
       # Hands the pending jobs of the current type check, and then the pending index jobs, to the workers that have
       # room for more
@@ -324,7 +369,8 @@ module Steep
 
       # The typecheck worker with the fewest requests in flight, which answers an interaction request the soonest
       #
-      # Returns `nil` when no worker is running.
+      # A retiring worker answers while the next generation is being forked: it receives the changed RBS files with the
+      # request, and updates its environments by itself. Returns `nil` when no worker is running.
       #
       def worker_for_interaction: () -> WorkerProcess?
 
@@ -357,6 +403,10 @@ module Steep
       # follow the files the same way the typecheck workers do. The changed RBS files and Ruby files with inline RBS
       # declarations are added to the index jobs.
       #
+      # With `ForkLauncher`, a change of an RBS file retires the typecheck workers, and the next generation is forked from
+      # the environments updated with the change: the forked workers never update their environments with the RBS files.
+      # The jobs wait for the next generation.
+      #
       def update_environment: () -> void
 
       # The symbols of the RBS declarations matching `query` in `TypeCheckDatabase`, for `workspace/symbol`
@@ -384,6 +434,10 @@ module Steep
       # Queues a message from a worker to the main loop, and drops it once the server is exiting
       def enqueue_worker_message: (WorkerProcess worker, untyped message) -> void
 
+      # The typecheck workers and the retired workers whose pipes are not closed yet, which `#kill` stops
+      #
+      # `exit` goes to the workers but the ones told to exit already.
+      #
       def each_worker: () { (WorkerProcess) -> void } -> void
                      | () -> Enumerator[WorkerProcess, void]
 

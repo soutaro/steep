@@ -199,6 +199,8 @@ module Steep
       attr_reader :typecheck_jobs_in_flight
       attr_reader :interaction_jobs_in_flight
       attr_reader :pending_index_jobs
+      attr_reader :environment_versions
+      attr_reader :exiting_workers
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
@@ -231,6 +233,11 @@ module Steep
         @typecheck_jobs_in_flight = {}
         @interaction_jobs_in_flight = {}
         @pending_index_jobs = {}
+        @environment_versions = {}
+        @environment_generation = 0
+        @exiting_workers = Set[].compare_by_identity
+        @exited_wait_threads = Set[].compare_by_identity
+        @exited_wait_threads_mutex = Mutex.new
         @shutting_down = false
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
@@ -324,9 +331,11 @@ module Steep
             end
           end
 
-          # Returns when a worker process exits, or the main loop stops
+          # Returns when a worker process exits, or the main loop stops, but a retired worker is told to exit
           worker_waiter << loop_thread
-          worker_waiter.wait_one()
+          while thread = worker_waiter.wait_one()
+            break unless @exited_wait_threads_mutex.synchronize { @exited_wait_threads.include?(thread) }
+          end
 
           unless job_queue.closed?
             # A worker process exited, or the main loop stopped, before the client sent `exit`
@@ -377,6 +386,7 @@ module Steep
           Steep.measure("Updating the environments with #{changes.size} files") do
             service.update(changes: changes)
           end
+          environment_versions.merge!(versions)
 
           Steep.measure("Forking the workers...") do
             launcher.start(service)
@@ -384,7 +394,7 @@ module Steep
 
           # The workers have the files in the environments
           typecheck_workers.each do |worker|
-            worker.known_versions.replace(versions)
+            worker.known_versions.replace(environment_versions)
           end
 
           start_worker_threads()
@@ -407,9 +417,26 @@ module Steep
           worker.reader.read do |message|
             enqueue_worker_message(worker, message)
           end
+
+          # The worker has exited
+          job_queue << -> { close_exited_worker(worker) }
+        rescue ClosedQueueError
+          # The server is exiting
         end
 
         worker_waiter << worker.wait_thread
+      end
+
+      def close_exited_worker(worker)
+        launcher = self.launcher
+
+        if launcher.is_a?(ForkLauncher) && exiting_workers.delete?(worker)
+          worker.reader.close
+          worker.writer.close
+          launcher.remove_retired_worker(worker)
+          typecheck_jobs_in_flight.delete(worker)
+          interaction_jobs_in_flight.delete(worker)
+        end
       end
 
       def enqueue_worker_message(worker, message)
@@ -421,8 +448,23 @@ module Steep
       def each_worker(&block)
         if block
           typecheck_workers.each(&block)
+
+          launcher = self.launcher
+          if launcher.is_a?(ForkLauncher)
+            launcher.retired_workers.each(&block)
+          end
         else
           enum_for :each_worker
+        end
+      end
+
+      def retiring_workers
+        launcher = self.launcher
+
+        if launcher.is_a?(ForkLauncher)
+          launcher.retired_workers.reject { exiting_workers.include?(_1) }
+        else
+          []
         end
       end
 
@@ -983,6 +1025,7 @@ module Steep
               type_check_database.update_rbs(path: path, target: target_name, entries: entries.map { TypeCheckDatabase::Entry.from_wire(_1) })
             end
 
+            release_retired_workers()
             dispatch_typecheck_jobs()
           end
         end
@@ -1066,6 +1109,7 @@ module Steep
               signature: result&.[](:signature)
             )
 
+            release_retired_workers()
             dispatch_typecheck_jobs()
           end
         end
@@ -1123,6 +1167,8 @@ module Steep
       def broadcast_notification(message)
         Steep.logger.info "Broadcasting notification #{message[:method]}"
         each_worker do |worker|
+          # The workers told to exit read nothing more
+          next if exiting_workers.include?(worker)
           enqueue_write_job SendMessageJob.new(dest: worker, message: message)
         end
       end
@@ -1262,6 +1308,16 @@ module Steep
         return if changes.empty?
         service = controller.type_check_service or return
 
+        versions = changes.each_key.to_h { [_1, controller.file_contents.fetch(_1).version] } #: Hash[Pathname, Integer]
+
+        # The forked workers don't update their environments with the RBS files: the next generation is forked from the
+        # environments updated with them
+        launcher = self.launcher
+        if launcher.is_a?(ForkLauncher) && changes.each_key.any? { controller.files.signature_paths.registered_path?(project.absolute_path(_1)) }
+          generation = (@environment_generation += 1)
+          launcher.retire_workers()
+        end
+
         # The changed RBS files are indexed after the type check jobs, unless the type check validates them
         target_paths = changes.each_key.filter_map do |relative_path|
           path = project.absolute_path(relative_path)
@@ -1272,9 +1328,69 @@ module Steep
         enqueue_index_jobs(target_paths)
 
         environment_queue << -> do
-          Steep.measure("Updating the environments with #{changes.size} files") do
-            service.update(changes: changes)
+          begin
+            Steep.measure("Updating the environments with #{changes.size} files") do
+              service.update(changes: changes)
+            end
+            environment_versions.merge!(versions)
+          ensure
+            # Forks the generation of the latest update only, while the environments are not being updated. The workers
+            # are forked even if the update fails, and receive the files of the update that are not in the environments.
+            if generation && generation == @environment_generation
+              forked = Thread::Queue.new
+
+              job_queue << -> do
+                fork_workers(service, generation)
+              ensure
+                forked << true
+              end
+
+              forked.pop
+            end
           end
+        rescue ClosedQueueError
+          # The main loop has stopped
+        end
+      end
+
+      def fork_workers(service, generation)
+        launcher = self.launcher
+        return unless launcher.is_a?(ForkLauncher)
+
+        # No workers are forked after `shutdown`, and a newer update forks the workers again
+        return if @shutting_down || job_queue.closed?
+        return unless generation == @environment_generation
+
+        Steep.measure("Forking the workers...") do
+          launcher.start(service)
+        end
+
+        typecheck_workers.each do |worker|
+          worker.known_versions.replace(environment_versions)
+        end
+        start_worker_threads()
+
+        release_retired_workers()
+
+        typecheck_workers.each do |worker|
+          deliver_contents(worker, signature_paths_to_deliver)
+        end
+        dispatch_typecheck_jobs()
+      end
+
+      def release_retired_workers
+        # The retired workers answer the interaction requests until the next generation is forked, and the workers stop
+        # at `exit` after `shutdown`
+        return if @shutting_down
+        return if typecheck_workers.empty?
+
+        retiring_workers.each do |worker|
+          next if typecheck_jobs_in_flight.fetch(worker, 0) > 0
+          next if interaction_jobs_in_flight.fetch(worker, 0) > 0
+
+          exiting_workers << worker
+          @exited_wait_threads_mutex.synchronize { @exited_wait_threads << worker.wait_thread }
+          send_notification({ method: "exit" }, worker: worker)
         end
       end
 
@@ -1313,7 +1429,10 @@ module Steep
       end
 
       def worker_for_interaction
-        typecheck_workers.min_by do |worker|
+        # The retired workers answer until the next generation is forked
+        workers = typecheck_workers.empty? ? retiring_workers : typecheck_workers
+
+        workers.min_by do |worker|
           typecheck_jobs_in_flight.fetch(worker, 0) + interaction_jobs_in_flight.fetch(worker, 0)
         end
       end
@@ -1327,6 +1446,7 @@ module Steep
         result_controller << send_request(method: method, params: params, worker: worker) do |handler|
           handler.on_completion do |response|
             interaction_jobs_in_flight[worker] = interaction_jobs_in_flight.fetch(worker, 0) - 1
+            release_retired_workers()
             yield response[:result]
           end
         end

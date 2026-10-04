@@ -2,22 +2,43 @@ module Steep
   module Server
     # Forks each typecheck worker from the master, with the environments of the master
     #
-    # The master calls `#start` on the `initialize` request, once the environments have the files of the project.
+    # The master calls `#start` on the `initialize` request, once the environments have the files of the project, and
+    # again for each change of the RBS files, after retiring the workers and updating the environments with the change.
+    # The workers of each `#start` are a *generation*, and the workers of the last generation are the typecheck workers.
     #
     # The workers start without loading the environments, sharing the pages of the master until either side writes them.
     # The heap of the master is compacted with `Process.warmup` before forking, where available, to share more pages.
     #
     class ForkLauncher
-      # The number of typecheck workers
+      # The number of typecheck workers of a generation
       attr_reader typecheck_count: Integer
 
-      # The typecheck workers, empty before `#start`
+      # The workers of the last generation, empty before `#start` and after `#retire_workers`
       attr_reader typecheck_workers: Array[WorkerProcess]
+
+      # The workers of the previous generations, until the master closes their pipes after they exit
+      #
+      # The master gives them no more type check jobs, and tells them to exit once they finish their jobs and the next
+      # generation is forked.
+      #
+      attr_reader retired_workers: Array[WorkerProcess]
+
+      # The number of the workers forked so far, which gives the workers their names
+      @forked_count: Integer
 
       def initialize: (typecheck_count: Integer) -> void
 
-      # Forks the workers with the environments in the service
+      # Forks the workers of a new generation with the environments in the service
+      #
+      # Each worker closes the pipes of the other workers, the retired ones included, which it inherits from the master.
+      #
       def start: (Services::TypeCheckService) -> void
+
+      # Moves the typecheck workers to `retired_workers`
+      def retire_workers: () -> void
+
+      # Forgets the retired worker whose pipes the master has closed
+      def remove_retired_worker: (WorkerProcess) -> void
 
       # Releases what the launcher keeps besides the workers
       #

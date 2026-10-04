@@ -124,22 +124,188 @@ end
       assert_equal ["index"], jobs.map { _1.message[:params][:kind] }.uniq
       drop_index_jobs(master, jobs)
 
-      # A file changed after the fork is sent to the worker
-      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      # A Ruby file changed after the fork is sent to the worker with its request
+      master.controller.push_file_change(current_dir + "lib/customer.rb", "class Customer\n  def name = \"\"\nend\n")
       master.process_message_from_client({
         id: "check",
         method: TypeCheck::METHOD,
         params: {
           library_paths: [],
-          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
-          code_paths: [],
+          signature_paths: [],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
           inline_paths: []
         }
       })
 
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal "class Customer\n  def name = \"\"\nend\n", jobs[0].message[:params][:content]
+    end
+  end
+
+  # Sets up a project with `lib/customer.rb` and `sig/customer.rbs`, and a master with `ForkedWorkersLauncher` that forks
+  # one worker of each generation, after `initialize` and the index jobs
+  #
+  # @rbs () { (Server::Master, LSPTestHelper::ForkedWorkersLauncher, Array[Server::WorkerProcess]) -> void } -> void
+  def with_forked_master
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      workers = 3.times.map { Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test@#{_1}") }
+      launcher = ForkedWorkersLauncher.new(*workers, typecheck_count: 1)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+      master.typecheck_automatically = false
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      drop_index_jobs(master, flush_queue(master.write_queue))
+
+      yield master, launcher, workers
+    end
+  end
+
+  # Runs the job of the environment thread, and the job it gives to the main loop while it waits
+  #
+  # @rbs (Server::Master, ^() -> void) -> void
+  def run_environment_job(master, job)
+    environment_thread = Thread.new { job.call }
+    environment_thread.report_on_exception = false
+
+    # The job waits for the main loop only when it forks the workers
+    until environment_thread.join(0.01)
+      if main_job = (master.job_queue.pop(timeout: 0.01) rescue nil)
+        main_job.call
+      end
+    end
+  end
+
+  # @rbs (Server::Master, Pathname) -> void
+  def request_type_check(master, path)
+    master.process_message_from_client({
+      id: "check-#{SecureRandom.uuid}",
+      method: TypeCheck::METHOD,
+      params: {
+        library_paths: [],
+        signature_paths: [["lib", path.to_s]],
+        code_paths: [],
+        inline_paths: []
+      }
+    })
+  end
+
+  def test_refork_workers_on_signature_change
+    with_forked_master do |master, launcher, workers|
+      assert_equal [workers[0]], master.typecheck_workers
+
+      # A change of an RBS file retires the workers, and the jobs wait for the next generation
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+
+      assert_empty master.typecheck_workers
+      assert_equal [workers[0]], launcher.retired_workers
+      assert_empty flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      refute_empty master.pending_typecheck_jobs
+
+      # The retired worker answers an interaction request with the changed RBS file
+      master.process_message_from_client(
+        {
+          id: "hover",
+          method: "textDocument/hover",
+          params: { textDocument: { uri: "#{file_scheme}#{current_dir + "sig/customer.rbs"}" }, position: { line: 1, character: 7 } }
+        }
+      )
+      jobs = flush_queue(master.write_queue)
+      assert_equal [workers[0]], jobs.map(&:dest).uniq
+      assert_equal({ "sig/customer.rbs" => "class Customer\n  def name: () -> String\nend\n" }, jobs[0].message[:params][:content])
+      hover = jobs.find { _1.message[:method] == Hover::METHOD } or raise
+
+      # The next generation is forked from the environments updated with the change
+      environment_jobs = flush_queue(master.environment_queue)
+      assert_equal 1, environment_jobs.size
+      run_environment_job(master, environment_jobs[0])
+
+      assert_equal 2, launcher.start_count
+      customer = (launcher.started_environments || raise).fetch(:lib).class_decls.fetch(RBS::TypeName.parse("::Customer"))
+      assert customer.primary_decl.members.any? { _1.is_a?(RBS::AST::Members::MethodDefinition) && _1.name == :name }
+      assert_equal [workers[1]], master.typecheck_workers
+      assert_equal 2, workers[1].known_versions[Pathname("sig/customer.rbs")]
+
+      # The new worker gets the jobs without the RBS file, and the retired worker answering the request stays
+      jobs = flush_queue(master.write_queue)
+      assert_equal [workers[1]], jobs.map(&:dest).uniq
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }.uniq
+      assert_equal [workers[1], workers[0]], master.each_worker.to_a
+
+      # The retired worker is told to exit after answering
+      master.result_controller.process_response({ id: hover.message[:id], result: nil })
+      jobs = flush_queue(master.write_queue)
+      assert_equal [[workers[0], "exit"]], jobs.filter_map { [_1.dest, _1.message[:method]] if _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal [workers[0]], master.exiting_workers.to_a
+      assert_empty master.retiring_workers
+    end
+  end
+
+  def test_refork_workers_when_update_fails
+    with_forked_master do |master, launcher, workers|
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+
+      service = master.controller.type_check_service or raise
+      service.define_singleton_method(:update) {|changes:| raise "Boom" }
+
+      environment_jobs = flush_queue(master.environment_queue)
+      assert_raises(RuntimeError) { run_environment_job(master, environment_jobs[0]) }
+
+      # The workers are forked anyway, and receive the RBS file that is not in the environments
+      assert_equal [workers[1]], master.typecheck_workers
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == workers[1] }
       assert_equal FileLoad::METHOD, jobs[0].message[:method]
       assert_equal({ "sig/customer.rbs" => "class Customer\n  def name: () -> String\nend\n" }, jobs[0].message[:params][:content])
+    end
+  end
+
+  def test_refork_workers_once_for_successive_changes
+    with_forked_master do |master, launcher, workers|
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\n  def id: () -> Integer\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+
+      environment_jobs = flush_queue(master.environment_queue)
+      assert_equal 2, environment_jobs.size
+
+      # The first update doesn't fork the workers, which the second update asks for again
+      environment_jobs[0].call
+      assert_equal 1, launcher.start_count
+      assert_empty master.typecheck_workers
+
+      run_environment_job(master, environment_jobs[1])
+      assert_equal 2, launcher.start_count
+      assert_equal [workers[1]], master.typecheck_workers
+      assert_equal 3, workers[1].known_versions[Pathname("sig/customer.rbs")]
+
+      # The retired worker had no job, and is told to exit
+      assert_equal [workers[0]], master.exiting_workers.to_a
     end
   end
 
@@ -1626,7 +1792,10 @@ end
           )
         end
 
-        # The workers receive the changed RBS file
+        first_generation = launcher.typecheck_workers.dup
+        assert_equal 2, first_generation.size
+
+        # The workers are forked again from the environments with the changed RBS file
         ui.open_file(project.absolute_path(Pathname("sig/foo.rbs")))
         ui.edit_file(project.absolute_path(Pathname("sig/foo.rbs")), content: <<-RBS, version: 0)
 class Foo
@@ -1638,11 +1807,18 @@ end
         finally_holds do
           assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
         end
+
+        # The retired workers exit, and their pipes are closed
+        finally_holds do
+          assert_equal 2, launcher.typecheck_workers.size
+          assert_empty launcher.typecheck_workers & first_generation
+          assert first_generation.none? { _1.wait_thread.alive? }
+          assert_empty launcher.retired_workers
+          assert first_generation.all? { _1.writer.io.closed? }
+        end
       end
 
       main_thread.join
-
-      assert_equal 2, launcher.typecheck_workers.size
     end
   end
 

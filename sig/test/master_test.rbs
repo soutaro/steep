@@ -32,6 +32,26 @@ class MasterTest < Minitest::Test
 
   def test_fork_workers_on_initialize: () -> untyped
 
+  # Sets up a project with `lib/customer.rb` and `sig/customer.rbs`, and a master with `ForkedWorkersLauncher` that forks
+  # one worker of each generation, after `initialize` and the index jobs
+  #
+  # @rbs () { (Server::Master, LSPTestHelper::ForkedWorkersLauncher, Array[Server::WorkerProcess]) -> void } -> void
+  def with_forked_master: () { (Server::Master, LSPTestHelper::ForkedWorkersLauncher, Array[Server::WorkerProcess]) -> void } -> void
+
+  # Runs the job of the environment thread, and the job it gives to the main loop while it waits
+  #
+  # @rbs (Server::Master, ^() -> void) -> void
+  def run_environment_job: (Server::Master, ^() -> void) -> void
+
+  # @rbs (Server::Master, Pathname) -> void
+  def request_type_check: (Server::Master, Pathname) -> void
+
+  def test_refork_workers_on_signature_change: () -> untyped
+
+  def test_refork_workers_when_update_fails: () -> untyped
+
+  def test_refork_workers_once_for_successive_changes: () -> untyped
+
   def test_kill_stops_launcher: () -> untyped
 
   def test_start_type_check_with_progress: () -> untyped
