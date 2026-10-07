@@ -84,6 +84,7 @@ module Steep
 
           if body_node
             body_constr = body_constr.for_branch(body_node)
+            body_constr.typing.cursor_context.set_node_context(body_node, body_constr.context)
             type, body_constr = body_constr.synthesize(body_node, hint: hint, condition: condition)
           else
             type = AST::Builtin.nil_type
@@ -188,6 +189,7 @@ module Steep
 
         @else_result =
           if else_node
+            constr.typing.cursor_context.set_node_context(else_node, constr.context)
             yield(else_node, constr)
           else
             TypeConstruction::Pair.new(type: AST::Builtin.nil_type, constr: constr)
