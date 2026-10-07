@@ -166,6 +166,7 @@ module Steep
 
         if type_name && location
           validate_type_name_deprecation(type_name, location)
+          validate_type_name_warning(type_name, location)
         end
 
         type.each_type do |child|
@@ -176,6 +177,12 @@ module Steep
       def validate_type_name_deprecation(type_name, location)
         if (_, message = AnnotationsHelper.deprecated_type_name?(type_name, env))
           @errors << Diagnostic::Signature::DeprecatedTypeName.new(type_name, message, location: location)
+        end
+      end
+
+      def validate_type_name_warning(type_name, location)
+        if (_, message = AnnotationsHelper.warning_type_name?(type_name, env))
+          @errors << Diagnostic::Signature::WarningTypeName.new(type_name, message, location: location)
         end
       end
 
@@ -328,6 +335,11 @@ module Steep
                   validate_type_name_deprecation(name, location[:name])
                 end
               end
+              unless AnnotationsHelper.warning_annotation?(decl.annotations)
+                if location = decl.location
+                  validate_type_name_warning(name, location[:name])
+                end
+              end
             end
           end
 
@@ -401,6 +413,7 @@ module Steep
                         end
                       if location
                         validate_type_name_deprecation(ancestor.name, location)
+                        validate_type_name_warning(ancestor.name, location)
                       end
                     end
                   end
@@ -695,6 +708,7 @@ module Steep
           validator.validate_class_alias(entry: entry)
           if location = entry.decl.location
             validate_type_name_deprecation(entry.decl.old_name, location[:old_name])
+            validate_type_name_warning(entry.decl.old_name, location[:old_name])
           end
         end
       end

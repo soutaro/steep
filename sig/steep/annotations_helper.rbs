@@ -10,8 +10,22 @@ module Steep
     #
     def self?.deprecated_annotation?: (Array[Annotation]) -> [Annotation, String?]?
 
+    # Returns true if the array of annotations declared a *warning*
+    #
+    # Returns the pair of the annotation and given message.
+    #
+    def self?.warning_annotation?: (Array[Annotation]) -> [Annotation, String?]?
+
+    # Returns the annotations attached to the declarations of the given type name.
+    #
+    def self?.type_name_annotations: (RBS::TypeName, RBS::Environment) -> Array[Annotation]?
+
     # Returns truthy if the type name is declared *deprecated*
     #
     def self?.deprecated_type_name?: (RBS::TypeName, RBS::Environment) -> [Annotation, String?]?
+
+    # Returns truthy if the type name is declared with a *warning*
+    #
+    def self?.warning_type_name?: (RBS::TypeName, RBS::Environment) -> [Annotation, String?]?
   end
 end

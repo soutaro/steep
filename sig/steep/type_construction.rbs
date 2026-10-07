@@ -536,16 +536,30 @@ module Steep
 
     def deprecated_send?: (TypeInference::MethodCall::Typed call) -> [RBS::AST::Annotation, String?]?
 
+    def warning_send?: (TypeInference::MethodCall::Typed call) -> [RBS::AST::Annotation, String?]?
+
     def type_name: (AST::Types::t) -> RBS::TypeName?
 
     def singleton_type: (AST::Types::t) -> AST::Types::t?
 
     def instance_type: (AST::Types::t) -> AST::Types::t?
 
+    # Returns the annotations attached to the declaration of the given global variable
+    private def global_annotations: (Symbol name) -> Array[RBS::AST::Annotation]?
+
     # Check if the global variable is deprecated and report diagnostic if so
     def check_deprecation_global: (Symbol name, Parser::AST::Node, Parser::Source::Range) -> void
 
+    # Check if the global variable has a warning and report diagnostic if so
+    def check_warning_global: (Symbol name, Parser::AST::Node, Parser::Source::Range) -> void
+
+    # Returns the annotations attached to the declarations of the given constant
+    private def constant_annotations: (RBS::TypeName name) -> Array[RBS::AST::Annotation]?
+
     # Check if the constant is deprecated and report diagnostic if so
     def check_deprecation_constant: (RBS::TypeName, Parser::AST::Node, Parser::Source::Range) -> void
+
+    # Check if the constant has a warning and report diagnostic if so
+    def check_warning_constant: (RBS::TypeName, Parser::AST::Node, Parser::Source::Range) -> void
   end
 end
