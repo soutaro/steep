@@ -291,12 +291,18 @@ module Steep
 
       def propagate_value_node_type(env)
         if value_node
+          if (value_type = env[var_name])
+            env = logic.refine_record_by_index(env: env, node: value_node, type: value_type)
+          end
+
           if (call = initial_constr.typing.method_calls[value_node]).is_a?(MethodCall::Typed)
             if env[value_node]
-              env.merge(pure_method_calls: { value_node => [call, env[var_name]] })
+              env = env.merge(pure_method_calls: { value_node => [call, env[var_name]] })
             end
           end
         end
+
+        env
       end
     end
   end

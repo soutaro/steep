@@ -76,6 +76,74 @@ RUBY
     end
   end
 
+  def test_variable_narrowed_in_case_when
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
+a = [{ a: 1 }, [1]].sample #: Hash[Symbol, Integer] | Array[Integer] | Array[String]
+case a
+when Hash
+  a
+when Array
+  a
+else
+  a
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 4, column: 2).tap do |content|
+        assert_instance_of HoverProvider::VariableContent, content
+        assert_equal "::Hash[::Symbol, ::Integer]", content.type.to_s
+      end
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 6, column: 2).tap do |content|
+        assert_instance_of HoverProvider::VariableContent, content
+        assert_equal "(::Array[::Integer] | ::Array[::String])", content.type.to_s
+      end
+    end
+  end
+
+  def test_variable_narrowed_by_record_key_in_case_when
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
+a = [{ type: :integer, value: 1 }, { type: :string, value: "a" }].sample #: { type: :integer, value: Integer } | { type: :string, value: String }
+case a[:type]
+when :integer
+  a
+when :string
+  a
+end
+if a[:type] == :string
+  a
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      [[4, "{ :type => :integer, :value => ::Integer }"], [6, "{ :type => :string, :value => ::String }"], [9, "{ :type => :string, :value => ::String }"]].each do |line, type|
+        hover.content_for(target: target, path: Pathname("hello.rb"), line: line, column: 2).tap do |content|
+          assert_instance_of HoverProvider::VariableContent, content
+          assert_equal type, content.type.to_s
+        end
+      end
+    end
+  end
+
   def test_assignment
     in_tmpdir do
       service = typecheck_service()
