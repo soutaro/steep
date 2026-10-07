@@ -76,6 +76,41 @@ RUBY
     end
   end
 
+  def test_variable_narrowed_in_case_when
+    in_tmpdir do
+      service = typecheck_service()
+
+      service.update(
+        changes: {
+          Pathname("hello.rb") => [ContentChange.string(<<RUBY)]
+a = [{ a: 1 }, [1]].sample #: Hash[Symbol, Integer] | Array[Integer] | Array[String]
+case a
+when Hash
+  a
+when Array
+  a
+else
+  a
+end
+RUBY
+        }
+      ) {}
+
+      target = service.project.targets.find {|target| target.name == :lib }
+      hover = HoverProvider::Ruby.new(service: service)
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 4, column: 2).tap do |content|
+        assert_instance_of HoverProvider::VariableContent, content
+        assert_equal "::Hash[::Symbol, ::Integer]", content.type.to_s
+      end
+
+      hover.content_for(target: target, path: Pathname("hello.rb"), line: 6, column: 2).tap do |content|
+        assert_instance_of HoverProvider::VariableContent, content
+        assert_equal "(::Array[::Integer] | ::Array[::String])", content.type.to_s
+      end
+    end
+  end
+
   def test_assignment
     in_tmpdir do
       service = typecheck_service()
