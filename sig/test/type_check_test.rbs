@@ -101,7 +101,15 @@ class TypeCheckTest < Minitest::Test
 
   def test_if__narrow_record_union: () -> untyped
 
-  def test_narrow_record_union__non_literal_key: () -> untyped
+  def test_if__narrow_record_union__nilable_literal_discriminant: () -> untyped
+
+  def test_narrow_record_union__non_literal_key_member_kept: () -> untyped
+
+  def test_narrow_record_union__keeps_previously_refined_pure_calls: () -> untyped
+
+  def test_narrow_record_union__refined_pure_call_is_narrowed_again_by_receiver: () -> untyped
+
+  def test_narrow_record_union__untyped_member_keeps_refined_pure_call: () -> untyped
 
   def test_narrow_record_union__optional_key: () -> untyped
 
@@ -121,7 +129,9 @@ class TypeCheckTest < Minitest::Test
 
   def test_narrow_record_union__member_without_key_kept: () -> untyped
 
-  def test_narrow_record_union__union_key_type_no_narrow: () -> untyped
+  def test_narrow_record_union__alias_key_type: () -> untyped
+
+  def test_narrow_record_union__union_key_type: () -> untyped
 
   def test_narrow_record_union__nested_hash_key_no_narrow: () -> untyped
 

@@ -291,7 +291,7 @@ module Steep
 
       def propagate_value_node_type(env)
         if value_node
-          if (call = initial_constr.typing.method_calls[value_node]).is_a?(MethodCall::Typed)
+          if initial_constr.typing.method_calls[value_node].is_a?(MethodCall::Typed)
             if env[value_node]
               logic.refine_pure_call(env, value_node, env[var_name] || raise)
             end

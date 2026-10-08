@@ -17,6 +17,9 @@ module Steep
         end
       end
 
+      class RecordDiscriminant < Struct.new(:name, :entries, keyword_init: true)
+      end
+
       attr_reader :subtyping
       attr_reader :typing
       attr_reader :config
@@ -284,9 +287,10 @@ module Steep
 
         when :send
           if env[node]
+            discriminant = record_discriminant(env, node)
             [
-              refine_pure_call(env, node, truthy_type),
-              refine_pure_call(env, node, falsy_type)
+              refine_pure_call(env, node, truthy_type, discriminant),
+              refine_pure_call(env, node, falsy_type, discriminant)
             ]
           else
             [env, env]
@@ -486,16 +490,16 @@ module Steep
         ]
       end
 
-      def refine_pure_call(env, node, type)
+      def refine_pure_call(env, node, type, discriminant = record_discriminant(env, node))
         lvar_types = {} #: Hash[Symbol, AST::Types::t]
-        if (name, narrowed = narrow_record_receiver(env, node, type))
-          lvar_types[name] = narrowed
+        if discriminant && (narrowed = narrow_record_receiver(discriminant, type))
+          lvar_types[discriminant.name] = narrowed
         end
-        # Refine both in one call: refining the lvar alone would invalidate the pure call.
-        env.refine_types(local_variable_types: lvar_types, pure_call_types: { node => type })
+        env.narrow_types(local_variable_types: lvar_types, pure_call_types: { node => type })
       end
 
-      def narrow_record_receiver(env, node, type)
+      # Not expanded inside `narrow_record_receiver` because that would repeat the same expansion for each of the truthy and falsy branches.
+      def record_discriminant(env, node)
         receiver, method, key_node, *rest = node.children
         return unless method == :[] && rest.empty? && receiver&.type == :lvar
         return unless key_node && (key_node.type == :sym || key_node.type == :str)
@@ -505,23 +509,37 @@ module Steep
         return if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
         members = union_members(env[name]) or return
 
-        return [name, BOT] if type.is_a?(AST::Types::Bot)
+        entries = members.map do |member|
+          [member, discriminant_key_types(member, key)] #: [AST::Types::t, Array[AST::Types::t]?]
+        end
+
+        RecordDiscriminant.new(name: name, entries: entries)
+      end
+
+      def discriminant_key_types(member, key)
+        record = factory.deep_expand_alias(member)
+        return unless record.is_a?(AST::Types::Record) && record.elements.key?(key)
+
+        key_type = record.elements.fetch(key)
+        key_types = factory.flatten_union(factory.deep_expand_alias(key_type) || key_type)
+        # Dropping members whose discriminant is non-literal (e.g. `String`) would wrongly exclude values that may still match.
+        return unless key_types.all? {|t| t.is_a?(AST::Types::Literal) || t.is_a?(AST::Types::Nil) }
+
+        key_types |= [AST::Builtin.nil_type] if record.optional?(key)
+        key_types
+      end
+
+      def narrow_record_receiver(discriminant, type)
+        return BOT if type.is_a?(AST::Types::Bot)
 
         type_expanded = factory.flatten_union(factory.deep_expand_alias(type) || type)
 
-        kept = members.select do |member|
-          record = factory.deep_expand_alias(member)
-          next true unless record.is_a?(AST::Types::Record) && record.elements.key?(key)
-
-          key_type = record.elements[key]
-          return unless key_type.is_a?(AST::Types::Literal)
-          key_type = AST::Types::Union.build(types: [key_type, AST::Builtin.nil_type]) if record.optional?(key)
-
-          !disjoint?(key_type, type_expanded)
+        kept = discriminant.entries.select do |_, key_types|
+          key_types.nil? || !disjoint?(key_types, type_expanded)
         end
 
-        return if kept.size == members.size
-        [name, kept.empty? ? BOT : AST::Types::Union.build(types: kept)]
+        return if kept.size == discriminant.entries.size
+        kept.empty? ? BOT : AST::Types::Union.build(types: kept.map(&:first))
       end
 
       def union_members(type, visited = Set.new)
@@ -534,8 +552,8 @@ module Steep
         end
       end
 
-      def disjoint?(key_type, type_expanded)
-        factory.flatten_union(key_type).product(type_expanded).none? do |k, t|
+      def disjoint?(key_types, type_expanded)
+        key_types.product(type_expanded).none? do |k, t|
           subtyping?(sub_type: k, super_type: t) || subtyping?(sub_type: t, super_type: k)
         end
       end

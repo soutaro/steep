@@ -1519,13 +1519,39 @@ class TypeCheckTest < Minitest::Test
     end
   end
 
-  def test_narrow_record_union__non_literal_key
+  def test_if__narrow_record_union__nilable_literal_discriminant
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type a = { type: "A" | nil, a: Integer }
+          type b = { type: "B", b: String }
+          type ab = a | b
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = (_ = nil) #: ab
+          if x[:type] == "B"
+            x[:b].size
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_narrow_record_union__non_literal_key_member_kept
     run_type_check_test(
       signatures: {
         "a.rbs" => <<~RBS
           type loose  = { type: String }
           type strict = { type: "CLICK" }
-          type mixed  = loose | strict
+          type other  = { type: "OTHER" }
+          type mixed  = loose | strict | other
         RBS
       },
       code: {
@@ -1547,7 +1573,100 @@ class TypeCheckTest < Minitest::Test
       typing = typings["a.rb"] or raise
 
       node, * = typing.source.find_nodes(line: 5, column: 2)
-      assert_equal "::mixed", typing.type_of(node: node).to_s
+      assert_equal "(::loose | ::strict)", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__keeps_previously_refined_pure_calls
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type a = { type: "A", ?name: String, ?v: Integer | String }
+          type b = { type: "B", name: String, ?v: Integer | String }
+          type ab = a | b
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = (_ = nil) #: ab
+
+          return unless x[:name]
+          case x[:type]
+          when "A"
+            x[:name].size
+          end
+
+          if x[:name] && x[:type] == "A"
+            x[:name].size
+          end
+
+          if x[:v].is_a?(Integer) && x[:type] == "A"
+            x[:v] + 1
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_narrow_record_union__refined_pure_call_is_narrowed_again_by_receiver
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type a = { type: "A", v: Integer }
+          type b = { type: "B", v: String? }
+          type ab = a | b
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = (_ = nil) #: ab
+
+          if x[:v] && x[:type] == "A"
+            x[:v] + 1
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_narrow_record_union__untyped_member_keeps_refined_pure_call
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type a = { type: "A", v: untyped }
+          type b = { type: "B", v: String }
+          type ab = a | b
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          x = (_ = nil) #: ab
+
+          if x[:v].is_a?(Integer) && x[:type] == "A"
+            x[:v]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      _, node, * = typing.source.find_nodes(line: 4, column: 2)
+      assert_equal "::Integer", typing.type_of(node: node || raise).to_s
     end
   end
 
@@ -1815,7 +1934,40 @@ class TypeCheckTest < Minitest::Test
     end
   end
 
-  def test_narrow_record_union__union_key_type_no_narrow
+  def test_narrow_record_union__alias_key_type
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type a_kind = "A"
+          type a = { type: a_kind, x: Integer }
+          type b = { type: "B", y: Integer }
+          type ab = a | b
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          v = (_ = nil) #: ab
+
+          case v[:type]
+          when "B"
+            v
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 2)
+      assert_equal "::b", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_record_union__union_key_type
     run_type_check_test(
       signatures: {
         "a.rbs" => <<~RBS
@@ -1843,7 +1995,7 @@ class TypeCheckTest < Minitest::Test
       typing = typings["a.rb"] or raise
 
       node, * = typing.source.find_nodes(line: 5, column: 2)
-      assert_equal "::ev", typing.type_of(node: node).to_s
+      assert_equal "::e2", typing.type_of(node: node).to_s
     end
   end
 
