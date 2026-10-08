@@ -89,6 +89,13 @@ module Steep
       #
       def refine_types: (?local_variable_types: Hash[Symbol, AST::Types::t], ?pure_call_types: Hash[Parser::AST::Node, AST::Types::t]) -> TypeEnv
 
+      # Like `refine_types`, but does not invalidate pure calls on the refined local variables
+      #
+      # Use this for narrowing (not assignment): the variable's value is unchanged, so the earlier narrowing of
+      # `x[:key]` still holds.
+      #
+      def narrow_types: (?local_variable_types: Hash[Symbol, AST::Types::t], ?pure_call_types: Hash[Parser::AST::Node, AST::Types::t]) -> TypeEnv
+
       def enforced_type: (Symbol name) -> AST::Types::t?
 
       # Returns type of constant of `const_name`, or `const_name` under `mod_name`.

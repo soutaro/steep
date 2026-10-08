@@ -19,6 +19,18 @@ module Steep
         def unreachable!: () -> self
       end
 
+      # Receiver local variable of `x[:key]` and the literal discriminant types of each member of its union type
+      #
+      # `nil` key types mean the member must be kept whatever the narrowed type is.
+      #
+      class RecordDiscriminant
+        attr_reader name: Symbol
+
+        attr_reader entries: Array[[AST::Types::t, Array[AST::Types::t]?]]
+
+        def initialize: (name: Symbol, entries: Array[[AST::Types::t, Array[AST::Types::t]?]]) -> void
+      end
+
       TRUE: AST::Types::Literal
 
       FALSE: AST::Types::Literal
@@ -73,7 +85,19 @@ module Steep
       #
       def decompose_value: (Parser::AST::Node node) -> [Parser::AST::Node, Set[Symbol]]
 
+      def refine_pure_call: (TypeEnv env, Parser::AST::Node node, AST::Types::t type, ?RecordDiscriminant? discriminant) -> TypeEnv
+
       private
+
+      def record_discriminant: (TypeEnv env, Parser::AST::Node node) -> RecordDiscriminant?
+
+      def discriminant_key_types: (AST::Types::t member, Symbol | String key) -> Array[AST::Types::t]?
+
+      def narrow_record_receiver: (RecordDiscriminant discriminant, AST::Types::t type) -> AST::Types::t?
+
+      def union_members: (AST::Types::t? `type`, ?Set[RBS::TypeName] visited) -> Array[AST::Types::t]?
+
+      def disjoint?: (Array[AST::Types::t] key_types, Array[AST::Types::t] type_expanded) -> bool
 
       # Assign local variables included in the assignment node and masgn node
       #
