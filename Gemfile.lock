@@ -29,7 +29,7 @@ GEM
       reline (>= 0.3.8)
     erb (6.0.7)
     ffi (1.17.4)
-    fileutils (1.8.0)
+    fileutils (1.8.1)
     io-console (0.9.4)
     irb (1.18.0)
       pp (>= 0.6.0)
@@ -55,7 +55,7 @@ GEM
       racc
     pp (0.6.4)
       prettyprint
-    prettyprint (0.2.0)
+    prettyprint (0.2.1)
     prism (1.9.0)
     racc (1.8.1)
     rainbow (3.1.1)
@@ -83,7 +83,7 @@ GEM
     unicode-display_width (3.3.0)
       unicode-emoji (~> 4.3)
     unicode-emoji (4.3.0)
-    uri (1.1.1)
+    uri (1.1.2)
     vernier (1.11.0)
 
 PLATFORMS
