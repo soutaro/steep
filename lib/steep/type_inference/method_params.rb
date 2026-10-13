@@ -139,6 +139,12 @@ module Steep
         end
       end
 
+      # Keys of anonymous parameters (`*`, `**`, and `&`) in `params`.
+      # Their names are `nil`, so they need distinct keys not to overwrite each other.
+      ANONYMOUS_REST_KEY = :*
+      ANONYMOUS_KWREST_KEY = :**
+      ANONYMOUS_BLOCK_KEY = :&
+
       attr_reader :args
       attr_reader :method_type
       attr_reader :params
@@ -212,13 +218,13 @@ module Steep
             params.params[name] = KeywordParameter.new(name: name, type: nil, node: arg)
           when :restarg
             name = arg.children[0]
-            params.params[name] = PositionalRestParameter.new(name: name, type: nil, node: arg)
+            params.params[name || ANONYMOUS_REST_KEY] = PositionalRestParameter.new(name: name, type: nil, node: arg)
           when :kwrestarg
             name = arg.children[0]
-            params.params[name] = KeywordRestParameter.new(name: name, type: nil, node: arg)
+            params.params[name || ANONYMOUS_KWREST_KEY] = KeywordRestParameter.new(name: name, type: nil, node: arg)
           when :blockarg
             name = arg.children[0]
-            params.params[name] = BlockParameter.new(name: name, type: nil, optional: nil, node: arg, self_type: nil)
+            params.params[name || ANONYMOUS_BLOCK_KEY] = BlockParameter.new(name: name, type: nil, optional: nil, node: arg, self_type: nil)
           end
         end
 
@@ -250,6 +256,12 @@ module Steep
             when :optarg
               name = arg.children[0]
               instance.params[name] = PositionalParameter.new(name: name, type: AST::Builtin.any_type, node: arg)
+            when :restarg
+              name = arg.children[0]
+              instance.params[name || ANONYMOUS_REST_KEY] = PositionalRestParameter.new(name: name, type: AST::Builtin.any_type, node: arg)
+            when :kwrestarg
+              name = arg.children[0]
+              instance.params[name || ANONYMOUS_KWREST_KEY] = KeywordRestParameter.new(name: name, type: AST::Builtin.any_type, node: arg)
             when :forward_arg
               return instance.update(forward_arg_type: true)
             end
@@ -373,7 +385,7 @@ module Steep
           type = rest_types.empty? ? nil : AST::Types::Union.build(types: rest_types)
 
           method_param = PositionalRestParameter.new(name: name, type: type, node: arg)
-          instance.params[name] = method_param
+          instance.params[name || ANONYMOUS_REST_KEY] = method_param
           if has_error
             instance.errors << Diagnostic::Ruby::DifferentMethodParameterKind.new(
               method_param: method_param,
@@ -483,7 +495,7 @@ module Steep
           type = rest_types.empty? ? nil : AST::Types::Union.build(types: rest_types)
 
           method_param = KeywordRestParameter.new(name: name, type: type, node: arg)
-          instance.params[name] = method_param
+          instance.params[name || ANONYMOUS_KWREST_KEY] = method_param
 
           if has_error
             instance.errors << Diagnostic::Ruby::DifferentMethodParameterKind.new(
@@ -506,7 +518,7 @@ module Steep
           name = arg.children[0] #: Symbol
 
           if method_type.block
-            instance.params[name] = BlockParameter.new(
+            instance.params[name || ANONYMOUS_BLOCK_KEY] = BlockParameter.new(
               name: name,
               type: method_type.block.type,
               optional: method_type.block.optional?,
@@ -514,7 +526,7 @@ module Steep
               self_type: method_type.block.self_type
             )
           else
-            instance.params[name] = BlockParameter.new(
+            instance.params[name || ANONYMOUS_BLOCK_KEY] = BlockParameter.new(
               name: name,
               type: nil,
               optional: nil,
