@@ -3331,7 +3331,9 @@ module Steep
 
           if call.is_a?(TypeInference::MethodCall::Typed)
             if (pure_call, type = constr.context.type_env.pure_method_calls.fetch(node, nil))
-              if type
+              # Preferring the cached type unconditionally discards the narrower type from re-typing against a narrowed receiver.
+              # `untyped` is a subtype of everything, so it needs the explicit check not to replace a refined cached type.
+              if type && (call.return_type.is_a?(AST::Types::Any) || constr.no_subtyping?(sub_type: call.return_type, super_type: type))
                 call = pure_call.update(node: node, return_type: type)
                 constr.add_typing(node, type: call.return_type)
               end
