@@ -3359,6 +3359,207 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_warning_method_overload
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class WithNonNil
+            def <=>: (untyped) -> Integer
+          end
+
+          class WithNil
+            def <=>: (untyped) -> Integer?
+          end
+
+          class Coll
+            def pick: () { (untyped, untyped) -> Integer } -> void
+                    | %a{warning: nil comparison will always raise} () { (untyped, untyped) -> Integer? } -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Coll.new.pick { |a, b| WithNonNil.new <=> b }
+          Coll.new.pick { |a, b| WithNil.new <=> b }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 9
+              end:
+                line: 2
+                character: 13
+            severity: ERROR
+            message: 'The method has a warning: nil comparison will always raise'
+            code: Ruby::WarningReference
+      YAML
+    )
+  end
+
+  def test_warning_method
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Foo
+            %a{steep:warning} def foo: () -> void
+
+            %a{warning: Don't use bar} def bar: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo.new.foo()
+
+          Foo.new.bar()
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 8
+              end:
+                line: 1
+                character: 11
+            severity: ERROR
+            message: The method has a warning
+            code: Ruby::WarningReference
+          - range:
+              start:
+                line: 3
+                character: 8
+              end:
+                line: 3
+                character: 11
+            severity: ERROR
+            message: 'The method has a warning: Don''t use bar'
+            code: Ruby::WarningReference
+      YAML
+    )
+  end
+
+  def test_warning_constant
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          %a{warning: heads up} FOO: Integer
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          FOO = 123
+          FOO
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 3
+            severity: ERROR
+            message: 'The constant has a warning: heads up'
+            code: Ruby::WarningReference
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 3
+            severity: ERROR
+            message: 'The constant has a warning: heads up'
+            code: Ruby::WarningReference
+      YAML
+    )
+  end
+
+  def test_warning_global
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          %a{warning: heads up} $FOO: Integer
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          $FOO = 123
+          $FOO
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 4
+            severity: ERROR
+            message: 'The global variable has a warning: heads up'
+            code: Ruby::WarningReference
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 4
+            severity: ERROR
+            message: 'The global variable has a warning: heads up'
+            code: Ruby::WarningReference
+      YAML
+    )
+  end
+
+  def test_warning_class_module
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          %a{warning: experimental} class Foo
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          Foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 1
+                character: 0
+              end:
+                line: 1
+                character: 3
+            severity: ERROR
+            message: 'The constant has a warning: experimental'
+            code: Ruby::WarningReference
+      YAML
+    )
+  end
+
   def test_deprecated_class_module
     run_type_check_test(
       signatures: {
