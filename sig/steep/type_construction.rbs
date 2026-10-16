@@ -100,6 +100,10 @@ module Steep
 
     def with_class_constr: [T] (Parser::AST::Node node, untyped new_class_name, untyped super_class_name) { (TypeConstruction) -> T } -> T
 
+    # Type checks `C = Data.define(...) do ... end` and `C = Struct.new(...) do ... end`,
+    # where the block body is type checked as a class definition body of `C`
+    def synthesize_data_struct_class_body: (Parser::AST::Node block_node, RBS::TypeName constant_name, AST::Types::t constant_type) -> Pair
+
     def with_sclass_constr: [A] (Parser::AST::Node node, AST::Types::t `type`) { (TypeConstruction?) -> A } -> A
 
     # Returns one-level _meta_ type from given type
