@@ -53,6 +53,10 @@ module Steep
       BOT = AST::Types::Bot.instance
       UNTYPED = AST::Types::Any.instance
 
+      # The fixnum range of 32 bit platforms, the conservative bound for integers
+      # that are guaranteed to be interned on any platform
+      FIXNUM_RANGE = (-(2**30)..(2**30 - 1)) #: Range[Integer]
+
       def eval(env:, node:)
         evaluate_node(env: env, node: node)
       end
@@ -324,12 +328,15 @@ module Steep
             [truthy_result, falsy_result]
           end
 
-        when AST::Types::Logic::ReceiverIsArg
+        when AST::Types::Logic::ReceiverIsArg, AST::Types::Logic::ReceiverIdenticalToArg
+          identity = type.is_a?(AST::Types::Logic::ReceiverIdenticalToArg)
+
           if receiver && (arg = arguments[0])
             receiver_type = typing.type_of(node: receiver)
             arg_type = factory.deep_expand_alias(typing.type_of(node: arg))
 
             if arg_type.is_a?(AST::Types::Name::Singleton)
+              return if identity
               truthy_type, falsy_type = type_case_select(receiver_type, arg_type.name)
               truthy_env, falsy_env = refine_node_type(
                 env: env,
@@ -345,7 +352,7 @@ module Steep
               falsy_result.unreachable! unless falsy_type
 
               [truthy_result, falsy_result]
-            elsif (truthy_types, falsy_types = literal_var_type_case_select(arg, receiver_type, for_receiver: true))
+            elsif (truthy_types, falsy_types = literal_var_type_case_select(arg, receiver_type, for_receiver: true, identity: identity))
               # Handle literal equality: receiver == literal_value
               truthy_env, falsy_env = refine_node_type(
                 env: env,
@@ -509,7 +516,7 @@ module Steep
         end
       end
 
-      def literal_var_type_case_select(value_node, arg_type, for_receiver: false)
+      def literal_var_type_case_select(value_node, arg_type, for_receiver: false, identity: false)
         case arg_type
         when AST::Types::Union
           # @type var truthy_types: Array[AST::Types::t]
@@ -518,7 +525,7 @@ module Steep
           falsy_types = []
 
           arg_type.types.each do |type|
-            if (ts, fs = literal_var_type_case_select(value_node, type, for_receiver: for_receiver))
+            if (ts, fs = literal_var_type_case_select(value_node, type, for_receiver: for_receiver, identity: identity))
               truthy_types.push(*ts)
               falsy_types.push(*fs)
             else
@@ -560,6 +567,10 @@ module Steep
               when type.is_a?(AST::Types::Literal)
                 if type.value == value_node.children[0]
                   true_types << type
+                  # For `equal?`, equal values may be distinct objects (String and
+                  # non-fixnum Integer literals aren't interned), so a falsy result
+                  # doesn't rule out the matched literal type.
+                  false_types << type if identity && !interned_literal?(value_node)
                 else
                   false_types << type
                 end
@@ -574,6 +585,21 @@ module Steep
               end
             end
           end
+        end
+      end
+
+      # Whether the literal node denotes a value for which Ruby guarantees that
+      # value equality implies object identity: Symbols, fixnum Integers, `true`,
+      # `false`, and `nil` are interned; Strings and non-fixnum Integers are not.
+      def interned_literal?(value_node)
+        case value_node.type
+        when :sym, :true, :false, :nil
+          true
+        when :int
+          int = value_node.children[0] #: Integer
+          FIXNUM_RANGE.include?(int)
+        else
+          false
         end
       end
 
