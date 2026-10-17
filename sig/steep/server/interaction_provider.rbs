@@ -1,0 +1,58 @@
+use Steep::Services::*
+
+module Steep
+  module Server
+    # Answers the interaction requests -- hover, completion, signature help, and source symbol -- from the
+    # environments of a `TypeCheckService`
+    #
+    # The master runs it on the environment thread, with its own environments: the file is type checked on demand,
+    # and the result has what is at the position, with the types as strings and the declarations as names, which
+    # `LSPFormatter` renders with the documentation.
+    #
+    class InteractionProvider
+      attr_reader service: TypeCheckService
+
+      def initialize: (service: TypeCheckService) -> void
+
+      def project: () -> Project
+
+      # Returns what is at the position, type checking the file on demand like hover
+      #
+      # `path` is the absolute path of the file, and `line` is 1-origin.
+      #
+      def source_symbol: (path: Pathname, line: Integer, column: Integer) -> CustomMethods::Source__Symbol::result
+
+      # Returns what is at the position, `nil` when nothing is there or the file is unknown
+      #
+      # The file may be a Ruby file or an RBS file of the project, or a library RBS file.
+      #
+      def hover: (path: Pathname, line: Integer, column: Integer) -> CustomMethods::Hover::result?
+
+      # Translates a hover content to the wire, with the types as strings and the declarations as names
+      def hover_content: (HoverProvider::Ruby::content | HoverProvider::RBS::content) -> CustomMethods::Hover::content
+
+      # The name a class or module declaration declares
+      def declared_type_name: (HoverProvider::ClassTypeContent::decl) -> RBS::TypeName
+
+      # Returns the completion candidates at the position, `nil` when the file is not in the project
+      def completion: (path: Pathname, line: Integer, column: Integer, trigger: String?) -> CustomMethods::Completion::result?
+
+      def completion_item: (CompletionProvider::item item) -> CustomMethods::Completion::item
+
+      # The builtin types of RBS, like `untyped`, as candidates replacing the `prefix_size` characters before the position
+      def builtin_type_items: (Integer prefix_size, Integer line, Integer column) -> Array[CustomMethods::Completion::item]
+
+      # The range of the `prefix_size` characters before the position
+      def range_before: (Integer line, Integer column, Integer prefix_size) -> CustomMethods::range
+
+      # Returns the signature help at the position, `nil` when the file is not in the project
+      def signature_help: (path: Pathname, line: Integer, column: Integer) -> CustomMethods::SignatureHelp::result?
+
+      # The target of a Ruby or RBS file of the project, or the first target that loads a library RBS file
+      #
+      # `nil` for any other file.
+      #
+      def target_for: (Pathname absolute_path) -> Project::Target?
+    end
+  end
+end
