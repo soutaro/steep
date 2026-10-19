@@ -19,7 +19,9 @@ module Steep
 
           attr_reader type: AST::Types::t
 
-          def initialize: (node: Parser::AST::Node, type: AST::Types::t) -> void
+          attr_reader tuple: bool
+
+          def initialize: (node: Parser::AST::Node, type: AST::Types::t, ?tuple: bool) -> void
 
           include Equatable
 

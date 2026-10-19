@@ -21,15 +21,20 @@ module Steep
         class NodeTypePair
           attr_reader :node
           attr_reader :type
+          attr_reader :tuple
 
-          def initialize(node:, type:)
+          # `tuple: true` means `type` is the type of the whole splatted tuple, not of its elements
+          def initialize(node:, type:, tuple: false)
             @node = node
             @type = type
+            @tuple = tuple
           end
 
           include Equatable
 
           def node_type
+            return type if tuple
+
             case node.type
             when :splat
               AST::Builtin::Array.instance_type(type)
@@ -597,7 +602,7 @@ module Steep
                   case ts
                   when Array
                     ty = AST::Types::Tuple.new(types: ts.map(&:type))
-                    yield PositionalArgs::NodeTypePair.new(node: value.node, type: ty)
+                    yield PositionalArgs::NodeTypePair.new(node: value.node, type: ty, tuple: true)
                   when PositionalArgs::UnexpectedArg
                     errors << ts
                     yield ts
