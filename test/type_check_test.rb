@@ -4897,4 +4897,100 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_tuple_splat_into_core_methods
+    run_type_check_test(
+      signatures: {},
+      code: {
+        "a.rb" => <<~RUBY
+          10.gcd(*[6])
+
+          h1 = { 1 => 2.0 }
+          h2 = { 0 => 1.0 }
+          h1.each_with_index { |pair, _index| h2.[]=(*pair) }
+
+          "a".concat(*["b"])
+          b = ["b"]
+          "a".concat(*b)
+
+          [1, 2].fetch(*[0, 3])
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_tuple_splat_args
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class TupleSplatArgs
+            def req_rest: (String, *Integer) -> void
+            def opt: (String, ?Integer) -> void
+            def gen: (String, Integer) -> void
+            def gen3: (String, Integer, Integer) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = TupleSplatArgs.new
+          pair = ["1", 2] #: [String, Integer]
+
+          a.req_rest(*["1", 2, 3])
+          a.opt(*["1"])
+          a.opt(*["1", 2])
+          a.gen3(*pair, 3)
+
+          a.opt(*["1", "2"])
+          a.gen(*["1"])
+          a.gen(*["1", 2, 3])
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 9
+                character: 6
+              end:
+                line: 9
+                character: 17
+            severity: ERROR
+            message: |-
+              Cannot pass a value of type `[::String, ::String]` as an argument of type `[::String, ::Integer]`
+                [::String, ::String] <: [::String, ::Integer]
+                  ::String <: ::Integer
+                    ::Object <: ::Integer
+                      ::BasicObject <: ::Integer
+            code: Ruby::ArgumentTypeMismatch
+          - range:
+              start:
+                line: 10
+                character: 2
+              end:
+                line: 10
+                character: 13
+            severity: ERROR
+            message: More positional arguments are required
+            code: Ruby::InsufficientPositionalArguments
+          - range:
+              start:
+                line: 11
+                character: 6
+              end:
+                line: 11
+                character: 18
+            severity: ERROR
+            message: Unexpected positional argument
+            code: Ruby::UnexpectedPositionalArgument
+      YAML
+    )
+  end
 end
