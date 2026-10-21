@@ -283,20 +283,66 @@ module Steep
           end
 
         when :send
-          if env[node]
-            [
-              env.refine_types(pure_call_types: { node => truthy_type }),
-              env.refine_types(pure_call_types: { node => falsy_type })
-            ]
-          else
-            [env, env]
-          end
+          truthy_env, falsy_env =
+            if env[node]
+              [
+                env.refine_types(pure_call_types: { node => truthy_type }),
+                env.refine_types(pure_call_types: { node => falsy_type })
+              ]
+            else
+              [env, env]
+            end
+
+          [
+            refine_record_by_index(env: truthy_env, node: node, type: truthy_type),
+            refine_record_by_index(env: falsy_env, node: node, type: falsy_type)
+          ]
         when :begin
           last_node = node.children.last or raise
           refine_node_type(env: env, node: last_node, truthy_type: truthy_type, falsy_type: falsy_type)
         else
           [env, env]
         end
+      end
+
+      # Narrows the receiver of `receiver[key]` when it is a union of records, keeping only the records whose `key` field can have `type`.
+      #
+      #   a #: { type: :integer, value: Integer } | { type: :string, value: String }
+      #   a[:type] == :integer  # `a` is `{ type: :integer, value: Integer }` in the truthy branch
+      #
+      def refine_record_by_index(env:, node:, type:)
+        return env if type.is_a?(AST::Types::Bot)
+        return env unless node.type == :send
+
+        receiver, method_name, *args = node.children
+        return env unless receiver && method_name == :[] && args.size == 1
+
+        key_node = args[0]
+        return env unless [:sym, :str, :int].include?(key_node.type)
+        key = key_node.children[0]
+
+        # get all union types, reject if there's no record
+        receiver_type = factory.deep_expand_alias(typing.type_of(node: receiver))
+        members = receiver_type.is_a?(AST::Types::Union) ? receiver_type.types : [receiver_type]
+        return env unless members.any? { _1.is_a?(AST::Types::Record) }
+
+        narrowed = members.select do |member|
+          if member.is_a?(AST::Types::Record) && (field_type = member.elements[key])
+            subtyping?(sub_type: field_type, super_type: type) || subtyping?(sub_type: type, super_type: field_type)
+          else
+            true
+          end
+        end
+
+        return env if narrowed.empty? || narrowed.size == members.size
+
+        refined, _ = refine_node_type(
+          env: env,
+          node: receiver,
+          truthy_type: AST::Types::Union.build(types: narrowed),
+          falsy_type: AST::Types::Union.build(types: narrowed)
+        )
+        refined
       end
 
       def evaluate_method_call(env:, type:, receiver:, arguments:)
