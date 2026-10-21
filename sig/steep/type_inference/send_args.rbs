@@ -19,12 +19,15 @@ module Steep
 
           attr_reader type: AST::Types::t
 
-          attr_reader tuple: bool
-
-          def initialize: (node: Parser::AST::Node, type: AST::Types::t, ?tuple: bool) -> void
+          def initialize: (node: Parser::AST::Node, type: AST::Types::t) -> void
 
           include Equatable
 
+          def node_type: () -> AST::Types::t
+        end
+
+        # A splatted tuple, whose `type` is the type of the whole tuple, not of its elements
+        class TupleSplatPair < NodeTypePair
           def node_type: () -> AST::Types::t
         end
 
