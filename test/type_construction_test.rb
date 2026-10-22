@@ -6232,6 +6232,61 @@ end
     end
   end
 
+  def test_logic_class_is_ancestor
+    with_checker(<<-RBS) do |checker|
+class Module
+  def <: (Module) -> bool?
+  def <=: (Module) -> bool?
+end
+class LogicBase
+  def base: () -> void
+end
+class LogicFoo < LogicBase
+  def foo: () -> void
+end
+class LogicBar
+  def bar: () -> void
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var a: LogicFoo | LogicBar
+a = _ = nil
+
+if a.class < LogicBase
+  a.foo
+else
+  a.bar
+end
+
+if a.class <= LogicBase
+  a.foo
+else
+  a.bar
+end
+
+# @type var b: LogicBase | LogicBar
+b = _ = nil
+
+if b.class < LogicBase
+  b.base
+else
+  b.bar
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal "(::LogicBase | ::LogicBar)", error.type.to_s
+          end
+        end
+      end
+    end
+  end
+
   def test_logic_value
     with_checker(<<-RBS) do |checker|
     RBS
