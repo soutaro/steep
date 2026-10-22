@@ -412,7 +412,7 @@ module LanguageServer
           source: String?,
           message: String,
           tags: Array[Constant::DiagnosticTag::t]?,
-          relatedInformation: RelatedInformation::json?,
+          relatedInformation: Array[DiagnosticRelatedInformation::json]?,
           data: untyped?
         }
 
@@ -430,7 +430,7 @@ module LanguageServer
 
         attr_reader tags: Array[Constant::DiagnosticTag::t]?
 
-        attr_reader related_information: RelatedInformation?
+        attr_reader related_information: Array[DiagnosticRelatedInformation]?
 
         attr_reader data: untyped?
 
@@ -442,12 +442,12 @@ module LanguageServer
           ?source: String?,
           message: String,
           ?tags: Array[Constant::DiagnosticTag::t]?,
-          ?related_information: RelatedInformation?,
+          ?related_information: Array[DiagnosticRelatedInformation]?,
           ?data: untyped
         ) -> void
       end
 
-      class RelatedInformation
+      class DiagnosticRelatedInformation
         include _Base
 
         type json = {
@@ -480,7 +480,19 @@ module LanguageServer
 
       CompletionOptions: __todo__
 
-      SymbolInformation: __todo__
+      class SymbolInformation
+        include _Base
+
+        attr_reader name: String
+
+        attr_reader kind: Constant::SymbolKind::t
+
+        attr_reader location: Location::json
+
+        attr_reader container_name: String?
+
+        def initialize: (name: String, kind: Constant::SymbolKind::t, location: Location::json, ?container_name: String?) -> void
+      end
     end
   end
 end

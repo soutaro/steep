@@ -3,7 +3,7 @@ module Steep
     class SignatureHelpProvider
       MethodCall = TypeInference::MethodCall
 
-      Item = _ = Struct.new(:method_type, :comment, :active_parameter) do
+      Item = _ = Struct.new(:method_type, :comment, :active_parameter, :method_name) do
         # @implements Item
 
         def parameters
@@ -118,7 +118,8 @@ module Steep
                 defn = overload.method_defs[0]
 
                 active_parameter = active_parameter_for(defn&.type, argument, last_argument, node)
-                items << Item.new(subtyping.factory.method_type_1(overload.method_type), defn&.comment, active_parameter)
+                method_name = overload.method_decls(call.method_name).first&.method_name
+                items << Item.new(subtyping.factory.method_type_1(overload.method_type), defn&.comment, active_parameter, method_name)
 
                 if call.is_a?(MethodCall::Typed)
                   if call.method_decls.intersect?(overload.method_decls(call.method_name).to_set)

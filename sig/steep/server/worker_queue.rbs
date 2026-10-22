@@ -1,0 +1,49 @@
+module Steep
+  module Server
+    # The queue of the jobs of a worker, where the urgent jobs go ahead of the others
+    #
+    # A worker pops the jobs one by one in its background thread. The urgent jobs, like the interaction requests
+    # that the user is waiting for, come out before the jobs pushed earlier without `urgent`, and the jobs of each
+    # kind keep their order.
+    #
+    # `pop` blocks until a job is pushed, and returns `nil` once the queue is closed and empty, like `Thread::Queue`.
+    #
+    class WorkerQueue
+      @mutex: Mutex
+
+      @condition: ConditionVariable
+
+      @urgent_jobs: Array[untyped]
+
+      @jobs: Array[untyped]
+
+      @closed: bool
+
+      def initialize: () -> void
+
+      # Pushes a job, ahead of the jobs pushed without `urgent` when `urgent` is true
+      #
+      # Raises `ClosedQueueError` once the queue is closed.
+      #
+      def push: (untyped job, ?urgent: bool) -> self
+
+      # Pushes a job that is not urgent
+      def <<: (untyped job) -> self
+
+      # Returns the next job, the urgent ones first, or `nil` when the queue is closed and empty
+      #
+      # Blocks while the queue is empty and open.
+      #
+      def pop: () -> untyped
+
+      # Closes the queue: `pop` returns the jobs left and then `nil`, and `push` raises
+      def close: () -> self
+
+      def closed?: () -> bool
+
+      def empty?: () -> bool
+
+      def size: () -> Integer
+    end
+  end
+end

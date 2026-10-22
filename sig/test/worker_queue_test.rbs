@@ -1,0 +1,15 @@
+# Generated from test/worker_queue_test.rb with RBS::Inline
+
+class WorkerQueueTest < Minitest::Test
+  WorkerQueue: untyped
+
+  def test_pop_in_order: () -> untyped
+
+  def test_urgent_jobs_go_first: () -> untyped
+
+  def test_close: () -> untyped
+
+  def test_pop_waits_for_push: () -> untyped
+
+  def test_pop_wakes_up_on_close: () -> untyped
+end

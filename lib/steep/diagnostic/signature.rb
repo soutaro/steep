@@ -6,8 +6,11 @@ module Steep
 
         attr_reader :location
 
-        def initialize(location:)
+        attr_reader :related_locations
+
+        def initialize(location:, related_locations: [])
           @location = location
+          @related_locations = related_locations
         end
 
         def header_line
@@ -18,6 +21,24 @@ module Steep
           nil
         end
 
+        def related_location_message
+          "Related location"
+        end
+
+        # Returns a copy of the diagnostic reported at `location`, which is one of `#location` and `#related_locations`
+        #
+        # The other locations become the `#related_locations` of the copy.
+        #
+        def relocate(location)
+          locations = [self.location, *related_locations].compact
+          index = locations.index { _1.equal?(location) } or raise "The location is not one of the diagnostic: #{location}"
+          locations.delete_at(index)
+
+          dup.tap do |diagnostic|
+            diagnostic.update_locations(location: location, related_locations: locations)
+          end
+        end
+
         def diagnostic_code
           "RBS::#{error_name}"
         end
@@ -26,6 +47,13 @@ module Steep
           if location
             Pathname(location.buffer.name)
           end
+        end
+
+        protected
+
+        def update_locations(location:, related_locations:)
+          @location = location
+          @related_locations = related_locations
         end
       end
 
@@ -156,14 +184,18 @@ module Steep
         attr_reader :class_name
         attr_reader :method_name
 
-        def initialize(class_name:, method_name:, location:)
-          super(location: location)
+        def initialize(class_name:, method_name:, location:, related_locations: [])
+          super(location: location, related_locations: related_locations)
           @class_name = class_name
           @method_name = method_name
         end
 
         def header_line
           "Non-overloading method definition of `#{method_name}` in `#{class_name}` cannot be duplicated"
+        end
+
+        def related_location_message
+          "Another definition of `#{method_name}`"
         end
       end
 
@@ -278,9 +310,9 @@ module Steep
         attr_reader :variable_name
 
         def initialize(type_name:, variable_name:, location:)
+          super(location: location)
           @type_name = type_name
           @variable_name = variable_name
-          @location = location
         end
       end
 
@@ -385,8 +417,8 @@ module Steep
         attr_reader :message
 
         def initialize(message:, location:)
+          super(location: location)
           @message = message
-          @location = location
         end
 
         def header_line
@@ -412,9 +444,9 @@ module Steep
         attr_reader :nonregular_type
 
         def initialize(type_name:, nonregular_type:, location:)
+          super(location: location)
           @type_name = type_name
           @nonregular_type = nonregular_type
-          @location = location
         end
 
         def header_line
@@ -567,7 +599,8 @@ module Steep
           Diagnostic::Signature::DuplicatedMethodDefinition.new(
             class_name: error.type_name,
             method_name: error.method_name,
-            location: error.location
+            location: error.location,
+            related_locations: error.other_locations.compact
           )
         when RBS::DuplicatedInterfaceMethodDefinitionError
           Diagnostic::Signature::DuplicatedMethodDefinition.new(

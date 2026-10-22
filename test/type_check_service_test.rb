@@ -361,6 +361,74 @@ RBS
   end
 
 
+  def test_validate__duplicated_method_definition__interface_in_other_file
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+
+    {
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+interface _HasItems
+  def items: () -> Array[Integer]
+end
+RBS
+      Pathname("sig/main.rbs") => [ContentChange.string(<<RBS)],
+class Main
+  include _HasItems
+
+  attr_reader items: Array[Integer]
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+      service.validate_signature(path: Pathname("sig/core.rbs"), target: project.targets.find { _1.name == :core })
+      service.validate_signature(path: Pathname("sig/main.rbs"), target: project.targets.find { _1.name == :main })
+
+      # The interface doesn't know the class including it
+      assert_empty service.signature_diagnostics[Pathname("sig/core.rbs")]
+
+      service.signature_diagnostics[Pathname("sig/main.rbs")].tap do |errors|
+        assert_any!(errors, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::DuplicatedMethodDefinition, error
+          assert_equal "attr_reader items: Array[Integer]", error.location.source
+          assert_equal ["sig/core.rbs:2:2...2:33"], error.related_locations.map { RBS::Location.to_string(_1) }
+        end
+      end
+    end
+  end
+
+  def test_validate__duplicated_method_definition__same_file
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+
+    {
+      Pathname("sig/core.rbs") => [ContentChange.string(<<RBS)],
+class Core
+  def foo: () -> void
+  def foo: () -> Integer
+end
+RBS
+    }.tap do |changes|
+      service.update(changes: changes)
+      service.validate_signature(path: Pathname("sig/core.rbs"), target: project.targets.find { _1.name == :core })
+
+      # Reported at each of the definitions, with the other definition as the related location
+      service.signature_diagnostics[Pathname("sig/core.rbs")].tap do |errors|
+        assert_equal 2, errors.size
+        errors.each do |error|
+          assert_instance_of Diagnostic::Signature::DuplicatedMethodDefinition, error
+        end
+
+        assert_equal(
+          [
+            ["def foo: () -> Integer", ["def foo: () -> void"]],
+            ["def foo: () -> void", ["def foo: () -> Integer"]]
+          ],
+          errors.map { [_1.location.source, _1.related_locations.map(&:source)] }.sort
+        )
+      end
+    end
+  end
+
   def test_update_signature_3
     # Syntax error in RBS will be reported
     service = Services::TypeCheckService.new(project: project)

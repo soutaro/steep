@@ -21,7 +21,18 @@ class MasterTest < Minitest::Test
 
   include Server::CustomMethods
 
+  # Drops the index jobs handed out on `initialize`, so that the jobs of the next type check go to the workers
+  #
+  # @rbs (Server::Master, Array[Server::Master::SendMessageJob]) -> void
+  def drop_index_jobs: (Server::Master, Array[Server::Master::SendMessageJob]) -> void
+
   def dirs: () -> untyped
+
+  def test_start_workers_on_initialize: () -> untyped
+
+  def test_fork_workers_on_initialize: () -> untyped
+
+  def test_kill_stops_launcher: () -> untyped
 
   def test_start_type_check_with_progress: () -> untyped
 
@@ -33,7 +44,15 @@ class MasterTest < Minitest::Test
 
   def test_on_type_check_update_stores_results_in_database: () -> untyped
 
-  def test_goto_definition_via_interaction_worker: () -> untyped
+  def test_hover_via_typecheck_worker: () -> untyped
+
+  def test_signature_help_via_typecheck_worker: () -> untyped
+
+  def test_interaction_request_goes_to_the_least_loaded_worker: () -> untyped
+
+  def test_interaction_request_without_worker: () -> untyped
+
+  def test_goto_definition_via_typecheck_worker: () -> untyped
 
   def test_stats_from_database: () -> untyped
 
@@ -44,6 +63,8 @@ class MasterTest < Minitest::Test
   def test_client_message_initialize_work_done_supported_no: () -> untyped
 
   def test_client_message_initialize_work_done_supported_yes: () -> untyped
+
+  def test_push_diagnostics__related_information: () -> untyped
 
   def test_client_message_document_did_change: () -> untyped
 
@@ -63,7 +84,11 @@ class MasterTest < Minitest::Test
 
   def test_code_interaction: () -> untyped
 
+  def test_forked_workers_type_check: () -> untyped
+
   def test_workspace_symbol: () -> untyped
+
+  def test_workspace_symbol_from_database: () -> untyped
 
   def test_untitled_file_notifications: () -> untyped
 
@@ -73,7 +98,9 @@ class MasterTest < Minitest::Test
 
   def test__initialize__file_system_watcher_setup: () -> untyped
 
-  def test_library_entries_loaded_on_initialize: () -> untyped
+  def test_index_on_initialize: () -> untyped
+
+  def test_index_changed_signatures_after_type_check: () -> untyped
 
   def test_start_type_check_delivers_file_contents: () -> untyped
 end

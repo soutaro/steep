@@ -11,12 +11,6 @@ module Steep
 
       attr_accessor worker_name: String
 
-      attr_accessor max_index: Integer
-
-      attr_accessor index: Integer
-
-      attr_accessor commandline_args: Array[String]
-
       include Utils::DriverHelper
 
       def initialize: (stdout: IO, stderr: IO, stdin: IO) -> void

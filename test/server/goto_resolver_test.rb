@@ -41,10 +41,9 @@ class Steep::Server::GotoResolverTest < Minitest::Test
           entry("::Customer#name", at: [4, 6, 4, 10])
         ]
       )
-      database.update_signature(
+      database.update_rbs(
         path: RBS_PATH,
         target: :app,
-        diagnostics: [],
         entries: [
           entry("::Customer", at: [0, 6, 0, 14]),
           entry("::Customer#initialize", at: [1, 6, 1, 16]),

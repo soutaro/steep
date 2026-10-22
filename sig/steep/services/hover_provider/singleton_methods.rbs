@@ -2,7 +2,14 @@ module Steep
   module Services
     module HoverProvider
       module SingletonMethods
+        # Returns what is at the position of a file, `nil` when nothing is there or the file is unknown
+        #
+        # `path` is the absolute path of a Ruby file, an inline RBS file, or an RBS file of the project or of a library.
+        #
         def content_for: (service: TypeCheckService, path: Pathname, line: Integer, column: Integer) -> (Ruby::content | RBS::content | nil)
+
+        # The first target that loads a library RBS file, `nil` for any other file
+        def library_target: (TypeCheckService, Pathname path) -> Project::Target?
       end
 
       extend SingletonMethods

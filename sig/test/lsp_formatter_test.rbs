@@ -12,4 +12,10 @@ class LSPFormatterTest < Minitest::Test
   def node: () -> untyped
 
   def test_severity_for: () -> untyped
+
+  def duplicated_method_definition: () -> untyped
+
+  def test_format__related_information: () -> untyped
+
+  def test_format__related_information__no_base_dir: () -> untyped
 end

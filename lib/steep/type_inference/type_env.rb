@@ -157,6 +157,23 @@ module Steep
         merge(local_variable_types: local_variable_updates, pure_method_calls: pure_call_updates)
       end
 
+      def narrow_types(local_variable_types: {}, pure_call_types: {})
+        local_variable_updates = {} #: Hash[Symbol, local_variable_entry]
+
+        local_variable_types.each do |name, type|
+          local_variable_name!(name)
+          local_variable_updates[name] = [type, enforced_type(name)]
+        end
+
+        pure_call_updates = {} #: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
+        pure_call_types.each do |node, type|
+          call, _ = pure_method_calls.fetch(node)
+          pure_call_updates[node] = [call, type]
+        end
+
+        merge(local_variable_types: local_variable_updates, pure_method_calls: pure_call_updates)
+      end
+
       def constant(arg1, arg2)
         if arg1.is_a?(RBS::TypeName) && arg2.is_a?(Symbol)
           constant_env.resolve_child(arg1, arg2)

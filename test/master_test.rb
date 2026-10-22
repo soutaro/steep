@@ -25,8 +25,150 @@ class MasterTest < Minitest::Test
 
   include Server::CustomMethods
 
+  # Drops the index jobs handed out on `initialize`, so that the jobs of the next type check go to the workers
+  #
+  # @rbs (Server::Master, Array[Server::Master::SendMessageJob]) -> void
+  def drop_index_jobs(master, jobs)
+    master.pending_index_jobs.clear
+
+    jobs.each do |job|
+      if job.message[:method] == TypeCheck__File::METHOD && job.message[:params][:kind] == "index"
+        master.result_controller.process_response({ id: job.message[:id], result: nil })
+      end
+    end
+  end
+
   def dirs
     @dirs ||= []
+  end
+
+  def test_start_workers_on_initialize
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+      launcher = WorkersLauncher.new(worker)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      # The master reaches the workers through the launcher
+      assert_equal [worker], master.typecheck_workers
+      assert_nil launcher.started_service
+
+      # The launcher starts the workers with the environments the project is loaded into
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+
+      assert_same master.controller.type_check_service, launcher.started_service
+    end
+  end
+
+  def test_fork_workers_on_initialize
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+      launcher = ForkedWorkersLauncher.new(worker)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      assert_empty master.typecheck_workers
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+
+      # The workers are forked from the environments with the files of the project
+      assert_same master.controller.type_check_service, launcher.started_service
+      assert (launcher.started_environments || raise).fetch(:lib).class_decls.key?(RBS::TypeName.parse("::Customer"))
+      assert_equal [worker], master.typecheck_workers
+      assert_empty master.environment_queue
+
+      # The worker has the files, and receives the index jobs only
+      assert_equal({ Pathname("lib/customer.rb") => 1, Pathname("sig/customer.rbs") => 1 }, worker.known_versions)
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      refute_empty jobs
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }.uniq
+      assert_equal ["index"], jobs.map { _1.message[:params][:kind] }.uniq
+      drop_index_jobs(master, jobs)
+
+      # A file changed after the fork is sent to the worker
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      master.process_message_from_client({
+        id: "check",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal FileLoad::METHOD, jobs[0].message[:method]
+      assert_equal({ "sig/customer.rbs" => "class Customer\n  def name: () -> String\nend\n" }, jobs[0].message[:params][:content])
+    end
+  end
+
+  def test_kill_stops_launcher
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      launcher = WorkersLauncher.new
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      refute launcher.stopped?
+      master.kill
+      assert launcher.stopped?
+    end
   end
 
   def test_start_type_check_with_progress
@@ -42,14 +184,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
@@ -105,14 +246,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -155,14 +295,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -200,14 +339,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
@@ -287,14 +425,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
@@ -344,7 +481,7 @@ end
     end
   end
 
-  def test_goto_definition_via_interaction_worker
+  def test_hover_via_typecheck_worker
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -357,22 +494,322 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "interaction", index: nil)
-      typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: interaction_worker,
-        typecheck_workers: [typecheck_worker]
+        launcher: WorkersLauncher.new(worker)
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.controller.load(command_line_args: [])
+
+      master.process_message_from_client(
+        {
+          method: "textDocument/hover",
+          id: "hover_id",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+            position: { line: 3, character: 9 }
+          }
+        }
+      )
+
+      # The request is forwarded to the typecheck worker as `$/steep/hover`
+      jobs = flush_queue(master.write_queue)
+      request = jobs.find { |job| job.message[:method] == Hover::METHOD } or raise
+      assert_equal worker, request.dest
+      assert_equal(
+        { uri: "#{file_scheme}#{current_dir}/lib/foo.rb", position: { line: 3, character: 9 } },
+        request.message[:params]
+      )
+      assert_equal 1, master.interaction_jobs_in_flight[worker]
+
+      # The result is rendered with the environment of the master, on the main thread
+      master.result_controller.process_response(
+        {
+          id: request.message[:id],
+          result: {
+            target: "lib",
+            range: { start: { line: 3, character: 8 }, end: { line: 3, character: 10 } },
+            content: { kind: "variable", name: "xs", type: "::Array[::Integer]" }
+          }
+        }
+      )
+      assert_equal 0, master.interaction_jobs_in_flight[worker]
+
+      jobs = flush_queue(master.write_queue)
+      assert_equal 1, jobs.size
+      jobs[0].tap do |job|
+        assert_equal :client, job.dest
+        assert_equal "hover_id", job.message[:id]
+
+        hover = job.message[:result]
+        assert_instance_of LSP::Interface::Hover, hover
+        assert_equal({ start: { line: 3, character: 8 }, end: { line: 3, character: 10 } }.to_json, hover.range.to_json)
+        assert_equal "**Local variable** `xs: ::Array[::Integer]`\n", hover.contents.value
+      end
+
+      # Nothing at the position
+      master.process_message_from_client(
+        {
+          method: "textDocument/hover",
+          id: "hover_id2",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+            position: { line: 0, character: 0 }
+          }
+        }
+      )
+      request = flush_queue(master.write_queue).find { |job| job.message[:method] == Hover::METHOD } or raise
+      master.result_controller.process_response({ id: request.message[:id], result: nil })
+
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "hover_id2", result: nil })],
+        flush_queue(master.write_queue)
+      )
+    end
+  end
+
+  def test_signature_help_via_typecheck_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(worker)
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.controller.load(command_line_args: [])
+
+      request_signature_help = -> (id, context = nil) do
+        params = {
+          textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+          position: { line: 3, character: 9 }
+        }
+        params[:context] = context if context
+
+        master.process_message_from_client({ method: "textDocument/signatureHelp", id: id, params: params })
+        flush_queue(master.write_queue).find { |job| job.message[:method] == SignatureHelp::METHOD } or raise
+      end
+
+      # A signature help is rendered on the main thread
+      request = request_signature_help["help1"]
+      master.result_controller.process_response(
+        {
+          id: request.message[:id],
+          result: {
+            signature_help: {
+              target: "lib",
+              signatures: [{ method_type: "(::String) -> void", parameters: ["::String"], active_parameter: 0, method: nil }],
+              active_signature: 0
+            },
+            syntax_error: false
+          }
+        }
+      )
+
+      jobs = flush_queue(master.write_queue)
+      assert_equal 1, jobs.size
+      help = jobs[0].message[:result]
+      assert_instance_of LSP::Interface::SignatureHelp, help
+      assert_equal ["(::String) -> void"], help.signatures.map(&:label)
+
+      # No signature help at the position closes the one showing
+      request = request_signature_help["help2"]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: false } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help2", result: nil })],
+        flush_queue(master.write_queue)
+      )
+
+      # A syntax error while the client shows a signature help is answered with the one showing, as the client sent it
+      active_signature_help = {
+        signatures: [{ label: "(::String) -> void", parameters: [{ label: "::String" }] }],
+        activeSignature: 0,
+        activeParameter: 0
+      }
+      request = request_signature_help["help3", { triggerKind: 3, isRetrigger: true, activeSignatureHelp: active_signature_help }]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help3", result: active_signature_help })],
+        flush_queue(master.write_queue)
+      )
+
+      # A syntax error with no signature help showing is answered with nil
+      request = request_signature_help["help4", { triggerKind: 2, triggerCharacter: "(", isRetrigger: false }]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help4", result: nil })],
+        flush_queue(master.write_queue)
+      )
+
+      # ... and so is one from a client that sends no context
+      request = request_signature_help["help5"]
+      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "help5", result: nil })],
+        flush_queue(master.write_queue)
+      )
+    end
+  end
+
+  def test_interaction_request_goes_to_the_least_loaded_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test1")
+      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test2")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(worker1, worker2)
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.controller.load(command_line_args: [])
+
+      request_hover = -> (id) do
+        master.process_message_from_client(
+          {
+            method: "textDocument/hover",
+            id: id,
+            params: {
+              textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+              position: { line: 0, character: 0 }
+            }
+          }
+        )
+        flush_queue(master.write_queue).find { |job| job.message[:method] == Hover::METHOD } or raise
+      end
+
+      # The worker with the fewest type check jobs in flight takes the request
+      master.typecheck_jobs_in_flight[worker1] = 2
+      request1 = request_hover["hover1"]
+      assert_equal worker2, request1.dest
+      assert_equal({ worker2 => 1 }, master.interaction_jobs_in_flight)
+
+      # The interaction requests in flight count as the load, too
+      master.typecheck_jobs_in_flight[worker1] = 0
+      request2 = request_hover["hover2"]
+      assert_equal worker1, request2.dest
+      assert_equal({ worker2 => 1, worker1 => 1 }, master.interaction_jobs_in_flight)
+
+      # The response frees the worker
+      master.result_controller.process_response({ id: request1.message[:id], result: nil })
+      assert_equal({ worker2 => 0, worker1 => 1 }, master.interaction_jobs_in_flight)
+
+      request3 = request_hover["hover3"]
+      assert_equal worker2, request3.dest
+    end
+  end
+
+  def test_interaction_request_without_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new
+      )
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.controller.load(command_line_args: [])
+
+      # Nothing answers hover, completion, and signature help
+      master.process_message_from_client(
+        {
+          method: "textDocument/hover",
+          id: "hover_id",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+            position: { line: 0, character: 0 }
+          }
+        }
+      )
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "hover_id", result: nil })],
+        flush_queue(master.write_queue)
+      )
+
+      # Goto finds no location
+      master.process_message_from_client(
+        {
+          method: "textDocument/definition",
+          id: "definition_id",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+            position: { line: 0, character: 0 }
+          }
+        }
+      )
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
+        flush_queue(master.write_queue)
+      )
+    end
+  end
+
+  def test_goto_definition_via_typecheck_worker
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(typecheck_worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.type_check_database.update_signature(
+      master.type_check_database.update_rbs(
         path: current_dir + "sig/customer.rbs",
         target: :lib,
-        diagnostics: [],
         entries: [
           Server::TypeCheckDatabase::Entry.new(name: "::Customer#name", role: :definition, start_line: 1, start_character: 6, end_line: 1, end_character: 10)
         ]
@@ -389,10 +826,10 @@ end
         }
       )
 
-      # The request is forwarded to the interaction worker as `$/steep/source/symbol`
+      # The request is forwarded to the typecheck worker as `$/steep/source/symbol`
       jobs = flush_queue(master.write_queue)
       request = jobs.find { |job| job.message[:method] == Source__Symbol::METHOD } or raise
-      assert_equal interaction_worker, request.dest
+      assert_equal typecheck_worker, request.dest
       assert_equal(
         { uri: "#{file_scheme}#{current_dir}/lib/customer.rb", position: { line: 3, character: 9 } },
         request.message[:params]
@@ -439,8 +876,7 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: []
+        launcher: WorkersLauncher.new
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -452,7 +888,7 @@ end
         stats: { typed_calls: 3, untyped_calls: 1, error_calls: 0 }
       )
       master.type_check_database.update_source(path: current_dir + "lib/broken.rb", target: :lib, diagnostics: [], entries: [], stats: nil)
-      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [], entries: [])
+      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [])
 
       master.process_message_from_client({ method: Stats::METHOD, id: "stats" })
 
@@ -488,14 +924,13 @@ end
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: []
+        launcher: WorkersLauncher.new
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
       diagnostic = { message: "error", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } } }
       master.type_check_database.update_source(path: current_dir + "lib/customer.rb", target: :lib, diagnostics: [diagnostic], entries: [])
-      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [], entries: [])
+      master.type_check_database.update_signature(path: current_dir + "sig/customer.rbs", target: :lib, diagnostics: [])
 
       # The requested files, with `nil` for a file that is not type checked
       master.process_message_from_client(
@@ -544,14 +979,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -593,14 +1027,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       master.process_message_from_client(
@@ -629,14 +1062,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       master.process_message_from_client(
@@ -656,6 +1088,55 @@ end
     end
   end
 
+  def test_push_diagnostics__related_information
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(worker)
+      )
+
+      range = { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } }
+      diagnostic = {
+        message: "Duplicated",
+        range: range,
+        relatedInformation: [
+          { location: { uri: Steep::PathHelper.to_uri(current_dir + "sig/b.rbs").to_s, range: range }, message: "Another definition" }
+        ]
+      }
+
+      # Removed if the client doesn't support it
+      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master.push_diagnostics(current_dir + "sig/a.rbs", [diagnostic])
+      flush_queue(master.write_queue).tap do |jobs|
+        assert_equal [{ message: "Duplicated", range: range }], jobs.map { _1.message[:params][:diagnostics] }.flatten
+      end
+
+      # Kept if the client supports it
+      master.assign_initialize_params(
+        DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { textDocument: { publishDiagnostics: { relatedInformation: true } } })
+      )
+      master.push_diagnostics(current_dir + "sig/a.rbs", [diagnostic])
+      flush_queue(master.write_queue).tap do |jobs|
+        assert_equal [diagnostic], jobs.map { _1.message[:params][:diagnostics] }.flatten
+      end
+    end
+  end
+
   def test_client_message_document_did_change
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -669,14 +1150,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       assert_empty master.controller.dirty_code_paths
@@ -719,14 +1199,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       assert_empty master.controller.dirty_code_paths
@@ -762,14 +1241,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       assert_empty master.controller.open_paths
@@ -814,15 +1292,14 @@ end
         end
       end
 
-      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-1", index: 0)
-      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-2", index: 1)
+      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-1")
+      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test-2")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker1, worker2]
+        launcher: WorkersLauncher.new(worker1, worker2)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -865,14 +1342,13 @@ end
         end
       end
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -911,14 +1387,13 @@ end
         end
       end
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
@@ -969,15 +1444,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: interaction_worker,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1050,14 +1523,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+                                  launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1124,14 +1595,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+                                  launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1160,6 +1629,72 @@ x.ab
     end
   end
 
+  def test_forked_workers_type_check
+    skip "The platform cannot fork" unless Steep.can_fork?
+
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/foo.rb").write("Foo.new.bar\n")
+      (current_dir + "sig/foo.rbs").write("class Foo\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      launcher = Server::ForkLauncher.new(typecheck_count: 2)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+
+      main_thread = Thread.new do
+        Thread.current.abort_on_exception = true
+        master.start()
+      end
+
+      ui = LSPDouble.new(reader: master_reader, writer: master_writer)
+      ui.start do
+        # The workers have `Foo` in the environments forked from the master
+        ui.open_file(project.absolute_path(Pathname("lib/foo.rb")))
+
+        finally_holds do
+          assert_equal(
+            ["Ruby::NoMethod"],
+            ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))&.map { _1[:code] }
+          )
+        end
+
+        # The workers receive the changed RBS file
+        ui.open_file(project.absolute_path(Pathname("sig/foo.rbs")))
+        ui.edit_file(project.absolute_path(Pathname("sig/foo.rbs")), content: <<-RBS, version: 0)
+class Foo
+  def bar: () -> void
+end
+        RBS
+        ui.save_file(project.absolute_path(Pathname("sig/foo.rbs")))
+
+        finally_holds do
+          assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
+        end
+      end
+
+      main_thread.join
+
+      assert_equal 2, launcher.typecheck_workers.size
+    end
+  end
+
   def test_workspace_symbol
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -1173,14 +1708,12 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      interaction_worker = Server::WorkerProcess.start_worker(:interaction, name: "interaction", steepfile: steepfile, steep_command: nil)
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 2, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 2)
 
       master = Server::Master.new(project: project,
                                   reader: worker_reader,
                                   writer: worker_writer,
-                                  interaction_worker: interaction_worker,
-                                  typecheck_workers: typecheck_workers)
+                                  launcher: launcher)
 
       main_thread = Thread.new do
         Thread.current.abort_on_exception = true
@@ -1213,6 +1746,86 @@ end
     end
   end
 
+  def test_workspace_symbol_from_database
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig/lib"
+end
+
+target :test do
+  check "test"
+  signature "sig/test"
+end
+      EOF
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new()
+      )
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+
+      # Nothing is found until the workers index the RBS files
+      master.process_message_from_client({ id: "symbol-1", method: "workspace/symbol", params: { query: "Customer" } })
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-1" } or raise
+      assert_empty response.message[:result]
+
+      entry = -> (name, kind, line, start, finish, role: :definition) {
+        Server::TypeCheckDatabase::Entry.new(name: name, role: role, kind: kind, start_line: line, start_character: start, end_line: line, end_character: finish)
+      }
+      path = Pathname("/gems/customer/customer.rbs")
+      entries = [
+        entry["::Customer", :class, 0, 6, 14],
+        entry["::Customer#name", :attribute, 1, 14, 18],
+        entry["::Customer.find", :method, 2, 11, 15],
+        entry["::Customer::VERSION", :constant, 3, 2, 9],
+        entry["::Customer::Address", :class, 5, 8, 15],
+        entry["$customer", :global, 8, 0, 9],
+        entry["::Customer", nil, 9, 11, 19, role: :reference]
+      ]
+
+      # A library RBS file indexed in the two targets
+      master.type_check_database.update_rbs(path: path, target: :lib, entries: entries)
+      master.type_check_database.update_rbs(path: path, target: :test, entries: entries)
+
+      master.process_message_from_client({ id: "symbol-2", method: "workspace/symbol", params: { query: "customer" } })
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-2" } or raise
+      symbols = response.message[:result]
+
+      # Each declaration once, sorted by the name, without the reference
+      assert_equal(
+        [
+          ["#name", LSP::Constant::SymbolKind::PROPERTY, "Customer"],
+          ["$customer", LSP::Constant::SymbolKind::VARIABLE, nil],
+          [".find", LSP::Constant::SymbolKind::METHOD, "Customer"],
+          ["Address", LSP::Constant::SymbolKind::CLASS, "Customer"],
+          ["Customer", LSP::Constant::SymbolKind::CLASS, ""],
+          ["VERSION", LSP::Constant::SymbolKind::CONSTANT, "Customer"]
+        ],
+        symbols.map { [_1.name, _1.kind, _1.attributes[:containerName]] }
+      )
+
+      # The location is the name of the declaration
+      customer = symbols.find { _1.name == "Customer" } or raise
+      assert_equal PathHelper.to_uri(path).to_s, customer.location[:uri]
+      assert_equal({ start: { line: 0, character: 6 }, end: { line: 0, character: 14 } }, customer.location[:range])
+
+      # The query matches the fully qualified names
+      master.process_message_from_client({ id: "symbol-3", method: "workspace/symbol", params: { query: "customer::" } })
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "symbol-3" } or raise
+      assert_equal ["Address", "VERSION"], response.message[:result].map(&:name)
+    end
+  end
+
   def test_untitled_file_notifications
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
@@ -1226,14 +1839,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: Object.new,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       assert_empty master.controller.dirty_code_paths
@@ -1370,14 +1982,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1451,14 +2062,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      typecheck_workers = Server::WorkerProcess.start_typecheck_workers(steepfile: steepfile, count: 1, args: [], steep_command: nil)
+      launcher = Server::SpawnLauncher.new(steepfile: steepfile, steep_command: nil, typecheck_count: 1)
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: typecheck_workers
+        launcher: launcher
       )
 
       main_thread = Thread.new do
@@ -1532,14 +2142,13 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
       master.assign_initialize_params(
         DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(
@@ -1570,7 +2179,7 @@ end
     end
   end
 
-  def test_library_entries_loaded_on_initialize
+  def test_index_on_initialize
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -1592,45 +2201,107 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
-      flush_queue(master.write_queue)
 
-      # The entries of the library RBS files are collected in the environment thread, and stored in the main thread
-      assert_equal [], master.type_check_database.definitions("::String")
-      master.environment_queue.pop.call
-      master.job_queue.pop.call
+      # Every RBS file of the project is indexed in its target, and every library RBS file in every target
+      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal 2, jobs.size
 
-      assert_any!(master.type_check_database.definitions("::String")) do |location|
-        assert_equal :rbs, location.source
-        assert_operator location.path.to_s, :end_with?, "/core/string.rbs"
-        refute master.type_check_database.checked?(location.path)
+      index_jobs = (jobs.map { [_1.message[:params][:target].to_sym, PathHelper.to_pathname!(_1.message[:params][:uri])] } + master.pending_index_jobs.keys)
+      assert_equal [:lib, current_dir + "sig/customer.rbs"], index_jobs[0]
+      assert_equal ["index"], jobs.map { _1.message[:params][:kind] }.uniq
+      [:lib, :test].each do |target|
+        library_paths = master.controller.files.each_library_path(project.targets.find { _1.name == target } || raise).to_a
+        refute_empty library_paths
+        assert_equal library_paths, index_jobs.filter_map { |t, path| path if t == target && path != current_dir + "sig/customer.rbs" }
       end
 
-      # The project RBS files are not in the database until the workers validate them
-      assert_equal [], master.type_check_database.definitions("::Customer")
+      # The entries are stored when the worker responds, without making the file checked, and the next job is handed out
+      master.result_controller.process_response(
+        {
+          id: jobs[0].message[:id],
+          result: { source: nil, signature: { diagnostics: nil, entries: [["::Customer", 0, 0, 6, 0, 14]], stats: nil } }
+        }
+      )
 
-      # The entries collected in the environments of the two targets are merged: the core RBS files are stored once
-      service = master.controller.type_check_service or raise
-      entries = Server::TypeCheckDatabase.rbs_entries_by_path(service.signature_services.fetch(:lib).latest_env)
-      assert_equal entries.sum { |_, entries| entries.size }, master.type_check_database.entry_count
+      assert_equal [[current_dir + "sig/customer.rbs", :rbs, 0]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.source, _1.start_line] }
+      refute master.type_check_database.checked?(current_dir + "sig/customer.rbs")
 
-      master.process_message_from_client({ id: "definition", method: Query__Definition::METHOD, params: { name: "::String" } })
-      jobs = flush_queue(master.write_queue)
-      assert_equal "type_name", jobs[0].message[:result][:kind]
-      assert_any!(jobs[0].message[:result][:locations]) do |location|
-        assert_equal "rbs", location[:source]
-        assert_operator location[:uri], :end_with?, "/core/string.rbs"
-      end
+      next_jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal ["index"], next_jobs.map { _1.message[:params][:kind] }
+
+      master.process_message_from_client({ id: "definition", method: Query__Definition::METHOD, params: { name: "::Customer" } })
+      response = flush_queue(master.write_queue).find { _1.message[:id] == "definition" } or raise
+      assert_equal "type_name", response.message[:result][:kind]
+      assert_equal [PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s], response.message[:result][:locations].map { _1[:uri] }
+    end
+  end
+
+  def test_index_changed_signatures_after_type_check
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+      (current_dir + "sig/account.rbs").write("class Account\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(worker)
+      )
+      master.typecheck_automatically = false
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      drop_index_jobs(master, flush_queue(master.write_queue))
+
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      master.controller.push_file_change(current_dir + "sig/account.rbs", "class Account\n  def id: () -> Integer\nend\n")
+
+      # The type check validates `sig/customer.rbs`, and `sig/account.rbs` is indexed after the type check jobs
+      master.process_message_from_client({
+        id: "check",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal ["code", "signature"], jobs.map { _1.message[:params][:kind] }
+      assert_equal [[:lib, current_dir + "sig/account.rbs"]], master.pending_index_jobs.keys
+
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: nil } })
+
+      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal [["index", PathHelper.to_uri(current_dir + "sig/account.rbs").to_s]], jobs.map { [_1.message[:params][:kind], _1.message[:params][:uri]] }
+      assert_empty master.pending_index_jobs
     end
   end
 
@@ -1653,20 +2324,24 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test", index: 0)
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        interaction_worker: nil,
-        typecheck_workers: [worker]
+        launcher: WorkersLauncher.new(worker)
       )
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
-      flush_queue(master.write_queue)
 
-      # The worker receives the RBS files before the type check, and the Ruby file with its request
+      # The worker receives the RBS files on `initialize`, before the index jobs
+      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      assert_equal FileLoad::METHOD, jobs[0].message[:method]
+      assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
+      drop_index_jobs(master, jobs)
+
+      # The Ruby file goes to the worker with its request
       master.process_message_from_client({
         id: "check-1",
         method: TypeCheck::METHOD,
@@ -1679,14 +2354,13 @@ end
       })
 
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal [FileLoad::METHOD, TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
-      assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
-      assert_equal "code", jobs[1].message[:params][:kind]
-      assert_equal "class Customer\nend\n", jobs[1].message[:params][:content]
-      assert_equal "signature", jobs[2].message[:params][:kind]
-      refute_operator jobs[2].message[:params], :key?, :content
+      assert_equal [TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal "code", jobs[0].message[:params][:kind]
+      assert_equal "class Customer\nend\n", jobs[0].message[:params][:content]
+      assert_equal "signature", jobs[1].message[:params][:kind]
+      refute_operator jobs[1].message[:params], :key?, :content
 
-      jobs.drop(1).each do |job|
+      jobs.each do |job|
         master.result_controller.process_response({ id: job.message[:id], result: { source: nil, signature: nil } })
       end
       flush_queue(master.write_queue)

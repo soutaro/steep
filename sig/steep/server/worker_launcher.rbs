@@ -1,0 +1,10 @@
+module Steep
+  module Server
+    # Makes the launcher of the typecheck workers of a master
+    module WorkerLauncher
+      # Forks the workers with the environments of the master if the platform can fork and no `steep_command` is given,
+      # and spawns `steep worker` processes otherwise
+      def self.create: (steepfile: Pathname?, steep_command: String?, typecheck_count: Integer) -> (SpawnLauncher | ForkLauncher)
+    end
+  end
+end

@@ -8,15 +8,29 @@ module Steep
 
         attr_reader location: location?
 
-        def initialize: (location: location?) -> void
+        # The other locations the diagnostic is about, like the other definitions of a duplicated method
+        attr_reader related_locations: Array[location]
+
+        def initialize: (location: location?, ?related_locations: Array[location]) -> void
 
         def header_line: () -> String
 
         def detail_lines: () -> String?
 
+        # The message given to each of `related_locations`
+        def related_location_message: () -> String
+
+        # Returns a copy of the diagnostic reported at `location`, which is one of `#location` and `#related_locations`
+        #
+        # The other locations become the `#related_locations` of the copy.
+        #
+        def relocate: (location) -> self
+
         def diagnostic_code: () -> String
 
         def path: () -> Pathname?
+
+        def update_locations: (location: location, related_locations: Array[location]) -> void
       end
 
       class SyntaxError < Base
@@ -98,9 +112,11 @@ module Steep
 
         attr_reader method_name: Symbol
 
-        def initialize: (class_name: RBS::TypeName, method_name: Symbol, location: location?) -> void
+        def initialize: (class_name: RBS::TypeName, method_name: Symbol, location: location?, ?related_locations: Array[location]) -> void
 
         def header_line: () -> String
+
+        def related_location_message: () -> String
       end
 
       class RecursiveAlias < Base

@@ -37,6 +37,10 @@ class TypeCheckServiceTest < Minitest::Test
 
   def test_validate__unreferenced_target: () -> untyped
 
+  def test_validate__duplicated_method_definition__interface_in_other_file: () -> untyped
+
+  def test_validate__duplicated_method_definition__same_file: () -> untyped
+
   def test_update_signature_3: () -> untyped
 
   def test_signature_error_unknown_outer_module: () -> untyped

@@ -2,17 +2,27 @@ module Steep
   module Server
     class TypeCheckDatabase
       Entry =
-        _ = Struct.new(:name, :role, :start_line, :start_character, :end_line, :end_character, keyword_init: true) do
+        _ = Struct.new(:name, :role, :start_line, :start_character, :end_line, :end_character, :kind, keyword_init: true) do
           # @implements Entry
 
+          def code
+            code = ROLE_CODES.fetch(role)
+            if kind = self.kind
+              code |= KIND_CODES.fetch(kind) << 1
+            end
+            code
+          end
+
           def to_wire
-            [name, ROLE_CODES.fetch(role), start_line, start_character, end_line, end_character]
+            [name, code, start_line, start_character, end_line, end_character]
           end
 
           def self.from_wire(array)
+            code = array[1] #: Integer
             Entry.new(
               name: array[0],
-              role: ROLES.fetch(array[1]),
+              role: ROLES.fetch(code & 1),
+              kind: KINDS.fetch(code >> 1, nil),
               start_line: array[2],
               start_character: array[3],
               end_line: array[4],
@@ -20,6 +30,8 @@ module Steep
             )
           end
         end
+
+      Definition = _ = Struct.new(:name, :kind, :location, keyword_init: true)
 
       Location =
         _ = Struct.new(:path, :source, :start_line, :start_character, :end_line, :end_character, keyword_init: true) do
@@ -77,12 +89,19 @@ module Steep
         def size
           @ids.size
         end
+
+        def each(&block)
+          @names.each(&block)
+        end
       end
 
       FileResult = _ = Struct.new(:target, :diagnostics, :entries, :stats, keyword_init: true)
 
       ROLE_CODES = { definition: 0, reference: 1 } #: Hash[Entry::role, Integer]
       ROLES = ROLE_CODES.invert #: Hash[Integer, Entry::role]
+
+      KIND_CODES = { class: 1, module: 2, interface: 3, type_alias: 4, constant: 5, global: 6, method: 7, attribute: 8 } #: Hash[Entry::kind, Integer]
+      KINDS = KIND_CODES.invert #: Hash[Integer, Entry::kind]
 
       ENTRY_SIZE = 6
 
@@ -177,11 +196,10 @@ module Steep
       def initialize
         @sources = {}
         @signatures = {}
-        @libraries = {}
+        @rbs = {}
         @pool = NamePool.new
         @source_paths = {}
-        @signature_paths = {}
-        @library_paths = {}
+        @rbs_paths = {}
       end
 
       def update_source(path:, target:, diagnostics:, entries:, stats: nil)
@@ -196,25 +214,20 @@ module Steep
         )
       end
 
-      def update_signature(path:, target:, diagnostics:, entries:)
+      def update_signature(path:, target:, diagnostics:)
         targets = (@signatures[path] ||= {})
-        targets[target] = replace_result(
-          targets.fetch(target, nil),
-          @signature_paths,
-          path: path,
-          target: target,
-          diagnostics: diagnostics,
-          entries: entries,
-          stats: nil
-        )
+        targets[target] = diagnostics || targets.fetch(target, nil) || []
       end
 
-      def update_library(path:, entries:)
-        if old = @libraries[path]
-          release_entries(@library_paths, path, old)
+      def update_rbs(path:, target:, entries:)
+        return unless entries
+
+        targets = (@rbs[path] ||= {})
+        if old = targets[target]
+          release_entries(@rbs_paths, path, old)
         end
 
-        @libraries[path] = pack_entries(@library_paths, path, entries)
+        targets[target] = pack_entries(@rbs_paths, path, entries)
       end
 
       def remove(path)
@@ -222,14 +235,12 @@ module Steep
           release_entries(@source_paths, path, result.entries)
         end
 
-        if targets = @signatures.delete(path)
-          targets.each_value do |result|
-            release_entries(@signature_paths, path, result.entries)
-          end
-        end
+        @signatures.delete(path)
 
-        if packed = @libraries.delete(path)
-          release_entries(@library_paths, path, packed)
+        if targets = @rbs.delete(path)
+          targets.each_value do |packed|
+            release_entries(@rbs_paths, path, packed)
+          end
         end
       end
 
@@ -259,8 +270,8 @@ module Steep
         end
 
         if targets = @signatures.fetch(path, nil)
-          targets.each_value do |result|
-            merged.concat(result.diagnostics)
+          targets.each_value do |diagnostics|
+            merged.concat(diagnostics)
           end
         end
 
@@ -276,6 +287,67 @@ module Steep
         matching_locations(name, role: :reference)
       end
 
+      def matching_names(query)
+        query = query.upcase
+
+        names = [] #: Array[String]
+        pool.each do |_, name|
+          names << name if query.empty? || name.upcase.include?(query)
+        end
+        names
+      end
+
+      def rbs_definitions(names)
+        ids = {} #: Hash[Integer, String]
+        names.each do |name|
+          if id = pool.id_of(name)
+            ids[id] = name
+          end
+        end
+
+        # Each file is read once for all of the names
+        paths = ids.each_key.flat_map { @rbs_paths.fetch(_1, nil)&.keys || [] }.uniq
+
+        definitions = [] #: Array[Definition]
+
+        paths.each do |path|
+          # The library RBS files have the same entries in every target, which are read once
+          arrays = @rbs.fetch(path).values.uniq
+          seen = arrays.size > 1 ? Set[] : nil #: Set[Array[Integer]]?
+
+          arrays.each do |packed|
+            index = 0
+            while index < packed.size
+              id = packed.fetch(index)
+              code = packed.fetch(index + 1)
+
+              if code & 1 == ROLE_CODES.fetch(:definition) && (kind = KINDS.fetch(code >> 1, nil))
+                name = ids.fetch(id, nil)
+
+                if name && (!seen || seen.add?(packed[index, ENTRY_SIZE] || raise))
+                  definitions << Definition.new(
+                    name: name,
+                    kind: kind,
+                    location: Location.new(
+                      path: path,
+                      source: :rbs,
+                      start_line: packed.fetch(index + 2),
+                      start_character: packed.fetch(index + 3),
+                      end_line: packed.fetch(index + 4),
+                      end_character: packed.fetch(index + 5)
+                    )
+                  )
+                end
+              end
+
+              index += ENTRY_SIZE
+            end
+          end
+        end
+
+        definitions
+      end
+
       def entry_count
         count = 0
 
@@ -283,14 +355,10 @@ module Steep
           count += result.entries.size / ENTRY_SIZE
         end
 
-        @signatures.each_value do |targets|
-          targets.each_value do |result|
-            count += result.entries.size / ENTRY_SIZE
+        @rbs.each_value do |targets|
+          targets.each_value do |packed|
+            count += packed.size / ENTRY_SIZE
           end
-        end
-
-        @libraries.each_value do |packed|
-          count += packed.size / ENTRY_SIZE
         end
 
         count
@@ -323,7 +391,7 @@ module Steep
         entries.each do |entry|
           id = pool.intern(entry.name)
           track_name(name_paths, id, path)
-          packed << id << ROLE_CODES.fetch(entry.role) << entry.start_line << entry.start_character << entry.end_line << entry.end_character
+          packed << id << entry.code << entry.start_line << entry.start_character << entry.end_line << entry.end_character
         end
 
         packed
@@ -341,17 +409,11 @@ module Steep
           end
         end
 
-        if paths = @signature_paths.fetch(id, nil)
+        if paths = @rbs_paths.fetch(id, nil)
           paths.each_key do |path|
-            @signatures.fetch(path).each_value do |result|
-              collect_locations(locations, result.entries, id, role_code, path: path, source: :rbs)
+            @rbs.fetch(path).each_value do |packed|
+              collect_locations(locations, packed, id, role_code, path: path, source: :rbs)
             end
-          end
-        end
-
-        if paths = @library_paths.fetch(id, nil)
-          paths.each_key do |path|
-            collect_locations(locations, @libraries.fetch(path), id, role_code, path: path, source: :rbs)
           end
         end
 
@@ -362,7 +424,7 @@ module Steep
       def collect_locations(locations, array, id, role_code, path:, source:)
         index = 0
         while index < array.size
-          if array.fetch(index) == id && array.fetch(index + 1) == role_code
+          if array.fetch(index) == id && array.fetch(index + 1) & 1 == role_code
             locations << Location.new(
               path: path,
               source: source,

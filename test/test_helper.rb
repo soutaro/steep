@@ -614,6 +614,58 @@ end
 module LSPTestHelper
   LSP = LanguageServer::Protocol
 
+  # A launcher with the workers given from the beginning, like `SpawnLauncher`, for the tests of the master
+  class WorkersLauncher < Steep::Server::SpawnLauncher
+    # The service `#start` was called with
+    attr_reader :started_service #: Steep::Services::TypeCheckService?
+
+    # @rbs *workers: Steep::Server::WorkerProcess
+    def initialize(*workers)
+      super(steepfile: nil, steep_command: nil, typecheck_count: workers.size)
+      typecheck_workers.concat(workers)
+      @stopped = false
+    end
+
+    # @rbs (Steep::Services::TypeCheckService) -> void
+    def start(service)
+      @started_service = service
+    end
+
+    # @rbs () -> void
+    def stop
+      @stopped = true
+    end
+
+    # @rbs () -> bool
+    def stopped?
+      @stopped
+    end
+  end
+
+  # A launcher that gives the master the workers on `#start`, like `ForkLauncher`, for the tests of the master
+  class ForkedWorkersLauncher < Steep::Server::ForkLauncher
+    # The service `#start` was called with
+    attr_reader :started_service #: Steep::Services::TypeCheckService?
+
+    # The environments of each target when `#start` was called, which the workers would be forked with
+    attr_reader :started_environments #: Hash[Symbol, RBS::Environment]?
+
+    # @rbs @workers: Array[Steep::Server::WorkerProcess]
+
+    # @rbs *workers: Steep::Server::WorkerProcess
+    def initialize(*workers)
+      super(typecheck_count: workers.size)
+      @workers = workers
+    end
+
+    # @rbs (Steep::Services::TypeCheckService) -> void
+    def start(service)
+      @started_service = service
+      @started_environments = service.signature_services.transform_values(&:latest_env)
+      typecheck_workers.concat(@workers)
+    end
+  end
+
   def reader_pipe
     @reader_pipe ||= IO.pipe
   end

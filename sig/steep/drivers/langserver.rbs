@@ -23,10 +23,18 @@ module Steep
 
       @writer: LanguageServer::Protocol::Transport::Io::Writer?
 
+      # The writer to the client, on a duplicate of `stdout`
+      #
       def writer: () -> LanguageServer::Protocol::Transport::Io::Writer
 
       @reader: LanguageServer::Protocol::Transport::Io::Reader?
 
+      # The reader from the client, on a duplicate of `stdin`
+      #
+      # The server never reads the standard input itself: spawning a worker without `fork`
+      # redirects the fds 0 and 1 of the server while the child starts, and the redirection
+      # waits for the thread that is blocked reading the fd.
+      #
       def reader: () -> LanguageServer::Protocol::Transport::Io::Reader
 
       @project: Project

@@ -6,7 +6,7 @@ module Steep
     # TypeCheckWorker provides two features:
     #
     # 1. Type check and validate one file at a time, requested by `$/steep/typecheck/file`
-    # 2. Language related features: `workspace/symbol`
+    # 2. The interaction requests of the master: hover, completion, signature help, and source symbol
     #
     # Each `$/steep/typecheck/file` request becomes a *job*, and the response carries the result of the file.
     #
@@ -14,6 +14,14 @@ module Steep
     # * `ValidateLibrarySignatureJob` validates a *library* RBS file
     # * `TypeCheckCodeJob` type checks a ruby code
     # * `TypeCheckInlineCodeJob` type checks a Ruby file with inline RBS declarations, and validates the declarations
+    # * `IndexSignatureJob` reports the declarations in an RBS file (or the inline RBS declarations in a Ruby file)
+    #   without validating them
+    #
+    # An interaction request becomes an urgent job, which goes ahead of the type check jobs waiting in the queue,
+    # because the user is waiting for the answer. The worker type checks the file on demand and returns what is at
+    # the position, with the types as strings and the declarations as names, and the master renders the
+    # documentation from its own environment. Only the latest interaction job is processed: the ones enqueued
+    # before it are answered with `nil`.
     #
     # The contents delivered by `$/steep/file/load` and with the requests are applied to the `TypeCheckService`
     # right before each job.
@@ -21,19 +29,10 @@ module Steep
     class TypeCheckWorker < BaseWorker
       attr_reader project: Project
 
-      attr_reader assignment: PathAssignment
+      @service: TypeCheckService?
 
-      attr_reader service: TypeCheckService
-
-      attr_reader commandline_args: Array[String]
-
-      class WorkspaceSymbolJob
-        attr_reader id: String
-
-        attr_reader query: String
-
-        def initialize: (id: String, query: String) -> void
-      end
+      # The environments and the source files, loaded on the first call unless the worker is forked with them
+      def service: () -> TypeCheckService
 
       class TypeCheckCodeJob
         # The id of the `$/steep/typecheck/file` request
@@ -79,35 +78,136 @@ module Steep
         def initialize: (id: String, path: Pathname, target: Project::Target) -> void
       end
 
+      # Reports the entries of the declarations in the file, of the library, the RBS files, or the inline RBS
+      # declarations of the project, without validating them
+      class IndexSignatureJob
+        # The id of the `$/steep/typecheck/file` request
+        attr_reader id: String
+
+        # The absolute path of the file
+        attr_reader path: Pathname
+
+        attr_reader target: Project::Target
+
+        def initialize: (id: String, path: Pathname, target: Project::Target) -> void
+      end
+
+      # Answers `$/steep/hover`
+      class HoverJob
+        attr_reader id: String
+
+        # Absolute path of the file
+        attr_reader path: Pathname
+
+        # 1-origin line
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
+      end
+
+      # Answers `$/steep/completion`
+      class CompletionJob
+        attr_reader id: String
+
+        # Absolute path of the file
+        attr_reader path: Pathname
+
+        # 1-origin line
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        attr_reader trigger: String?
+
+        def initialize: (id: String, path: Pathname, line: Integer, column: Integer, trigger: String?) -> void
+      end
+
+      # Answers `$/steep/signatureHelp`
+      class SignatureHelpJob
+        attr_reader id: String
+
+        # Absolute path of the file
+        attr_reader path: Pathname
+
+        # 1-origin line
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
+      end
+
+      # Answers `$/steep/source/symbol`
+      class SourceSymbolJob
+        attr_reader id: String
+
+        # Absolute path of the file
+        attr_reader path: Pathname
+
+        # 1-origin line
+        attr_reader line: Integer
+
+        attr_reader column: Integer
+
+        def initialize: (id: String, path: Pathname, line: Integer, column: Integer) -> void
+      end
+
+      type interaction_job = HoverJob | CompletionJob | SignatureHelpJob | SourceSymbolJob
+
+      # The queue of the jobs, where the interaction jobs go ahead of the type check jobs
+      def queue: () -> WorkerQueue
+
       attr_reader mutex: Mutex
 
-      # The declarations extracted from the latest `RBSIndex` of each target, grouped by path
+      @interaction_mutex: Mutex
+
+      # The interaction job enqueued last, which is the only one to process
+      @last_interaction_job: interaction_job?
+
+      # The entries of the declarations in the latest environment of each target, grouped by path
       #
-      # The index is kept with the entries to detect a newer index of the target.
+      # The environment is kept with the entries to detect a newer environment of the target.
       #
       @rbs_entries_cache: Hash[Symbol, [RBS::Environment, Hash[Pathname, Array[TypeCheckDatabase::Entry]]]]
 
       include ChangeBuffer
 
+      # `service` is the environments the worker starts with, given by forking the master, and the worker loads them
+      # by itself without it
       def initialize: (
         project: Project,
         reader: LSP::Transport::Io::Reader,
         writer: LSP::Transport::Io::Writer,
-        assignment: PathAssignment,
-        commandline_args: Array[String]
+        ?service: Services::TypeCheckService?
       ) -> void
 
       def handle_request: (untyped request) -> void
 
+      # The absolute path, the 1-origin line, and the column of the position in the params of an interaction request
+      def position_of: (CustomMethods::Hover::params | CustomMethods::Completion::params | CustomMethods::SignatureHelp::params | CustomMethods::Source__Symbol::params) -> [Pathname, Integer, Integer]
+
+      # Enqueues an interaction job ahead of the type check jobs, as the latest one
+      def enqueue_interaction_job: (interaction_job) -> void
+
+      # Yields for the latest interaction job, and returns `nil` without yielding for a job enqueued before it
+      #
+      # The client sends a request on every keystroke and cursor move, and only the answer of the last one matters.
+      #
+      def process_latest_interaction_job: [T] (interaction_job) { () -> T } -> T?
+
       # Enqueues the job of a `$/steep/typecheck/file` request, loading the content given with the request
       def enqueue_typecheck_job: (String id, CustomMethods::TypeCheck__File::params params) -> void
 
-      type job = WorkspaceSymbolJob
-               | TypeCheckCodeJob
+      type job = TypeCheckCodeJob
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
                | TypeCheckInlineCodeJob
+               | IndexSignatureJob
+               | interaction_job
 
+      # Runs a job and writes its response, after applying the buffered changes to the service
       def handle_job: (job) -> void
 
       # Applies the buffered changes to the service, before a job runs
@@ -146,7 +246,40 @@ module Steep
       #
       def signature_entries: (Project::Target target, Pathname path) -> Array[TypeCheckDatabase::Entry]?
 
-      def workspace_symbol_result: (untyped query) -> untyped
+      # Returns what is at the position of the job, type checking the file on demand like hover
+      def process_source_symbol: (SourceSymbolJob job) -> CustomMethods::Source__Symbol::result
+
+      # Returns what is at the position of the job, `nil` when nothing is there or the file is unknown
+      #
+      # The file may be a Ruby file or an RBS file of the project, or a library RBS file.
+      #
+      def process_hover: (HoverJob job) -> CustomMethods::Hover::result?
+
+      # Translates a hover content to the wire, with the types as strings and the declarations as names
+      def hover_content: (HoverProvider::Ruby::content | HoverProvider::RBS::content) -> CustomMethods::Hover::content
+
+      # The name a class or module declaration declares
+      def declared_type_name: (HoverProvider::ClassTypeContent::decl) -> RBS::TypeName
+
+      # Returns the completion candidates at the position of the job, `nil` when the file is not in the project
+      def process_completion: (CompletionJob job) -> CustomMethods::Completion::result?
+
+      def completion_item: (CompletionProvider::item item) -> CustomMethods::Completion::item
+
+      # The builtin types of RBS, like `untyped`, as candidates replacing the `prefix_size` characters before the position
+      def builtin_type_items: (Integer prefix_size, Integer line, Integer column) -> Array[CustomMethods::Completion::item]
+
+      # The range of the `prefix_size` characters before the position
+      def range_before: (Integer line, Integer column, Integer prefix_size) -> CustomMethods::range
+
+      # Returns the signature help at the position of the job, `nil` when the file is not in the project
+      def process_signature_help: (SignatureHelpJob) -> CustomMethods::SignatureHelp::result?
+
+      # The target of a Ruby or RBS file of the project, or the first target that loads a library RBS file
+      #
+      # `nil` for any other file.
+      #
+      def target_for: (Pathname absolute_path) -> Project::Target?
     end
   end
 end

@@ -7,41 +7,26 @@ module Steep
 
       attr_reader :name
       attr_reader :wait_thread
-      attr_reader :index
       attr_reader :known_versions
 
-      def initialize(reader:, writer:, stderr:, wait_thread:, name:, index: nil)
+      def initialize(reader:, writer:, stderr:, wait_thread:, name:)
         @reader = reader
         @writer = writer
         @stderr = stderr
         @wait_thread = wait_thread
         @name = name
-        @index = index
         @known_versions = {}
       end
 
-      def self.start_worker(type, name:, steepfile:, steep_command:, index: nil, patterns: [])
+      def self.start_worker(type, name:, steepfile:, steep_command:)
         if Steep.can_fork? && !steep_command
-          fork_worker(
-            type,
-            name: name,
-            steepfile: steepfile,
-            index: index,
-            patterns: patterns
-          )
+          fork_worker(type, name: name, steepfile: steepfile)
         else
-          spawn_worker(
-            type,
-            name: name,
-            steepfile: steepfile,
-            steep_command: steep_command || "steep",
-            index: index,
-            patterns: patterns
-          )
+          spawn_worker(type, name: name, steepfile: steepfile, steep_command: steep_command || "steep")
         end
       end
 
-      def self.fork_worker(type, name:, steepfile:, index:, patterns:)
+      def self.fork_worker(type, name:, steepfile:)
         stdin_in, stdin_out = IO.pipe
         stdout_in, stdout_out = IO.pipe
 
@@ -50,11 +35,6 @@ module Steep
         worker.steepfile = steepfile
         worker.worker_type = type
         worker.worker_name = name
-        if (max, this = index)
-          worker.max_index = max
-          worker.index = this
-        end
-        worker.commandline_args = patterns
 
         pid = fork do
           Process.setpgid(0, 0)
@@ -81,12 +61,67 @@ module Steep
           writer: writer,
           stderr: STDERR,
           wait_thread: wait_thread,
-          name: name,
-          index: index&.[](1)
+          name: name
         )
       end
 
-      def self.spawn_worker(type, name:, steepfile:, steep_command:, index:, patterns:)
+      def self.fork_typecheck_worker(service, name:, siblings:)
+        stdin_in, stdin_out = IO.pipe
+        stdout_in, stdout_out = IO.pipe
+
+        pid = fork do
+          status = 1
+
+          begin
+            Process.setpgid(0, 0)
+            Steep.ui_logger.level = :fatal
+            Steep.logger.current_tags.replace(["Steep #{VERSION}"])
+
+            # The worker talks to the master through its own pipes only
+            stdin_out.close
+            stdout_in.close
+            siblings.each do |sibling|
+              sibling.reader.close
+              sibling.writer.close
+            end
+            $stdin.reopen(File::NULL)
+            $stdout.reopen(File::NULL)
+
+            reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdin_in)
+            writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdout_out)
+
+            Steep.logger.tagged("typecheck:#{name}") do
+              Steep.logger.info "Starting typecheck worker forked from the master..."
+              TypeCheckWorker.new(project: service.project, reader: reader, writer: writer, service: service).run()
+            end
+
+            status = 0
+          rescue Interrupt
+            status = 0
+          rescue Exception => exn
+            Steep.log_error(exn)
+          ensure
+            # Skips the `at_exit` hooks of the master
+            exit!(status)
+          end
+        end
+
+        pid or raise
+
+        writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin_out)
+        reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout_in)
+
+        # @type var wait_thread: Thread & _ProcessWaitThread
+        wait_thread = _ = Thread.new { Process.waitpid(pid) }
+        wait_thread.define_singleton_method(:pid) { pid }
+
+        stdin_in.close
+        stdout_out.close
+
+        new(reader: reader, writer: writer, stderr: STDERR, wait_thread: wait_thread, name: name)
+      end
+
+      def self.spawn_worker(type, name:, steepfile:, steep_command:)
         args = ["--name=#{name}"]
         args << "--steepfile=#{steepfile}" if steepfile
         args << (%w(debug info warn error fatal unknown)[Steep.logger.level].yield_self {|log_level| "--log-level=#{log_level}" })
@@ -95,16 +130,9 @@ module Steep
           args << "--log-output=#{Steep.log_output}"
         end
 
-        if (max, this = index)
-          args << "--max-index=#{max}"
-          args << "--index=#{this}"
-        end
-
         command = case type
-                  when :interaction
-                    [steep_command, "worker", "--interaction", *args, *patterns]
                   when :typecheck
-                    [steep_command, "worker", "--typecheck", *args, *patterns]
+                    [steep_command, "worker", "--typecheck", *args]
                   else
                     raise "Unknown type: #{type}"
                   end
@@ -119,20 +147,7 @@ module Steep
         writer = LanguageServer::Protocol::Transport::Io::Writer.new(stdin)
         reader = LanguageServer::Protocol::Transport::Io::Reader.new(stdout)
 
-        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name, index: index&.[](1))
-      end
-
-      def self.start_typecheck_workers(steepfile:, args:, steep_command:, count: [Etc.nprocessors - 1, 1].max || raise)
-        count.times.map do |i|
-          start_worker(
-            :typecheck,
-            name: "typecheck@#{i}",
-            steepfile: steepfile,
-            steep_command: steep_command,
-            index: [count, i],
-            patterns: args,
-          )
-        end
+        new(reader: reader, writer: writer, stderr: stderr, wait_thread: thread, name: name)
       end
 
       def redirect_to(worker)

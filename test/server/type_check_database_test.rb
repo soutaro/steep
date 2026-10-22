@@ -11,11 +11,12 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
   # @rbs!
   #   class TypeCheckDatabase = Steep::Server::TypeCheckDatabase
 
-  def entry(name, role:, at:) #: TypeCheckDatabase::Entry
+  def entry(name, role:, at:, kind: nil) #: TypeCheckDatabase::Entry
     start_line, start_character, end_line, end_character = at
     TypeCheckDatabase::Entry.new(
       name: name,
       role: role,
+      kind: kind,
       start_line: start_line,
       start_character: start_character,
       end_line: end_line,
@@ -44,8 +45,8 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     shared = diagnostic("shared")
 
     database.update_source(path: path, target: :app, diagnostics: [diagnostic("ruby")], entries: [])
-    database.update_signature(path: path, target: :app, diagnostics: [shared, diagnostic("app only")], entries: [])
-    database.update_signature(path: path, target: :test, diagnostics: [shared, diagnostic("test only")], entries: [])
+    database.update_signature(path: path, target: :app, diagnostics: [shared, diagnostic("app only")])
+    database.update_signature(path: path, target: :test, diagnostics: [shared, diagnostic("test only")])
 
     assert_equal ["ruby", "shared", "app only", "test only"], database.diagnostics(path).map { _1[:message] }
   end
@@ -113,12 +114,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
   def test_location
     database = TypeCheckDatabase.new()
 
-    database.update_signature(
-      path: Pathname("sig/a.rbs"),
-      target: :app,
-      diagnostics: [],
-      entries: [entry("::Foo", role: :definition, at: [1, 2, 3, 4])]
-    )
+    database.update_rbs(path: Pathname("sig/a.rbs"), target: :app, entries: [entry("::Foo", role: :definition, at: [1, 2, 3, 4])])
 
     location = database.definitions("::Foo")[0] || raise
     assert_equal Pathname("sig/a.rbs"), location.path
@@ -126,7 +122,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal({ start: { line: 1, character: 2 }, end: { line: 3, character: 4 } }, location.lsp_range)
   end
 
-  def test_inline_file_has_results_in_both_tables
+  def test_inline_file_has_entries_in_sources_and_rbs
     database = TypeCheckDatabase.new()
 
     path = Pathname("lib/a.rb")
@@ -136,34 +132,27 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
       diagnostics: [],
       entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
     )
-    database.update_signature(
-      path: path,
-      target: :app,
-      diagnostics: [],
-      entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
-    )
+    database.update_rbs(path: path, target: :app, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
 
     # The same range is reported twice, as Ruby code and as an inline declaration
     assert_equal [[path, :ruby, 0], [path, :rbs, 0]], summarize(database.definitions("::Foo"))
   end
 
-  def test_signatures_merge_targets
+  def test_rbs_merge_targets
     database = TypeCheckDatabase.new()
 
     path = Pathname("sig/a.rbs")
-    database.update_signature(
+    database.update_rbs(
       path: path,
       target: :app,
-      diagnostics: [],
       entries: [
         entry("::Foo", role: :definition, at: [0, 6, 0, 9]),
         entry("::Bar", role: :reference, at: [1, 12, 1, 15])
       ]
     )
-    database.update_signature(
+    database.update_rbs(
       path: path,
       target: :test,
-      diagnostics: [],
       entries: [
         entry("::Foo", role: :definition, at: [0, 6, 0, 9]),
         entry("::Test::Bar", role: :reference, at: [1, 12, 1, 15])
@@ -210,14 +199,32 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     database = TypeCheckDatabase.new()
 
     path = Pathname("sig/a.rbs")
-    database.update_signature(path: path, target: :app, diagnostics: [diagnostic("app")], entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
-    database.update_signature(path: path, target: :test, diagnostics: [diagnostic("test")], entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
+    database.update_signature(path: path, target: :app, diagnostics: [diagnostic("app")])
+    database.update_signature(path: path, target: :test, diagnostics: [diagnostic("test")])
 
-    database.update_signature(path: path, target: :app, diagnostics: [], entries: [])
-
+    database.update_signature(path: path, target: :app, diagnostics: [])
     assert_equal ["test"], database.diagnostics(path).map { _1[:message] }
+
+    # Skipping the validation keeps the diagnostics of the target
+    database.update_signature(path: path, target: :test, diagnostics: nil)
+    assert_equal ["test"], database.diagnostics(path).map { _1[:message] }
+  end
+
+  def test_update_rbs_replaces_only_the_target
+    database = TypeCheckDatabase.new()
+
+    path = Pathname("sig/a.rbs")
+    database.update_rbs(path: path, target: :app, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
+    database.update_rbs(path: path, target: :test, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
+
+    database.update_rbs(path: path, target: :app, entries: [])
     assert_equal [[path, :rbs, 0]], summarize(database.definitions("::Foo"))
     assert_equal 1, database.entry_count
+
+    # `nil` keeps the entries, for the signatures that fail to load
+    database.update_rbs(path: path, target: :test, entries: nil)
+    assert_equal [[path, :rbs, 0]], summarize(database.definitions("::Foo"))
+    assert_equal 1, database.pool.size
   end
 
   def test_remove_releases_everything
@@ -230,18 +237,10 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
       diagnostics: [diagnostic("a")],
       entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
     )
-    database.update_signature(
-      path: path,
-      target: :app,
-      diagnostics: [diagnostic("b")],
-      entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
-    )
-    database.update_signature(
-      path: path,
-      target: :test,
-      diagnostics: [diagnostic("c")],
-      entries: [entry("::Foo", role: :reference, at: [1, 0, 1, 3])]
-    )
+    database.update_signature(path: path, target: :app, diagnostics: [diagnostic("b")])
+    database.update_signature(path: path, target: :test, diagnostics: [diagnostic("c")])
+    database.update_rbs(path: path, target: :app, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
+    database.update_rbs(path: path, target: :test, entries: [entry("::Foo", role: :reference, at: [1, 0, 1, 3])])
 
     database.remove(path)
 
@@ -261,12 +260,7 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
       diagnostics: [],
       entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
     )
-    database.update_signature(
-      path: Pathname("sig/a.rbs"),
-      target: :app,
-      diagnostics: [],
-      entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])]
-    )
+    database.update_rbs(path: Pathname("sig/a.rbs"), target: :app, entries: [entry("::Foo", role: :definition, at: [0, 6, 0, 9])])
 
     database.remove(Pathname("sig/a.rbs"))
 
@@ -279,6 +273,144 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
     assert_equal ["::Foo#bar", 1, 1, 2, 3, 4], e.to_wire
     assert_equal e, TypeCheckDatabase::Entry.from_wire(e.to_wire)
+
+    # The kind of a definition is in the code with the role
+    e = entry("::Foo#bar", role: :definition, kind: :method, at: [1, 2, 3, 4])
+
+    assert_equal ["::Foo#bar", 14, 1, 2, 3, 4], e.to_wire
+    assert_equal e, TypeCheckDatabase::Entry.from_wire(e.to_wire)
+
+    TypeCheckDatabase::KIND_CODES.each_key do |kind|
+      e = entry("::Foo", role: :definition, kind: kind, at: [1, 2, 3, 4])
+      assert_equal e, TypeCheckDatabase::Entry.from_wire(e.to_wire)
+    end
+  end
+
+  def test_definitions_with_kinds
+    database = TypeCheckDatabase.new()
+
+    database.update_rbs(
+      path: Pathname("sig/foo.rbs"),
+      target: :app,
+      entries: [
+        entry("::Foo", role: :definition, kind: :class, at: [0, 6, 0, 9]),
+        entry("::Foo", role: :reference, at: [1, 10, 1, 13])
+      ]
+    )
+
+    # The kind doesn't change the role of the entry
+    assert_equal [0], database.definitions("::Foo").map(&:start_line)
+    assert_equal [1], database.references("::Foo").map(&:start_line)
+  end
+
+  def test_matching_names
+    database = TypeCheckDatabase.new()
+
+    database.update_rbs(
+      path: Pathname("sig/foo.rbs"),
+      target: :app,
+      entries: [
+        entry("::Foo", role: :definition, kind: :class, at: [0, 6, 0, 9]),
+        entry("::Foo#bar", role: :definition, kind: :method, at: [1, 6, 1, 9]),
+        entry("::Bar", role: :reference, at: [1, 13, 1, 16])
+      ]
+    )
+    database.update_source(
+      path: Pathname("lib/foo.rb"),
+      target: :app,
+      diagnostics: [],
+      entries: [entry("$FOOBAR", role: :reference, at: [0, 0, 0, 7])]
+    )
+
+    # The names of the definitions and the references in every table, including the query and ignoring the case
+    assert_equal ["$FOOBAR", "::Bar", "::Foo", "::Foo#bar"], database.matching_names("").sort
+    assert_equal ["$FOOBAR", "::Foo", "::Foo#bar"], database.matching_names("foo").sort
+    assert_equal ["$FOOBAR", "::Bar", "::Foo#bar"], database.matching_names("BAR").sort
+    assert_equal ["::Foo#bar"], database.matching_names("#bar")
+    assert_equal [], database.matching_names("baz")
+  end
+
+  def test_rbs_definitions
+    database = TypeCheckDatabase.new()
+
+    database.update_rbs(
+      path: Pathname("sig/foo.rbs"),
+      target: :app,
+      entries: [
+        entry("::Foo", role: :definition, kind: :class, at: [0, 6, 0, 9]),
+        entry("::Foo#bar", role: :definition, kind: :method, at: [1, 6, 1, 9]),
+        entry("::Foo#name", role: :definition, kind: :attribute, at: [2, 16, 2, 20]),
+        entry("::Bar", role: :reference, at: [1, 13, 1, 16])
+      ]
+    )
+    database.update_rbs(
+      path: Pathname("sig/bar.rbs"),
+      target: :app,
+      entries: [
+        entry("::Bar", role: :definition, kind: :module, at: [0, 7, 0, 10]),
+        entry("$FOOBAR", role: :definition, kind: :global, at: [2, 0, 2, 7])
+      ]
+    )
+    # The definitions in Ruby code have no kind, and are not RBS declarations
+    database.update_source(
+      path: Pathname("lib/foo.rb"),
+      target: :app,
+      diagnostics: [],
+      entries: [entry("::Foo#bar", role: :definition, at: [1, 6, 1, 9])]
+    )
+
+    summary = -> (definitions) { definitions.map { [_1.name, _1.kind, _1.location.path, _1.location.start_line] }.sort }
+
+    # The declarations of the names, without the references
+    assert_equal(
+      [
+        ["$FOOBAR", :global, Pathname("sig/bar.rbs"), 2],
+        ["::Bar", :module, Pathname("sig/bar.rbs"), 0],
+        ["::Foo", :class, Pathname("sig/foo.rbs"), 0],
+        ["::Foo#bar", :method, Pathname("sig/foo.rbs"), 1],
+        ["::Foo#name", :attribute, Pathname("sig/foo.rbs"), 2]
+      ],
+      summary[database.rbs_definitions(database.matching_names(""))]
+    )
+    assert_equal(
+      [
+        ["::Bar", :module, Pathname("sig/bar.rbs"), 0],
+        ["::Foo#bar", :method, Pathname("sig/foo.rbs"), 1]
+      ],
+      summary[database.rbs_definitions(["::Bar", "::Foo#bar"])]
+    )
+
+    # The names without declarations or not in the database give nothing
+    assert_equal [], database.rbs_definitions(["::Baz"])
+    assert_equal [], database.rbs_definitions([])
+
+    location = database.rbs_definitions(["::Foo#name"])[0]&.location or raise
+    assert_equal :rbs, location.source
+    assert_equal({ start: { line: 2, character: 16 }, end: { line: 2, character: 20 } }, location.lsp_range)
+  end
+
+  def test_rbs_definitions_merge_targets
+    database = TypeCheckDatabase.new()
+
+    path = Pathname("/gems/core/string.rbs")
+    [:app, :test].each do |target|
+      database.update_rbs(path: path, target: target, entries: [entry("::String", role: :definition, kind: :class, at: [0, 6, 0, 12])])
+    end
+
+    # The same entries in the targets are returned once
+    assert_equal [0], database.rbs_definitions(["::String"]).map { _1.location.start_line }
+
+    database.update_rbs(
+      path: path,
+      target: :test,
+      entries: [
+        entry("::String", role: :definition, kind: :class, at: [0, 6, 0, 12]),
+        entry("::String", role: :definition, kind: :class, at: [5, 6, 5, 12])
+      ]
+    )
+
+    # The entries of the targets are merged when they differ
+    assert_equal [0, 5], database.rbs_definitions(["::String"]).map { _1.location.start_line }.sort
   end
 
   def test_stats_follow_diagnostics
@@ -308,8 +440,12 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal [], database.paths
 
     database.update_source(path: Pathname("lib/a.rb"), target: :app, diagnostics: [], entries: [])
-    database.update_signature(path: Pathname("lib/a.rb"), target: :app, diagnostics: [], entries: [])
-    database.update_signature(path: Pathname("sig/a.rbs"), target: :app, diagnostics: [], entries: [])
+    database.update_signature(path: Pathname("lib/a.rb"), target: :app, diagnostics: [])
+    database.update_signature(path: Pathname("sig/a.rbs"), target: :app, diagnostics: [])
+
+    # The indexed files are not checked
+    database.update_rbs(path: Pathname("sig/b.rbs"), target: :app, entries: [])
+    refute_operator database, :checked?, Pathname("sig/b.rbs")
 
     assert_operator database, :checked?, Pathname("lib/a.rb")
     assert_operator database, :checked?, Pathname("sig/a.rbs")
@@ -325,10 +461,9 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     database = TypeCheckDatabase.new()
 
     path = Pathname("sig/foo.rbs")
-    database.update_signature(
+    database.update_rbs(
       path: path,
       target: :app,
-      diagnostics: [],
       entries: [
         entry("::Foo", role: :definition, at: [0, 6, 0, 9]),
         entry("::Foo#bar", role: :definition, at: [1, 6, 1, 9]),
@@ -380,43 +515,47 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
       class Qux
       end
+
+      module MixinAlias = Mixin
     RBS
     _, directives, declarations = RBS::Parser.parse_signature(buffer)
     env.add_source(RBS::Source::RBS.new(buffer, directives, declarations))
 
-    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("sig/foo.rbs")).map(&:to_wire)
+    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("sig/foo.rbs")).map { [_1.name, _1.kind || _1.role, _1.start_line, _1.start_character, _1.end_line, _1.end_character] }
 
     # Declarations, at the names
-    assert_includes entries, ["::Foo", 0, 0, 6, 0, 9]
-    assert_includes entries, ["::Foo#bar", 0, 2, 6, 2, 9]
-    assert_includes entries, ["::Foo#baz", 0, 3, 16, 3, 19]
-    assert_includes entries, ["::Foo#baz=", 0, 3, 16, 3, 19]
-    assert_includes entries, ["::Foo#bar2", 0, 4, 8, 4, 12]
-    assert_includes entries, ["::Mixin", 0, 8, 7, 8, 12]
-    assert_includes entries, ["::_Foo", 0, 11, 10, 11, 14]
-    assert_includes entries, ["::_Foo#foo", 0, 12, 6, 12, 9]
-    assert_includes entries, ["::foo", 0, 15, 5, 15, 8]
-    assert_includes entries, ["::FOO", 0, 17, 0, 17, 3]
-    assert_includes entries, ["$foo", 0, 19, 0, 19, 4]
-    assert_includes entries, ["::Alias", 0, 21, 6, 21, 11]
+    assert_includes entries, ["::Foo", :class, 0, 6, 0, 9]
+    assert_includes entries, ["::Foo#bar", :method, 2, 6, 2, 9]
+    assert_includes entries, ["::Foo#baz", :attribute, 3, 16, 3, 19]
+    assert_includes entries, ["::Foo#baz=", :attribute, 3, 16, 3, 19]
+    assert_includes entries, ["::Foo#bar2", :method, 4, 8, 4, 12]
+    assert_includes entries, ["::Mixin", :module, 8, 7, 8, 12]
+    assert_includes entries, ["::_Foo", :interface, 11, 10, 11, 14]
+    assert_includes entries, ["::_Foo#foo", :method, 12, 6, 12, 9]
+    assert_includes entries, ["::foo", :type_alias, 15, 5, 15, 8]
+    assert_includes entries, ["::FOO", :constant, 17, 0, 17, 3]
+    assert_includes entries, ["$foo", :global, 19, 0, 19, 4]
+    assert_includes entries, ["::Alias", :class, 21, 6, 21, 11]
+    assert_includes entries, ["::MixinAlias", :module, 29, 7, 29, 17]
 
     # References, at the type names
-    assert_includes entries, ["::Bar", 1, 0, 14, 0, 17]      # Upper bound of the type parameter
-    assert_includes entries, ["::Bar", 1, 0, 21, 0, 24]      # Super class
-    assert_includes entries, ["::Mixin", 1, 1, 10, 1, 15]    # Mixin
-    assert_includes entries, ["::Qux", 1, 1, 16, 1, 19]      # Type argument of the mixin
-    assert_includes entries, ["::Qux", 1, 2, 12, 2, 15]      # Parameter type
-    assert_includes entries, ["::Bar", 1, 2, 20, 2, 23]      # Return type
-    assert_includes entries, ["::Qux", 1, 3, 21, 3, 24]      # Attribute type
-    assert_includes entries, ["::Foo#bar", 1, 4, 13, 4, 16]  # Old name of the alias
-    assert_includes entries, ["::Qux", 1, 5, 9, 5, 12]       # Instance variable type
-    assert_includes entries, ["::Bar", 1, 8, 18, 8, 21]      # Module self type
-    assert_includes entries, ["::Qux", 1, 12, 17, 12, 20]    # Return type of the interface method
-    assert_includes entries, ["::Qux", 1, 15, 11, 15, 14]    # Type alias
-    assert_includes entries, ["::Bar", 1, 15, 17, 15, 20]
-    assert_includes entries, ["::Qux", 1, 17, 5, 17, 8]      # Constant type
-    assert_includes entries, ["::Qux", 1, 19, 6, 19, 9]      # Global type
-    assert_includes entries, ["::Foo", 1, 21, 14, 21, 17]    # Class alias target
+    assert_includes entries, ["::Bar", :reference, 0, 14, 0, 17]      # Upper bound of the type parameter
+    assert_includes entries, ["::Bar", :reference, 0, 21, 0, 24]      # Super class
+    assert_includes entries, ["::Mixin", :reference, 1, 10, 1, 15]    # Mixin
+    assert_includes entries, ["::Qux", :reference, 1, 16, 1, 19]      # Type argument of the mixin
+    assert_includes entries, ["::Qux", :reference, 2, 12, 2, 15]      # Parameter type
+    assert_includes entries, ["::Bar", :reference, 2, 20, 2, 23]      # Return type
+    assert_includes entries, ["::Qux", :reference, 3, 21, 3, 24]      # Attribute type
+    assert_includes entries, ["::Foo#bar", :reference, 4, 13, 4, 16]  # Old name of the alias
+    assert_includes entries, ["::Qux", :reference, 5, 9, 5, 12]       # Instance variable type
+    assert_includes entries, ["::Bar", :reference, 8, 18, 8, 21]      # Module self type
+    assert_includes entries, ["::Qux", :reference, 12, 17, 12, 20]    # Return type of the interface method
+    assert_includes entries, ["::Qux", :reference, 15, 11, 15, 14]    # Type alias
+    assert_includes entries, ["::Bar", :reference, 15, 17, 15, 20]
+    assert_includes entries, ["::Qux", :reference, 17, 5, 17, 8]      # Constant type
+    assert_includes entries, ["::Qux", :reference, 19, 6, 19, 9]      # Global type
+    assert_includes entries, ["::Foo", :reference, 21, 14, 21, 17]    # Class alias target
+    assert_includes entries, ["::Mixin", :reference, 29, 20, 29, 25]  # Module alias target
 
     # Each entry is included once
     assert_equal entries.uniq, entries
@@ -442,33 +581,56 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
 
       module Mixin
       end
+
+      QuxAlias = Qux #: class-alias
+      MixinAlias = Mixin #: module-alias
+
+      class Person
+        attr_reader :name #: Qux
+        attr_writer :age #: Bar
+        attr_accessor :email, :"nick" #: Qux
+      end
     RUBY
     prism = Prism.parse(buffer.content)
     result = RBS::InlineParser.parse(buffer, prism)
     env.add_source(RBS::Source::Ruby.new(buffer, prism, result.declarations, result.diagnostics))
 
-    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("lib/foo.rb")).map(&:to_wire)
+    entries = TypeCheckDatabase.rbs_entries_by_path(env.resolve_type_names).fetch(Pathname("lib/foo.rb")).map { [_1.name, _1.kind || _1.role, _1.start_line, _1.start_character, _1.end_line, _1.end_character] }
 
     # Declarations, at the names in the Ruby file
-    assert_includes entries, ["::Foo", 0, 0, 6, 0, 9]
-    assert_includes entries, ["::Foo#foo", 0, 4, 6, 4, 9]
-    assert_includes entries, ["::Bar", 0, 8, 6, 8, 9]
+    assert_includes entries, ["::Foo", :class, 0, 6, 0, 9]
+    assert_includes entries, ["::Foo#foo", :method, 4, 6, 4, 9]
+    assert_includes entries, ["::Bar", :class, 8, 6, 8, 9]
+    assert_includes entries, ["::QuxAlias", :class, 17, 0, 17, 8]
+    assert_includes entries, ["::MixinAlias", :module, 18, 0, 18, 10]
+
+    # Attributes, at the names without `:` and the quotes, with the reader and writer methods of each name
+    assert_includes entries, ["::Person#name", :attribute, 21, 15, 21, 19]
+    refute_includes entries.map(&:first), "::Person#name="
+    assert_includes entries, ["::Person#age=", :attribute, 22, 15, 22, 18]
+    refute_includes entries.map(&:first), "::Person#age"
+    assert_includes entries, ["::Person#email", :attribute, 23, 17, 23, 22]
+    assert_includes entries, ["::Person#email=", :attribute, 23, 17, 23, 22]
+    assert_includes entries, ["::Person#nick", :attribute, 23, 26, 23, 30]
+    assert_includes entries, ["::Person#nick=", :attribute, 23, 26, 23, 30]
 
     # References, at the type names in the Ruby file
-    assert_includes entries, ["::Bar", 1, 0, 12, 0, 15]      # Super class
-    assert_includes entries, ["::Qux", 1, 0, 18, 0, 21]      # Type argument of the super class
-    assert_includes entries, ["::Mixin", 1, 1, 10, 1, 15]    # Mixin
-    assert_includes entries, ["::Qux", 1, 1, 18, 1, 21]      # Type argument of the mixin
-    assert_includes entries, ["::Qux", 1, 3, 10, 3, 13]      # Parameter type in the annotation
-    assert_includes entries, ["::Bar", 1, 3, 18, 3, 21]      # Return type in the annotation
+    assert_includes entries, ["::Bar", :reference, 0, 12, 0, 15]    # Super class
+    assert_includes entries, ["::Qux", :reference, 0, 18, 0, 21]    # Type argument of the super class
+    assert_includes entries, ["::Mixin", :reference, 1, 10, 1, 15]  # Mixin
+    assert_includes entries, ["::Qux", :reference, 1, 18, 1, 21]    # Type argument of the mixin
+    assert_includes entries, ["::Qux", :reference, 3, 10, 3, 13]    # Parameter type in the annotation
+    assert_includes entries, ["::Bar", :reference, 3, 18, 3, 21]    # Return type in the annotation
+    assert_includes entries, ["::Qux", :reference, 21, 23, 21, 26]  # Attribute type
   end
 
   def test_library_entries
     database = TypeCheckDatabase.new()
 
     path = Pathname("/gems/core/string.rbs")
-    database.update_library(
+    database.update_rbs(
       path: path,
+      target: :app,
       entries: [
         entry("::String", role: :definition, at: [0, 6, 0, 12]),
         entry("::Integer", role: :reference, at: [3, 20, 3, 27])
@@ -481,13 +643,13 @@ class Steep::Server::TypeCheckDatabaseTest < Minitest::Test
     assert_equal [[path, :rbs, 3]], summarize(database.references("::Integer"))
     assert_equal 3, database.entry_count
 
-    # Library files are not type checked: they are not `checked?`, not in `paths`, and have no diagnostics
+    # Indexed library files are not validated: they are not `checked?`, not in `paths`, and have no diagnostics
     refute database.checked?(path)
     assert_equal [Pathname("lib/a.rb")], database.paths
     assert_equal [], database.diagnostics(path)
 
     # Updating replaces the entries of the file
-    database.update_library(path: path, entries: [entry("::String", role: :definition, at: [1, 6, 1, 12])])
+    database.update_rbs(path: path, target: :app, entries: [entry("::String", role: :definition, at: [1, 6, 1, 12])])
     assert_equal [[path, :rbs, 1]], summarize(database.definitions("::String"))
     assert_equal [], database.references("::Integer")
     assert_equal 2, database.entry_count

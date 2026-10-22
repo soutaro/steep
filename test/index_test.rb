@@ -6,7 +6,6 @@ class IndexTest < Minitest::Test
   include SubtypingHelper
   include TypeConstructionHelper
 
-  RBSIndex = Steep::Index::RBSIndex
   SourceIndex = Steep::Index::SourceIndex
 
   def assert_node_set(nodes, *locs)

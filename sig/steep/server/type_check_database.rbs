@@ -7,24 +7,33 @@ module Steep
     # the workers keeping the `Typing` objects in memory.
     #
     # It stores LSP formatted diagnostics and the definitions and references of methods, constants, and RBS type names
-    # with their locations, in two tables:
+    # with their locations, in three tables:
     #
     # * *Sources* keeps the results of type checking Ruby code, keyed by the path -- a Ruby file belongs to exactly one target
-    # * *Signatures* keeps the results of validating RBS declarations, keyed by the path and the target -- an RBS file is
-    #   loaded in every target that references it, and the names it references may resolve differently in each target
+    # * *Signatures* keeps the diagnostics of validating RBS declarations, keyed by the path and the target -- an RBS file
+    #   is loaded in every target that references it
+    # * *RBS* keeps the definitions and references in RBS declarations, keyed by the path and the target -- the names an
+    #   RBS file references may resolve differently in each target
     #
-    # A Ruby file with inline RBS declarations has its results in both tables: the type checking of the Ruby code in
-    # *sources*, and the validation of the inline declarations in *signatures*.
+    # The workers report the entries of RBS declarations when they validate a file, and when they index a file without
+    # validating it: the library RBS files, and the RBS files of the groups not type checked. So a file may have entries
+    # without being validated.
+    #
+    # A Ruby file with inline RBS declarations has its results in every table: the type checking of the Ruby code in
+    # *sources*, the validation of the inline declarations in *signatures*, and the entries of the declarations in *RBS*.
     #
     # ```rb
     # database = TypeCheckDatabase.new()
     #
     # database.update_source(path: Pathname("lib/foo.rb"), target: :app, diagnostics: diagnostics, entries: entries)
-    # database.update_signature(path: Pathname("sig/foo.rbs"), target: :app, diagnostics: diagnostics, entries: entries)
+    # database.update_signature(path: Pathname("sig/foo.rbs"), target: :app, diagnostics: diagnostics)
+    # database.update_rbs(path: Pathname("sig/foo.rbs"), target: :app, entries: entries)
     #
     # database.diagnostics(Pathname("lib/foo.rb"))   # Diagnostics of the file, merged over the tables and the targets
     # database.definitions("::Foo#bar")              # Definitions of `Foo#bar` in the project
     # database.references("::Foo")                   # References of `Foo` in the project
+    # database.matching_names("foo")                 # Names including `foo`, ignoring the case
+    # database.rbs_definitions(["::Foo", "::Foo#bar"]) # RBS declarations of the names, for `workspace/symbol`
     # ```
     #
     # The queries return the locations in all targets, merged and deduplicated.
@@ -41,14 +50,22 @@ module Steep
       #   a singleton method (`::Foo.bar`), an interface (`::_Foo`), a type alias (`::foo`), or a global variable (`$foo`),
       #   which tells the kind of the entity by its syntax
       # * The location is in LSP convention -- 0-origin lines and characters, end-exclusive
+      # * `kind` is the kind of the declaration that an RBS definition entry comes from, and `nil` for the references and
+      #   the definitions in Ruby code
       #
       class Entry
         # Whether the entry defines the name or references it
         type role = :definition | :reference
 
+        # The kind of the RBS declaration -- a class alias is a `:class` and a module alias is a `:module`, and an
+        # attribute is `:attribute` for both of its reader and writer methods
+        type kind = :class | :module | :interface | :type_alias | :constant | :global | :method | :attribute
+
         attr_reader name: String
 
         attr_reader role: role
+
+        attr_reader kind: kind?
 
         attr_reader start_line: Integer
 
@@ -60,11 +77,14 @@ module Steep
 
         # Array representation of an entry for `$/steep/typecheck/progress` notifications
         #
-        # `[name, role code, start_line, start_character, end_line, end_character]`
+        # `[name, code, start_line, start_character, end_line, end_character]`
         #
         type wire = Array[untyped]
 
-        def initialize: (name: String, role: role, start_line: Integer, start_character: Integer, end_line: Integer, end_character: Integer) -> void
+        def initialize: (name: String, role: role, start_line: Integer, start_character: Integer, end_line: Integer, end_character: Integer, ?kind: kind?) -> void
+
+        # The role and the kind in an `Integer` -- the lowest bit is the role, and the other bits are the kind, `0` for `nil`
+        def code: () -> Integer
 
         def to_wire: () -> wire
 
@@ -98,6 +118,17 @@ module Steep
         def lsp_range: () -> lsp_range
       end
 
+      # An RBS declaration found by `#rbs_definitions`
+      class Definition
+        attr_reader name: String
+
+        attr_reader kind: Entry::kind
+
+        attr_reader location: Location
+
+        def initialize: (name: String, kind: Entry::kind, location: Location) -> void
+      end
+
       # Interned strings with reference counting
       #
       # Each unique string is stored once and identified by an `Integer` id.
@@ -129,9 +160,12 @@ module Steep
 
         # Number of the strings in the pool
         def size: () -> Integer
+
+        # Yields the id and the string of each string in the pool
+        def each: () { ([Integer, String]) -> void } -> void
       end
 
-      # The result of the last type checking of a file, or of a file/target pair
+      # The result of the last type checking of a Ruby file
       class FileResult
         # The target the file is type checked in
         attr_reader target: Symbol
@@ -141,7 +175,7 @@ module Steep
         # Packed entries
         attr_reader entries: Array[Integer]
 
-        # The numbers of the method calls of Ruby code, `nil` for RBS declarations or when the file has no `Typing`
+        # The numbers of the method calls, `nil` when the file has no `Typing`
         attr_reader stats: Services::StatsCalculator::calls?
 
         def initialize: (target: Symbol, diagnostics: Array[untyped], entries: Array[Integer], stats: Services::StatsCalculator::calls?) -> void
@@ -151,26 +185,27 @@ module Steep
 
       ROLES: Hash[Integer, Entry::role]
 
+      KIND_CODES: Hash[Entry::kind, Integer]
+
+      KINDS: Hash[Integer, Entry::kind]
+
       # Number of `Integer`s that represent one entry
       ENTRY_SIZE: Integer
 
       # Results of type checking Ruby code
       @sources: Hash[Pathname, FileResult]
 
-      # Results of validating RBS declarations
-      @signatures: Hash[Pathname, Hash[Symbol, FileResult]]
+      # Diagnostics of validating RBS declarations, of each path and target
+      @signatures: Hash[Pathname, Hash[Symbol, Array[untyped]]]
 
       # Reference counts of names per path in `@sources` -- `name id => (path => count)`
       @source_paths: Hash[Integer, Hash[Pathname, Integer]]
 
-      # Reference counts of names per path in `@signatures` -- `name id => (path => count)`
-      @signature_paths: Hash[Integer, Hash[Pathname, Integer]]
+      # Packed entries of RBS declarations, of each path and target
+      @rbs: Hash[Pathname, Hash[Symbol, Array[Integer]]]
 
-      # Entries of the library RBS files, which are not type checked: the packed entries of each path
-      @libraries: Hash[Pathname, Array[Integer]]
-
-      # Reference counts of names per path in `@libraries` -- `name id => (path => count)`
-      @library_paths: Hash[Integer, Hash[Pathname, Integer]]
+      # Reference counts of names per path in `@rbs`, over the targets -- `name id => (path => count)`
+      @rbs_paths: Hash[Integer, Hash[Pathname, Integer]]
 
       # Extracts the entries of a type checked Ruby file from its `Typing`
       #
@@ -204,18 +239,20 @@ module Steep
       #
       def update_source: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?, ?stats: Services::StatsCalculator::calls?) -> void
 
-      # Replaces the result of validating the RBS declarations in the file, in the target
+      # Replaces the diagnostics of validating the RBS declarations in the file, in the target
       #
-      # `diagnostics` or `entries` given `nil` keeps the ones of the last update, for the validation that is skipped.
+      # `diagnostics` given `nil` keeps the ones of the last update, for the validation that is skipped.
       #
-      def update_signature: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?, entries: Array[Entry]?) -> void
+      def update_signature: (path: Pathname, target: Symbol, diagnostics: Array[untyped]?) -> void
 
-      # Replaces the entries of a library RBS file
+      # Replaces the entries of the RBS declarations in the file, in the target
       #
-      # Library files are not type checked: they have no diagnostics, no target, and are not `checked?` nor in `paths`.
-      # Their entries are found by `definitions` and `references` as `:rbs` locations, like the ones of signature files.
+      # `entries` given `nil` keeps the ones of the last update, for the signatures that fail to load.
       #
-      def update_library: (path: Pathname, entries: Array[Entry]) -> void
+      # The entries are not the results of a validation: storing them doesn't make the file `checked?` nor puts it in
+      # `paths`. They are found by `definitions` and `references` as `:rbs` locations.
+      #
+      def update_rbs: (path: Pathname, target: Symbol, entries: Array[Entry]?) -> void
 
       # Deletes everything stored for the `path`
       def remove: (Pathname path) -> void
@@ -248,6 +285,20 @@ module Steep
       #
       def references: (String name) -> Array[Location]
 
+      # Returns the names in the database that include `query`, ignoring the case, or every name for `""`
+      #
+      # The names are the fully qualified names of the entries, like `::Foo::Bar#baz`, of the definitions and the
+      # references in every table.
+      #
+      def matching_names: (String query) -> Array[String]
+
+      # Returns the RBS declarations of the names
+      #
+      # The declarations are the definition entries with a kind, in the *RBS* table, and one found in several targets is
+      # returned once. The files that have the names are read once for all of the names.
+      #
+      def rbs_definitions: (Array[String] names) -> Array[Definition]
+
       # Number of entries stored in the database
       def entry_count: () -> Integer
 
@@ -260,7 +311,8 @@ module Steep
 
       def matching_locations: (String name, role: Entry::role) -> Array[Location]
 
-      # Appends the locations of the entries of the name and the role in the packed `array` to `locations`
+      # Appends the locations of the entries of the name and the role (the code of the role, without the kind) in the
+      # packed `array` to `locations`
       def collect_locations: (Array[Location] locations, Array[Integer] array, Integer id, Integer role_code, path: Pathname, source: Location::source) -> void
 
       def release_entries: (Hash[Integer, Hash[Pathname, Integer]] name_paths, Pathname path, Array[Integer] array) -> void

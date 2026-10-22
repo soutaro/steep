@@ -9,9 +9,21 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
   include Steep
 
-  MethodDecl: untyped
+  LSP: untyped
 
-  def type_check: (untyped content) -> untyped
+  LSPFormatter: untyped
+
+  ContentChange: untyped
+
+  def dirs: () -> untyped
+
+  # @rbs (::Steep::Server::CustomMethods::Hover::content) -> String
+  def format_hover: (::Steep::Server::CustomMethods::Hover::content) -> String
+
+  # @rbs (::Steep::Server::CustomMethods::Completion::item) -> String?
+  def format_completion: (::Steep::Server::CustomMethods::Completion::item) -> String?
+
+  def range: () -> untyped
 
   def test_ruby_hover_variable: () -> untyped
 
@@ -26,6 +38,8 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
   def test_ruby_hover_method_call__special: () -> untyped
 
   def test_ruby_hover_method_call__error: () -> untyped
+
+  def test_ruby_hover_method_call__unknown_method: () -> untyped
 
   def test_ruby_hover_method_def: () -> untyped
 
@@ -42,6 +56,8 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
   def test_rbs_hover_class__no_doc: () -> untyped
 
   def test_ruby_hover_constant_const: () -> untyped
+
+  def test_ruby_hover_constant__unknown: () -> untyped
 
   def test_ruby_hover_type: () -> untyped
 
@@ -69,5 +85,22 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
   def test_ruby_completion__method___generated: () -> untyped
 
+  def test_ruby_completion__method___singleton_new: () -> untyped
+
   def test_rbs_completion: () -> untyped
+
+  def test_completion_item__type_name: () -> untyped
+
+  def test_completion_item__method: () -> untyped
+
+  def test_completion_item__others: () -> untyped
+
+  # @rbs () -> ::Steep::Services::TypeCheckService
+  def type_check_service: () -> ::Steep::Services::TypeCheckService
+
+  def test_hover: () -> untyped
+
+  def test_completion_list: () -> untyped
+
+  def test_signature_help: () -> untyped
 end

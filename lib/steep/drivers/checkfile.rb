@@ -101,19 +101,17 @@ module Steep
 
         Steep.logger.info { "Starting #{count} workers for #{files.size} files..." }
 
-        typecheck_workers = Server::WorkerProcess.start_typecheck_workers(
+        launcher = Server::WorkerLauncher.create(
           steepfile: project.steepfile_path,
-          args: [],
           steep_command: jobs_option.steep_command,
-          count: count
+          typecheck_count: count
         )
 
         master = Server::Master.new(
           project: project,
           reader: server_reader,
           writer: server_writer,
-          interaction_worker: nil,
-          typecheck_workers: typecheck_workers
+          launcher: launcher
         )
         master.typecheck_automatically = false
 
@@ -160,7 +158,10 @@ module Steep
         end
 
         request.needs_response = true
-        master.start_type_check(request: request, last_request: nil, report_progress_threshold: 0)
+        # The main loop starts the type check, which may be forking the workers
+        master.job_queue << -> do
+          master.start_type_check(request: request, last_request: nil, report_progress_threshold: 0)
+        end
 
         Steep.logger.info { "Starting type checking: #{request_guid}" }
 
