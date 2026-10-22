@@ -107,6 +107,10 @@ module Steep
     #
     def self.skip_arg_assertions: (Parser::AST::Node) -> bool
 
+    # Returns `true` if the node is a `Data.define` or `Struct.new` call
+    #
+    def self.data_struct_definition_send?: (Parser::AST::Node) -> bool
+
     def self.adjust_location: (Parser::AST::Node) -> Parser::AST::Node
 
     # Returns an `:assertion` node with `TypeAssertion`
