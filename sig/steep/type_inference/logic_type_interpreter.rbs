@@ -28,7 +28,12 @@ module Steep
 
         attr_reader entries: Array[[AST::Types::t, Array[AST::Types::t]?]]
 
-        def initialize: (name: Symbol, entries: Array[[AST::Types::t, Array[AST::Types::t]?]]) -> void
+        # `true` when the discriminant types may be class instances, not only literals.
+        # Members are then dropped only if the narrowed type is also made of types whose disjointness can be decided.
+        #
+        attr_reader nominal: bool?
+
+        def initialize: (name: Symbol, entries: Array[[AST::Types::t, Array[AST::Types::t]?]], ?nominal: bool?) -> void
       end
 
       TRUE: AST::Types::Literal
@@ -85,11 +90,31 @@ module Steep
       #
       def decompose_value: (Parser::AST::Node node) -> [Parser::AST::Node, Set[Symbol]]
 
+      # Narrows a local variable typed as a union of tuples by its size, with `lvar.size == n` or `lvar.length == n`
+      #
+      # Returns `nil` if the node is not a size comparison of such a local variable, or nothing can be narrowed.
+      #
+      def evaluate_tuple_size_equality: (env: TypeEnv, receiver: Parser::AST::Node, arg: Parser::AST::Node) -> [Result, Result]?
+
       def refine_pure_call: (TypeEnv env, Parser::AST::Node node, AST::Types::t type, ?RecordDiscriminant? discriminant) -> TypeEnv
 
       private
 
       def record_discriminant: (TypeEnv env, Parser::AST::Node node) -> RecordDiscriminant?
+
+      # Returns the discriminant for `lvar.first`, `lvar.last`, or `lvar[n]` where `lvar` is a union of tuples (or arrays)
+      #
+      def tuple_discriminant: (TypeEnv env, Parser::AST::Node node) -> RecordDiscriminant?
+
+      # Returns the types of the element at `index` of a tuple or array type, or `nil` if they cannot be told disjoint
+      #
+      def tuple_element_types: (AST::Types::t member, Integer index) -> Array[AST::Types::t]?
+
+      # Returns `true` if the type is a literal, `nil`, or an instance of a class
+      #
+      def disjoint_comparable?: (AST::Types::t) -> bool
+
+      def record_discriminant0: (TypeEnv env, Parser::AST::Node node) -> RecordDiscriminant?
 
       def discriminant_key_types: (AST::Types::t member, Symbol | String key) -> Array[AST::Types::t]?
 
