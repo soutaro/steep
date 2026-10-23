@@ -17,7 +17,7 @@ module Steep
         end
       end
 
-      class RecordDiscriminant < Struct.new(:name, :entries, keyword_init: true)
+      class RecordDiscriminant < Struct.new(:name, :entries, :nominal, keyword_init: true)
       end
 
       attr_reader :subtyping
@@ -329,7 +329,9 @@ module Steep
           end
 
         when AST::Types::Logic::ReceiverIsArg
-          if receiver && (arg = arguments[0])
+          if receiver && (arg = arguments[0]) && (results = evaluate_tuple_size_equality(env: env, receiver: receiver, arg: arg))
+            results
+          elsif receiver && (arg = arguments[0])
             receiver_type = typing.type_of(node: receiver)
             arg_type = factory.deep_expand_alias(typing.type_of(node: arg))
 
@@ -448,6 +450,46 @@ module Steep
         end
       end
 
+      # Narrows a local variable typed as a union of tuples (or arrays) by its size, with `lvar.size == n` or `lvar.length == n`
+      #
+      # Tuples are kept in the truthy branch if they have `n` elements, and in the falsy branch otherwise. Arrays are kept in both.
+      #
+      def evaluate_tuple_size_equality(env:, receiver:, arg:)
+        return unless receiver.type == :send && arg.type == :int
+
+        var_node, method, *rest = receiver.children
+        return unless (method == :size || method == :length) && rest.empty? && var_node&.type == :lvar
+
+        name = var_node.children[0] #: Symbol
+        return if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+        size = arg.children[0] #: Integer
+        members = union_members(env[name]) or return
+
+        truthy_types = [] #: Array[AST::Types::t]
+        falsy_types = [] #: Array[AST::Types::t]
+
+        members.each do |member|
+          tuple = factory.deep_expand_alias(member)
+
+          if tuple.is_a?(AST::Types::Tuple)
+            (tuple.types.size == size ? truthy_types : falsy_types) << member
+          else
+            truthy_types << member
+            falsy_types << member
+          end
+        end
+
+        return if truthy_types.size == members.size && falsy_types.size == members.size
+
+        truthy_env = env.narrow_types(local_variable_types: { name => truthy_types.empty? ? BOT : AST::Types::Union.build(types: truthy_types) })
+        falsy_env = env.narrow_types(local_variable_types: { name => falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types) })
+
+        [
+          Result.new(type: TRUE, env: truthy_env, unreachable: truthy_types.empty?),
+          Result.new(type: FALSE, env: falsy_env, unreachable: falsy_types.empty?)
+        ]
+      end
+
       def evaluate_union_method_call(node:, type:, env:, receiver:, receiver_type:)
         call_type = typing.call_of(node: node) rescue nil
         return unless call_type.is_a?(Steep::TypeInference::MethodCall::Typed)
@@ -500,6 +542,67 @@ module Steep
 
       # Not expanded inside `narrow_record_receiver` because that would repeat the same expansion for each of the truthy and falsy branches.
       def record_discriminant(env, node)
+        tuple_discriminant(env, node) || record_discriminant0(env, node)
+      end
+
+      # Narrows a union of tuples (and arrays) through one of its elements, like `args.first` or `args[1]`.
+      def tuple_discriminant(env, node)
+        receiver, method, *args = node.children
+        return unless receiver&.type == :lvar
+
+        index =
+          case
+          when method == :first && args.empty?
+            0
+          when method == :last && args.empty?
+            -1
+          when method == :[] && args.size == 1 && args[0].type == :int
+            args[0].children[0]
+          end
+        return unless index.is_a?(Integer)
+
+        name = receiver.children[0] #: Symbol
+        return if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+        members = union_members(env[name]) or return
+
+        entries = members.map do |member|
+          [member, tuple_element_types(member, index)] #: [AST::Types::t, Array[AST::Types::t]?]
+        end
+
+        RecordDiscriminant.new(name: name, entries: entries, nominal: true)
+      end
+
+      def tuple_element_types(member, index)
+        expanded = factory.deep_expand_alias(member)
+
+        types =
+          case
+          when expanded.is_a?(AST::Types::Tuple)
+            [expanded.types[index] || AST::Builtin.nil_type]
+          when expanded.is_a?(AST::Types::Name::Instance) && expanded.name == AST::Builtin::Array.module_name
+            [expanded.args[0] || AST::Builtin.any_type, AST::Builtin.nil_type]
+          else
+            return
+          end
+
+        types = types.flat_map {|type| factory.flatten_union(factory.deep_expand_alias(type) || type) }
+        types if types.all? {|type| disjoint_comparable?(type) }
+      end
+
+      # Literals, `nil`, and instances of classes can be compared to tell if they are disjoint.
+      # Modules and interfaces cannot, because a value may be an instance of any class that includes or satisfies them.
+      def disjoint_comparable?(type)
+        case type
+        when AST::Types::Literal, AST::Types::Nil
+          true
+        when AST::Types::Name::Instance
+          subtyping.factory.env.class_entry(type.name) ? true : false
+        else
+          false
+        end
+      end
+
+      def record_discriminant0(env, node)
         receiver, method, key_node, *rest = node.children
         return unless method == :[] && rest.empty? && receiver&.type == :lvar
         return unless key_node && (key_node.type == :sym || key_node.type == :str)
@@ -533,6 +636,10 @@ module Steep
         return BOT if type.is_a?(AST::Types::Bot)
 
         type_expanded = factory.flatten_union(factory.deep_expand_alias(type) || type)
+
+        if discriminant.nominal
+          return unless type_expanded.all? {|t| disjoint_comparable?(t) }
+        end
 
         kept = discriminant.entries.select do |_, key_types|
           key_types.nil? || !disjoint?(key_types, type_expanded)

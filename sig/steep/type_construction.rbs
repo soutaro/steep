@@ -84,6 +84,12 @@ module Steep
     #
     def no_subtyping?: (sub_type: AST::Types::t, super_type: AST::Types::t, ?constraints: Subtyping::Constraints) -> Subtyping::Result::t?
 
+    # Returns the type of the positional rest param of a method definition with overloads, as the union of what it receives in each overload
+    #
+    # Returns `nil` if the method has one overload, an overload is generic, or the definition has positional params other than required ones around the rest param.
+    #
+    def overloaded_rest_param_type: (Parser::AST::Node node, RBS::Definition::Method? method) -> AST::Types::t?
+
     def for_new_method: (Symbol method_name, Parser::AST::Node node, args: Array[Parser::AST::Node], self_type: untyped, definition: RBS::Definition?) -> TypeConstruction
 
     def with_method_constr: (untyped method_name, untyped node, args: untyped, self_type: untyped, definition: untyped) { (untyped) -> untyped } -> untyped
@@ -221,6 +227,38 @@ module Steep
     #   * It means the type checker can report only *no suitable overload detected for this args* 😫
     #
     def type_method_call: (
+      Parser::AST::Node node,
+      method_name: Symbol,
+      receiver_type: AST::Types::t,
+      method: Interface::Shape::Entry,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
+
+    # The max number of members of a union splatted into a method call that is type checked for each member
+    #
+    MAX_SPLAT_UNION_MEMBERS: Integer
+
+    # Type checks a method call that splats a local variable typed as a union, once for each member of the union
+    #
+    # * Returns `nil` unless every member is accepted by some overload, and the call is type checked with the whole union
+    #
+    def type_method_call_with_splat_union: (
+      Parser::AST::Node node,
+      method_name: Symbol,
+      receiver_type: AST::Types::t,
+      method: Interface::Shape::Entry,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
+
+    def type_method_call0: (
       Parser::AST::Node node,
       method_name: Symbol,
       receiver_type: AST::Types::t,
