@@ -2513,6 +2513,61 @@ a.gen(*b)
     end
   end
 
+  def test_splat_arg_tuple
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: () -> untyped
+  def two: (String, Integer) -> void
+  def three: (Symbol, String, Integer) -> void
+  def trailing: (String, Integer, Symbol) -> void
+end
+    EOF
+      source = parse_ruby(<<-'EOF')
+a = A.new
+# @type var t: [String, Integer]
+t = ["1", 1]
+a.two(*t)
+a.three(:foo, *t)
+a.trailing(*t, :foo)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_splat_arg_tuple_mismatch
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: () -> untyped
+  def two: (String, Integer) -> void
+end
+    EOF
+      source = parse_ruby(<<-'EOF')
+a = A.new
+# @type var t: [Integer, Integer]
+t = [1, 1]
+a.two(*t)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
+            assert_equal "*t", error.node.loc.expression.source
+            assert_equal parse_type("[::Integer, ::Integer]"), error.actual
+            assert_equal parse_type("[::String, ::Integer]"), error.expected
+          end
+        end
+      end
+    end
+  end
+
   def test_self
     with_checker <<-EOF do |checker|
 class Hoge
