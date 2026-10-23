@@ -1619,6 +1619,48 @@ class TypeCheckTest < Minitest::Test
     end
   end
 
+  def test_if__narrow_tuple_union__size
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type args = [Array[[String, String]]] | [String, String] | [String, Array[String]] | Array[Integer]
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          args = (_ = nil) #: args
+
+          if args.size == 1
+            args
+          else
+            args
+          end
+
+          if args.length == 3
+            args
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 4, column: 2)
+      assert_equal "([::Array[[::String, ::String]]] | ::Array[::Integer])", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 6, column: 2)
+      assert_equal "([::String, ::String] | [::String, ::Array[::String]] | ::Array[::Integer])", typing.type_of(node: node).to_s
+
+      # The size of an array isn't known, so it's kept
+      node, * = typing.source.find_nodes(line: 10, column: 2)
+      assert_equal "::Array[::Integer]", typing.type_of(node: node).to_s
+    end
+  end
+
   def test_narrow_tuple_union__module_and_interface_members_kept
     run_type_check_test(
       signatures: {

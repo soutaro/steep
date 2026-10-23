@@ -90,6 +90,12 @@ module Steep
       #
       def decompose_value: (Parser::AST::Node node) -> [Parser::AST::Node, Set[Symbol]]
 
+      # Narrows a local variable typed as a union of tuples by its size, with `lvar.size == n` or `lvar.length == n`
+      #
+      # Returns `nil` if the node is not a size comparison of such a local variable, or nothing can be narrowed.
+      #
+      def evaluate_tuple_size_equality: (env: TypeEnv, receiver: Parser::AST::Node, arg: Parser::AST::Node) -> [Result, Result]?
+
       def refine_pure_call: (TypeEnv env, Parser::AST::Node node, AST::Types::t type, ?RecordDiscriminant? discriminant) -> TypeEnv
 
       private
