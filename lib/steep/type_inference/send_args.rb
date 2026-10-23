@@ -32,7 +32,12 @@ module Steep
           def node_type
             case node.type
             when :splat
-              AST::Builtin::Array.instance_type(type)
+              # A splatted tuple is paired with the tuple of the params it's consumed by
+              if type.is_a?(AST::Types::Tuple)
+                type
+              else
+                AST::Builtin::Array.instance_type(type)
+              end
             else
               type
             end
