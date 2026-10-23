@@ -111,6 +111,8 @@ class TypeCheckTest < Minitest::Test
 
   def test_case_when__narrow_tuple_union__index_and_last: () -> untyped
 
+  def test_if__narrow_tuple_union__size: () -> untyped
+
   def test_narrow_tuple_union__module_and_interface_members_kept: () -> untyped
 
   def test_narrow_record_union__non_literal_key_member_kept: () -> untyped

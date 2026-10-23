@@ -329,7 +329,9 @@ module Steep
           end
 
         when AST::Types::Logic::ReceiverIsArg
-          if receiver && (arg = arguments[0])
+          if receiver && (arg = arguments[0]) && (results = evaluate_tuple_size_equality(env: env, receiver: receiver, arg: arg))
+            results
+          elsif receiver && (arg = arguments[0])
             receiver_type = typing.type_of(node: receiver)
             arg_type = factory.deep_expand_alias(typing.type_of(node: arg))
 
@@ -446,6 +448,46 @@ module Steep
             ]
           end
         end
+      end
+
+      # Narrows a local variable typed as a union of tuples (or arrays) by its size, with `lvar.size == n` or `lvar.length == n`
+      #
+      # Tuples are kept in the truthy branch if they have `n` elements, and in the falsy branch otherwise. Arrays are kept in both.
+      #
+      def evaluate_tuple_size_equality(env:, receiver:, arg:)
+        return unless receiver.type == :send && arg.type == :int
+
+        var_node, method, *rest = receiver.children
+        return unless (method == :size || method == :length) && rest.empty? && var_node&.type == :lvar
+
+        name = var_node.children[0] #: Symbol
+        return if TypeConstruction::SPECIAL_LVAR_NAMES.include?(name)
+        size = arg.children[0] #: Integer
+        members = union_members(env[name]) or return
+
+        truthy_types = [] #: Array[AST::Types::t]
+        falsy_types = [] #: Array[AST::Types::t]
+
+        members.each do |member|
+          tuple = factory.deep_expand_alias(member)
+
+          if tuple.is_a?(AST::Types::Tuple)
+            (tuple.types.size == size ? truthy_types : falsy_types) << member
+          else
+            truthy_types << member
+            falsy_types << member
+          end
+        end
+
+        return if truthy_types.size == members.size && falsy_types.size == members.size
+
+        truthy_env = env.narrow_types(local_variable_types: { name => truthy_types.empty? ? BOT : AST::Types::Union.build(types: truthy_types) })
+        falsy_env = env.narrow_types(local_variable_types: { name => falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types) })
+
+        [
+          Result.new(type: TRUE, env: truthy_env, unreachable: truthy_types.empty?),
+          Result.new(type: FALSE, env: falsy_env, unreachable: falsy_types.empty?)
+        ]
       end
 
       def evaluate_union_method_call(node:, type:, env:, receiver:, receiver_type:)
