@@ -541,7 +541,7 @@ end
         )
       end
 
-      # The interaction runs on the environment thread, and the result is rendered on the main loop
+      # The interaction runs on the environment thread, which renders the result
       request_hover["hover_id", 0, 0]
       assert_empty flush_queue(master.write_queue)
       refute_empty master.environment_queue
@@ -693,7 +693,7 @@ end
       )
       assert_empty master.environment_queue
 
-      # Goto finds no location
+      # Goto finds no location, on the main loop
       master.process_message_from_client(
         {
           method: "textDocument/definition",
@@ -704,6 +704,7 @@ end
           }
         }
       )
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
         flush_queue(master.write_queue)
@@ -1872,6 +1873,8 @@ end
         }
       )
 
+      # Goto answers on the main loop
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
         flush_queue(master.write_queue)
@@ -1889,6 +1892,7 @@ end
         }
       )
 
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "implementation_id", result: [] })],
         flush_queue(master.write_queue)

@@ -326,21 +326,22 @@ module Steep
       # file, the 1-origin line, and the column of the request
       type interaction = ^(InteractionProvider provider, Pathname path, Integer line, Integer column) -> untyped
 
-      # Runs the interaction of a request of the client on the environment thread, and yields its result on the main loop
+      # Runs the interaction of a request of the client on the environment thread, and yields its result there
       #
       # The interaction type checks the file on demand with the environments of the master, after the environment
       # thread applies the changes received so far. Only the latest interaction runs: the ones requested before it
-      # are answered with `nil`. Yields `nil` right away when the request is not about a position in a file, or the
-      # project is not loaded yet.
+      # are answered with `nil`. The block runs on the environment thread too, so that it renders the result with
+      # the environments without touching them from another thread; what it needs from the main loop, like the
+      # database, it hands to `job_queue`. Yields `nil` right away, on the main loop, when the request is not about
+      # a position in a file, or the project is not loaded yet.
       #
       def run_interaction: (untyped message, interaction interaction) { (untyped result) -> void } -> void
 
       # Answers a hover, completion, or signature help request of the client with the result of the interaction
       #
       # The result has what is at the position with the names of the declarations, and the master renders the
-      # documentation from its environments. The rendering runs on the main thread with the latest environments,
-      # without waiting for an update on the environment thread: an environment of the previous generation is good
-      # enough for the documentation, and a name it doesn't know is rendered without documentation.
+      # documentation from its environments, on the environment thread the interaction ran on: the environment
+      # thread is the only one to touch the environments, and the definitions the interaction built are at hand.
       #
       # A signature help with `syntax_error` -- the file cannot be parsed while the user types -- is answered with
       # the `activeSignatureHelp` of the request context, which the client sends while its signature help is

@@ -687,15 +687,18 @@ module Steep
           interaction = -> (provider, path, line, column) { provider.source_symbol(path: path, line: line, column: column) } #: Master::interaction
 
           run_interaction(message, interaction) do |result|
-            # @type var result: CustomMethods::Source__Symbol::result?
-            locations =
-              if result
-                goto_resolver.goto(kind: kind, from: from, result: result)
-              else
-                [] #: Array[GotoResolver::location]
-              end
+            # The symbols are looked up in the database, on the main loop
+            job_queue << -> do
+              # @type var result: CustomMethods::Source__Symbol::result?
+              locations =
+                if result
+                  goto_resolver.goto(kind: kind, from: from, result: result)
+                else
+                  [] #: Array[GotoResolver::location]
+                end
 
-            enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: locations })
+              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: locations })
+            end
           end
 
         when CustomMethods::Query__Definition::METHOD
@@ -1310,7 +1313,7 @@ module Steep
               nil
             end
 
-          job_queue << -> { block[result] }
+          block[result]
         rescue ClosedQueueError
           # The main loop has stopped
         end
@@ -1339,7 +1342,7 @@ module Steep
           return
         end
 
-        # Renders with the latest environments, without waiting for an update running on the environment thread
+        # Renders on the environment thread, with the environments the interaction ran with
         lsp_result =
           begin
             case message[:method]
