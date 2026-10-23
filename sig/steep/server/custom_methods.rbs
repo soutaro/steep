@@ -6,8 +6,7 @@ module Steep
     module CustomMethods
       # Notification with the latest contents of files, sent from master to a worker
       #
-      # The master sends a worker the files it needs right before a type check or an interaction request.
-      # See `Master#deliver_contents`.
+      # The master sends a worker the files it needs right before a type check. See `Master#deliver_contents`.
       #
       module FileLoad
         METHOD: String
@@ -179,21 +178,12 @@ module Steep
 
       type range = { start: position, end: position }
 
-      # Request for the hover content at a position, sent from master to a typecheck worker
+      # The hover content at a position, which `InteractionProvider` finds and `LSPFormatter` renders
       #
-      # The worker type checks the file on demand and returns what is at the position. It sends the
-      # types as strings and the declarations as names -- `::Foo`, `::Foo#bar`, or `::Foo.bar` -- because the
-      # master resolves the names in its own environment when it renders the documentation. No declaration nor
-      # comment travels between the processes.
+      # The content has the types as strings and the declarations as names -- `::Foo`, `::Foo#bar`, or `::Foo.bar`
+      # -- and the formatter resolves the names in the environment when it renders the documentation.
       #
       module Hover
-        METHOD: String
-
-        type params = {
-          uri: String,
-          position: position
-        }
-
         # A local variable: its name and type
         type variable_content = { kind: "variable", name: String, type: String }
 
@@ -242,25 +232,12 @@ module Steep
           range: range,
           content: content
         }
-
-        def self.request: (String id, params) -> untyped
-
-        def self.response: (String id, result?) -> untyped
       end
 
-      # Request for the completion items at a position, sent from master to a typecheck worker
-      #
-      # The worker returns the candidates, and the master renders them with the documentation from its environment.
+      # The completion items at a position, which `InteractionProvider` finds and `LSPFormatter` renders with the
+      # documentation from the environment
       #
       module Completion
-        METHOD: String
-
-        type params = {
-          uri: String,
-          position: position,
-          trigger: String?
-        }
-
         # A local variable: `name` is the text to insert, and `range` the text it replaces
         type local_variable_item = { kind: "local_variable", range: range, name: String, type: String }
 
@@ -302,22 +279,11 @@ module Steep
           incomplete: bool,
           items: Array[item]
         }
-
-        def self.request: (String id, params) -> untyped
-
-        def self.response: (String id, result?) -> untyped
       end
 
-      # Request for the signature help at a position, sent from master to a typecheck worker
+      # The signature help at a position, which `InteractionProvider` finds and `LSPFormatter` renders
       #
       module SignatureHelp
-        METHOD: String
-
-        type params = {
-          uri: String,
-          position: position
-        }
-
         # `method_type` is an overload of the method being called, `parameters` are its parameters in the order of
         # the signature, `active_parameter` is the index of the parameter at the position, and `method` is the
         # name of the definition, absent for a method without definition
@@ -335,27 +301,15 @@ module Steep
         # tells that the file cannot be parsed, so that the master keeps showing the last signature help while the
         # user types
         type result = { signature_help: help?, syntax_error: bool }
-
-        def self.request: (String id, params) -> untyped
-
-        def self.response: (String id, result?) -> untyped
       end
 
-      # Request to resolve what is at a cursor position, sent from master to a typecheck worker
+      # What is at a cursor position, which `InteractionProvider` finds by type checking the file on demand, like hover
       #
-      # The worker type checks the file on demand, like hover, and returns what is at the position.
       # The master looks the names up in its `TypeCheckDatabase` to answer goto requests -- `constant`,
       # `type_name`, and `method_names` for definition and implementation, and the type names in `type` for
       # typeDefinition.
       #
       module Source__Symbol
-        METHOD: String
-
-        type params = {
-          uri: String,
-          position: { line: Integer, character: Integer }
-        }
-
         # What is at the position, each key present only when there is one
         #
         # * `constant` is the constant written at the position -- `::Foo`, referenced or defined in Ruby code, or
@@ -372,10 +326,6 @@ module Steep
           ?method_names: Array[String],
           ?type: String
         }
-
-        def self.request: (String id, params) -> untyped
-
-        def self.response: (String id, result) -> untyped
       end
 
       module Query__Diagnostics
