@@ -1544,6 +1544,66 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_intersection__methods_of_all_members
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Options
+            def merge: (Hash[Symbol, untyped]) -> instance
+          end
+
+          class Request
+            def options: () -> Options
+          end
+
+          module Auth
+            module OptionsMethods : Options
+              def token: () -> String
+            end
+
+            module RequestMethods : Request
+              def options: () -> (Options & OptionsMethods)
+            end
+          end
+
+          module Retries
+            module OptionsMethods : Options
+              def max_retries: () -> Integer
+            end
+
+            module RequestMethods : Request
+              def options: () -> (Options & OptionsMethods)
+            end
+          end
+
+          class Client
+            def connect: (Options) -> void
+
+            def run: (Options & Auth::OptionsMethods options, Request & Auth::RequestMethods & Retries::RequestMethods request) -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Client
+            def connect(options) = nil
+
+            def run(options, request)
+              connect(options.merge(a: 1))
+              request.options.token
+              request.options.max_retries
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_narrow_record_union__non_literal_key_member_kept
     run_type_check_test(
       signatures: {
