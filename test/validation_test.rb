@@ -597,6 +597,53 @@ EOF
     end
   end
 
+  def test_validate_instance_variables__narrowing
+    with_checker <<-EOF do |checker|
+class Options
+end
+
+class AuthOptions < Options
+end
+
+class Base
+  @options: Options
+
+  self.@default: Options
+end
+
+class Sub < Base
+  @options: AuthOptions
+
+  self.@default: AuthOptions
+end
+
+module Mixin : Base
+  @options: AuthOptions
+end
+
+class Widened < Base
+  @options: Options?
+end
+EOF
+      %w(::Sub ::Mixin).each do |name|
+        Validator.new(checker: checker).tap do |validator|
+          validator.validate_one_class(RBS::TypeName.parse(name))
+
+          assert_predicate validator, :no_error?, name
+        end
+      end
+
+      Validator.new(checker: checker).tap do |validator|
+        validator.validate_one_class(RBS::TypeName.parse("::Widened"))
+
+        assert_any!(validator.each_error, size: 1) do |error|
+          assert_instance_of Diagnostic::Signature::InstanceVariableTypeError, error
+          assert_equal "Instance variable type must be a subtype of the type in parents: (::Options | nil) <: ::Options", error.header_line
+        end
+      end
+    end
+  end
+
   def test_validate_class_variables
     with_checker <<-EOF do |checker|
 class A

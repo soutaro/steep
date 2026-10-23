@@ -45,6 +45,8 @@ class ValidationTest < Minitest::Test
 
   def test_validate_instance_variables: () -> untyped
 
+  def test_validate_instance_variables__narrowing: () -> untyped
+
   def test_validate_class_variables: () -> untyped
 
   def test_validate_type_application: () -> untyped

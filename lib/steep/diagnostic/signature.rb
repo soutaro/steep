@@ -360,7 +360,7 @@ module Steep
         end
 
         def header_line
-          "Instance variable cannot have different type with parents: #{var_type} <=> #{parent_type}"
+          "Instance variable type must be a subtype of the type in parents: #{var_type} <: #{parent_type}"
         end
       end
 
