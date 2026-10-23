@@ -153,6 +153,74 @@ module Steep
       end
     end
 
+    # Returns the type of the positional rest parameter of a method definition with overloads, as the union of
+    # what the rest parameter receives in each overload, so the types of its elements stay correlated:
+    #
+    # ```rbs
+    # def request: (Request) -> Response
+    #            | (String verb, String uri) -> Response
+    # ```
+    #
+    # `args` in `def request(*args)` is `[Request] | [String, String]`, instead of `Array[Request | String]`.
+    #
+    # Overloads with a rest param contribute an array of the union of their positional params, and overloads with
+    # optional params contribute a tuple for each number of optional args given.
+    #
+    # Returns `nil` when the method has a single overload, any overload is generic, or the definition has positional
+    # params other than required ones around the rest param.
+    #
+    def overloaded_rest_param_type(node, method)
+      return unless method && method.method_types.size > 1
+
+      args_node = node.type == :def ? node.children[1] : node.children[2]
+      positional_args = args_node.children.select {|arg| [:arg, :optarg, :restarg, :mlhs].include?(arg.type) }
+      rest_index = positional_args.index {|arg| arg.type == :restarg } or return
+      return unless positional_args.all? {|arg| arg.type == :arg || arg.type == :restarg }
+
+      leading = rest_index
+      trailing = positional_args.size - rest_index - 1
+
+      types = [] #: Array[AST::Types::t]
+
+      method.method_types.each do |rbs_method_type|
+        method_type = checker.factory.method_type(rbs_method_type)
+        return unless method_type.type_params.empty?
+        params = method_type.type.params or return
+
+        required = [] #: Array[AST::Types::t]
+        optional = [] #: Array[AST::Types::t]
+        trailing_required = [] #: Array[AST::Types::t]
+        rest = nil #: AST::Types::t?
+
+        params.positional_params&.each do |param|
+          case param
+          when Interface::Function::Params::PositionalParams::Required
+            (rest ? trailing_required : required) << param.type
+          when Interface::Function::Params::PositionalParams::Optional
+            optional << param.type
+          when Interface::Function::Params::PositionalParams::Rest
+            rest = param.type
+          end
+        end
+
+        if rest
+          types << AST::Builtin::Array.instance_type(AST::Types::Union.build(types: [*required, *optional, rest, *trailing_required]))
+        else
+          (0..optional.size).each do |n|
+            given = [*required, *optional.take(n), *trailing_required]
+            # The overload cannot be called with the args the definition requires
+            next if given.size < leading + trailing
+
+            types << AST::Types::Tuple.new(types: given[leading, given.size - leading - trailing] || [])
+          end
+        end
+      end
+
+      return if types.empty?
+
+      AST::Types::Union.build(types: types.uniq)
+    end
+
     def for_new_method(method_name, node, args:, self_type:, definition:)
       annots = source.annotations(block: node, factory: checker.factory, context: nesting)
       definition_method_type = if definition
@@ -233,10 +301,20 @@ module Steep
         block_param_name: block_param_name
       )
 
+      overloaded_rest_type =
+        if definition && !annotation_method_type
+          overloaded_rest_param_type(node, definition.methods[method_name])
+        end
+
       local_variable_types = method_params.each_param.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t]
         if param.name
           unless SPECIAL_LVAR_NAMES.include?(param.name)
-            hash[param.name] = param.var_type
+            hash[param.name] =
+              if overloaded_rest_type && param.is_a?(TypeInference::MethodParams::PositionalRestParameter)
+                overloaded_rest_type
+              else
+                param.var_type
+              end
           end
         elsif param.is_a?(TypeInference::MethodParams::BlockParameter)
           hash[ANONYMOUS_BLOCK_PASSABLE_LVAR] = param.var_type
@@ -263,6 +341,14 @@ module Steep
       ).build(type_env)
 
       method_params.errors.each do |error|
+        if overloaded_rest_type
+          # The rest param is typed from each overload, not from the merged method type the error is about
+          case error
+          when Diagnostic::Ruby::MethodParameterMismatch, Diagnostic::Ruby::DifferentMethodParameterKind
+            next if error.method_param.is_a?(TypeInference::MethodParams::PositionalRestParameter)
+          end
+        end
+
         typing.add_error error
       end
 
@@ -3711,7 +3797,63 @@ module Steep
       nil
     end
 
+    MAX_SPLAT_UNION_MEMBERS = 8
+
     def type_method_call(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:)
+      type_method_call_with_splat_union(node, method_name: method_name, receiver_type: receiver_type, method: method, arguments: arguments, block_params: block_params, block_body: block_body, tapp: tapp, hint: hint) ||
+        type_method_call0(node, method_name: method_name, receiver_type: receiver_type, method: method, arguments: arguments, block_params: block_params, block_body: block_body, tapp: tapp, hint: hint)
+    end
+
+    # Type checks a call that splats a local variable typed as a union (`foo(*args)`) once for each member of the union,
+    # since a splatted union other than a single tuple cannot be matched against the params precisely.
+    #
+    # The call is accepted when every member is accepted by some overload, and its type is the union of the return
+    # types. Returns `nil` otherwise, so the call is type checked with the whole union and its errors are reported.
+    #
+    def type_method_call_with_splat_union(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:)
+      # Typing the block once for each member would report its errors repeatedly
+      return if block_body
+
+      splats = arguments.select {|arg| arg.type == :splat && arg.children[0]&.type == :lvar }
+      return unless splats.size == 1
+
+      splat_node = splats.fetch(0)
+      var_node = splat_node.children[0] or raise
+      var_name = var_node.children[0] #: Symbol
+      var_type = context.type_env[var_name] or return
+
+      members = checker.factory.flatten_union(checker.factory.deep_expand_alias(var_type) || var_type)
+      return unless members.size > 1 && members.size <= MAX_SPLAT_UNION_MEMBERS
+
+      calls = [] #: Array[TypeInference::MethodCall::Typed]
+      last_constr = nil #: TypeConstruction?
+
+      members.each do |member|
+        typing.new_child do |child_typing|
+          constr = with_new_typing(child_typing).update_type_env {|env| env.refine_types(local_variable_types: { var_name => member }) }
+          call, constr = constr.type_method_call0(node, method_name: method_name, receiver_type: receiver_type, method: method, arguments: arguments, block_params: block_params, block_body: block_body, tapp: tapp, hint: hint)
+
+          return unless call.is_a?(TypeInference::MethodCall::Typed)
+
+          calls << call
+          last_constr = constr
+        end
+      end
+
+      last_constr or raise
+      # The argument nodes keep the types of the last member, except the splatted variable which has the whole union
+      last_constr.typing.save!
+      typing.add_typing(var_node, var_type, context)
+      typing.add_typing(splat_node, var_type, context)
+
+      return_type = AST::Types::Union.build(types: calls.map(&:return_type))
+      [
+        calls.fetch(0).update(return_type: return_type),
+        update_type_env { last_constr.context.type_env.assign_local_variables({ var_name => var_type }) }
+      ]
+    end
+
+    def type_method_call0(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:)
       # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
       fails = []
 

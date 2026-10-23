@@ -1544,6 +1544,133 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_def__overloaded_rest_param
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Request
+          end
+
+          class Session
+            def request: (Request) -> Integer
+                       | (*Request) -> Array[Integer]
+                       | (String verb, String uri, ?Hash[Symbol, untyped] params) -> Integer
+
+            def build: (String verb, String uri, Hash[Symbol, untyped] params) -> Request
+                     | (Array[[String, String]], Hash[Symbol, untyped] params) -> Request
+
+            def generic: [T] (*T) -> T
+                       | (*String) -> String
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Session
+            def request(*args)
+              args
+              0
+            end
+
+            def build(*args, params)
+              args
+              Request.new
+            end
+
+            def generic(*args)
+              args
+              _ = nil
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 3, column: 4)
+      assert_equal "([::Request] | ::Array[::Request] | [::String, ::String] | [::String, ::String, ::Hash[::Symbol, untyped]])", typing.type_of(node: node).to_s
+
+      # The trailing required param receives the last arg of each overload
+      node, * = typing.source.find_nodes(line: 8, column: 4)
+      assert_equal "([::String, ::String] | [::Array[[::String, ::String]]])", typing.type_of(node: node).to_s
+
+      # Generic overloads are merged as before
+      node, * = typing.source.find_nodes(line: 13, column: 4)
+      assert_match(/\A::Array\[\(T\(\d+\) \| ::String\)\]\z/, typing.type_of(node: node).to_s)
+    end
+  end
+
+  def test_send__splat_union
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Request
+          end
+
+          class Session
+            def request: (Request) -> Integer
+                       | (*Request) -> Array[Integer]
+                       | (String verb, String uri) -> Integer
+                       | (String verb, Array[String] uris) -> Array[Integer]
+
+            def build: (String verb, String uri, Hash[Symbol, untyped] params) -> Request
+                     | (String verb, Array[String] uris, Hash[Symbol, untyped] params) -> Array[Request]
+
+            def send_requests: (*Request) -> Array[Integer]
+
+            def strict: (String verb, String uri) -> Request
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class Session
+            def request(*args)
+              if args.first.is_a?(Request)
+                send_requests(*args)
+              elsif args.first.is_a?(String)
+                build(*args, {})
+                strict(*args)
+              end
+
+              0
+            end
+
+            def build(*) = _ = nil
+            def send_requests(*) = []
+            def strict(verb, uri) = Request.new
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 7
+                character: 13
+              end:
+                line: 7
+                character: 18
+            severity: ERROR
+            message: Unexpected positional argument
+            code: Ruby::UnexpectedPositionalArgument
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      nodes = typing.source.find_nodes(line: 6, column: 6)
+      node, * = nodes
+      assert_equal "(::Request | ::Array[::Request])", typing.type_of(node: node).to_s
+    end
+  end
+
   def test_if__narrow_tuple_union__first
     run_type_check_test(
       signatures: {
