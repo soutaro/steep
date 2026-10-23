@@ -184,8 +184,15 @@ module Steep
             union_shape(type, shapes)
           end
         when AST::Types::Intersection
-          shapes = type.types.map do |type|
-            cached_raw_shape(type, config) or return
+          shapes = type.types.map do |member|
+            case member
+            when AST::Types::Name::Instance
+              intersection_member_shape(member, self_type: type, instance_type: type)
+            when AST::Types::Name::Interface
+              object_shape(member.name).subst(Substitution.build([], self_type: type).merge(app_subst(member)), type: member)
+            else
+              cached_raw_shape(member, config) or return
+            end
           end
           intersection_shape(type, shapes)
         when AST::Types::Name::Alias
@@ -277,9 +284,32 @@ module Steep
           if bound = config.upper_bound(type.name)
             self_shape(bound, config)&.update(type: type)
           end
+        when AST::Types::Intersection
+          # `self` is an intersection in the body of a module with self types, `Object & Session & Auth::InstanceMethods`.
+          # `self` is kept, and `instance` and `class` are the ones of the context, shared by all of the members.
+          shapes = type.types.map do |member|
+            if member.is_a?(AST::Types::Name::Instance)
+              intersection_member_shape(member, self_type: nil, instance_type: config.instance_type || type, class_type: config.class_type)
+            else
+              self_shape(member, config) or return
+            end
+          end
+          intersection_shape(type, shapes)
         else
           raw_shape(type, config)
         end
+      end
+
+      # Returns the shape of a class or module instance type in an intersection, where `self` and `instance` are the
+      # intersection, not the member: a method of `Auth::InstanceMethods` returning `self` or `instance` on a value of
+      # `Session & Auth::InstanceMethods` returns `Session & Auth::InstanceMethods`, not `Auth::InstanceMethods`.
+      #
+      # `self_type: nil` keeps `self` to be substituted later.
+      #
+      def intersection_member_shape(type, self_type:, instance_type:, class_type: nil)
+        subst = class_subst(type)
+        subst = subst.update(self_type: self_type, instance_type: instance_type, module_type: class_type || subst.module_type)
+        object_shape(type.name).subst(subst.merge(app_subst(type)), type: type)
       end
 
       def app_subst(type)
