@@ -5087,6 +5087,74 @@ end
     end
   end
 
+  def test_module_self_type_alias
+    with_checker <<-EOF do |checker|
+interface _Reader[T]
+  def read: () -> T
+end
+
+module Writer
+  def write: (String) -> void
+end
+
+type io[T] = _Reader[T] & Writer
+
+module Buffered : io[String]
+  def copy: () -> void
+end
+    EOF
+      source = parse_ruby(<<-EOF)
+module Buffered
+  def copy
+    write(read)
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_module_self_type_alias_error
+    with_checker <<-EOF do |checker|
+module Writer
+  def write: (String) -> void
+end
+
+type writer = Writer
+
+module Buffered : writer
+  def copy: () -> void
+end
+    EOF
+      source = parse_ruby(<<-EOF)
+module Buffered
+  def copy
+    write(1)
+    read
+  end
+end
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
+          end
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::NoMethod, error
+            assert_equal :read, error.method
+          end
+        end
+      end
+    end
+  end
+
   def test_module_type_mismatch
     with_checker <<-EOF do |checker|
 class SampleModule
