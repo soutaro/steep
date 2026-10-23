@@ -1544,6 +1544,122 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_if__narrow_tuple_union__first
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Request
+          end
+
+          type args = [Request] | Array[Request] | [String, Integer] | [Array[String]]
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          args = (_ = nil) #: args
+
+          if args.first.is_a?(Request)
+            args
+          else
+            args
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 4, column: 2)
+      assert_equal "([::Request] | ::Array[::Request])", typing.type_of(node: node).to_s
+
+      # `Array[Request]` may be empty, so `first` may be `nil`
+      node, * = typing.source.find_nodes(line: 6, column: 2)
+      assert_equal "(::Array[::Request] | [::String, ::Integer] | [::Array[::String]])", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_case_when__narrow_tuple_union__index_and_last
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          type pair = [:get, String] | [:post, String, Hash[Symbol, String]] | [:head, Integer]
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          pair = (_ = nil) #: pair
+
+          case pair[1]
+          when Integer
+            pair
+          end
+
+          if pair.last.is_a?(Hash)
+            pair
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 5, column: 4)
+      assert_equal "[:head, ::Integer]", typing.type_of(node: node).to_s
+
+      node, * = typing.source.find_nodes(line: 9, column: 2)
+      assert_equal "[:post, ::String, ::Hash[::Symbol, ::String]]", typing.type_of(node: node).to_s
+    end
+  end
+
+  def test_narrow_tuple_union__module_and_interface_members_kept
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Request
+          end
+
+          module Mixin
+          end
+
+          interface _Named
+            def name: () -> String
+          end
+
+          type args = [Request] | [Mixin] | [_Named] | [String]
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          args = (_ = nil) #: args
+
+          case args.first
+          when Request
+            args
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      # A `Request` may include `Mixin` or satisfy `_Named`, so only `[String]` is dropped
+      node, * = typing.source.find_nodes(line: 5, column: 4)
+      assert_equal "([::Request] | [::Mixin] | [::_Named])", typing.type_of(node: node).to_s
+    end
+  end
+
   def test_narrow_record_union__non_literal_key_member_kept
     run_type_check_test(
       signatures: {
