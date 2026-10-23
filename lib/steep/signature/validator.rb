@@ -349,11 +349,11 @@ module Steep
                       var_type = checker.factory.type(var.type)
                       parent_type = checker.factory.type(parent.type)
 
+                      # Narrowing the type of the parent's instance variable is allowed, like in RBS
                       relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
-                      result1 = checker.check(relation, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
-                      result2 = checker.check(relation.flip, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
+                      result = checker.check(relation, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
 
-                      unless result1.success? and result2.success?
+                      unless result.success?
                         @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
                           name: name,
                           location: var.type.location,
@@ -425,23 +425,17 @@ module Steep
                     var_type = checker.factory.type(var.type)
                     parent_type = checker.factory.type(parent.type)
 
+                    # Narrowing the type of the parent's instance variable is allowed, like in RBS
                     relation = Subtyping::Relation.new(sub_type: var_type, super_type: parent_type)
-                    result1 = checker.check(
+                    result = checker.check(
                       relation,
                       self_type: AST::Types::Self.instance,
                       instance_type: AST::Types::Instance.instance,
                       class_type: AST::Types::Class.instance,
                       constraints: Subtyping::Constraints.empty
                     )
-                    result2 = checker.check(
-                      relation.flip,
-                      self_type: AST::Types::Self.instance,
-                      instance_type: AST::Types::Instance.instance,
-                      class_type: AST::Types::Class.instance,
-                      constraints: Subtyping::Constraints.empty
-                    )
 
-                    unless result1.success? and result2.success?
+                    unless result.success?
                       @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
                         name: name,
                         location: var.type.location,
