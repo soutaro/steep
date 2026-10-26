@@ -197,7 +197,6 @@ module Steep
       attr_reader :environment_queue
       attr_reader :pending_typecheck_jobs
       attr_reader :typecheck_jobs_in_flight
-      attr_reader :interaction_jobs_in_flight
       attr_reader :pending_index_jobs
 
       TYPECHECK_JOBS_PER_WORKER = 2
@@ -229,7 +228,7 @@ module Steep
         @environment_queue = Thread::Queue.new
         @pending_typecheck_jobs = []
         @typecheck_jobs_in_flight = {}
-        @interaction_jobs_in_flight = {}
+        @interaction_count = 0
         @pending_index_jobs = {}
         @shutting_down = false
         @typecheck_quiescent_callbacks = []
@@ -642,34 +641,19 @@ module Steep
           end
 
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
-          uri = message[:params][:textDocument][:uri] #: String
-          position = message[:params][:position] #: InteractionProvider::position
-
-          method, params =
+          interaction =
             case message[:method]
             when "textDocument/hover"
-              [CustomMethods::Hover::METHOD, { uri: uri, position: position }]
+              -> (provider, path, line, column) { provider.hover(path: path, line: line, column: column) }
             when "textDocument/completion"
               trigger = message[:params].dig(:context, :triggerCharacter) #: String?
-              [CustomMethods::Completion::METHOD, { uri: uri, position: position, trigger: trigger }]
+              -> (provider, path, line, column) { provider.completion(path: path, line: line, column: column, trigger: trigger) }
             else
-              [CustomMethods::SignatureHelp::METHOD, { uri: uri, position: position }]
-            end #: [String, untyped]
+              -> (provider, path, line, column) { provider.signature_help(path: path, line: line, column: column) }
+            end #: ^(InteractionProvider, Pathname, Integer, Integer) -> interaction_result?
 
-          worker =
-            if path = pathname(uri)
-              send_interaction_request(method: method, params: params, path: path) do |result|
-                respond_to_interaction(message, result)
-              end
-            end
-
-          unless worker
-            enqueue_write_job SendMessageJob.to_client(
-              message: {
-                id: message[:id],
-                result: nil
-              }
-            )
+          run_interaction(message, interaction) do |result|
+            respond_to_interaction(message, result)
           end
 
         when "workspace/symbol"
@@ -692,45 +676,28 @@ module Steep
               :type_definition
             end #: GotoResolver::kind
 
-          worker =
-            if path = pathname(message[:params][:textDocument][:uri])
-              from =
-                if controller.files.signature_paths.registered_path?(path) || controller.files.library_path?(path)
-                  :rbs
+          path = pathname(message[:params][:textDocument][:uri])
+          from =
+            if path && (controller.files.signature_paths.registered_path?(path) || controller.files.library_path?(path))
+              :rbs
+            else
+              :ruby
+            end #: GotoResolver::from
+
+          interaction = -> (provider, path, line, column) { provider.source_symbol(path: path, line: line, column: column) } #: ^(InteractionProvider, Pathname, Integer, Integer) -> InteractionProvider::SourceSymbol::result
+
+          run_interaction(message, interaction) do |result|
+            # The symbols are looked up in the database, on the main loop
+            job_queue << -> do
+              locations =
+                if result
+                  goto_resolver.goto(kind: kind, from: from, result: result)
                 else
-                  :ruby
-                end #: GotoResolver::from
+                  [] #: Array[GotoResolver::location]
+                end
 
-              params = {
-                uri: message[:params][:textDocument][:uri],
-                position: message[:params][:position]
-              } #: CustomMethods::Source__Symbol::params
-
-              send_interaction_request(method: CustomMethods::Source__Symbol::METHOD, params: params, path: path) do |result|
-                # @type var result: InteractionProvider::SourceSymbol::result?
-                locations =
-                  if result
-                    goto_resolver.goto(kind: kind, from: from, result: result)
-                  else
-                    [] #: Array[GotoResolver::location]
-                  end
-
-                enqueue_write_job SendMessageJob.to_client(
-                  message: {
-                    id: message[:id],
-                    result: locations
-                  }
-                )
-              end
+              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: locations })
             end
-
-          unless worker
-            enqueue_write_job SendMessageJob.to_client(
-              message: {
-                id: message[:id],
-                result: [] #: Array[untyped]
-              }
-            )
           end
 
         when CustomMethods::Query__Definition::METHOD
@@ -1312,70 +1279,73 @@ module Steep
         end
       end
 
-      def deliver_contents_for_request(worker, path)
+      def run_interaction(message, interaction, &block)
+        service = controller.type_check_service
+        path = pathname(message[:params][:textDocument][:uri])
+        position = message[:params][:position] #: InteractionProvider::position?
+
+        if path.nil? || position.nil? || service.nil?
+          block[nil]
+          return
+        end
+
+        line = position[:line] + 1
+        column = position[:character]
+
+        # The interaction sees the changes received so far, which the environment thread applies first
         update_environment()
-        deliver_contents(worker, signature_paths_to_deliver + [path])
-      end
 
-      def worker_for_interaction
-        typecheck_workers.min_by do |worker|
-          typecheck_jobs_in_flight.fetch(worker, 0) + interaction_jobs_in_flight.fetch(worker, 0)
+        count = (@interaction_count += 1)
+        provider = InteractionProvider.new(service: service)
+
+        environment_queue << -> do
+          result =
+            if count == @interaction_count
+              begin
+                interaction[provider, path, line, column]
+              rescue => exn
+                Steep.log_error(exn, message: "Failed to answer the interaction request: #{exn.inspect}")
+                nil
+              end
+            else
+              Steep.logger.info { "Skipping the interaction request: a newer one is waiting" }
+              nil
+            end
+
+          block[result]
+        rescue ClosedQueueError
+          # The main loop has stopped
         end
-      end
-
-      def send_interaction_request(method:, params:, path:)
-        worker = worker_for_interaction or return
-
-        deliver_contents_for_request(worker, path)
-        interaction_jobs_in_flight[worker] = interaction_jobs_in_flight.fetch(worker, 0) + 1
-
-        result_controller << send_request(method: method, params: params, worker: worker) do |handler|
-          handler.on_completion do |response|
-            interaction_jobs_in_flight[worker] = interaction_jobs_in_flight.fetch(worker, 0) - 1
-            yield response[:result]
-          end
-        end
-
-        worker
       end
 
       def respond_to_interaction(message, result)
         id = message[:id]
-
-        if message[:method] == "textDocument/signatureHelp"
-          help = result #: InteractionProvider::SignatureHelp::result?
-
-          if help && help[:syntax_error]
-            # The file cannot be parsed while the user types: keep the signature help the client is showing, if any
-            active_signature_help = message[:params].dig(:context, :activeSignatureHelp)
-            enqueue_write_job SendMessageJob.to_client(message: { id: id, result: active_signature_help })
-            return
-          end
-
-          result = help&.[](:signature_help)
-        end
-
         service = controller.type_check_service
 
-        if result.nil? || service.nil?
-          enqueue_write_job SendMessageJob.to_client(message: { id: id, result: nil })
-          return
-        end
-
-        # Renders with the latest environments, without waiting for an update running on the environment thread
+        # Renders on the environment thread, with the environments the interaction ran with
         lsp_result =
-          begin
-            case message[:method]
-            when "textDocument/hover"
-              LSPFormatter.hover(result, service: service)
-            when "textDocument/completion"
-              LSPFormatter.completion_list(result, service: service)
-            when "textDocument/signatureHelp"
-              LSPFormatter.signature_help(result, service: service)
+          if result && service
+            begin
+              case message[:method]
+              when "textDocument/hover"
+                hover = result #: InteractionProvider::Hover::result
+                LSPFormatter.hover(hover, service: service)
+              when "textDocument/completion"
+                completion = result #: InteractionProvider::Completion::result
+                LSPFormatter.completion_list(completion, service: service)
+              when "textDocument/signatureHelp"
+                signature_help = result #: InteractionProvider::SignatureHelp::result
+                if signature_help[:syntax_error]
+                  # The file cannot be parsed while the user types: keep the signature help the client is showing, if any
+                  message[:params].dig(:context, :activeSignatureHelp)
+                elsif help = signature_help[:signature_help]
+                  LSPFormatter.signature_help(help, service: service)
+                end
+              end
+            rescue => exn
+              Steep.log_error(exn, message: "Failed to format the result of #{message[:method]}: #{exn.inspect}")
+              nil
             end
-          rescue => exn
-            Steep.log_error(exn, message: "Failed to format the result of #{message[:method]}: #{exn.inspect}")
-            nil
           end
 
         enqueue_write_job SendMessageJob.to_client(message: { id: id, result: lsp_result })

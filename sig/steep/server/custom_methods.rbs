@@ -6,8 +6,7 @@ module Steep
     module CustomMethods
       # Notification with the latest contents of files, sent from master to a worker
       #
-      # The master sends a worker the files it needs right before a type check or an interaction request.
-      # See `Master#deliver_contents`.
+      # The master sends a worker the files it needs right before a type check. See `Master#deliver_contents`.
       #
       module FileLoad
         METHOD: String
@@ -172,77 +171,6 @@ module Steep
         def self.request: (String id, params) -> untyped
 
         def self.response: (String id, result) -> untyped
-      end
-
-      # Request for the hover content at a position, sent from master to a typecheck worker
-      #
-      # The worker type checks the file on demand and returns what is at the position. See `InteractionProvider::Hover`.
-      #
-      module Hover
-        METHOD: String
-
-        type params = {
-          uri: String,
-          position: InteractionProvider::position
-        }
-
-        def self.request: (String id, params) -> untyped
-
-        def self.response: (String id, InteractionProvider::Hover::result?) -> untyped
-      end
-
-      # Request for the completion items at a position, sent from master to a typecheck worker
-      #
-      # The worker returns the candidates, and the master renders them with the documentation from its environment.
-      # See `InteractionProvider::Completion`.
-      #
-      module Completion
-        METHOD: String
-
-        type params = {
-          uri: String,
-          position: InteractionProvider::position,
-          trigger: String?
-        }
-
-        def self.request: (String id, params) -> untyped
-
-        def self.response: (String id, InteractionProvider::Completion::result?) -> untyped
-      end
-
-      # Request for the signature help at a position, sent from master to a typecheck worker
-      #
-      # See `InteractionProvider::SignatureHelp`.
-      #
-      module SignatureHelp
-        METHOD: String
-
-        type params = {
-          uri: String,
-          position: InteractionProvider::position
-        }
-
-        def self.request: (String id, params) -> untyped
-
-        def self.response: (String id, InteractionProvider::SignatureHelp::result?) -> untyped
-      end
-
-      # Request to resolve what is at a cursor position, sent from master to a typecheck worker
-      #
-      # The worker type checks the file on demand, like hover, and returns what is at the position. See
-      # `InteractionProvider::SourceSymbol`.
-      #
-      module Source__Symbol
-        METHOD: String
-
-        type params = {
-          uri: String,
-          position: InteractionProvider::position
-        }
-
-        def self.request: (String id, params) -> untyped
-
-        def self.response: (String id, InteractionProvider::SourceSymbol::result) -> untyped
       end
 
       module Query__Diagnostics
