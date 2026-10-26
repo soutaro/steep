@@ -24,7 +24,7 @@ class Steep::Server::GotoResolverTest < Minitest::Test
   # Returns `[uri, start line]` pairs of the locations
   def summarize: (untyped locations) -> Array[[ String, Integer ]]
 
-  def result: (?constant: untyped, ?type_name: untyped, ?method_names: untyped, ?type: untyped) -> Steep::Server::CustomMethods::Source__Symbol::result
+  def result: (?constant: untyped, ?type_name: untyped, ?method_names: untyped, ?type: untyped) -> Steep::Server::InteractionProvider::SourceSymbol::result
 
   def test_definition_from_ruby_jumps_to_rbs: () -> untyped
 

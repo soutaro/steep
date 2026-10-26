@@ -209,8 +209,12 @@ module Steep
       #
       attr_reader pending_index_jobs: Hash[[Symbol, Pathname], true]
 
-      # The number of interaction requests -- hover, completion, signature help, and source symbol -- each worker is working on
-      attr_reader interaction_jobs_in_flight: Hash[WorkerProcess, Integer]
+      # The number of the interaction requests -- hover, completion, signature help, and goto -- received so far
+      #
+      # Only the latest one is answered: the client sends a request on every keystroke and cursor move, and only the
+      # answer of the last one matters.
+      #
+      @interaction_count: Integer
 
       # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
       @shutting_down: bool
@@ -249,7 +253,7 @@ module Steep
       #
       def start: () -> void
 
-      # The typecheck workers of the launcher, which also answer the interaction requests
+      # The typecheck workers of the launcher
       def typecheck_workers: () -> Array[WorkerProcess]
 
       # Starts the workers through the launcher, with the environments the project is loaded into, and their threads
@@ -313,40 +317,41 @@ module Steep
       # Sends the worker the latest contents of the files it doesn't have yet, as a `$/steep/file/load` notification
       #
       # The master is the source of truth of the file contents, and the workers receive them right before they need
-      # them: the RBS files before a type check, and the RBS files and the file of the request before an interaction
-      # request. The Ruby files to type check go with the `$/steep/typecheck/file` requests. `worker.known_versions`
-      # records what the worker has, so unchanged files are not sent again.
+      # them: the RBS files before a type check. The Ruby files to type check go with the `$/steep/typecheck/file`
+      # requests. `worker.known_versions` records what the worker has, so unchanged files are not sent again.
       #
       def deliver_contents: (WorkerProcess worker, Array[Pathname] paths) -> void
 
-      # Applies the pending changes to the environments, and sends the worker the RBS files and the file of a request
-      def deliver_contents_for_request: (WorkerProcess worker, Pathname path) -> void
+      # The result of a hover, completion, or signature help interaction
+      type interaction_result = InteractionProvider::Hover::result
+                              | InteractionProvider::Completion::result
+                              | InteractionProvider::SignatureHelp::result
 
-      # The typecheck worker with the fewest requests in flight, which answers an interaction request the soonest
+      # Runs the interaction of a request of the client on the environment thread, and yields its result there
       #
-      # Returns `nil` when no worker is running.
+      # The interaction type checks the file on demand with the environments of the master, after the environment
+      # thread applies the changes received so far. Only the latest interaction runs: the ones requested before it
+      # are answered with `nil`. The block runs on the environment thread too, so that it renders the result with
+      # the environments without touching them from another thread; what it needs from the main loop, like the
+      # database, it hands to `job_queue`. Yields `nil` right away, on the main loop, when the request is not about
+      # a position in a file, or the project is not loaded yet.
       #
-      def worker_for_interaction: () -> WorkerProcess?
+      def run_interaction: [T] (
+        untyped message,
+        ^(InteractionProvider provider, Pathname path, Integer line, Integer column) -> T interaction
+      ) { (T? result) -> void } -> void
 
-      # Sends an interaction request to the typecheck worker with the fewest requests in flight, with the files it needs
+      # Answers a hover, completion, or signature help request of the client with the result of the interaction
       #
-      # The worker runs the request ahead of the type check jobs waiting in its queue. The block receives the result
-      # when the response comes back. Returns the worker, or `nil` without sending when no worker is running.
-      #
-      def send_interaction_request: (method: String, params: untyped, path: Pathname) { (untyped result) -> void } -> WorkerProcess?
-
-      # Answers a hover, completion, or signature help request of the client with the result from the worker
-      #
-      # The worker sends what is at the position with the names of the declarations, and the master renders the
-      # documentation from its own environments. The rendering runs on the main thread with the latest environments,
-      # without waiting for an update on the environment thread: an environment of the previous generation is good
-      # enough for the documentation, and a name it doesn't know is rendered without documentation.
+      # The result has what is at the position with the names of the declarations, and the master renders the
+      # documentation from its environments, on the environment thread the interaction ran on: the environment
+      # thread is the only one to touch the environments, and the definitions the interaction built are at hand.
       #
       # A signature help with `syntax_error` -- the file cannot be parsed while the user types -- is answered with
       # the `activeSignatureHelp` of the request context, which the client sends while its signature help is
       # showing, or `nil`.
       #
-      def respond_to_interaction: (untyped message, untyped result) -> void
+      def respond_to_interaction: (untyped message, interaction_result? result) -> void
 
       # The RBS files and inline RBS sources of the project, which every worker needs for its environments
       def signature_paths_to_deliver: () -> Array[Pathname]

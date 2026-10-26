@@ -15,12 +15,12 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
     @dirs ||= []
   end
 
-  # @rbs (::Steep::Server::CustomMethods::Hover::content) -> String
+  # @rbs (::Steep::Server::InteractionProvider::Hover::content) -> String
   def format_hover(content)
     LSPFormatter.format_hover_content(content, env: factory.env, builder: factory.definition_builder)
   end
 
-  # @rbs (::Steep::Server::CustomMethods::Completion::item) -> String?
+  # @rbs (::Steep::Server::InteractionProvider::Completion::item) -> String?
   def format_completion(item)
     LSPFormatter.format_completion_docs(item, env: factory.env, builder: factory.definition_builder)
   end
