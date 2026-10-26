@@ -200,7 +200,7 @@ module Steep
 
         when SourceSymbolJob
           result = process_latest_interaction_job(job) { process_source_symbol(job) }
-          result ||= {} #: CustomMethods::Source__Symbol::result
+          result ||= {} #: InteractionProvider::SourceSymbol::result
           writer.write(CustomMethods::Source__Symbol.response(job.id, result))
         end
       end
@@ -260,7 +260,7 @@ module Steep
 
             result = Services::SymbolProvider.new(service: service).symbols_at(path: job.path, line: job.line, column: job.column)
 
-            wire = {} #: CustomMethods::Source__Symbol::result
+            wire = {} #: InteractionProvider::SourceSymbol::result
             wire[:constant] = result.constant.to_s if result.constant
             wire[:type_name] = result.type_name.to_s if result.type_name
             wire[:method_names] = result.method_names.map(&:to_s) unless result.method_names.empty?
@@ -405,8 +405,8 @@ module Steep
               range = range_before(job.line, job.column, prefix_size)
 
               completion_items = type_names.map do |absolute_name, relative_name|
-                { kind: "type_name", range: range, name: relative_name.to_s, full_name: absolute_name.to_s } #: CustomMethods::Completion::type_name_item
-              end #: Array[CustomMethods::Completion::item]
+                { kind: "type_name", range: range, name: relative_name.to_s, full_name: absolute_name.to_s } #: InteractionProvider::Completion::type_name_item
+              end #: Array[InteractionProvider::Completion::item]
 
               completion_items.concat builtin_type_items(prefix_size, job.line, job.column)
 
@@ -424,7 +424,7 @@ module Steep
         range = {
           start: { line: item.range.start.line - 1, character: item.range.start.column },
           end: { line: item.range.end.line - 1, character: item.range.end.column }
-        } #: CustomMethods::range
+        } #: InteractionProvider::range
 
         case item
         when Services::CompletionProvider::LocalVariableItem
@@ -472,7 +472,7 @@ module Steep
         range = range_before(line, column, prefix_size)
 
         ["untyped", "void", "bool", "class", "module", "instance", "nil", "top", "bot"].map do |name|
-          { kind: "builtin_type", range: range, name: name } #: CustomMethods::Completion::builtin_type_item
+          { kind: "builtin_type", range: range, name: name } #: InteractionProvider::Completion::builtin_type_item
         end
       end
 
@@ -503,10 +503,10 @@ module Steep
                   parameters: item.parameters || [],
                   active_parameter: item.active_parameter,
                   method: item.method_name&.to_s
-                } #: CustomMethods::SignatureHelp::signature
+                } #: InteractionProvider::SignatureHelp::signature
               end
 
-              help = { target: target.name.to_s, signatures: signatures, active_signature: index } #: CustomMethods::SignatureHelp::help
+              help = { target: target.name.to_s, signatures: signatures, active_signature: index } #: InteractionProvider::SignatureHelp::help
             end
           end
 

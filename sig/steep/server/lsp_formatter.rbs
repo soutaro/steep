@@ -5,7 +5,7 @@ module Steep
     # LSPFormatter renders the results of the interaction requests into LSP responses
     #
     # A typecheck worker sends what is at a position with the names of the declarations involved -- see
-    # `CustomMethods::Hover`, `CustomMethods::Completion`, and `CustomMethods::SignatureHelp`. The formatter runs
+    # `InteractionProvider::Hover`, `InteractionProvider::Completion`, and `InteractionProvider::SignatureHelp`. The formatter runs
     # in the master and resolves the names in the environment of the target to render the documentation.
     #
     # * `hover`, `completion_list`, and `signature_help` translate a result to an LSP response
@@ -20,11 +20,11 @@ module Steep
       def self?.markup_content: (String?) -> LanguageServer::Protocol::Interface::MarkupContent?
                               | () { () -> String? } -> LanguageServer::Protocol::Interface::MarkupContent?
 
-      def self?.hover: (CustomMethods::Hover::result, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::Hover
+      def self?.hover: (InteractionProvider::Hover::result, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::Hover
 
-      def self?.completion_list: (CustomMethods::Completion::result, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::CompletionList
+      def self?.completion_list: (InteractionProvider::Completion::result, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::CompletionList
 
-      def self?.signature_help: (CustomMethods::SignatureHelp::help, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::SignatureHelp
+      def self?.signature_help: (InteractionProvider::SignatureHelp::help, service: Services::TypeCheckService) -> LanguageServer::Protocol::Interface::SignatureHelp
 
       # The latest environment and definition builder of the target, of the same generation
       #
@@ -33,24 +33,24 @@ module Steep
       #
       def self?.environment_of: (String target, Services::TypeCheckService) -> [RBS::Environment, RBS::DefinitionBuilder]
 
-      def self?.lsp_range: (CustomMethods::range) -> LanguageServer::Protocol::Interface::Range
+      def self?.lsp_range: (InteractionProvider::range) -> LanguageServer::Protocol::Interface::Range
 
       # The `kind` of a hover content or a completion item
       #
       # Reads the key as untyped: reading a key of a union of records goes through the union of the shapes of the
       # records, which is very slow, and doesn't narrow the record anyway. The callers narrow with an assertion.
       #
-      def self?.kind_of: (CustomMethods::Hover::content | CustomMethods::Completion::item) -> String
+      def self?.kind_of: (InteractionProvider::Hover::content | InteractionProvider::Completion::item) -> String
 
       # Renders the Markdown of a hover content
       #
-      def self?.format_hover_content: (CustomMethods::Hover::content, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> String
+      def self?.format_hover_content: (InteractionProvider::Hover::content, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> String
 
       # Translates a completion item to LSP
-      def self?.completion_item: (CustomMethods::Completion::item, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> LanguageServer::Protocol::Interface::CompletionItem
+      def self?.completion_item: (InteractionProvider::Completion::item, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> LanguageServer::Protocol::Interface::CompletionItem
 
       # Renders the documentation of a completion item, `nil` for an item without documentation
-      def self?.format_completion_docs: (CustomMethods::Completion::item, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> String?
+      def self?.format_completion_docs: (InteractionProvider::Completion::item, env: RBS::Environment, builder: RBS::DefinitionBuilder) -> String?
 
       # Renders the documentation of a type name
       def self?.format_rbs_completion_docs: (TypeName, summarizable_decl, Array[RBS::AST::Comment]) -> String

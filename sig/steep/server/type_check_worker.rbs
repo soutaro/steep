@@ -247,33 +247,33 @@ module Steep
       def signature_entries: (Project::Target target, Pathname path) -> Array[TypeCheckDatabase::Entry]?
 
       # Returns what is at the position of the job, type checking the file on demand like hover
-      def process_source_symbol: (SourceSymbolJob job) -> CustomMethods::Source__Symbol::result
+      def process_source_symbol: (SourceSymbolJob job) -> InteractionProvider::SourceSymbol::result
 
       # Returns what is at the position of the job, `nil` when nothing is there or the file is unknown
       #
       # The file may be a Ruby file or an RBS file of the project, or a library RBS file.
       #
-      def process_hover: (HoverJob job) -> CustomMethods::Hover::result?
+      def process_hover: (HoverJob job) -> InteractionProvider::Hover::result?
 
       # Translates a hover content to the wire, with the types as strings and the declarations as names
-      def hover_content: (HoverProvider::Ruby::content | HoverProvider::RBS::content) -> CustomMethods::Hover::content
+      def hover_content: (HoverProvider::Ruby::content | HoverProvider::RBS::content) -> InteractionProvider::Hover::content
 
       # The name a class or module declaration declares
       def declared_type_name: (HoverProvider::ClassTypeContent::decl) -> RBS::TypeName
 
       # Returns the completion candidates at the position of the job, `nil` when the file is not in the project
-      def process_completion: (CompletionJob job) -> CustomMethods::Completion::result?
+      def process_completion: (CompletionJob job) -> InteractionProvider::Completion::result?
 
-      def completion_item: (CompletionProvider::item item) -> CustomMethods::Completion::item
+      def completion_item: (CompletionProvider::item item) -> InteractionProvider::Completion::item
 
       # The builtin types of RBS, like `untyped`, as candidates replacing the `prefix_size` characters before the position
-      def builtin_type_items: (Integer prefix_size, Integer line, Integer column) -> Array[CustomMethods::Completion::item]
+      def builtin_type_items: (Integer prefix_size, Integer line, Integer column) -> Array[InteractionProvider::Completion::item]
 
       # The range of the `prefix_size` characters before the position
-      def range_before: (Integer line, Integer column, Integer prefix_size) -> CustomMethods::range
+      def range_before: (Integer line, Integer column, Integer prefix_size) -> InteractionProvider::range
 
       # Returns the signature help at the position of the job, `nil` when the file is not in the project
-      def process_signature_help: (SignatureHelpJob) -> CustomMethods::SignatureHelp::result?
+      def process_signature_help: (SignatureHelpJob) -> InteractionProvider::SignatureHelp::result?
 
       # The target of a Ruby or RBS file of the project, or the first target that loads a library RBS file
       #

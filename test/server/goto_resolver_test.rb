@@ -68,8 +68,8 @@ class Steep::Server::GotoResolverTest < Minitest::Test
     locations.map { |location| [location[:uri], location[:range][:start][:line]] }
   end
 
-  def result(constant: nil, type_name: nil, method_names: nil, type: nil) #: Steep::Server::CustomMethods::Source__Symbol::result
-    result = {} #: Steep::Server::CustomMethods::Source__Symbol::result
+  def result(constant: nil, type_name: nil, method_names: nil, type: nil) #: Steep::Server::InteractionProvider::SourceSymbol::result
+    result = {} #: Steep::Server::InteractionProvider::SourceSymbol::result
     result[:constant] = constant if constant
     result[:type_name] = type_name if type_name
     result[:method_names] = method_names if method_names

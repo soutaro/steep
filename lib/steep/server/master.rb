@@ -643,7 +643,7 @@ module Steep
 
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
           uri = message[:params][:textDocument][:uri] #: String
-          position = message[:params][:position] #: CustomMethods::position
+          position = message[:params][:position] #: InteractionProvider::position
 
           method, params =
             case message[:method]
@@ -707,7 +707,7 @@ module Steep
               } #: CustomMethods::Source__Symbol::params
 
               send_interaction_request(method: CustomMethods::Source__Symbol::METHOD, params: params, path: path) do |result|
-                # @type var result: CustomMethods::Source__Symbol::result?
+                # @type var result: InteractionProvider::SourceSymbol::result?
                 locations =
                   if result
                     goto_resolver.goto(kind: kind, from: from, result: result)
@@ -1343,7 +1343,7 @@ module Steep
         id = message[:id]
 
         if message[:method] == "textDocument/signatureHelp"
-          help = result #: CustomMethods::SignatureHelp::result?
+          help = result #: InteractionProvider::SignatureHelp::result?
 
           if help && help[:syntax_error]
             # The file cannot be parsed while the user types: keep the signature help the client is showing, if any
