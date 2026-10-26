@@ -435,7 +435,8 @@ end
 
       controller.open_path(current_dir + "test/customer_test.rb")
       controller.open_path(current_dir + "sig/test/customer_test.rbs")
-      controller.open_inline_path(current_dir + "lib/app/customer.rb", <<-RUBY)
+      controller.open_path(current_dir + "lib/app/customer.rb")
+      controller.push_file_change(current_dir + "lib/app/customer.rb", <<-RUBY)
 class Customer
   def initialize
   end

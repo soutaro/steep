@@ -6,7 +6,8 @@ module Steep
     module CustomMethods
       # Notification with the latest contents of files, sent from master to a worker
       #
-      # The master sends a worker the files it needs right before a type check. See `Master#deliver_contents`.
+      # The master sends the workers the RBS files and the inline RBS sources of the project, and every change of them,
+      # when the workers are not forked from its environments. See `Master#broadcast_contents`.
       #
       module FileLoad
         METHOD: String
@@ -73,15 +74,13 @@ module Steep
       # validates an RBS file of the project, `library` validates an RBS file of a library, and `inline` type checks
       # a Ruby file with inline RBS declarations and validates the declarations.
       #
-      # `content` is the latest content of a Ruby file, given when the worker doesn't have it yet. The RBS files reach
-      # the workers by `$/steep/file/load` before the type check.
+      # `content` is the latest content of a Ruby file, with or without inline RBS declarations, which goes with every
+      # request of the file. The RBS files reach the workers by `$/steep/file/load`, or by being forked from the master.
       #
       module TypeCheck__File
         METHOD: String
 
-        # `"index"` reports the entries of the declarations in an RBS file, a library RBS file, or a Ruby file with inline
-        # RBS declarations, without validating them
-        type kind = "code" | "signature" | "library" | "inline" | "index"
+        type kind = "code" | "signature" | "library" | "inline"
 
         type params = {
           guid: String,
@@ -101,8 +100,7 @@ module Steep
         type file_result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry::wire]?, stats: Services::StatsCalculator::calls? }
 
         # `source` is the result of type checking Ruby code, and `signature` is the result of validating RBS declarations.
-        # A Ruby file with inline RBS declarations has both. An `"index"` request has only `signature`, with the entries
-        # and without the diagnostics.
+        # A Ruby file with inline RBS declarations has both.
         #
         type result = { source: file_result?, signature: file_result? }
 

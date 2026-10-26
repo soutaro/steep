@@ -7,7 +7,6 @@ module Steep
       ValidateAppSignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
       TypeCheckInlineCodeJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
-      IndexSignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
 
       include ChangeBuffer
 
@@ -18,7 +17,6 @@ module Steep
         @buffered_changes = {}
         @mutex = Mutex.new()
         @queue = Thread::Queue.new
-        @rbs_entries_cache = {}
       end
 
       def service
@@ -55,8 +53,6 @@ module Steep
             ValidateLibrarySignatureJob.new(id: id, path: path, target: target)
           when "inline"
             TypeCheckInlineCodeJob.new(id: id, path: path, target: target)
-          when "index"
-            IndexSignatureJob.new(id: id, path: path, target: target)
           else
             raise "Unknown kind of type check: #{params[:kind]}"
           end
@@ -79,7 +75,7 @@ module Steep
 
           respond(
             job.id,
-            signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, relative_path), stats: nil }
+            signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: nil, stats: nil }
           )
 
         when ValidateLibrarySignatureJob
@@ -90,7 +86,7 @@ module Steep
 
           respond(
             job.id,
-            signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: signature_entries(job.target, job.path), stats: nil }
+            signature: { diagnostics: diagnostics.filter_map { formatter.format(_1) }, entries: nil, stats: nil }
           )
 
         when TypeCheckCodeJob
@@ -117,21 +113,8 @@ module Steep
           respond(
             job.id,
             source: source,
-            signature: { diagnostics: signature_diagnostics, entries: signature_entries(job.target, relative_path), stats: nil }
+            signature: { diagnostics: signature_diagnostics, entries: nil, stats: nil }
           )
-
-        when IndexSignatureJob
-          Steep.logger.info { "Processing IndexSignatureJob for id=#{job.id}, path=#{job.path}, target=#{job.target.name}" }
-
-          relative_path = project.relative_path(job.path)
-          buffer_path =
-            if project.target_for_signature_path(relative_path) || project.target_for_inline_source_path(relative_path)
-              relative_path
-            else
-              job.path
-            end
-
-          respond(job.id, signature: { diagnostics: nil, entries: signature_entries(job.target, buffer_path), stats: nil })
         end
       end
 
@@ -168,19 +151,6 @@ module Steep
         else
           { diagnostics: nil, entries: nil, stats: nil }
         end
-      end
-
-      def signature_entries(target, path)
-        signature_service = service.signature_services.fetch(target.name)
-        return unless signature_service.status.is_a?(Services::SignatureService::LoadedStatus)
-
-        env = signature_service.latest_env
-        cached = @rbs_entries_cache[target.name]
-        unless cached && cached[0].equal?(env)
-          cached = @rbs_entries_cache[target.name] = [env, TypeCheckDatabase.rbs_entries_by_path(env)]
-        end
-
-        cached[1][path] || []
       end
     end
   end

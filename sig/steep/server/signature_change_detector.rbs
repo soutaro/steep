@@ -1,0 +1,77 @@
+module Steep
+  module Server
+    # Detects the changes of the declarations in the RBS files and the Ruby files with inline RBS declarations of the project
+    #
+    # The type checking sees the declarations, not the text: a change of comments, blank lines, or formatting leaves the
+    # declarations as they are, and the files depending on them need no type check again. The master tells the two apart
+    # to skip the type check of the depending files, and to keep the typecheck workers forked from the environments.
+    #
+    # The detector keeps the latest content of each file, and compares the *fingerprint* of the declarations with the one
+    # of the content the environments have. The fingerprint of an RBS file has the `use` directives, the declarations,
+    # which compare without their locations and comments, and the annotations, which the declarations compare without.
+    # The fingerprint of an inline RBS source is the one of `RBS::InlineParser`.
+    #
+    class SignatureChangeDetector
+      # `:rbs` for an RBS file, and `:inline` for a Ruby file with inline RBS declarations
+      type kind = :rbs | :inline
+
+      class Source
+        attr_reader kind: kind
+
+        # The content the fingerprint is of
+        attr_reader content: String
+
+        # The fingerprint of the declarations in `content`, `nil` when the RBS file cannot be parsed
+        attr_reader fingerprint: untyped
+
+        # The content pushed since the last `#updated?`, `nil` when there is none
+        attr_reader pending_content: String?
+
+        # Initializes the source with the content the environments have
+        def initialize: (kind, String content) -> void
+
+        # Records the latest content of the file
+        def push: (String content) -> void
+
+        # Returns `true` if the declarations in the pending content differ from the ones of the last fingerprint
+        #
+        # Takes the pending content, and updates `#content` and `#fingerprint`. A pending content that cannot be parsed is
+        # not an update: the declarations stay what they were, and the next content is compared with the same fingerprint.
+        #
+        def updated?: () -> bool
+
+        # The fingerprint of the declarations in the content, `nil` when the RBS file cannot be parsed
+        def self.fingerprint: (kind, String content) -> untyped
+
+        def self.directive_fingerprint: (RBS::AST::Directives::t) -> untyped
+
+        # The annotations of the declaration and its members, which `RBS::AST::Declarations::t#==` doesn't compare
+        def self.annotations_fingerprint: (RBS::AST::Declarations::t) -> untyped
+
+        def self.member_annotations_fingerprint: (RBS::AST::Declarations::Class::member | RBS::AST::Declarations::Interface::member) -> untyped
+      end
+
+      # The sources by the absolute path of the file
+      attr_reader sources: Hash[Pathname, Source]
+
+      def initialize: () -> void
+
+      # Adds the source with the content the environments have, replacing the source of the path if any
+      def add_source: (Pathname path, String content, kind: kind) -> void
+
+      # Records the latest content of the file
+      #
+      # A file without source starts with the empty content: the environments have nothing of it.
+      #
+      def push: (Pathname path, String content, kind: kind) -> void
+
+      def has_source?: (Pathname path) -> bool
+
+      # Returns the paths of the files whose declarations changed since the last call
+      #
+      # Takes the contents pushed since the last call.
+      #
+      def updated_paths: () -> Set[Pathname]
+    end
+  end
+end

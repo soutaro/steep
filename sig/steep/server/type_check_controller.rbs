@@ -150,7 +150,14 @@ module Steep
       # Set of inline RBS file paths that content is changed since last type checking request
       attr_reader dirty_inline_paths: Set[Pathname]
 
-      attr_reader inline_path_changes: InlineSourceChangeDetector
+      # Detects the changes of the declarations in the RBS files and inline RBS sources, which `#push_file_change` feeds
+      attr_reader signature_changes: SignatureChangeDetector
+
+      # The RBS files and inline RBS sources whose declarations changed since the last request, by absolute path
+      #
+      # Detected by `#detect_declaration_changes`, and cleared by `#reset`.
+      #
+      attr_reader updated_signature_paths: Set[Pathname]
 
       attr_reader files: TargetGroupFiles
 
@@ -197,10 +204,27 @@ module Steep
       # A `String` replaces the content of the file, and the array of changes is applied to the current content.
       # The version of the file grows unless the content stays the same. Library files are ignored.
       #
+      # The content of an RBS file or an inline RBS source goes to `#signature_changes` too, which compares its
+      # declarations with the ones in the environments on `#detect_declaration_changes`.
+      #
       def push_file_change: (Pathname path, String | Array[Services::ContentChange] update) -> void
+
+      # `:rbs` for an RBS file of the project, `:inline` for a Ruby file with inline RBS declarations, and `nil` for the others
+      def signature_kind: (Pathname path) -> SignatureChangeDetector::kind?
 
       # Returns the contents of the files changed since the last call, as changes for `#type_check_service`
       def pop_file_changes: () -> ChangeBuffer::changes
+
+      # Returns the RBS files and inline RBS sources whose declarations changed since the last detection, by absolute path
+      #
+      # The declarations are what the type checking sees: a change of the comments or the formatting doesn't count,
+      # nor does a content that cannot be parsed. See `SignatureChangeDetector`.
+      #
+      # The master calls it after popping the changes, to tell if the typecheck workers forked from the environments
+      # can go on with them. The detected paths are kept in `#updated_signature_paths` for the next `#make_request`,
+      # which type checks the files depending on them.
+      #
+      def detect_declaration_changes: () -> Set[Pathname]
 
       def code_path?: (Pathname path) -> bool
 
@@ -216,8 +240,6 @@ module Steep
 
       # Marks an inline RBS source dirty, and buffers its change for `#type_check_service`
       def add_dirty_inline_path: (Pathname path, String | Array[Services::ContentChange] update) -> void
-
-      def open_inline_path: (Pathname path, String content) -> void
 
       def each_dirty_path: () { (Pathname) -> void } -> void
                            | () -> Enumerator[Pathname]
@@ -252,6 +274,9 @@ module Steep
       # * This method also resets the controller status
       # * `progress:` is a `WorkDoneProgress` object to report the progress of the type checking
       # * Returns `nil` when no type checking is needed
+      #
+      # The files of the groups depending on a dirty RBS file or inline RBS source are included when its declarations
+      # changed (see `#detect_declaration_changes`), or when the controller doesn't have its content.
       #
       # Resets after making the request.
       #

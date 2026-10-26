@@ -205,7 +205,8 @@ module Steep
       attr_reader :new_active_groups
       attr_reader :dirty_code_paths, :dirty_signature_paths, :dirty_inline_paths
       attr_reader :files
-      attr_reader :inline_path_changes
+      attr_reader :signature_changes
+      attr_reader :updated_signature_paths
       attr_reader :type_check_service
       attr_reader :file_contents
       attr_reader :changed_paths
@@ -223,7 +224,8 @@ module Steep
         @dirty_code_paths = Set[]
         @dirty_signature_paths = Set[]
         @dirty_inline_paths = Set[]
-        @inline_path_changes = InlineSourceChangeDetector.new
+        @signature_changes = SignatureChangeDetector.new
+        @updated_signature_paths = Set[]
       end
 
       def load(command_line_args:)
@@ -242,8 +244,9 @@ module Steep
             files.add_path(absolute_path)
             content = absolute_path.read
 
-            if inline_path?(path)
-              inline_path_changes.add_source(path, content)
+            # The environments get the content with the first update
+            if kind = signature_kind(absolute_path)
+              signature_changes.add_source(absolute_path, content, kind: kind)
             end
 
             push_file_change(absolute_path, content)
@@ -254,8 +257,8 @@ module Steep
       def push_file_change(path, update)
         return if files.library_path?(path)
 
-        path = project.relative_path(path)
-        content = file_contents[path]
+        relative_path = project.relative_path(path)
+        content = file_contents[relative_path]
 
         text =
           case update
@@ -267,8 +270,27 @@ module Steep
 
         return if content && content.text == text
 
-        file_contents[path] = content ? content.update(text) : FileContent.new(text: text, version: 1)
-        changed_paths << path
+        file_contents[relative_path] = content ? content.update(text) : FileContent.new(text: text, version: 1)
+        changed_paths << relative_path
+
+        if kind = signature_kind(path)
+          signature_changes.push(path, text, kind: kind)
+        end
+      end
+
+      def signature_kind(path)
+        case
+        when signature_path?(path)
+          :rbs
+        when inline_path?(path)
+          :inline
+        end
+      end
+
+      def detect_declaration_changes
+        updated_paths = signature_changes.updated_paths
+        updated_signature_paths.merge(updated_paths)
+        updated_paths
       end
 
       def pop_file_changes
@@ -320,31 +342,6 @@ module Steep
           files.add_path(path)
           dirty_inline_paths << path
           push_file_change(path, update)
-
-          unless inline_path_changes.has_source?(path)
-            inline_path_changes.add_source(path, "")
-          end
-
-          if update.is_a?(String)
-            inline_path_changes.replace_source(path, update)
-          else
-            inline_path_changes.accumulate_change(path, update)
-          end
-        end
-      end
-
-      def open_inline_path(path, content)
-        return if files.library_path?(path)
-
-        if inline_path?(path)
-          open_path(path)
-          push_file_change(path, content)
-
-          if inline_path_changes.has_source?(path)
-            inline_path_changes.replace_source(path, content)
-          else
-            inline_path_changes.add_source(path, content)
-          end
         end
       end
 
@@ -380,7 +377,7 @@ module Steep
         dirty_signature_paths.clear()
         dirty_inline_paths.clear()
         new_active_groups.clear()
-        inline_path_changes.reset
+        updated_signature_paths.clear()
       end
 
       def open_path(path)
@@ -503,15 +500,20 @@ module Steep
             inline_paths << [group, path]
           end
 
+          # The files depending on the declarations are type checked when the declarations changed, not on every change
+          # of the text. A dirty file without content is taken as changed.
+          detect_declaration_changes()
+
           signature_updated_groups = Set[] #: Set[group]
 
           signature_paths.each do |group, path|
-            signature_updated_groups << group
+            if updated_signature_paths.include?(path) || !signature_changes.has_source?(path)
+              signature_updated_groups << group
+            end
           end
 
-          updated_inline_paths = inline_path_changes.type_updated_paths(dirty_inline_paths)
           inline_paths.each do |group, path|
-            if updated_inline_paths.include?(path)
+            if updated_signature_paths.include?(path) || !signature_changes.has_source?(path)
               signature_updated_groups << group
             end
           end
