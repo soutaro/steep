@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 6e63254acbbfe41f2ac793bcb2af41b581e30418
+  revision: 2f523b36b3f01d987c0bf8fd004015048e621876
   branch: master
   specs:
     steep (2.1.0)
@@ -50,7 +50,7 @@ GEM
       drb (~> 2.0)
       prism (~> 1.5)
     mutex_m (0.3.0)
-    parser (3.3.12.0)
+    parser (3.3.13.0)
       ast (~> 2.4.1)
       racc
     pp (0.6.4)
