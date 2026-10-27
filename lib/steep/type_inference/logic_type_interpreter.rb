@@ -1,19 +1,53 @@
 module Steep
   module TypeInference
     class LogicTypeInterpreter
-      class Result < Struct.new(:env, :type, :unreachable, keyword_init: true)
+      class Result
+        attr_reader :env
+
+        attr_reader :type
+
+        # `true` when the verdict is `empty`
+        attr_accessor :unreachable
+
+        # The emptiness of the branch
+        attr_accessor :verdict
+
+        def initialize(env:, type:, unreachable: false, verdict: nil)
+          verdict ||= unreachable ? SetTheoretic::Verdict.empty : SetTheoretic::Verdict.inhabited
+          @env = env
+          @type = type
+          @unreachable = verdict.empty?
+          @verdict = verdict
+        end
+
+        def ==(other)
+          other.is_a?(Result) && other.env == env && other.type == type && other.unreachable == unreachable && other.verdict == verdict
+        end
+
+        alias eql? ==
+
+        def hash
+          self.class.hash ^ env.hash ^ type.hash ^ verdict.hash
+        end
+
         def update_env
           env = yield()
-          Result.new(type: type, env: env, unreachable: unreachable)
+          Result.new(type: type, env: env, verdict: verdict)
         end
 
         def update_type
-          Result.new(type: yield, env: env, unreachable: unreachable)
+          Result.new(type: yield, env: env, verdict: verdict)
         end
 
         def unreachable!
           self.unreachable = true
+          self.verdict = SetTheoretic::Verdict.empty
           self
+        end
+
+        # `true` if the branch is unreachable as long as the class hierarchy is what the RBS environment declares
+        def unreachable_in_rbs?
+          verdict.empty_in_rbs?
         end
       end
 
@@ -32,6 +66,83 @@ module Steep
 
       def factory
         subtyping.factory
+      end
+
+      def emptiness
+        subtyping.emptiness
+      end
+
+      def simplifier
+        subtyping.simplifier
+      end
+
+      def bounds
+        config.variable_bounds
+      end
+
+      # The values of `type` that are in `predicate` and the ones that are not, with the verdicts of the two branches
+      #
+      # `negative` is the type the falsy branch excludes, `predicate` unless given.
+      def narrow(type, predicate, negative: predicate)
+        negation = AST::Types::Negation.build(type: negative)
+
+        truthy_type = simplifier.intersect(type, predicate, bounds: bounds, candidates: [type])
+        falsy_type = simplifier.intersect(type, negation, bounds: bounds, candidates: [type])
+        truthy_verdict = emptiness.check(AST::Types::Intersection.build(types: [type, predicate]), mode: :inhabitation, bounds: bounds)
+        falsy_verdict = emptiness.check(AST::Types::Intersection.build(types: [type, negation]), mode: :inhabitation, bounds: bounds)
+
+        [truthy_type, falsy_type, truthy_verdict, falsy_verdict]
+      end
+
+      # The truthy values of `type` and the falsy ones
+      #
+      # `bool`, the logic types, and `untyped` stay on both sides as they are, instead of `true`, `false`, and
+      # `nil | false`, so that the variables of type `bool` keep their type and `untyped && x` stays `untyped`.
+      def truthiness(type)
+        members = factory.flatten_union(factory.deep_expand_alias(type) || type)
+        opaque, rest = members.partition do |member|
+          member.is_a?(AST::Types::Boolean) || member.is_a?(AST::Types::Logic::Base) || member.is_a?(AST::Types::Any)
+        end
+
+        if opaque.empty?
+          narrow(type, AST::Types::Negation.build(type: FALSY))
+        else
+          opaque_type = AST::Types::Union.build(types: opaque)
+          if rest.empty?
+            [opaque_type, opaque_type, SetTheoretic::Verdict.inhabited, SetTheoretic::Verdict.inhabited]
+          else
+            truthy_type, falsy_type, truthy_verdict, falsy_verdict = narrow(AST::Types::Union.build(types: rest), AST::Types::Negation.build(type: FALSY))
+            [
+              truthy_verdict.empty? ? opaque_type : AST::Types::Union.build(types: [truthy_type, opaque_type]),
+              falsy_verdict.empty? ? opaque_type : AST::Types::Union.build(types: [falsy_type, opaque_type]),
+              SetTheoretic::Verdict.inhabited,
+              SetTheoretic::Verdict.inhabited
+            ]
+          end
+        end
+      end
+
+      # Narrows `type` by `is_a?(klass)`: the instances of the class are `klass[untyped, ...]` on the truthy branch and
+      # `klass[top, ...]` on the falsy one
+      def type_case(type, klass)
+        arity = factory.definition_builder.build_singleton(klass).type_params.size
+        positive = factory.instance_type(klass)
+        negative = factory.instance_type(klass, args: Array.new(arity, AST::Types::Top.instance))
+        narrow(type, positive, negative: negative)
+      end
+
+      # The literal type of a literal node; `nil` for the other nodes
+      def literal_type(node)
+        case node.type
+        when :nil
+          AST::Builtin.nil_type
+        when :true
+          TRUE
+        when :false
+          FALSE
+        when :int, :str, :sym
+          AST::Types::Literal.new(value: node.children[0])
+        end
       end
 
       def guess_type_from_method(node)
@@ -56,6 +167,9 @@ module Steep
       BOT = AST::Types::Bot.instance
       UNTYPED = AST::Types::Any.instance
 
+      # The falsy values
+      FALSY = AST::Types::Union.build(types: [AST::Builtin.nil_type, FALSE])
+
       def eval(env:, node:)
         evaluate_node(env: env, node: node)
       end
@@ -65,42 +179,38 @@ module Steep
           truthy_env = type.truthy
           falsy_env = type.falsy
 
-          truthy_type, falsy_type = factory.partition_union(type.type)
+          truthy_type, falsy_type, truthy_verdict, falsy_verdict = truthiness(type.type)
 
           return [
-            Result.new(env: truthy_env, type: truthy_type || TRUE, unreachable: !truthy_type),
-            Result.new(env: falsy_env, type: falsy_type || FALSE, unreachable: !falsy_type)
+            Result.new(env: truthy_env, type: truthy_verdict.empty? ? TRUE : truthy_type, verdict: truthy_verdict),
+            Result.new(env: falsy_env, type: falsy_verdict.empty? ? FALSE : falsy_type, verdict: falsy_verdict)
           ]
         end
 
-        if type.is_a?(AST::Types::Bot)
+        if type.is_a?(AST::Types::Bot) || type.is_a?(AST::Types::Void)
           return [
-            Result.new(env: env, type: type, unreachable: true),
-            Result.new(env: env, type: type, unreachable: true),
+            Result.new(env: env, type: BOT, unreachable: true),
+            Result.new(env: env, type: BOT, unreachable: true),
           ]
-        end
-
-        if type.is_a?(AST::Types::Var)
-          type = config.upper_bound(type.name) || type
         end
 
         case node.type
         when :lvar
           name = node.children[0]
-          truthy_type, falsy_type = factory.partition_union(type)
+          truthy_type, falsy_type, truthy_verdict, falsy_verdict = truthiness(type)
 
           truthy_result =
-            if truthy_type
-              Result.new(type: truthy_type, env: env.refine_types(local_variable_types: { name => truthy_type }), unreachable: false)
+            if truthy_verdict.empty?
+              Result.new(type: type, env: env, verdict: truthy_verdict)
             else
-              Result.new(type: type, env: env, unreachable: true)
+              Result.new(type: truthy_type, env: env.refine_types(local_variable_types: { name => truthy_type }), verdict: truthy_verdict)
             end
 
           falsy_result =
-            if falsy_type
-              Result.new(type: falsy_type, env: env.refine_types(local_variable_types: { name => falsy_type }), unreachable: false)
+            if falsy_verdict.empty?
+              Result.new(type: type, env: env, verdict: falsy_verdict)
             else
-              Result.new(type: type, env: env, unreachable: true)
+              Result.new(type: falsy_type, env: env.refine_types(local_variable_types: { name => falsy_type }), verdict: falsy_verdict)
             end
 
           return [truthy_result, falsy_result]
@@ -143,12 +253,12 @@ module Steep
           receiver_type = typing.type_of(node: receiver)
 
           truthy_receiver, falsy_receiver = evaluate_node(env: env, node: receiver)
-          truthy_type, _ = factory.partition_union(type)
+          truthy_type, _, truthy_verdict, _ = truthiness(type)
 
           truthy_result, falsy_result = evaluate_node(
             env: truthy_receiver.env,
             node: node.updated(:send),
-            type: truthy_type || type
+            type: truthy_verdict.empty? ? type : truthy_type
           )
           truthy_result.unreachable! if truthy_receiver.unreachable
 
@@ -186,27 +296,27 @@ module Steep
             truthy_result ||= Result.new(type: type, env: env, unreachable: false)
             falsy_result ||= Result.new(type: type, env: env, unreachable: false)
 
-            truthy_type, falsy_type = factory.partition_union(type)
+            truthy_type, falsy_type, truthy_verdict, falsy_verdict = truthiness(type)
 
-            if truthy_type
-              truthy_result = truthy_result.update_type { truthy_type }
-            else
+            if truthy_verdict.empty?
               truthy_result = truthy_result.update_type { BOT }.unreachable!
+            else
+              truthy_result = Result.new(type: truthy_type, env: truthy_result.env, verdict: truthy_result.verdict & truthy_verdict)
             end
 
-            if falsy_type
-              falsy_result = falsy_result.update_type { falsy_type }
-            else
+            if falsy_verdict.empty?
               falsy_result = falsy_result.update_type { BOT }.unreachable!
+            else
+              falsy_result = Result.new(type: falsy_type, env: falsy_result.env, verdict: falsy_result.verdict & falsy_verdict)
             end
 
             if truthy_result.env[node] && falsy_result.env[node]
-              if truthy_type
-                truthy_result = Result.new(type: truthy_type, env: refine_pure_call(truthy_result.env, node, truthy_type), unreachable: false)
+              unless truthy_verdict.empty?
+                truthy_result = Result.new(type: truthy_type, env: refine_pure_call(truthy_result.env, node, truthy_type), verdict: truthy_result.verdict)
               end
 
-              if falsy_type
-                falsy_result = Result.new(type: falsy_type, env: refine_pure_call(falsy_result.env, node, falsy_type), unreachable: false)
+              unless falsy_verdict.empty?
+                falsy_result = Result.new(type: falsy_type, env: refine_pure_call(falsy_result.env, node, falsy_type), verdict: falsy_result.verdict)
               end
             end
 
@@ -214,10 +324,10 @@ module Steep
           end
         end
 
-        truthy_type, falsy_type = factory.partition_union(type)
+        truthy_type, falsy_type, truthy_verdict, falsy_verdict = truthiness(type)
         return [
-          Result.new(type: truthy_type || BOT, env: env, unreachable: truthy_type.nil?),
-          Result.new(type: falsy_type || BOT, env: env, unreachable: falsy_type.nil?)
+          Result.new(type: truthy_verdict.empty? ? BOT : truthy_type, env: env, verdict: truthy_verdict),
+          Result.new(type: falsy_verdict.empty? ? BOT : falsy_type, env: env, verdict: falsy_verdict)
         ]
       end
 
@@ -308,24 +418,19 @@ module Steep
         when AST::Types::Logic::ReceiverIsNil
           if receiver && arguments.size.zero?
             receiver_type = typing.type_of(node: receiver)
-            unwrap = factory.unwrap_optional(receiver_type)
-            truthy_receiver = AST::Builtin.nil_type
-            falsy_receiver = unwrap || receiver_type
+            truthy_receiver, falsy_receiver, truthy_verdict, falsy_verdict = narrow(receiver_type, AST::Builtin.nil_type)
 
             truthy_env, falsy_env = refine_node_type(
               env: env,
               node: receiver,
-              truthy_type: truthy_receiver,
-              falsy_type: falsy_receiver
+              truthy_type: truthy_verdict.empty? ? AST::Builtin.nil_type : truthy_receiver,
+              falsy_type: falsy_verdict.empty? ? receiver_type : falsy_receiver
             )
 
-            truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
-            truthy_result.unreachable! if no_subtyping?(sub_type: AST::Builtin.nil_type, super_type: receiver_type)
-
-            falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
-            falsy_result.unreachable! unless unwrap
-
-            [truthy_result, falsy_result]
+            [
+              Result.new(type: TRUE, env: truthy_env, verdict: truthy_verdict),
+              Result.new(type: FALSE, env: falsy_env, verdict: falsy_verdict)
+            ]
           end
 
         when AST::Types::Logic::ReceiverIsArg
@@ -334,37 +439,32 @@ module Steep
             arg_type = factory.deep_expand_alias(typing.type_of(node: arg))
 
             if arg_type.is_a?(AST::Types::Name::Singleton)
-              truthy_type, falsy_type = type_case_select(receiver_type, arg_type.name)
+              truthy_type, falsy_type, truthy_verdict, falsy_verdict = type_case(receiver_type, arg_type.name)
               truthy_env, falsy_env = refine_node_type(
                 env: env,
                 node: receiver,
-                truthy_type: truthy_type || factory.instance_type(arg_type.name),
-                falsy_type: falsy_type || UNTYPED
+                truthy_type: truthy_verdict.empty? ? factory.instance_type(arg_type.name) : truthy_type,
+                falsy_type: falsy_verdict.empty? ? UNTYPED : falsy_type
               )
 
-              truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
-              truthy_result.unreachable! unless truthy_type
-
-              falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
-              falsy_result.unreachable! unless falsy_type
-
-              [truthy_result, falsy_result]
-            elsif (truthy_types, falsy_types = literal_var_type_case_select(arg, receiver_type, for_receiver: true))
-              # Handle literal equality: receiver == literal_value
+              [
+                Result.new(type: TRUE, env: truthy_env, verdict: truthy_verdict),
+                Result.new(type: FALSE, env: falsy_env, verdict: falsy_verdict)
+              ]
+            elsif (literal = literal_type(arg))
+              # Literal equality: `receiver == literal`
+              truthy_type, falsy_type, truthy_verdict, falsy_verdict = narrow(receiver_type, literal)
               truthy_env, falsy_env = refine_node_type(
                 env: env,
                 node: receiver,
-                truthy_type: truthy_types.empty? ? BOT : AST::Types::Union.build(types: truthy_types),
-                falsy_type: falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types)
+                truthy_type: truthy_verdict.empty? ? BOT : truthy_type,
+                falsy_type: falsy_verdict.empty? ? BOT : falsy_type
               )
 
-              truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
-              truthy_result.unreachable! if truthy_types.empty?
-
-              falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
-              falsy_result.unreachable! if falsy_types.empty?
-
-              [truthy_result, falsy_result]
+              [
+                Result.new(type: TRUE, env: truthy_env, verdict: truthy_verdict),
+                Result.new(type: FALSE, env: falsy_env, verdict: falsy_verdict)
+              ]
             end
           end
 
@@ -374,41 +474,36 @@ module Steep
             arg_type = typing.type_of(node: arg)
 
             if receiver_type.is_a?(AST::Types::Name::Singleton)
-              truthy_type, falsy_type = type_case_select(arg_type, receiver_type.name)
+              truthy_type, falsy_type, truthy_verdict, falsy_verdict = type_case(arg_type, receiver_type.name)
               truthy_env, falsy_env = refine_node_type(
                 env: env,
                 node: arg,
-                truthy_type: truthy_type || factory.instance_type(receiver_type.name),
-                falsy_type: falsy_type || UNTYPED
+                truthy_type: truthy_verdict.empty? ? factory.instance_type(receiver_type.name) : truthy_type,
+                falsy_type: falsy_verdict.empty? ? UNTYPED : falsy_type
               )
 
-              truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
-              truthy_result.unreachable! unless truthy_type
-
-              falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
-              falsy_result.unreachable! unless falsy_type
-
-              [truthy_result, falsy_result]
+              [
+                Result.new(type: TRUE, env: truthy_env, verdict: truthy_verdict),
+                Result.new(type: FALSE, env: falsy_env, verdict: falsy_verdict)
+              ]
             end
           end
         when AST::Types::Logic::ArgEqualsReceiver
           if receiver && (arg = arguments[0])
-            arg_type = factory.expand_alias(typing.type_of(node: arg))
-            if (truthy_types, falsy_types = literal_var_type_case_select(receiver, arg_type))
+            arg_type = typing.type_of(node: arg)
+            if (literal = literal_type(receiver))
+              truthy_type, falsy_type, truthy_verdict, falsy_verdict = narrow(arg_type, literal)
               truthy_env, falsy_env = refine_node_type(
                 env: env,
                 node: arg,
-                truthy_type: truthy_types.empty? ? BOT : AST::Types::Union.build(types: truthy_types),
-                falsy_type: falsy_types.empty? ? BOT : AST::Types::Union.build(types: falsy_types)
+                truthy_type: truthy_verdict.empty? ? BOT : truthy_type,
+                falsy_type: falsy_verdict.empty? ? BOT : falsy_type
               )
 
-              truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: false)
-              truthy_result.unreachable! if truthy_types.empty?
-
-              falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
-              falsy_result.unreachable! if falsy_types.empty?
-
-              [truthy_result, falsy_result]
+              [
+                Result.new(type: TRUE, env: truthy_env, verdict: truthy_verdict),
+                Result.new(type: FALSE, env: falsy_env, verdict: falsy_verdict)
+              ]
             end
           end
 
@@ -463,9 +558,9 @@ module Steep
             end
             if method_type
               return_type = method_type.type.return_type
-              truthy, falsy = factory.partition_union(return_type)
-              truthy_types << type if truthy
-              falsy_types << type if falsy
+              _, _, truthy_verdict, falsy_verdict = truthiness(return_type)
+              truthy_types << type unless truthy_verdict.empty?
+              falsy_types << type unless falsy_verdict.empty?
               next
             end
           end
@@ -581,161 +676,14 @@ module Steep
         end
       end
 
-      def literal_var_type_case_select(value_node, arg_type, for_receiver: false)
-        case arg_type
-        when AST::Types::Union
-          # @type var truthy_types: Array[AST::Types::t]
-          truthy_types = []
-          # @type var falsy_types: Array[AST::Types::t]
-          falsy_types = []
-
-          arg_type.types.each do |type|
-            if (ts, fs = literal_var_type_case_select(value_node, type, for_receiver: for_receiver))
-              truthy_types.push(*ts)
-              falsy_types.push(*fs)
-            else
-              return
-            end
-          end
-
-          [truthy_types, falsy_types]
-        when AST::Types::Boolean
-          [[arg_type], [arg_type]]
-        when AST::Types::Top, AST::Types::Any
-          [[arg_type], [arg_type]]
-        else
-          types = [arg_type]
-
-          case value_node.type
-          when :nil
-            types.partition do |type|
-              type.is_a?(AST::Types::Nil) || AST::Builtin::NilClass.instance_type?(type)
-            end
-          when :true
-            types.partition do |type|
-              AST::Builtin::TrueClass.instance_type?(type) ||
-                (type.is_a?(AST::Types::Literal) && type.value == true)
-            end
-          when :false
-            types.partition do |type|
-              AST::Builtin::FalseClass.instance_type?(type) ||
-                (type.is_a?(AST::Types::Literal) && type.value == false)
-            end
-          when :int, :str, :sym
-            # @type var pairs: [Array[AST::Types::t], Array[AST::Types::t]]
-            pairs = [[], []]
-
-            types.each_with_object(pairs) do |type, pair|
-              true_types, false_types = pair
-
-              case
-              when type.is_a?(AST::Types::Literal)
-                if type.value == value_node.children[0]
-                  true_types << type
-                else
-                  false_types << type
-                end
-              else
-                # For `==`, narrow only when the literal can be a value of `type`.
-                # e.g. `Symbol == :fatal` can be true, but `SomeClass == :fatal` cannot.
-                literal_type = AST::Types::Literal.new(value: value_node.children[0])
-                if !for_receiver || subtyping?(sub_type: literal_type, super_type: type)
-                  true_types << literal_type
-                end
-                false_types << type
-              end
-            end
-          end
-        end
-      end
-
+      # Narrows `type` by `is_a?(klass)`: the truthy type and the falsy type, `nil` when the branch is unreachable
       def type_case_select(type, klass)
-        truth_types, false_types = type_case_select0(type, klass)
+        truthy_type, falsy_type, truthy_verdict, falsy_verdict = type_case(type, klass)
 
         [
-          truth_types.empty? ? nil : AST::Types::Union.build(types: truth_types),
-          false_types.empty? ? nil : AST::Types::Union.build(types: false_types)
+          truthy_verdict.empty? ? nil : truthy_type,
+          falsy_verdict.empty? ? nil : falsy_type
         ]
-      end
-
-      def type_case_select0(type, klass)
-        instance_type = factory.instance_type(klass)
-
-        case type
-        when AST::Types::Union
-          truthy_types = [] # :Array[AST::Types::t]
-          falsy_types = [] #: Array[AST::Types::t]
-
-          type.types.each do |ty|
-            truths, falses = type_case_select0(ty, klass)
-
-            if truths.empty?
-              falsy_types.push(ty)
-            else
-              truthy_types.push(*truths)
-              falsy_types.push(*falses)
-            end
-          end
-
-          [truthy_types, falsy_types]
-
-        when AST::Types::Name::Alias
-          ty = factory.expand_alias(type)
-          if ty == type
-            [[type], [type]]
-          else
-            type_case_select0(ty, klass)
-          end
-
-        when AST::Types::Any, AST::Types::Top, AST::Types::Var
-          [
-            [instance_type],
-            [type]
-          ]
-
-        when AST::Types::Name::Interface
-          [
-            [instance_type],
-            [type]
-          ]
-
-        else
-          # There are four possible relations between `type` and `instance_type`
-          #
-          # ```ruby
-          # case object      # object: T
-          # when K           # K: singleton(K)
-          # when ...
-          # end
-          # ````
-          #
-          # 1. T <: K && K <: T (T == K, T = Integer, K = Numeric)
-          # 2. T <: K           (example: T = Integer, K = Numeric)
-          # 3. K <: T           (example: T = Numeric, K = Integer)
-          # 4. none of the above (example: T = String, K = Integer)
-
-          if subtyping?(sub_type: type, super_type: instance_type)
-            # 1 or 2. Satisfies the condition, no narrowing because `type` is already more specific than/equals to `instance_type`
-            [
-              [type],
-              []
-            ]
-          else
-            if subtyping?(sub_type: instance_type, super_type: type)
-              # 3. Satisfied the condition, narrows to `instance_type`, but cannot remove it from *falsy* list
-              [
-                [instance_type],
-                [type]
-              ]
-            else
-              # 4
-              [
-                [],
-                [type]
-              ]
-            end
-          end
-        end
       end
 
       def no_subtyping?(sub_type:, super_type:)

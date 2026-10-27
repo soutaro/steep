@@ -131,6 +131,8 @@ module Steep
           true
         when AST::Types::Union, AST::Types::Intersection
           type.types.all? {|ty| config_free_shape?(ty) }
+        when AST::Types::Negation
+          config_free_shape?(type.type)
         when AST::Types::Name::Alias
           # The free variables of an alias type do not include the ones in its expansion
           expanded = factory.expand_alias(type)
@@ -184,7 +186,26 @@ module Steep
             union_shape(type, shapes)
           end
         when AST::Types::Intersection
-          shapes = type.types.map do |type|
+          if type.types.any? {|ty| ty.is_a?(AST::Types::Negation) }
+            # A narrowed type: the type variables are replaced by their bounds, and the negations may remove members
+            # of the bounds (`X & !nil` is `String` when `X < String?`)
+            resolved = type.map_type do |ty|
+              if ty.is_a?(AST::Types::Var) && (bound = config.upper_bound(ty.name))
+                bound
+              else
+                ty
+              end
+            end
+            simplified = subtyping.simplifier.simplify(resolved, bounds: config.variable_bounds)
+            unless simplified == type
+              return cached_raw_shape(simplified, config)
+            end
+          end
+
+          # A negation adds no method
+          types = type.types.reject {|ty| ty.is_a?(AST::Types::Negation) }
+          return if types.empty?
+          shapes = types.map do |type|
             cached_raw_shape(type, config) or return
           end
           intersection_shape(type, shapes)

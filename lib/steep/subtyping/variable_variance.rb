@@ -78,6 +78,8 @@ module Steep
           type.types.each do |ty|
             add_type(ty, variance: variance, covariants: covariants, contravariants: contravariants)
           end
+        when AST::Types::Negation
+          add_type(type.type, variance: variance, covariants: contravariants, contravariants: covariants)
         when AST::Types::Name::Interface, AST::Types::Name::Instance, AST::Types::Name::Alias
           type.args.each do |arg|
             add_type(arg, variance: :invariant, covariants: covariants, contravariants: contravariants)

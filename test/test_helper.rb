@@ -745,7 +745,7 @@ module TypeConstructionHelper
       Steep::TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableAnnotations.new(annotations),
       Steep::TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annotations),
       Steep::TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annotations)
-    ).build(TypeEnv.new(const_env))
+    ).build(TypeEnv.new(const_env, simplifier: checker.simplifier))
 
     context = Context.new(
       block_context: nil,

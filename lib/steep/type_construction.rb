@@ -459,7 +459,7 @@ module Steep
         TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(module_context.module_definition, checker.factory),
         TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableAnnotations.new(annots).merge!,
         TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annots)
-      ).build(TypeInference::TypeEnv.new(module_const_env))
+      ).build(TypeInference::TypeEnv.new(module_const_env, simplifier: checker.simplifier))
 
       self.class.new(
         checker: checker,
@@ -548,7 +548,7 @@ module Steep
         TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annots),
         TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots),
         TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(singleton_definition, checker.factory),
-      ).build(TypeInference::TypeEnv.new(class_const_env))
+      ).build(TypeInference::TypeEnv.new(class_const_env, simplifier: checker.simplifier))
 
       class_body_context = TypeInference::Context.new(
         method_context: nil,
@@ -660,7 +660,7 @@ module Steep
           TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annots),
           TypeInference::TypeEnvBuilder::Command::ImportLocalVariableAnnotations.new(annots),
           TypeInference::TypeEnvBuilder::Command::ImportInstanceVariableDefinition.new(instance_definition, checker.factory)
-        ).build(TypeInference::TypeEnv.new(context.type_env.constant_env))
+        ).build(TypeInference::TypeEnv.new(context.type_env.constant_env, simplifier: checker.simplifier))
 
       body_context = TypeInference::Context.new(
         method_context: nil,
@@ -1966,7 +1966,7 @@ module Steep
               env.join(*envs)
             end
 
-            if truthy.unreachable
+            if truthy.unreachable || truthy.unreachable_in_rbs?
               if true_clause
                 _, _, _, loc = deconstruct_if_node!(node)
 
@@ -1984,15 +1984,12 @@ module Steep
                 end
 
                 typing.add_error(
-                  Diagnostic::Ruby::UnreachableBranch.new(
-                    node: true_clause,
-                    location: location || raise
-                  )
+                  Diagnostic::Ruby.unreachable_branch(truthy.verdict, node: true_clause, location: location || raise) || raise
                 )
               end
             end
 
-            if falsy.unreachable
+            if falsy.unreachable || falsy.unreachable_in_rbs?
               if false_clause
                 _, _, _, loc = deconstruct_if_node!(node)
 
@@ -2011,10 +2008,7 @@ module Steep
                 end
 
                 typing.add_error(
-                  Diagnostic::Ruby::UnreachableBranch.new(
-                    node: false_clause,
-                    location: location || raise
-                  )
+                  Diagnostic::Ruby.unreachable_branch(falsy.verdict, node: false_clause, location: location || raise) || raise
                 )
               end
             end
@@ -2047,7 +2041,8 @@ module Steep
                 # @type var body: Parser::AST::Node?
                 *tests, body = when_clause.children
 
-                branch_reachable = false
+                # The branch is reachable when one of its tests is
+                branch_verdict = SetTheoretic::Verdict.empty
 
                 tests.each do |test|
                   _, condition_constr = condition_constr.synthesize(test, condition: true)
@@ -2058,7 +2053,7 @@ module Steep
                   condition_constr = condition_constr.update_type_env { falsy_env }
                   body_envs << truthy_env
 
-                  branch_reachable ||= !truthy.unreachable
+                  branch_verdict = branch_verdict | truthy.verdict
                 end
 
                 branch_result =
@@ -2074,14 +2069,15 @@ module Steep
 
                 branch_results << branch_result
 
-                unless branch_reachable
+                unless branch_verdict.inhabited?
                   unless branch_result.type.is_a?(AST::Types::Bot)
                     typing.add_error(
-                      Diagnostic::Ruby::UnreachableValueBranch.new(
+                      Diagnostic::Ruby.unreachable_value_branch(
+                        branch_verdict,
                         node: when_clause,
                         type: branch_result.type,
                         location: when_clause.location.keyword || raise
-                      )
+                      ) || raise
                     )
                   end
                 end

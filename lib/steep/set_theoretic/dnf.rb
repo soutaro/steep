@@ -127,8 +127,12 @@ module Steep
     class Normalizer
       attr_reader :factory
 
-      def initialize(factory:)
+      # `false` keeps the aliases as atoms
+      attr_reader :expand_aliases
+
+      def initialize(factory:, expand_aliases: true)
         @factory = factory
+        @expand_aliases = expand_aliases
       end
 
       def normalize(type, expanding = Set[])
@@ -146,7 +150,7 @@ module Steep
         when AST::Types::Boolean, AST::Types::Logic::Base
           DNF.atom(AST::Types::Literal.new(value: true)) | DNF.atom(AST::Types::Literal.new(value: false))
         when AST::Types::Name::Alias
-          if expanding.include?(type.name)
+          if !expand_aliases || expanding.include?(type.name)
             # A cycle at the top level of the alias, which RBS rejects; keep it opaque
             DNF.atom(type)
           else

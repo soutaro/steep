@@ -879,6 +879,12 @@ class TypeConstructionTest < Minitest::Test
 
   def test_block_splat_alias: () -> untyped
 
+  def test_narrowing_joins_the_negation_away: () -> untyped
+
+  def test_narrowing_keeps_the_negation_in_else: () -> untyped
+
+  def test_narrowing_by_module_without_includer_in_rbs: () -> untyped
+
   def test_type_narrowing_subclass: () -> untyped
 
   def test_assertion_as_type: () -> untyped

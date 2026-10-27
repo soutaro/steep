@@ -375,7 +375,7 @@ module Steep
           context: nil,
           resolver: constant_resolver
         )
-        type_env = TypeInference::TypeEnv.new(const_env)
+        type_env = TypeInference::TypeEnv.new(const_env, simplifier: subtyping.simplifier)
         type_env = TypeInference::TypeEnvBuilder.new(
           TypeInference::TypeEnvBuilder::Command::ImportConstantAnnotations.new(annotations),
           TypeInference::TypeEnvBuilder::Command::ImportGlobalDeclarations.new(subtyping.factory),

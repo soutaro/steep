@@ -177,6 +177,8 @@ module Steep
           type.map_type { eliminate_variable(_1, to: AST::Builtin.any_type) }
         when AST::Types::Proc
           type.map_type {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }
+        when AST::Types::Negation
+          type.map_type {|ty| eliminate_variable(ty, to: AST::Builtin.any_type) }
         else
           type
         end

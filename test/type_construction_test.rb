@@ -10260,6 +10260,112 @@ end
     end
   end
 
+  def test_narrowing_joins_the_negation_away
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+# @type var object: Numeric
+object = 1
+
+if object.is_a?(Integer)
+  object + 1
+end
+
+object
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # `Integer | (Numeric & !Integer)` is `Numeric` again
+        assert_equal parse_type("::Numeric"), context.type_env[:object]
+        assert_equal parse_type("::Numeric"), type
+      end
+    end
+  end
+
+  def test_narrowing_keeps_the_negation_in_else
+    with_checker(<<-RBS) do |checker|
+      RBS
+      source = parse_ruby(<<-RUBY)
+# @type var object: Numeric
+object = 1
+
+if object.is_a?(Integer)
+  object + 1
+elsif object.is_a?(Integer)
+  object + 2
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnreachableBranch, error
+          end
+        end
+      end
+    end
+  end
+
+  def test_narrowing_by_module_without_includer_in_rbs
+    with_checker(<<-RBS) do |checker|
+module Taggable
+  def tag: () -> String
+end
+
+class Plain
+end
+
+class Tagged
+  include Taggable
+end
+      RBS
+      source = parse_ruby(<<-RUBY)
+# @type var x: Plain
+x = Plain.new
+
+if x.is_a?(Taggable)
+  x.tag
+else
+  x
+end
+
+case x
+when Taggable
+  "tagged"
+else
+  "plain"
+end
+
+# @type var y: Tagged
+y = Tagged.new
+
+if y.is_a?(Taggable)
+  y.tag
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 2) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnreachableBranchInRBS, error
+            assert_equal "no class under `::Plain` includes `::Taggable`", error.reason
+          end
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::UnreachableValueBranchInRBS, error
+            assert_equal parse_type("::String"), error.type
+          end
+        end
+      end
+    end
+  end
+
   def test_type_narrowing_subclass
     with_checker(<<-RBS) do |checker|
       RBS
@@ -10280,7 +10386,17 @@ end
 
         assert_no_error typing
         assert_equal parse_type("::Integer | nil"), context.type_env[:bar]
-        assert_equal parse_type("::Numeric | ::String | nil"), context.type_env[:baz]
+        # The `else` branch excludes `Integer`
+        assert_equal(
+          AST::Types::Union.build(
+            types: [
+              AST::Types::Intersection.build(types: [parse_type("::Numeric"), AST::Types::Negation.build(type: parse_type("::Integer"))]),
+              parse_type("::String"),
+              parse_type("nil")
+            ]
+          ),
+          context.type_env[:baz]
+        )
       end
     end
   end

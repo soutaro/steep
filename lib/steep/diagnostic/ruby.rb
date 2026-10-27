@@ -727,6 +727,43 @@ module Steep
         end
       end
 
+      class UnreachableBranchInRBS < Base
+        attr_reader :reason
+
+        def initialize(node:, reason:, location: node.location.expression)
+          super(node: node, location: location)
+          @reason = reason
+        end
+
+        def header_line
+          "The branch is unreachable unless the class hierarchy is extended at runtime"
+        end
+
+        def detail_lines
+          reason
+        end
+      end
+
+      class UnreachableValueBranchInRBS < Base
+        attr_reader :type
+
+        attr_reader :reason
+
+        def initialize(node:, type:, reason:, location: node.location.expression)
+          super(node: node, location: location)
+          @type = type
+          @reason = reason
+        end
+
+        def header_line
+          "The branch may evaluate to a value of `#{type}` but unreachable unless the class hierarchy is extended at runtime"
+        end
+
+        def detail_lines
+          reason
+        end
+      end
+
       class ProcTypeExpected < Base
         attr_reader :type
 
@@ -1080,6 +1117,27 @@ module Steep
         end
       end
 
+      # The diagnostic of a branch the narrowing found unreachable: `UnreachableBranch` when the verdict is `empty`,
+      # `UnreachableBranchInRBS` when it is `empty_in_rbs`, and `nil` when it is inhabited
+      def self.unreachable_branch(verdict, node:, location:)
+        case
+        when verdict.empty?
+          UnreachableBranch.new(node: node, location: location)
+        when verdict.empty_in_rbs?
+          UnreachableBranchInRBS.new(node: node, location: location, reason: verdict.reason)
+        end
+      end
+
+      # The diagnostic of a branch with a value the narrowing found unreachable; `nil` when the verdict is inhabited
+      def self.unreachable_value_branch(verdict, node:, type:, location:)
+        case
+        when verdict.empty?
+          UnreachableValueBranch.new(node: node, type: type, location: location)
+        when verdict.empty_in_rbs?
+          UnreachableValueBranchInRBS.new(node: node, type: type, location: location, reason: verdict.reason)
+        end
+      end
+
       ALL = ObjectSpace.each_object(Class).with_object([]) do |klass, array|
         if klass < Base
           array << klass
@@ -1150,6 +1208,8 @@ module Steep
             UnknownInstanceVariable => :information,
             UnreachableBranch => :hint,
             UnreachableValueBranch => :hint,
+            UnreachableBranchInRBS => :hint,
+            UnreachableValueBranchInRBS => :hint,
             UnresolvedOverloading => :error,
             UnsatisfiableConstraint => :hint,
             UnsupportedSyntax => :hint,
@@ -1214,6 +1274,8 @@ module Steep
             UnknownInstanceVariable => :error,
             UnreachableBranch => :information,
             UnreachableValueBranch => :warning,
+            UnreachableBranchInRBS => :hint,
+            UnreachableValueBranchInRBS => :hint,
             UnresolvedOverloading => :error,
             UnsatisfiableConstraint => :error,
             UnsupportedSyntax => :information,
@@ -1279,6 +1341,8 @@ module Steep
             UnknownInstanceVariable => :hint,
             UnreachableBranch => :hint,
             UnreachableValueBranch => :hint,
+            UnreachableBranchInRBS => nil,
+            UnreachableValueBranchInRBS => nil,
             UnresolvedOverloading => :information,
             UnsatisfiableConstraint => :hint,
             UnsupportedSyntax => :hint,

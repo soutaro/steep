@@ -16,6 +16,15 @@ module Steep
         builder.factory
       end
 
+      # The set-theoretic emptiness check of the same environment
+      def emptiness
+        @emptiness ||= SetTheoretic::Emptiness.new(factory: factory)
+      end
+
+      def simplifier
+        @simplifier ||= SetTheoretic::Simplifier.new(emptiness: emptiness)
+      end
+
       def with_context(self_type:, instance_type:, class_type:, constraints:)
         @self_type = self_type
         @instance_type = instance_type
@@ -110,10 +119,10 @@ module Steep
       def instance_super_types(type_name, args:)
         ancestors = factory.definition_builder.ancestor_builder.one_instance_ancestors(type_name)
 
+        # The arguments are substituted on the Steep types: a negation type has no RBS counterpart
         subst = unless args.empty?
-                  args_ = args.map {|type| factory.type_1(type) }
                   params = ancestors.params or raise
-                  RBS::Substitution.build(params, args_)
+                  Interface::Substitution.build(params, args)
                 end
 
         each_ancestor(ancestors).map do |ancestor|
@@ -122,8 +131,9 @@ module Steep
           case ancestor
           when RBS::Definition::Ancestor::Instance
             args = ancestor.args.map do |type|
-              type = type.sub(subst) if subst
-              factory.type(type)
+              type = factory.type(type)
+              type = type.subst(subst) if subst
+              type
             end
 
             if ancestor.name.class?
@@ -481,6 +491,14 @@ module Steep
         when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
           Expand(relation) do
             check_type(Relation.new(sub_type: self_type, super_type: relation.super_type))
+          end
+
+        when relation.sub_type.is_a?(AST::Types::Negation) || relation.super_type.is_a?(AST::Types::Negation)
+          # A negation type is decided set-theoretically: `S <: T` holds when `S & !T` is empty
+          if emptiness.subtype?(relation.sub_type, relation.super_type, bounds: variable_upper_bounds).empty?
+            Success(relation)
+          else
+            Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
           end
 
         when relation.super_type.is_a?(AST::Types::Name::Interface)

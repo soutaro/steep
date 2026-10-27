@@ -39,6 +39,9 @@ module Steep
 
       attr_reader constant_env: ConstantEnv
 
+      # Simplifies the types of the variables when branches join; `nil` keeps the plain unions
+      attr_reader simplifier: SetTheoretic::Simplifier?
+
       @pure_node_descendants: Hash[Parser::AST::Node, Set[Parser::AST::Node]]
 
       def initialize: (
@@ -47,7 +50,8 @@ module Steep
           ?instance_variable_types: Hash[Symbol, AST::Types::t],
           ?global_types: Hash[Symbol, AST::Types::t],
           ?constant_types: Hash[RBS::TypeName, AST::Types::t],
-          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]]
+          ?pure_method_calls: Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t?]],
+          ?simplifier: SetTheoretic::Simplifier?
         ) -> void
 
       def update: (
@@ -142,6 +146,11 @@ module Steep
       # ```
       #
       def join: (*TypeEnv) -> TypeEnv
+
+      # The union of the types of a variable at a join, simplified when the narrowing left a negation in one of them
+      def join_types: (Array[AST::Types::t] types) -> AST::Types::t
+
+      def negation?: (AST::Types::t `type`) -> bool
 
       def add_pure_call: (Parser::AST::Node, MethodCall::Typed, AST::Types::t?) -> TypeEnv
 

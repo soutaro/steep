@@ -1,0 +1,31 @@
+# Generated from test/set_theoretic/simplifier_test.rb with RBS::Inline
+
+class SetTheoreticSimplifierTest < Minitest::Test
+  include SetTheoreticHelper
+
+  include Steep
+
+  def simplifier: () -> untyped
+
+  def simplify: (untyped string, ?bounds: untyped) -> untyped
+
+  def intersect: (untyped type, untyped predicate, ?bounds: untyped) -> untyped
+
+  def test_absorption_of_atoms: () -> untyped
+
+  def test_empty_clauses_are_dropped: () -> untyped
+
+  def test_negations: () -> untyped
+
+  def test_union_covers_negation: () -> untyped
+
+  def test_untyped: () -> untyped
+
+  def test_candidates_keep_the_spelling: () -> untyped
+
+  def test_aliases_are_unfolded_lazily: () -> untyped
+
+  def test_type_variables: () -> untyped
+
+  def test_literals_and_booleans: () -> untyped
+end

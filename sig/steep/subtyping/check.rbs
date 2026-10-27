@@ -23,6 +23,15 @@ module Steep
 
       def factory: () -> AST::Types::Factory
 
+      @emptiness: SetTheoretic::Emptiness?
+
+      # The set-theoretic emptiness check of the same environment
+      def emptiness: () -> SetTheoretic::Emptiness
+
+      @simplifier: SetTheoretic::Simplifier?
+
+      def simplifier: () -> SetTheoretic::Simplifier
+
       def with_context: [A] (self_type: AST::Types::t?, instance_type: AST::Types::t?, class_type: AST::Types::t?, constraints: Constraints?) { () -> A } -> A
 
       def self_type: () -> AST::Types::t

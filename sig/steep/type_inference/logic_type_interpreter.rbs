@@ -6,9 +6,14 @@ module Steep
 
         attr_reader type: AST::Types::t
 
+        # `true` when the verdict is `empty`
         attr_accessor unreachable: bool
 
-        def initialize: (env: TypeEnv, type: AST::Types::t, unreachable: bool) -> void
+        # The emptiness of the type of the branch
+        attr_accessor verdict: SetTheoretic::Verdict
+
+        # The verdict is `empty` when `unreachable`, `inhabited` otherwise, unless given
+        def initialize: (env: TypeEnv, type: AST::Types::t, ?unreachable: bool, ?verdict: SetTheoretic::Verdict?) -> void
 
         def update_env: () { () -> TypeEnv } -> Result
 
@@ -17,6 +22,9 @@ module Steep
         # Make the instance unreachable, and returns self
         #
         def unreachable!: () -> self
+
+        # `true` if the branch is unreachable as long as the class hierarchy is what the RBS environment declares
+        def unreachable_in_rbs?: () -> bool
       end
 
       # Receiver local variable of `x[:key]` and the literal discriminant types of each member of its union type
@@ -41,6 +49,12 @@ module Steep
 
       UNTYPED: AST::Types::Any
 
+      # The falsy values: `nil | false`
+      FALSY: AST::Types::t
+
+      # The narrowed types of the truthy branch and the falsy branch, with the verdicts of the branches
+      type narrowing = [AST::Types::t, AST::Types::t, SetTheoretic::Verdict, SetTheoretic::Verdict]
+
       attr_reader subtyping: Subtyping::Check
 
       attr_reader typing: Typing
@@ -50,6 +64,29 @@ module Steep
       attr_reader config: Interface::Builder::Config
 
       def initialize: (subtyping: Subtyping::Check, typing: Typing, config: Interface::Builder::Config) -> void
+
+      def emptiness: () -> SetTheoretic::Emptiness
+
+      def simplifier: () -> SetTheoretic::Simplifier
+
+      # The upper bounds of the type variables in scope
+      def bounds: () -> Hash[Symbol, AST::Types::t?]
+
+      # The values of `type` that are in `predicate` and the ones that are not, with the verdicts of the two branches
+      #
+      # `negative` is the type the falsy branch excludes, `predicate` unless given.
+      def narrow: (AST::Types::t `type`, AST::Types::t predicate, ?negative: AST::Types::t) -> narrowing
+
+      # The truthy values of `type` and the falsy ones
+      #
+      # `bool` and the logic types stay on both sides as they are.
+      def truthiness: (AST::Types::t `type`) -> narrowing
+
+      # Narrows `type` by `is_a?(klass)`
+      def type_case: (AST::Types::t `type`, RBS::TypeName klass) -> narrowing
+
+      # The literal type of a literal node; `nil` for the other nodes
+      def literal_type: (Parser::AST::Node node) -> AST::Types::t?
 
       def eval: (env: TypeEnv, node: Parser::AST::Node) -> [Result, Result]
 
@@ -105,28 +142,8 @@ module Steep
 
       def guess_type_from_method: (Parser::AST::Node node) -> (AST::Types::Logic::ReceiverIsArg | AST::Types::Logic::ReceiverIsNil | AST::Types::Logic::Not | AST::Types::Logic::ArgIsReceiver | nil)
 
-      # Partition `arg_type` into truthy and falsy types based on a literal AST node.
-      #
-      # Returns a pair of `[truthy_types, falsy_types]`, or `nil` if the value_node is not a literal.
-      #
-      # ```ruby
-      # case x
-      # when nil       # value_node = {nil}, arg_type = type_of({x}), for_receiver: false
-      #   ...
-      # when 123       # value_node = {123}, arg_type = type_of({x}), for_receiver: false
-      #   ...
-      # end
-      #
-      # if x == :symbol    # value_node = {:symbol}, arg_type = type_of({x}), for_receiver: true
-      #   ...
-      # end
-      # ```
-      #
-      def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type, ?for_receiver: bool) -> [Array[AST::Types::t], Array[AST::Types::t]]?
-
+      # Narrows `type` by `is_a?(klass)`: the truthy type and the falsy type, `nil` when the branch is unreachable
       def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t?, AST::Types::t?]
-
-      def type_case_select0: (AST::Types::t `type`, RBS::TypeName klass) -> [Array[AST::Types::t], Array[AST::Types::t]]
 
       def try_convert: (AST::Types::t, Symbol) -> AST::Types::t?
 

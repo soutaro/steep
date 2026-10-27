@@ -79,6 +79,7 @@ require "steep/set_theoretic/verdict"
 require "steep/set_theoretic/dnf"
 require "steep/set_theoretic/class_index"
 require "steep/set_theoretic/emptiness"
+require "steep/set_theoretic/simplifier"
 
 require "steep/diagnostic/helper"
 require "steep/diagnostic/result_printer2"

@@ -65,7 +65,10 @@ module Steep
     class Normalizer
       attr_reader factory: AST::Types::Factory
 
-      def initialize: (factory: AST::Types::Factory) -> void
+      # `false` keeps the aliases as atoms
+      attr_reader expand_aliases: bool
+
+      def initialize: (factory: AST::Types::Factory, ?expand_aliases: bool) -> void
 
       # `expanding` is the set of the aliases being unfolded, to keep a cyclic alias opaque
       def normalize: (AST::Types::t type, ?Set[RBS::TypeName] expanding) -> DNF

@@ -213,7 +213,16 @@ end
       assert_equal parse_type("true"), truthy_result.type
       assert_equal parse_type("false"), falsy_result.type
       assert_equal parse_type("'hello@example.com'"), truthy_result.env[:email]
-      assert_equal parse_type("::String | nil"), falsy_result.env[:email]
+      # The falsy branch excludes the literal
+      assert_equal(
+        AST::Types::Union.build(
+          types: [
+            AST::Types::Intersection.build(types: [parse_type("::String"), AST::Types::Negation.build(type: parse_type("'hello@example.com'"))]),
+            parse_type("nil")
+          ]
+        ),
+        falsy_result.env[:email]
+      )
     end
   end
 
@@ -318,7 +327,8 @@ end
     with_checker do |checker|
       interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: nil, config: config)
 
-      assert_equal [parse_type("::String"), parse_type("top")],
+      # The falsy branch excludes the class
+      assert_equal [parse_type("::String"), AST::Types::Negation.build(type: parse_type("::String"))],
                    interpreter.type_case_select(parse_type("top"), RBS::TypeName.parse("::String"))
     end
   end
@@ -364,7 +374,8 @@ type dm = ms | ds
       assert_equal [parse_type("::M1"), parse_type("::M2 | ::M3 | ::ds")],
                    interpreter.type_case_select(parse_type("::dm"), RBS::TypeName.parse("::M1"))
 
-      assert_equal [parse_type("::M1 | ::M2 | ::M3"), parse_type("::ds")],
+      # The alias stays when all of its members are selected
+      assert_equal [parse_type("::ms"), parse_type("::ds")],
                    interpreter.type_case_select(parse_type("::dm"), RBS::TypeName.parse("::M"))
 
       assert_equal [parse_type("::D2"), parse_type("::ms | ::D1")],

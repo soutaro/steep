@@ -8,6 +8,9 @@ module Steep
       attr_reader :constant_env
       attr_reader :pure_method_calls
 
+      # Simplifies the types of the variables when branches join; `nil` keeps the plain unions
+      attr_reader :simplifier
+
       def to_s
         array = [] #: Array[String]
 
@@ -39,13 +42,14 @@ module Steep
         "{ #{array.join(", ")} }"
       end
 
-      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {})
+      def initialize(constant_env, local_variable_types: {}, instance_variable_types: {}, global_types: {}, constant_types: {}, pure_method_calls: {}, simplifier: nil)
         @constant_env = constant_env
         @local_variable_types = local_variable_types
         @instance_variable_types = instance_variable_types
         @global_types = global_types
         @constant_types = constant_types
         @pure_method_calls = pure_method_calls
+        @simplifier = simplifier
 
         @pure_node_descendants = {}
       end
@@ -57,7 +61,8 @@ module Steep
           instance_variable_types: instance_variable_types,
           global_types: global_types,
           constant_types: constant_types,
-          pure_method_calls: pure_method_calls
+          pure_method_calls: pure_method_calls,
+          simplifier: simplifier
         )
       end
 
@@ -74,7 +79,8 @@ module Steep
           instance_variable_types: instance_variable_types,
           global_types:  global_types,
           constant_types: constant_types,
-          pure_method_calls: pure_method_calls
+          pure_method_calls: pure_method_calls,
+          simplifier: simplifier
         )
       end
 
@@ -254,7 +260,7 @@ module Steep
 
         assignments =
           all_lvar_types
-            .transform_values {|types| AST::Types::Union.build(types: types) }
+            .transform_values {|types| join_types(types) }
             .reject {|var, type| self[var] == type }
 
         common_pure_nodes = envs
@@ -263,7 +269,7 @@ module Steep
 
         pure_call_updates = common_pure_nodes.each_with_object({}) do |node, hash| #$ Hash[Parser::AST::Node, [MethodCall::Typed, AST::Types::t]]
           pairs = envs.map {|env| env.pure_method_calls.fetch(node) }
-          refined_type = AST::Types::Union.build(types: pairs.map {|call, type| type || call.return_type })
+          refined_type = join_types(pairs.map {|call, type| type || call.return_type })
 
           # Any *pure_method_call* can be used because it's *pure*
           (call, _ = envs.fetch(0).pure_method_calls[node]) or raise
@@ -272,6 +278,25 @@ module Steep
         end
 
         assign_local_variables(assignments).merge(pure_method_calls: pure_call_updates)
+      end
+
+      # The union of the types of a variable at a join, simplified when the narrowing left a negation in one of them
+      def join_types(types)
+        union = AST::Types::Union.build(types: types)
+        if simplifier && types.any? {|type| negation?(type) }
+          simplifier.simplify(union, candidates: types)
+        else
+          union
+        end
+      end
+
+      def negation?(type)
+        case type
+        when AST::Types::Negation
+          true
+        else
+          type.each_child.any? {|child| negation?(child) }
+        end
       end
 
       def add_pure_call(node, call, type)

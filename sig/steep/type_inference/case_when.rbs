@@ -12,31 +12,31 @@ module Steep
 
         attr_reader initial_constr: TypeConstruction
 
-        # True if the `when` clause is unreachable
-        attr_reader unreachable_clause: bool
+        # The emptiness of the `when` clause before its patterns: the previous clauses may have exhausted the value
+        attr_reader clause_verdict: SetTheoretic::Verdict
 
         @assignment_node: Node
 
         attr_reader pattern_results: Array[[Node, Result, Result]]
 
-        def initialize: (LogicTypeInterpreter logic, TypeConstruction initial_constr, bool unreachable, Node assignment_node) -> void
+        def initialize: (LogicTypeInterpreter logic, TypeConstruction initial_constr, SetTheoretic::Verdict clause_verdict, Node assignment_node) -> void
 
-        def add_pattern: (Node pattern) { (Node, TypeConstruction, bool) -> Pair } -> void
+        def add_pattern: (Node pattern) { (Node, TypeConstruction, SetTheoretic::Verdict) -> Pair } -> void
 
         # The result for body of the when-clause
         #
         # Raises an error when no pattern is registered.
         #
-        def body_result: () { (TypeEnv) -> TypeEnv? } -> [TypeConstruction, bool]
+        def body_result: () { (TypeEnv) -> TypeEnv? } -> [TypeConstruction, SetTheoretic::Verdict]
 
         # The result for next when-clause
         #
         # Raises an error when no pattern is registered.
         #
-        def falsy_result: () -> [TypeConstruction, bool]
+        def falsy_result: () -> [TypeConstruction, SetTheoretic::Verdict]
 
         # The result for incoming pattern
-        def latest_result: () -> [TypeConstruction, bool]
+        def latest_result: () -> [TypeConstruction, SetTheoretic::Verdict]
 
         # Returns new object equivalent to @assignment_node
         def assignment_node: () -> Node
@@ -123,8 +123,8 @@ module Steep
       #
       def rewrite_condition_node: (Symbol, Node) ->[Node?, Node]
 
-      # TypeConstruction for incoming clause
-      def latest_result: () -> [TypeConstruction, bool]
+      # TypeConstruction for incoming clause, with the emptiness of the clause
+      def latest_result: () -> [TypeConstruction, SetTheoretic::Verdict]
     end
   end
 end

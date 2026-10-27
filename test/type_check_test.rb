@@ -3118,7 +3118,7 @@ class TypeCheckTest < Minitest::Test
                 line: 7
                 character: 14
             severity: ERROR
-            message: Type `(::String | nil)` does not have method `encoding`
+            message: Type `X` does not have method `encoding`
             code: Ruby::NoMethod
       YAML
     )

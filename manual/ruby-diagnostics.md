@@ -1893,6 +1893,50 @@ test.rb:1:0: [error] The branch is unreachable
 | - | - | - | - | - |
 | error | information | hint | hint | - |
 
+<a name='Ruby::UnreachableBranchInRBS'></a>
+## Ruby::UnreachableBranchInRBS
+
+A branch is unreachable as long as the class hierarchy is what the RBS environment declares.
+
+The narrowing found no class in the environment whose instances could take the branch, like a class under
+`Foo` including `Taggable` below. A runtime `include`, `extend`, or reopened class could still take it, so the
+branch is type checked as reachable and the diagnostic only hints at it.
+
+### Ruby code
+
+```ruby
+module Taggable
+end
+
+class Foo
+end
+
+x = Foo.new
+
+if x.is_a?(Taggable)
+  x.tag
+end
+```
+
+### Diagnostic
+
+```
+test.rb:9:0: [error] The branch is unreachable unless the class hierarchy is extended at runtime
+│ no class under `::Foo` includes `::Taggable`
+│
+│ Diagnostic ID: Ruby::UnreachableBranchInRBS
+│
+└ if x.is_a?(Taggable)
+  ~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | hint | hint | - | - |
+
 <a name='Ruby::UnreachableValueBranch'></a>
 ## Ruby::UnreachableValueBranch
 
@@ -1931,6 +1975,51 @@ test.rb:5:0: [error] The branch may evaluate to a value of `::String` but unreac
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
 | error | warning | hint | hint | - |
+
+<a name='Ruby::UnreachableValueBranchInRBS'></a>
+## Ruby::UnreachableValueBranchInRBS
+
+A branch has a type other than `bot`, but unreachable as long as the class hierarchy is what the RBS environment declares.
+
+See `UnreachableValueBranch` and `UnreachableBranchInRBS`.
+
+### Ruby code
+
+```ruby
+module Taggable
+end
+
+class Foo
+end
+
+x = Foo.new
+
+case x
+when Taggable
+  "tagged"
+else
+  "plain"
+end
+```
+
+### Diagnostic
+
+```
+test.rb:10:0: [error] The branch may evaluate to a value of `::String` but unreachable unless the class hierarchy is extended at runtime
+│ no class under `::Foo` includes `::Taggable`
+│
+│ Diagnostic ID: Ruby::UnreachableValueBranchInRBS
+│
+└ when Taggable
+  ~~~~
+```
+
+
+### Severity
+
+| all_error | strict | default | lenient | silent |
+| - | - | - | - | - |
+| error | hint | hint | - | - |
 
 <a name='Ruby::UnresolvedOverloading'></a>
 ## Ruby::UnresolvedOverloading

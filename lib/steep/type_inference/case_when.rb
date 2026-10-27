@@ -4,12 +4,13 @@ module Steep
       class WhenPatterns
         include NodeHelper
 
-        attr_reader :logic, :initial_constr, :unreachable_clause, :pattern_results
+        attr_reader :logic, :initial_constr, :clause_verdict, :pattern_results
 
-        def initialize(logic, initial_constr, unreachable_clause, assignment_node)
+        # `clause_verdict` is the emptiness of the clause before its patterns: the previous clauses may have exhausted the value
+        def initialize(logic, initial_constr, clause_verdict, assignment_node)
           @logic = logic
           @initial_constr = initial_constr
-          @unreachable_clause = unreachable_clause
+          @clause_verdict = clause_verdict
           @assignment_node = assignment_node
 
           @pattern_results = []
@@ -18,9 +19,9 @@ module Steep
         def add_pattern(pat)
           test_node = pat.updated(:send, [pat, :===, assignment_node])
 
-          latest_constr, unreachable_pattern = latest_result
+          latest_constr, pattern_verdict = latest_result
 
-          yield(test_node, latest_constr, unreachable_pattern)
+          yield(test_node, latest_constr, pattern_verdict)
           truthy_result, falsy_result = logic.eval(env: latest_constr.context.type_env, node: test_node)
 
           pattern_results << [pat, truthy_result, falsy_result]
@@ -30,10 +31,10 @@ module Steep
           if (_, _, falsy = pattern_results.last)
             [
               initial_constr.update_type_env { falsy.env },
-              falsy.unreachable
+              clause_verdict & falsy.verdict
             ]
           else
-            [initial_constr, unreachable_clause]
+            [initial_constr, clause_verdict]
           end
         end
 
@@ -45,9 +46,12 @@ module Steep
 
           env = yield(env) || env
 
+          # The body is reachable when one of the patterns matches
+          patterns_verdict = pattern_results.inject(SetTheoretic::Verdict.empty) {|verdict, (_, truthy, _)| verdict | truthy.verdict }
+
           [
             initial_constr.update_type_env { env },
-            unreachable_clause || pattern_results.all? {|_, truthy, _| truthy.unreachable }
+            clause_verdict & patterns_verdict
           ]
         end
 
@@ -56,7 +60,7 @@ module Steep
 
           [
             initial_constr.update_type_env { falsy.env },
-            unreachable_clause || falsy.unreachable
+            clause_verdict & falsy.verdict
           ]
         end
 
@@ -78,7 +82,7 @@ module Steep
             when_pats.add_pattern(pat) {|test, constr| constr.synthesize(test) }
           end
 
-          body_constr, body_unreachable = when_pats.body_result() do |env|
+          body_constr, body_verdict = when_pats.body_result() do |env|
             case_when.propagate_value_node_type(env)
           end
 
@@ -92,14 +96,14 @@ module Steep
           body_result = LogicTypeInterpreter::Result.new(
             type: type,
             env: body_constr.context.type_env,
-            unreachable: body_unreachable
+            verdict: body_verdict
           )
 
-          falsy_constr, falsy_unreachable = when_pats.falsy_result
+          falsy_constr, falsy_verdict = when_pats.falsy_result
           next_result = LogicTypeInterpreter::Result.new(
             type: AST::Builtin.any_type,    # Unused for falsy pattern
             env: falsy_constr.context.type_env,
-            unreachable: falsy_unreachable
+            verdict: falsy_verdict
           )
 
           [body_result, next_result]
@@ -141,14 +145,14 @@ module Steep
 
       def when_clauses()
         when_nodes.each do |when_node|
-          clause_constr, unreachable = latest_result
+          clause_constr, clause_verdict = latest_result
 
           patterns, body, loc = deconstruct_when_node!(when_node)
 
           when_pats = WhenPatterns.new(
             logic,
             clause_constr,
-            unreachable,
+            clause_verdict,
             assignment_node
           )
 
@@ -159,14 +163,15 @@ module Steep
             loc
           )
 
-          if body_result.unreachable
+          unless body_result.verdict.inhabited?
             if body_result.type.is_a?(AST::Types::Any) || initial_constr.no_subtyping?(sub_type: body_result.type, super_type: AST::Builtin.bottom_type)
               typing.add_error(
-                Diagnostic::Ruby::UnreachableValueBranch.new(
+                Diagnostic::Ruby.unreachable_value_branch(
+                  body_result.verdict,
                   node: when_node,
                   type: body_result.type,
                   location: loc.keyword
-                )
+                ) || raise
               )
             end
           end
@@ -180,7 +185,7 @@ module Steep
           return
         end
 
-        constr, unreachable = latest_result
+        constr, verdict = latest_result
 
         constr = constr.update_type_env do |env|
           propagate_value_node_type(env) || env
@@ -195,14 +200,15 @@ module Steep
 
         else_result or raise
 
-        if unreachable
+        unless verdict.inhabited?
           if else_result.type.is_a?(AST::Types::Any) || initial_constr.no_subtyping?(sub_type: else_result.type, super_type: AST::Builtin.bottom_type)
             typing.add_error(
-              Diagnostic::Ruby::UnreachableValueBranch.new(
+              Diagnostic::Ruby.unreachable_value_branch(
+                verdict,
                 node: else_node || node,
                 type: else_result.type,
                 location: else_loc
-              )
+              ) || raise
             )
           end
         end
@@ -212,10 +218,10 @@ module Steep
         if (_, falsy_result = clause_results.last)
           [
             initial_constr.update_type_env { falsy_result.env },
-            falsy_result.unreachable
+            falsy_result.verdict
           ]
         else
-          [initial_constr, false]
+          [initial_constr, SetTheoretic::Verdict.inhabited]
         end
       end
 
@@ -225,9 +231,9 @@ module Steep
             body
           end
         end
-        next_constr, next_clause_unreachable = latest_result
+        next_constr, next_clause_verdict = latest_result
 
-        unless next_clause_unreachable
+        unless next_clause_verdict.empty?
           if else_result
             results << LogicTypeInterpreter::Result.new(
               type: else_result.type,

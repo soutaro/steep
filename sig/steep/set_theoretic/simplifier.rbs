@@ -1,0 +1,37 @@
+module Steep
+  module SetTheoretic
+    # Simplifies the types the narrowing builds, so that they read like the types a user writes
+    class Simplifier
+      attr_reader emptiness: Emptiness
+
+      # Keeps the aliases as atoms, to unfold them only when they interact with the other atoms
+      attr_reader normalizer: Normalizer
+
+      def initialize: (emptiness: Emptiness) -> void
+
+      def factory: () -> AST::Types::Factory
+
+      # The simplified `type`, or the first of `candidates` that normalizes to the same clauses
+      def simplify: (AST::Types::t `type`, ?bounds: Emptiness::bounds, ?candidates: Array[AST::Types::t]) -> AST::Types::t
+
+      # The simplified `type & predicate`; unlike `Intersection.build`, `untyped & predicate` is `predicate`
+      def intersect: (AST::Types::t `type`, AST::Types::t predicate, ?bounds: Emptiness::bounds, ?candidates: Array[AST::Types::t]) -> AST::Types::t
+
+      def finish: (Array[DNF::Clause] clauses, Emptiness::bounds bounds, Array[AST::Types::t] candidates) -> AST::Types::t
+
+      def simplify_clauses: (Array[DNF::Clause] clauses, Emptiness::bounds bounds) -> Array[DNF::Clause]
+
+      # `untyped & T` is `T`, and `untyped & !T` is `untyped`
+      def untyped_rule: (DNF::Clause clause) -> DNF::Clause
+
+      # Drops the redundant atoms of a clause
+      def simplify_clause: (DNF::Clause clause, Emptiness::bounds bounds) -> DNF::Clause
+
+      # Drops the clauses another clause subsumes
+      def absorb: (Array[DNF::Clause] clauses, Emptiness::bounds bounds) -> Array[DNF::Clause]
+
+      # Drops the negations the union covers
+      def eliminate_against_union: (Array[DNF::Clause] clauses, Emptiness::bounds bounds) -> Array[DNF::Clause]
+    end
+  end
+end
