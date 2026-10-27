@@ -8394,20 +8394,9 @@ end
       with_standard_construction(checker, source) do |construction, typing|
         construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
-          assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::UnresolvedOverloading, error
-            assert_equal parse_type("::Issue332::Bar"), error.receiver_type
-            assert_equal :test, error.method_name
-            assert_equal(
-              [
-                parse_method_type("(::Integer) -> void"),
-                parse_method_type("(::String) -> void")
-              ],
-              error.method_types
-            )
-          end
-        end
+        # `x` is `Integer | String` in the body, which no single overload of `super` accepts: the union is split
+        # across the overloads
+        assert_no_error typing
       end
     end
   end
