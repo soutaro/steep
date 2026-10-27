@@ -53,6 +53,13 @@ module Steep
       # The verdict of `type1 & type2`, read for reachability
       def disjoint?: (AST::Types::t type1, AST::Types::t type2, ?bounds: bounds) -> Verdict
 
+      # `true` if the type is inhabited by the evidence of the class hierarchy: the verdict is `inhabited` and every
+      # atom is one the check decides, so that a type with an interface, a record, a proc, a type variable, or `self`
+      # is not known to be inhabited
+      def known_inhabited?: (AST::Types::t `type`, ?bounds: bounds) -> bool
+
+      def decidable_atom?: (AST::Types::t `type`) -> bool
+
       # A constraint on a type variable: `[name, :sub, t]` for `t <: name`, `[name, :super, t]` for `name <: t`
       type constraint = [Symbol, :sub | :super, AST::Types::t]
 

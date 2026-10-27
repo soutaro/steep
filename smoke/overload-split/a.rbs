@@ -16,3 +16,19 @@ class Store[Elem]
   def get: (Integer) -> Elem
          | (Range[Integer]) -> Array[Elem]?
 end
+
+class Tagger
+  def tag: (Integer) -> String
+         | (Numeric) -> Symbol
+
+  def widen: (Integer) -> Integer
+           | (Numeric) -> Numeric
+end
+
+interface _TagSymbol
+  def tag: (Integer) -> Symbol
+end
+
+interface _TagBoth
+  def tag: (Numeric) -> (String | Symbol)
+end

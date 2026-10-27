@@ -102,6 +102,30 @@ module Steep
         check(AST::Types::Intersection.build(types: [type1, type2]), mode: :inhabitation, bounds: bounds)
       end
 
+      # `true` if the type is inhabited by the evidence of the class hierarchy: the verdict is `inhabited` and every
+      # atom is one the check decides (an instance, a singleton, a literal, `nil`, `untyped`, or a tuple of them),
+      # so that a type with an interface, a record, a proc, a type variable, or `self` is not known to be inhabited
+      def known_inhabited?(type, bounds: {})
+        return false unless check(type, mode: :inhabitation, bounds: bounds).inhabited?
+
+        normalizer.normalize(type).clauses.all? do |clause|
+          clause.positives.all? {|atom| decidable_atom?(atom) } && clause.negatives.all? {|atom| decidable_atom?(atom) }
+        end
+      rescue DNF::TooLarge
+        false
+      end
+
+      def decidable_atom?(type)
+        case type
+        when AST::Types::Name::Instance, AST::Types::Name::Singleton, AST::Types::Literal, AST::Types::Nil, AST::Types::Any
+          true
+        when AST::Types::Tuple
+          type.types.all? {|ty| decidable_atom?(ty) }
+        else
+          false
+        end
+      end
+
       # The constraints on the type variables `unknowns` that make `type` empty, or `nil` when a clause without such
       # a variable is inhabited
       #

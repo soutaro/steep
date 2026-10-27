@@ -32,3 +32,19 @@
                 | (::Float) -> ::Float
                 | (::String) -> ::String
     code: Ruby::UnresolvedOverloading
+  - range:
+      start:
+        line: 58
+        character: 0
+      end:
+        line: 58
+        character: 12
+    severity: ERROR
+    message: |-
+      Cannot assign a value of type `::Tagger` to a variable of type `::_TagSymbol`
+        ::Tagger <: ::_TagSymbol
+          (::Integer) -> ::String <: (::Integer) -> ::Symbol
+            ::String <: ::Symbol
+              ::Object <: ::Symbol
+                ::BasicObject <: ::Symbol
+    code: Ruby::IncompatibleAssignment

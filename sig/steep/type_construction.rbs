@@ -54,12 +54,9 @@ module Steep
 
     %a{pure} def variable_context: () -> TypeInference::Context::TypeVariableContext
 
-    # The types the arguments of the method call being type checked are read as, by node, while the union type of an
-    # argument is split across the overloads
+    # The types the arguments of the method call being type checked are read as, by node, while the arguments are
+    # carved across the overloads
     attr_reader argument_pins: Hash[Parser::AST::Node, AST::Types::t]
-
-    # The bound on the number of combinations of the members of the union types of the arguments of a call
-    MAX_ARGUMENT_SPLITS: Integer
 
     def initialize: (checker: untyped, source: untyped, annotations: untyped, typing: untyped, context: untyped, ?argument_pins: Hash[Parser::AST::Node, AST::Types::t]) -> void
 
@@ -241,7 +238,8 @@ module Steep
       hint: Types::t?
     ) -> [TypeInference::MethodCall::t, TypeConstruction]?
 
-    # Tries the overloads in their order and returns the first one that accepts the call; the failures go to `fails`
+    # Tries the overloads in their order and returns the first one that accepts the call with its index; the failures
+    # go to `fails`
     def try_overloads: (
       Parser::AST::Node node,
       method_name: Symbol,
@@ -253,14 +251,27 @@ module Steep
       tapp: AST::Node::TypeApplication?,
       hint: Types::t?,
       fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
-    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction, Integer]?
 
-    # The set-theoretic application of the overloads: an argument with a union type is split into its members, the
-    # overloads are tried for every combination of the members, and the call has the union of their return types
+    # Type checks the call against one overload
+    def try_overload: (
+      Parser::AST::Node node,
+      receiver_type: AST::Types::t,
+      method_name: Symbol,
+      method_overload: Interface::Shape::MethodOverload,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]
+
+    # The ordered application of the overloads: the first overload that accepts an argument is the one called
     #
-    # Returns `nil` when no argument has a union type, when a combination has no overload, or when there are more than
-    # `MAX_ARGUMENT_SPLITS` combinations.
-    def try_split_arguments: (
+    # The arguments are carved by the domains of the overloads in order, each part is type checked against the
+    # overload that takes it, and the call has the union of the return types. `winner` is the index of the overload
+    # that accepts all of the arguments, when there is one. Returns `nil` when the arguments are not carved.
+    def try_ordered_overloads: (
       Parser::AST::Node node,
       method_name: Symbol,
       receiver_type: AST::Types::t,
@@ -269,11 +280,9 @@ module Steep
       block_params: Parser::AST::Node?,
       block_body: Parser::AST::Node?,
       tapp: AST::Node::TypeApplication?,
-      hint: Types::t?
+      hint: Types::t?,
+      winner: Integer?
     ) -> [TypeInference::MethodCall::t, TypeConstruction]?
-
-    # The members of the union type of an argument: the clauses of its DNF, with the aliases unfolded
-    def split_argument_type: (AST::Types::t `type`) -> Array[AST::Types::t]
 
     # The core to type check method calls, which implements type checking arguments including blocks and type inference
     #

@@ -103,6 +103,7 @@ require "steep/type_inference/type_env_builder"
 require "steep/type_inference/logic_type_interpreter"
 require "steep/type_inference/multiple_assignment"
 require "steep/type_inference/method_call"
+require "steep/type_inference/ordered_overloads"
 require "steep/type_inference/case_when"
 
 require "steep/locator.rb"

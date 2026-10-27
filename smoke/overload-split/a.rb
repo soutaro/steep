@@ -36,3 +36,23 @@ calc.plus(z)
 # The core library: `Integer#+` with `Integer | Float` is `Integer | Float`
 n = 1 + y
 n.is_a?(Integer) || n.is_a?(Float)
+
+# The overloads are ordered: the first overload takes the `Integer`s, so a `Numeric` may go to either
+# @type var num: Numeric
+num = (_ = nil)
+tagger = Tagger.new
+tagged = tagger.tag(num)
+tagged.is_a?(String) || tagged.is_a?(Symbol)
+
+# An `Integer` goes to the first overload only
+tagger.tag(1).upcase
+
+# `Integer | Numeric` is `Numeric`
+tagger.widen(num).abs
+
+# A method type is implemented by the ordered overloads when its domain is covered and every overload it reaches
+# returns a subtype: `(Integer) -> Symbol` is not, since the first overload returns a `String` for an `Integer`
+# @type var both: _TagBoth
+both = tagger
+# @type var sym: _TagSymbol
+sym = tagger

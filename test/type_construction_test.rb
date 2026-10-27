@@ -872,7 +872,7 @@ d = k.foo(c)
     end
   end
 
-  def test_split_union_argument_across_overloads
+  def test_ordered_overloads_union_argument
     with_checker(<<-RBS) do |checker|
 class Calc
   def plus: (Integer) -> Integer
@@ -896,7 +896,7 @@ Calc.new.plus(y)
     end
   end
 
-  def test_split_union_argument_generic_method
+  def test_ordered_overloads_generic_class
     with_checker(<<-RBS) do |checker|
 class Store[Elem]
   def get: (Integer) -> Elem
@@ -921,7 +921,7 @@ a.get(i)
     end
   end
 
-  def test_split_union_argument_generic_method_type
+  def test_ordered_overloads_generic_method_type
     with_checker(<<-RBS) do |checker|
 class Picker
   def pick: [T] (Integer, T) -> T
@@ -944,7 +944,7 @@ Picker.new.pick(k, [1])
     end
   end
 
-  def test_split_union_arguments_combinations
+  def test_ordered_overloads_two_arguments
     with_checker(<<-RBS) do |checker|
 class Calc
   def pair: (Integer, Integer) -> :ii
@@ -970,7 +970,7 @@ Calc.new.pair(x, y)
     end
   end
 
-  def test_split_union_keyword_argument
+  def test_ordered_overloads_keyword_argument
     with_checker(<<-RBS) do |checker|
 class Calc
   def scale: (by: Integer) -> Integer
@@ -992,7 +992,7 @@ Calc.new.scale(by: y)
     end
   end
 
-  def test_split_union_argument_with_member_no_overload_accepts
+  def test_ordered_overloads_part_without_overload
     with_checker(<<-RBS) do |checker|
 class Calc
   def plus: (Integer) -> Integer
@@ -1016,7 +1016,7 @@ Calc.new.plus(y)
     end
   end
 
-  def test_split_union_argument_prefers_a_single_overload
+  def test_ordered_overloads_nested_return_types
     with_checker(<<-RBS) do |checker|
 class Calc
   def plus: (Integer) -> Integer
@@ -1033,13 +1033,76 @@ Calc.new.plus(y)
         type, _ = construction.synthesize(source.node)
 
         assert_no_error typing
-        # `(Numeric) -> Numeric` accepts the whole union: no split
+        # The first overload takes the `Integer`s and the second the `Float`s: `Integer | Numeric` is `Numeric`
         assert_equal parse_type("::Numeric"), type
       end
     end
   end
 
-  def test_split_union_argument_with_block
+  def test_ordered_overloads_earlier_overload_takes_a_part
+    with_checker(<<-RBS) do |checker|
+class Calc
+  def tag: (Integer) -> String
+         | (Numeric) -> Symbol
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var n: Numeric
+# @type var i: Integer
+# @type var f: Float
+n = (_ = nil)
+i = (_ = nil)
+f = (_ = nil)
+a = Calc.new.tag(n)
+b = Calc.new.tag(i)
+c = Calc.new.tag(f)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # A `Numeric` may be an `Integer`, which the first overload takes: `String | Symbol`
+        assert_equal parse_type("::String | ::Symbol"), context.type_env[:a]
+        # An `Integer` goes to the first overload, and a `Float` to the second
+        assert_equal parse_type("::String"), context.type_env[:b]
+        assert_equal parse_type("::Symbol"), context.type_env[:c]
+      end
+    end
+  end
+
+  def test_ordered_overloads_interface_argument_keeps_the_accepting_overload
+    with_checker(<<-RBS) do |checker|
+interface _Reader
+  def read: () -> String
+end
+
+interface _Writer
+  def write: (String) -> void
+end
+
+class IO2
+  def use: (_Reader) -> :reader
+         | (_Writer) -> :writer
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var w: _Writer
+w = (_ = nil)
+IO2.new.use(w)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # Whether a `_Writer` is also a `_Reader` is unknown: the overload accepting it keeps it
+        assert_equal parse_type(":writer"), type
+      end
+    end
+  end
+
+  def test_ordered_overloads_with_block
     with_checker(<<-RBS) do |checker|
 class Calc
   def each_scaled: (Integer) { (Integer) -> void } -> Integer
@@ -1064,7 +1127,7 @@ end
     end
   end
 
-  def test_split_union_argument_call_record
+  def test_ordered_overloads_call_record
     with_checker(<<-RBS) do |checker|
 class Calc
   def plus: (Integer) -> Integer

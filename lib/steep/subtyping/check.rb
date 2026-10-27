@@ -826,6 +826,14 @@ module Steep
         end
       end
 
+      # The overloads of a method are ordered: the first overload that accepts an argument is the one called, so that
+      # `(Integer) -> A | (Numeric) -> B` reads as `(Integer -> A) & ((Numeric & !Integer) -> B)`
+      #
+      # The overloads are a subtype of a method type when its domain is covered by their domains, and every overload
+      # the domain reaches, after the earlier overloads took their parts, returns a subtype of its return type
+      # (`check_ordered_overloads`). A single overload is a subtype of the method type only when no earlier overload
+      # takes a part of its domain. The overloads with type parameters, or with a type variable the constraints are
+      # collected for, are decided one overload at a time as before.
       def check_method(name, relation)
         relation.method!
 
@@ -834,38 +842,79 @@ module Steep
         All(relation) do |all|
           super_method.method_types.each do |super_type|
             all.add(Relation.new(sub_type: sub_method, super_type: super_type)) do |rel|
-              result = Any(rel) do |any|
-                sub_method.method_types.each do |sub_type|
-                  any.add(Relation.new(sub_type: sub_type, super_type: super_type)) do |rel|
-                    check_generic_method_type(name, rel)
-                  end
-                end
+              domains = ordered_overload_domains(sub_method.method_types, super_type)
+
+              if domains
+                ordered = check_ordered_overloads(name, rel, sub_method.method_types, super_type, domains)
+                next ordered if ordered.success?
               end
 
-              if result.failure? && overloads_cover?(sub_method.method_types, super_type)
-                # No single overload is a subtype of `super_type`, but all of them together are:
-                # `(Integer) -> Integer | (String) -> String` implements `(Integer | String) -> (Integer | String)`
-                Success(rel)
-              else
-                result
+              Any(rel) do |any|
+                sub_method.method_types.each_with_index do |sub_type, index|
+                  any.add(Relation.new(sub_type: sub_type, super_type: super_type)) do |rel|
+                    if domains && shadowed_overload?(index, domains)
+                      # An earlier overload takes a part of the arguments
+                      Failure(rel, Result::Failure::ParameterMismatchError.new(name: name))
+                    else
+                      check_generic_method_type(name, rel)
+                    end
+                  end
+                end
               end
             end
           end
         end
       end
 
-      # `true` if the intersection of the method types, read as arrows, is a subtype of `super_type`
-      #
-      # Only for monomorphic method types without a type variable the constraints are collected for.
-      def overloads_cover?(sub_types, super_type)
+      # The domain of `super_type` and the domains of the overloads, read as arrows, as the types of the argument
+      # tuples; `nil` for the method types with type parameters or with a type variable the constraints are collected
+      # for
+      def ordered_overload_domains(sub_types, super_type)
         types = sub_types + [super_type]
-        return false unless types.all? {|type| type.type_params.empty? }
-        return false if types.any? {|type| type.free_variables.any? {|var| var.is_a?(Symbol) && constraints.unknown?(var) } }
+        return nil unless types.all? {|type| type.type_params.empty? }
+        return nil if types.any? {|type| type.free_variables.any? {|var| var.is_a?(Symbol) && constraints.unknown?(var) } }
 
-        procs = sub_types.map {|type| AST::Types::Proc.new(type: type.type, block: type.block, self_type: nil) }
-        super_proc = AST::Types::Proc.new(type: super_type.type, block: super_type.block, self_type: nil)
+        arrows = sub_types.map {|type| AST::Types::Proc.new(type: type.type, block: type.block, self_type: nil) }
+        super_arrow = AST::Types::Proc.new(type: super_type.type, block: super_type.block, self_type: nil)
+        universe = SetTheoretic::Emptiness::ArrowUniverse.new(arrows + [super_arrow], arrows.size)
 
-        emptiness.subtype?(AST::Types::Intersection.build(types: procs), super_proc, bounds: variable_upper_bounds).empty?
+        [emptiness.domain(super_arrow, universe), arrows.map {|arrow| emptiness.domain(arrow, universe) }]
+      end
+
+      # `true` if an overload before `index` takes a part of the domain of the super type, by the evidence of the
+      # class hierarchy
+      def shadowed_overload?(index, domains)
+        super_domain, overload_domains = domains
+
+        overload_domains.take(index).any? do |domain|
+          emptiness.known_inhabited?(AST::Types::Intersection.build(types: [super_domain, domain]), bounds: variable_upper_bounds)
+        end
+      end
+
+      # The ordered overloads against `super_type`: the domain of `super_type` must be covered by the domains of the
+      # overloads, and every overload the domain reaches must return a subtype of its return type
+      def check_ordered_overloads(name, relation, sub_types, super_type, domains)
+        super_domain, overload_domains = domains
+
+        uncovered = AST::Types::Intersection.build(
+          types: [super_domain] + overload_domains.map {|domain| AST::Types::Negation.build(type: domain) }
+        )
+        unless emptiness.check(uncovered, mode: :subtyping, bounds: variable_upper_bounds).empty?
+          return Failure(relation, Result::Failure::ParameterMismatchError.new(name: name))
+        end
+
+        All(relation) do |result|
+          sub_types.each_with_index do |sub_type, index|
+            reach = AST::Types::Intersection.build(
+              types: [super_domain, overload_domains.fetch(index)] + overload_domains.take(index).map {|domain| AST::Types::Negation.build(type: domain) }
+            )
+            next if emptiness.check(reach, mode: :inhabitation, bounds: variable_upper_bounds).empty?
+
+            result.add(Relation.new(sub_type: sub_type.type.return_type, super_type: super_type.type.return_type)) do |rel|
+              check_type(rel)
+            end
+          end
+        end
       end
 
       def check_generic_method_type(name, relation)

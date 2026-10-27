@@ -84,12 +84,9 @@ module Steep
       context.variable_context
     end
 
-    # The types the arguments of the method call being type checked are read as, by node, while the union type of an
-    # argument is split across the overloads
+    # The types the arguments of the method call being type checked are read as, by node, while the arguments are
+    # carved across the overloads
     attr_reader :argument_pins
-
-    # The bound on the number of combinations of the members of the union types of the arguments of a call
-    MAX_ARGUMENT_SPLITS = 32
 
     def initialize(checker:, source:, annotations:, typing:, context:, argument_pins: {})
       @checker = checker
@@ -2750,7 +2747,7 @@ module Steep
     def check(node, type, constraints: Subtyping::Constraints.empty)
       pair = synthesize(node, hint: type)
 
-      # An argument whose union type is being split across the overloads is read as the member of the union
+      # An argument carved across the overloads is read as the part that reaches the overload
       sub_type = argument_pins[node] || pair.type
       result = check_relation(sub_type: sub_type, super_type: type, constraints: constraints)
       if result.failure?
@@ -3732,12 +3729,21 @@ module Steep
       # @type var fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
       fails = []
 
-      if (pair = try_overloads(node, method_name: method_name, receiver_type: receiver_type, method: method, arguments: arguments, block_params: block_params, block_body: block_body, tapp: tapp, hint: hint, fails: fails))
+      first = try_overloads(node, method_name: method_name, receiver_type: receiver_type, method: method, arguments: arguments, block_params: block_params, block_body: block_body, tapp: tapp, hint: hint, fails: fails)
+
+      if first
+        call, constr, index = first
+        # The first overload accepts all of the arguments: nothing reaches another overload
+        return [call, constr] if index == 0
+      end
+
+      if (pair = try_ordered_overloads(node, method_name: method_name, receiver_type: receiver_type, method: method, arguments: arguments, block_params: block_params, block_body: block_body, tapp: tapp, hint: hint, winner: first&.fetch(2)))
         return pair
       end
 
-      if (pair = try_split_arguments(node, method_name: method_name, receiver_type: receiver_type, method: method, arguments: arguments, block_params: block_params, block_body: block_body, tapp: tapp, hint: hint))
-        return pair
+      if first
+        call, constr, _ = first
+        return [call, constr]
       end
 
       non_arity_errors = fails.reject do |call, _|
@@ -3771,23 +3777,13 @@ module Steep
       end
     end
 
-    # Tries the overloads in their order and returns the first one that accepts the call; the failures go to `fails`
+    # Tries the overloads in their order and returns the first one that accepts the call with its index; the failures
+    # go to `fails`
     def try_overloads(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:, fails:)
-      method.overloads.each do |overload|
+      method.overloads.each_with_index do |overload, index|
         Steep.logger.tagged overload.method_type.to_s do
           typing.new_child() do |child_typing|
-            constr = self.with_new_typing(child_typing)
-
-            call, constr = constr.try_special_method(
-              node,
-              receiver_type: receiver_type,
-              method_name: method_name,
-              method_overload: overload,
-              arguments: arguments,
-              block_params: block_params,
-              block_body: block_body,
-              hint: hint
-            ) || constr.try_method_type(
+            call, constr = self.with_new_typing(child_typing).try_overload(
               node,
               receiver_type: receiver_type,
               method_name: method_name,
@@ -3803,7 +3799,8 @@ module Steep
               constr.typing.save!
               return [
                 call,
-                update_type_env { constr.context.type_env }
+                update_type_env { constr.context.type_env },
+                index
               ]
             else
               fails << [call, constr]
@@ -3815,86 +3812,118 @@ module Steep
       nil
     end
 
-    # The set-theoretic application of the overloads: an argument with a union type is split into its members, the
-    # overloads are tried for every combination of the members, and the call has the union of their return types
+    # Type checks the call against one overload
+    def try_overload(node, receiver_type:, method_name:, method_overload:, arguments:, block_params:, block_body:, tapp:, hint:)
+      try_special_method(
+        node,
+        receiver_type: receiver_type,
+        method_name: method_name,
+        method_overload: method_overload,
+        arguments: arguments,
+        block_params: block_params,
+        block_body: block_body,
+        hint: hint
+      ) || try_method_type(
+        node,
+        receiver_type: receiver_type,
+        method_name: method_name,
+        method_overload: method_overload,
+        arguments: arguments,
+        block_params: block_params,
+        block_body: block_body,
+        tapp: tapp,
+        hint: hint
+      )
+    end
+
+    # The ordered application of the overloads: the first overload that accepts an argument is the one called
     #
-    # `x + y` with `x: Integer` and `y: Integer | Float` is `Integer | Float`, from `(Integer) -> Integer` and
-    # `(Float) -> Float`. Returns `nil` when no argument has a union type, when a combination has no overload, or when
-    # there are more than `MAX_ARGUMENT_SPLITS` combinations.
-    def try_split_arguments(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:)
+    # The arguments are carved by the domains of the overloads in order (`TypeInference::OrderedOverloads`), each part
+    # is type checked against the overload that takes it, with the types of the part pinned on the argument nodes, and
+    # the call has the union of the return types. `x + y` with `x: Integer` and `y: Integer | Float` is
+    # `Integer | Float`, from `(Integer) -> Integer` and `(Float) -> Float`.
+    #
+    # `winner` is the index of the overload that accepts all of the arguments, when there is one: the carving is only
+    # needed when an earlier overload takes a part of them. Returns `nil` when the arguments are not carved: when they
+    # have a splat or a forwarded argument, when the overload accepting all of them is not preceded by one that
+    # accepts a part, when a part is accepted by no overload, when a part fails to type check against the overload
+    # that takes it, or when there are too many parts.
+    def try_ordered_overloads(node, method_name:, receiver_type:, method:, arguments:, block_params:, block_body:, tapp:, hint:, winner:)
       return unless argument_pins.empty?
 
-      # The positional arguments and the values of the keyword arguments
-      candidates = [] #: Array[Parser::AST::Node]
-      arguments.each do |arg|
-        case arg.type
-        when :splat, :block_pass, :forwarded_args
-          # Not split
-        when :kwargs
-          arg.children.each do |pair|
-            if pair.type == :pair
-              candidates << pair.children[1]
+      shape = TypeInference::OrderedOverloads::Shape.from_arguments(arguments, block_given: block_params ? true : false) or return
+      nodes = shape.nodes
+      return if nodes.empty?
+
+      domains = method.overloads.map {|overload| shape.domain(overload.method_type) }
+      ordered = TypeInference::OrderedOverloads.new(emptiness: checker.emptiness, simplifier: checker.simplifier, bounds: variable_context.upper_bounds)
+
+      # The types of the arguments: the ones the accepting overload read them as, or the ones without a hint
+      tuple =
+        if winner
+          nodes.map {|arg| typing.type_of(node: arg) }
+        else
+          with_child_typing do |constr|
+            nodes.map do |arg|
+              type, constr = constr.synthesize(arg)
+              type
             end
           end
-        else
-          candidates << arg
         end
-      end
-      return if candidates.empty?
 
-      # The members of the union types of the arguments, from the types synthesized without a hint
-      splits = [] #: Array[[Parser::AST::Node, Array[AST::Types::t]]]
-      with_child_typing do |constr|
-        candidates.each do |arg|
-          type, constr = constr.synthesize(arg)
-          members = split_argument_type(type)
-          splits << [arg, members] if members.size > 1
-        end
-      end
-      return if splits.empty?
-
-      combinations = splits.inject(1) {|count, (_, members)| count * members.size }
-      return if combinations > MAX_ARGUMENT_SPLITS
-
-      pins_list = splits.inject([{}]) do |list, (arg, members)| #$ Array[Hash[Parser::AST::Node, AST::Types::t]]
-        list.flat_map do |pins|
-          members.map {|member| pins.merge({ arg => member }) }
-        end
+      if winner
+        return unless domains.take(winner).any? {|domain| domain && ordered.takes_part?(tuple, domain) }
       end
 
       calls = [] #: Array[TypeInference::MethodCall::Typed]
       envs = [] #: Array[TypeInference::TypeEnv]
 
-      # The combinations are type checked in one child typing, which is saved only when every combination has an
-      # overload, so that a failure leaves nothing behind
+      # The parts are type checked in one child typing, which is saved only when every part has an overload, so that
+      # a failure leaves nothing behind
       typing.new_child do |child_typing|
-        pins_list.each do |pins|
-          pair = with_new_typing(child_typing).with_argument_pins(pins).try_overloads(
-            node,
-            method_name: method_name,
-            receiver_type: receiver_type,
-            method: method,
-            arguments: arguments,
-            block_params: block_params,
-            block_body: block_body,
-            tapp: tapp,
-            hint: hint,
-            fails: []
-          )
-          return unless pair
+        tuples = [tuple]
 
-          call, constr = pair
-          call.is_a?(TypeInference::MethodCall::Typed) or raise
-          calls << call
-          envs << constr.context.type_env
+        method.overloads.each_with_index do |overload, index|
+          domain = domains.fetch(index) or next
+          parts, tuples = ordered.carve(tuples, domain) || return
+
+          parts.each do |part|
+            pins = nodes.zip(part).to_h #: Hash[Parser::AST::Node, AST::Types::t]
+
+            child_typing.new_child do |part_typing|
+              call, constr = with_new_typing(part_typing).with_argument_pins(pins).try_overload(
+                node,
+                receiver_type: receiver_type,
+                method_name: method_name,
+                method_overload: overload,
+                arguments: arguments,
+                block_params: block_params,
+                block_body: block_body,
+                tapp: tapp,
+                hint: hint
+              )
+              return unless call.is_a?(TypeInference::MethodCall::Typed)
+
+              constr.typing.save!
+              calls << call
+              envs << constr.context.type_env
+            end
+          end
+
+          break if tuples.empty?
         end
+
+        # A part accepted by no overload
+        return unless tuples.empty?
+        return if calls.empty?
 
         child_typing.save!
       end
 
-      # The call has the union of the return types, and the method type of the first combination with that return type
+      # The call has the union of the return types, and the method type of the first part with that return type
       first = calls.first or raise
-      return_type = union_type(*calls.map(&:return_type))
+      union = union_type(*calls.map(&:return_type))
+      return_type = checker.simplifier.simplify(union, bounds: variable_context.upper_bounds, candidates: [union])
       method_type = first.actual_method_type.with(type: first.actual_method_type.type.with(return_type: return_type))
       decls = calls.inject(Set[]) {|set, call| set + call.method_decls } #$ Set[TypeInference::MethodCall::MethodDecl]
 
@@ -3902,13 +3931,6 @@ module Steep
         first.update(return_type: return_type, actual_method_type: method_type, method_decls: decls),
         update_type_env { context.type_env.join(*envs) }
       ]
-    end
-
-    # The members of the union type of an argument: the clauses of its DNF, with the aliases unfolded
-    def split_argument_type(type)
-      checker.emptiness.normalizer.normalize(type).clauses.map(&:to_type)
-    rescue SetTheoretic::DNF::TooLarge
-      [type]
     end
 
     def with_child_typing()

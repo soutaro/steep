@@ -42,8 +42,19 @@ module Steep
 
       def unknown_relation?: (Relation[AST::Types::t] relation) -> bool
 
-      # `true` if the intersection of the method types, read as arrows, is a subtype of `super_type`
-      def overloads_cover?: (Array[Interface::MethodType] sub_types, Interface::MethodType super_type) -> bool
+      # The domain of `super_type` and the domains of the overloads, read as arrows, as the types of the argument
+      # tuples; `nil` for the method types with type parameters or with a type variable the constraints are collected
+      # for
+      type ordered_overload_domains = [AST::Types::t, Array[AST::Types::t]]
+
+      def ordered_overload_domains: (Array[Interface::MethodType] sub_types, Interface::MethodType super_type) -> ordered_overload_domains?
+
+      # `true` if an overload before `index` takes a part of the domain of the super type
+      def shadowed_overload?: (Integer index, ordered_overload_domains domains) -> bool
+
+      # The ordered overloads against `super_type`: the domain of `super_type` must be covered by the domains of the
+      # overloads, and every overload the domain reaches must return a subtype of its return type
+      def check_ordered_overloads: (Symbol name, Relation[Interface::Shape::Entry | Interface::MethodType] relation, Array[Interface::MethodType] sub_types, Interface::MethodType super_type, ordered_overload_domains domains) -> Result::t
 
       def with_context: [A] (self_type: AST::Types::t?, instance_type: AST::Types::t?, class_type: AST::Types::t?, constraints: Constraints?) { () -> A } -> A
 

@@ -1,0 +1,64 @@
+module Steep
+  module TypeInference
+    # The ordered semantics of the overloads of a method at a call site: the first overload that accepts an argument
+    # is the one called, so that `(Integer) -> A | (Numeric) -> B` reads as `(Integer -> A) & ((Numeric & !Integer) -> B)`
+    class OrderedOverloads
+      # The positional arguments and the keyword arguments of a call, in the order of the components of the tuple
+      class Shape
+        type block = :given | :none | :unknown
+
+        attr_reader positionals: Array[Parser::AST::Node]
+
+        attr_reader keywords: Hash[Symbol, Parser::AST::Node]
+
+        # `:given` with a block, `:none` without, and `:unknown` with a block pass argument
+        attr_reader block: block
+
+        def initialize: (positionals: Array[Parser::AST::Node], keywords: Hash[Symbol, Parser::AST::Node], block: block) -> void
+
+        # The shape of the arguments; `nil` when they have a splat, a keyword splat, a forwarded argument, or a
+        # keyword that is not a symbol
+        def self.from_arguments: (Array[Parser::AST::Node] arguments, block_given: bool) -> Shape?
+
+        # The nodes of the components of the tuple
+        def nodes: () -> Array[Parser::AST::Node]
+
+        # The domain of a method type for this shape: the type of each component, or `nil` when the method type does
+        # not accept the shape (the number of the positional arguments, a keyword, or the block)
+        #
+        # The type parameters of the method type are read as their upper bounds, or `top`.
+        def domain: (Interface::MethodType method_type) -> Array[AST::Types::t]?
+      end
+
+      type tuple = Array[AST::Types::t]
+
+      # The bound on the number of tuples the arguments are carved into
+      MAX_TUPLES: Integer
+
+      attr_reader emptiness: SetTheoretic::Emptiness
+
+      attr_reader simplifier: SetTheoretic::Simplifier
+
+      attr_reader bounds: SetTheoretic::Emptiness::bounds
+
+      def initialize: (emptiness: SetTheoretic::Emptiness, simplifier: SetTheoretic::Simplifier, bounds: SetTheoretic::Emptiness::bounds) -> void
+
+      # `true` if the overload takes a part of the tuple: every component is in the domain, or has a part in it that
+      # is known to be inhabited
+      def takes_part?: (tuple tuple, tuple domain) -> bool
+
+      # Carves the tuples by the domain: returns the parts inside the domain, which are the tuples of the types the
+      # components are read as by the overload, and the parts outside, which go on to the next overload
+      #
+      # Returns `nil` when there are more than `MAX_TUPLES` tuples.
+      def carve: (Array[tuple] tuples, tuple domain) -> [Array[tuple], Array[tuple]]?
+
+      def inside: (AST::Types::t `type`, AST::Types::t param) -> AST::Types::t
+
+      def outside: (AST::Types::t `type`, AST::Types::t param) -> AST::Types::t
+
+      # `true` if the type has no value by the evidence of the class hierarchy
+      def empty?: (AST::Types::t `type`) -> bool
+    end
+  end
+end

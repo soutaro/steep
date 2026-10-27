@@ -553,6 +553,71 @@ RBS
     end
   end
 
+  def test_ordered_overloads_subtyping
+    with_checker(<<RBS) do |checker|
+class Base
+end
+
+class Sub1 < Base
+end
+
+class Sub2 < Base
+end
+
+class Ordered
+  def f: (::Sub1) -> ::String
+       | (::Base) -> ::Symbol
+end
+
+interface _Sub1String
+  def f: (::Sub1) -> ::String
+end
+
+interface _Sub1Symbol
+  def f: (::Sub1) -> ::Symbol
+end
+
+interface _Sub2Symbol
+  def f: (::Sub2) -> ::Symbol
+end
+
+interface _BaseBoth
+  def f: (::Base) -> (::String | ::Symbol)
+end
+
+interface _BaseSymbol
+  def f: (::Base) -> ::Symbol
+end
+
+class Nested
+  def g: (::Sub1) -> ::Sub1
+       | (::Base) -> ::Base
+end
+
+interface _BaseBase
+  def g: (::Base) -> ::Base
+end
+
+interface _Sub1Base
+  def g: (::Sub1) -> ::Base
+end
+RBS
+      # The overloads are ordered: a `Sub1` goes to the first one
+      assert_success_check checker, "::Ordered", "::_Sub1String"
+      # The first overload takes the `Sub1`s, so that the second never returns a `Symbol` for one
+      assert_fail_check checker, "::Ordered", "::_Sub1Symbol"
+      # A `Sub2` is no `Sub1`: only the second overload is reached
+      assert_success_check checker, "::Ordered", "::_Sub2Symbol"
+      # A `Base` reaches both overloads
+      assert_success_check checker, "::Ordered", "::_BaseBoth"
+      assert_fail_check checker, "::Ordered", "::_BaseSymbol"
+
+      # The return types of the reached overloads are both subtypes
+      assert_success_check checker, "::Nested", "::_BaseBase"
+      assert_success_check checker, "::Nested", "::_Sub1Base"
+    end
+  end
+
   def test_polarity_constraints
     with_checker do |checker|
       var_type = ->(string) { parse_type(string, checker: checker, variables: [:X]) }
