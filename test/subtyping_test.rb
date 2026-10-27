@@ -521,6 +521,38 @@ end
     end
   end
 
+  def test_set_theoretic_procs
+    with_checker do |checker|
+      assert_success_check checker, "(^(::Integer) -> ::Integer) & (^(::String) -> ::String)", "^(::Integer | ::String) -> (::Integer | ::String)"
+      assert_success_check checker, "(^(::Integer) -> ::Integer) & (^(::String) -> ::String)", "^(::Integer) -> ::Integer"
+      assert_fail_check checker, "(^(::Integer) -> ::Integer) & (^(::String) -> ::String)", "^(::Integer | ::String) -> ::Integer"
+      assert_success_check checker, "^(::Numeric) -> void", "(^(::Integer) -> void) | (^(::String) -> void)"
+      assert_fail_check checker, "^(::Integer) -> void", "^(::Integer, ?::String) -> void"
+      assert_success_check checker, "^(::Integer, ?::String) -> void", "^(::Integer) -> void"
+    end
+  end
+
+  def test_overloads_as_intersection
+    with_checker(<<RBS) do |checker|
+class Overloaded
+  def f: (::Integer) -> ::Integer
+       | (::String) -> ::String
+end
+
+interface _Union
+  def f: (::Integer | ::String) -> (::Integer | ::String)
+end
+
+interface _Narrow
+  def f: (::Integer | ::String) -> ::Integer
+end
+RBS
+      # No single overload implements `_Union#f`, but the two together do
+      assert_success_check checker, "::Overloaded", "::_Union"
+      assert_fail_check checker, "::Overloaded", "::_Narrow"
+    end
+  end
+
   def assert_success_check(checker, sub_type, super_type, self_type: parse_type("self", checker: checker), instance_type: parse_type("instance", checker: checker), class_type: parse_type("class", checker: checker), constraints: Constraints.empty)
     self_type = parse_type(self_type, checker: checker) if self_type.is_a?(String)
     instance_type = parse_type(instance_type, checker: checker) if instance_type.is_a?(String)

@@ -261,6 +261,60 @@ class SetTheoreticEmptinessTest < Minitest::Test
     end
   end
 
+  def test_arrows
+    with_sigs do
+      assert_empty_verdict subtyping("^(::Integer) -> ::String", "^(::Integer) -> ::Object")
+      assert_empty_verdict subtyping("^(::Numeric) -> ::String", "^(::Integer) -> ::String"), "the parameters are contravariant"
+      assert_inhabited_verdict subtyping("^(::Integer) -> ::String", "^(::Numeric) -> ::String")
+      assert_inhabited_verdict subtyping("^(::Integer) -> ::Object", "^(::Integer) -> ::String")
+      assert_empty_verdict subtyping("^() -> ::Integer", "^() -> ::Numeric")
+
+      # Optional and rest parameters
+      assert_empty_verdict subtyping("^(::Integer, ?::String) -> void", "^(::Integer) -> void")
+      assert_inhabited_verdict subtyping("^(::Integer) -> void", "^(::Integer, ?::String) -> void")
+      assert_empty_verdict subtyping("^(*::Integer) -> void", "^(::Integer, ::Integer) -> void")
+      assert_inhabited_verdict subtyping("^(::Integer) -> void", "^(*::Integer) -> void")
+      assert_empty_verdict subtyping("^(*::Numeric) -> void", "^(*::Integer) -> void")
+      assert_empty_verdict subtyping("^(*::Integer | ::String) -> void", "(^(*::Integer) -> void) | (^(*::String) -> void)"), "a proc on any list is a proc on Integer lists"
+      assert_inhabited_verdict subtyping("(^(*::Integer) -> void) & (^(*::String) -> void)", "^(*::Integer | ::String) -> void"), "neither arrow takes a mixed list"
+      assert_empty_verdict subtyping("(^(*::Integer) -> void) & (^(*::String) -> void)", "^(*::Integer) -> void")
+
+      # Overloads: an intersection of arrows
+      assert_empty_verdict subtyping("(^(::Integer) -> ::Integer) & (^(::String) -> ::String)", "^(::Integer | ::String) -> (::Integer | ::String)")
+      assert_empty_verdict subtyping("(^(::Integer) -> ::Integer) & (^(::String) -> ::String)", "^(::Integer) -> ::Integer")
+      assert_inhabited_verdict subtyping("(^(::Integer) -> ::Integer) & (^(::String) -> ::String)", "^(::Integer | ::String) -> ::Integer")
+      assert_inhabited_verdict subtyping("^(::Integer | ::String) -> (::Integer | ::String)", "(^(::Integer) -> ::Integer) & (^(::String) -> ::String)")
+
+      # Keywords
+      assert_empty_verdict subtyping("^(k: ::Integer, ?j: ::String) -> void", "^(k: ::Integer) -> void")
+      assert_inhabited_verdict subtyping("^(k: ::Integer) -> void", "^(k: ::Integer, ?j: ::String) -> void")
+      assert_empty_verdict subtyping("^(?k: ::Integer) -> void", "^(k: ::Integer) -> void")
+      assert_inhabited_verdict subtyping("^(k: ::Integer) -> void", "^(?k: ::Integer) -> void")
+      assert_empty_verdict subtyping("^(**::Integer) -> void", "^(k: ::Integer) -> void")
+      assert_inhabited_verdict subtyping("^(k: ::Integer) -> void", "^(**::Integer) -> void")
+      assert_empty_verdict subtyping("^(k: ::Numeric) -> void", "^(k: ::Integer) -> void")
+      assert_inhabited_verdict subtyping("^(k: ::Integer) -> void", "^(k: ::Numeric) -> void")
+
+      # Blocks are contravariant, and an optional block accepts none
+      assert_empty_verdict subtyping("^() { (::Integer) -> void } -> void", "^() { (::Numeric) -> void } -> void")
+      assert_inhabited_verdict subtyping("^() { (::Numeric) -> void } -> void", "^() { (::Integer) -> void } -> void")
+      assert_empty_verdict subtyping("^() ?{ () -> void } -> void", "^() -> void")
+      assert_inhabited_verdict subtyping("^() -> void", "^() { () -> void } -> void")
+      assert_inhabited_verdict subtyping("^() { () -> void } -> void", "^() ?{ () -> void } -> void")
+      assert_empty_verdict subtyping("^() ?{ () -> void } -> void", "^() { () -> void } -> void")
+
+      # Procs and classes
+      assert_empty_verdict inhabitation("(^() -> void) & !::Proc")
+      assert_empty_verdict inhabitation("(^() -> void) & ::Integer")
+      assert_inhabited_verdict inhabitation("::Integer & !(^() -> void)")
+      assert_inhabited_verdict inhabitation("::Proc & !(^() -> void)")
+
+      # A `self` binding keeps the proc opaque
+      assert_empty_verdict subtyping("^() [self: ::Integer] -> void", "^() [self: ::Integer] -> void")
+      assert_inhabited_verdict subtyping("^() [self: ::Integer] -> void", "^() -> void")
+    end
+  end
+
   def test_opaque_atoms
     with_sigs do
       assert_inhabited_verdict inhabitation("::_Quacks & ::Integer")

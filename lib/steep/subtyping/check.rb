@@ -805,16 +805,38 @@ module Steep
         All(relation) do |all|
           super_method.method_types.each do |super_type|
             all.add(Relation.new(sub_type: sub_method, super_type: super_type)) do |rel|
-              Any(rel) do |any|
+              result = Any(rel) do |any|
                 sub_method.method_types.each do |sub_type|
                   any.add(Relation.new(sub_type: sub_type, super_type: super_type)) do |rel|
                     check_generic_method_type(name, rel)
                   end
                 end
               end
+
+              if result.failure? && overloads_cover?(sub_method.method_types, super_type)
+                # No single overload is a subtype of `super_type`, but all of them together are:
+                # `(Integer) -> Integer | (String) -> String` implements `(Integer | String) -> (Integer | String)`
+                Success(rel)
+              else
+                result
+              end
             end
           end
         end
+      end
+
+      # `true` if the intersection of the method types, read as arrows, is a subtype of `super_type`
+      #
+      # Only for monomorphic method types without a type variable the constraints are collected for.
+      def overloads_cover?(sub_types, super_type)
+        types = sub_types + [super_type]
+        return false unless types.all? {|type| type.type_params.empty? }
+        return false if types.any? {|type| type.free_variables.any? {|var| var.is_a?(Symbol) && constraints.unknown?(var) } }
+
+        procs = sub_types.map {|type| AST::Types::Proc.new(type: type.type, block: type.block, self_type: nil) }
+        super_proc = AST::Types::Proc.new(type: super_type.type, block: super_type.block, self_type: nil)
+
+        emptiness.subtype?(AST::Types::Intersection.build(types: procs), super_proc, bounds: variable_upper_bounds).empty?
       end
 
       def check_generic_method_type(name, relation)

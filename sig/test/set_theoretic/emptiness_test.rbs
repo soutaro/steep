@@ -45,6 +45,8 @@ class SetTheoreticEmptinessTest < Minitest::Test
 
   def test_tuples: () -> untyped
 
+  def test_arrows: () -> untyped
+
   def test_opaque_atoms: () -> untyped
 
   def test_top_bot_void: () -> untyped

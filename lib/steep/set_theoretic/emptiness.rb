@@ -16,11 +16,17 @@ module Steep
     #   (a positive `untyped` is `top`, a negated one is `!bot`)
     #
     # Tuples are products: `[A, B] & ![C, D]` is empty when `A <: C` and `B <: D`, and a tuple is also an instance of
-    # `Array`. Records and procs count as instances of `Hash` and `Proc` when they are positive, and interfaces, type
+    # `Array`. Procs are arrows: the parameters, the keywords, and the block make the domain, read as a union of
+    # tuples, and `(^(A) -> B) & (^(C) -> D) <: ^(A | C) -> (B | D)` holds; a proc is also an instance of `Proc`.
+    # Records count as instances of `Hash` when they are positive, and interfaces, procs with a `self` binding, type
     # variables without a bound, and `self`, `instance`, and `class` are opaque atoms that only cancel with their own
     # negation.
     class Emptiness
       MODES = [:subtyping, :inhabitation].freeze #: Array[mode]
+
+      # The marker of an absent optional keyword or block in the domain of a proc: an instance of a class no environment
+      # declares, which the check keeps opaque, so that it overlaps with no other type
+      ABSENT = AST::Types::Name::Instance.new(name: RBS::TypeName.parse("::Steep::SetTheoretic::AbsentValue"), args: []) #: AST::Types::Name::Instance
 
       attr_reader :factory
 
@@ -264,6 +270,15 @@ module Steep
           end
         end
 
+        # Arrows
+        verdict = check_arrows(positives, negatives, mode, bounds)
+        case
+        when verdict.empty?
+          return verdict
+        when verdict.empty_in_rbs?
+          rbs_reasons << (verdict.reason || "the procs are excluded")
+        end
+
         negatives.each do |negative|
           case negative
           when AST::Types::Literal, AST::Types::Nil
@@ -378,6 +393,168 @@ module Steep
 
         # The components may be empty in the environment only, which the recursion reports the same way
         result & verdict
+      end
+
+      # The shape the domains of the arrows of a clause are encoded with: the same lengths and keyword names for all of
+      # them, so that they are comparable tuples
+      class ArrowUniverse
+        # The longest argument list considered
+        attr_reader :max_length
+
+        # The keyword names of all of the arrows
+        attr_reader :keywords
+
+        def initialize(arrows, positive_count)
+          lengths = [] #: Array[Integer]
+          rest = false
+          names = Set[] #: Set[Symbol]
+
+          arrows.each do |arrow|
+            params = arrow.type.params or next
+            lengths << params.required.size + params.optional.size
+            rest ||= params.rest ? true : false
+            names.merge(params.required_keywords.each_key)
+            names.merge(params.optional_keywords.each_key)
+          end
+
+          longest = lengths.max || 0
+          # Beyond the optional parameters only the rest parameters are left, and an argument list that long is
+          # covered by the arrows when every one of the next `positive_count` lengths is
+          @max_length = rest ? longest + positive_count : longest
+          @keywords = names.to_a.sort
+        end
+      end
+
+      # The verdict of the arrows of a clause: `empty` when a negative arrow covers the intersection of the positive ones
+      #
+      # The arrows with a `self` binding are opaque and left out.
+      def check_arrows(positives, negatives, mode, bounds)
+        arrows = positives.grep(AST::Types::Proc).reject(&:self_type)
+        return Verdict.inhabited if arrows.empty?
+        negative_arrows = negatives.grep(AST::Types::Proc).reject(&:self_type)
+        return Verdict.inhabited if negative_arrows.empty?
+
+        universe = ArrowUniverse.new(arrows + negative_arrows, arrows.size)
+
+        verdict = Verdict.inhabited
+        negative_arrows.each do |negative|
+          negative_domain = domain(negative, universe)
+
+          # A proc is total on its domain: calling it outside raises, which `^(Integer) -> void <: ^(Integer, ?String) -> void`
+          # must not allow, so the domain of the negative arrow must be covered by the domains of the positive ones
+          coverage = check(
+            AST::Types::Intersection.build(
+              types: [negative_domain] + arrows.map {|arrow| AST::Types::Negation.build(type: domain(arrow, universe)) }
+            ),
+            mode: mode,
+            bounds: bounds
+          )
+          next if coverage.inhabited?
+
+          covered = coverage | phi(
+            negative_domain,
+            AST::Types::Negation.build(type: negative.type.return_type),
+            arrows,
+            universe,
+            mode,
+            bounds
+          )
+          unless covered.inhabited?
+            covered = Verdict.new(covered.kind, "`#{negative}` covers the procs")
+          end
+          verdict = verdict & covered
+          return verdict if verdict.empty?
+        end
+
+        verdict
+      end
+
+      # `empty` when `arrows` (an intersection) is a subtype of `s -> !t`: `Φ(s, t, ∅)` is `s` or `t` empty, and
+      # `Φ(s, t, (s1 -> t1) :: P)` is `Φ(s & !s1, t, P)` and `Φ(s, t & t1, P)`
+      def phi(domain_type, codomain_type, arrows, universe, mode, bounds)
+        domain_verdict = check(domain_type, mode: mode, bounds: bounds)
+        return domain_verdict unless domain_verdict.inhabited?
+        codomain_verdict = check(codomain_type, mode: mode, bounds: bounds)
+        return codomain_verdict unless codomain_verdict.inhabited?
+        return Verdict.inhabited if arrows.empty?
+
+        arrow, *rest = arrows
+        arrow or raise
+
+        left = phi(
+          AST::Types::Intersection.build(types: [domain_type, AST::Types::Negation.build(type: domain(arrow, universe))]),
+          codomain_type,
+          rest,
+          universe,
+          mode,
+          bounds
+        )
+        return left if left.inhabited?
+
+        right = phi(
+          domain_type,
+          AST::Types::Intersection.build(types: [codomain_type, arrow.type.return_type]),
+          rest,
+          universe,
+          mode,
+          bounds
+        )
+
+        # Both must hold
+        left | right
+      end
+
+      # The domain of an arrow: the argument lists it accepts, as a union of tuples
+      #
+      # A tuple has the positional arguments, then the keywords of the universe (`ABSENT` when the arrow has no such
+      # keyword, or the rest keywords), the rest keywords, and the block (`nil` when the arrow takes none).
+      def domain(arrow, universe)
+        params = arrow.type.params or return AST::Types::Top.instance
+
+        keywords = universe.keywords.map do |name|
+          case
+          when (type = params.required_keywords[name])
+            type
+          when (type = params.optional_keywords[name])
+            AST::Types::Union.build(types: [type, ABSENT])
+          when (type = params.rest_keywords)
+            AST::Types::Union.build(types: [type, ABSENT])
+          else
+            ABSENT
+          end
+        end
+        rest_keywords =
+          if (type = params.rest_keywords)
+            AST::Types::Union.build(types: [type, ABSENT])
+          else
+            ABSENT
+          end
+
+        block =
+          if (block = arrow.block)
+            block_type = AST::Types::Proc.new(type: block.type, block: nil, self_type: block.self_type)
+            if block.optional?
+              AST::Types::Union.build(types: [block_type, AST::Builtin.nil_type])
+            else
+              block_type
+            end
+          else
+            AST::Builtin.nil_type
+          end
+
+        required = params.required
+        optional = params.optional
+        longest = params.rest ? universe.max_length : required.size + optional.size
+
+        tuples = (required.size..longest).map do |length|
+          positional = required + optional.take(length - required.size)
+          if (rest = params.rest)
+            positional += Array.new(length - positional.size, rest)
+          end
+          AST::Types::Tuple.new(types: positional + keywords + [rest_keywords, block])
+        end
+
+        AST::Types::Union.build(types: tuples)
       end
 
       # The verdict of `C[a] & !D[b]` for the type arguments, given the views `a` of `D` from the positive atoms:

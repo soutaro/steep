@@ -17,6 +17,9 @@ module Steep
 
       MODES: Array[mode]
 
+      # The marker of an absent optional keyword or block in the domain of a proc
+      ABSENT: AST::Types::Name::Instance
+
       attr_reader factory: AST::Types::Factory
 
       attr_reader class_index: ClassIndex
@@ -89,6 +92,26 @@ module Steep
 
       # The verdict of `[c1, ..., ck] & ![n1, ..., nk] & ...`
       def tuple_empty?: (Array[AST::Types::t] components, Array[Array[AST::Types::t]] negatives, mode mode, bounds bounds) -> Verdict
+
+      # The shape the domains of the arrows of a clause are encoded with
+      class ArrowUniverse
+        # The longest argument list considered
+        attr_reader max_length: Integer
+
+        # The keyword names of all of the arrows
+        attr_reader keywords: Array[Symbol]
+
+        def initialize: (Array[AST::Types::Proc] arrows, Integer positive_count) -> void
+      end
+
+      # The verdict of the arrows of a clause: `empty` when a negative arrow covers the intersection of the positive ones
+      def check_arrows: (Array[AST::Types::t] positives, Array[AST::Types::t] negatives, mode mode, bounds bounds) -> Verdict
+
+      # `empty` when `arrows` (an intersection) is a subtype of `domain_type -> !codomain_type`
+      def phi: (AST::Types::t domain_type, AST::Types::t codomain_type, Array[AST::Types::Proc] arrows, ArrowUniverse universe, mode mode, bounds bounds) -> Verdict
+
+      # The domain of an arrow: the argument lists it accepts, as a union of tuples
+      def domain: (AST::Types::Proc arrow, ArrowUniverse universe) -> AST::Types::t
 
       # The verdict of `C[a] & !D[b]` for the type arguments, given the views `a` of `D` from the positive atoms
       def covered?: (RBS::TypeName name, Array[AST::Types::t] negative_args, Array[Array[AST::Types::t]] views, mode mode, bounds bounds) -> Verdict
