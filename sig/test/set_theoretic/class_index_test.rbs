@@ -1,0 +1,21 @@
+# Generated from test/set_theoretic/class_index_test.rb with RBS::Inline
+
+class SetTheoreticClassIndexTest < Minitest::Test
+  include SetTheoreticHelper
+
+  include Steep
+
+  def names: (untyped set) -> untyped
+
+  def test_descendants: () -> untyped
+
+  def test_includers: () -> untyped
+
+  def test_extenders: () -> untyped
+
+  def test_instance_classes: () -> untyped
+
+  def test_common_instance: () -> untyped
+
+  def test_singleton_extends: () -> untyped
+end

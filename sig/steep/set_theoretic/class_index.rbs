@@ -1,0 +1,62 @@
+module Steep
+  module SetTheoretic
+    # Reverse indexes of the class hierarchy declared in an RBS environment
+    class ClassIndex
+      type names = Set[RBS::TypeName]
+
+      attr_reader env: RBS::Environment
+
+      attr_reader ancestor_builder: RBS::DefinitionBuilder::AncestorBuilder
+
+      def initialize: (env: RBS::Environment, ancestor_builder: RBS::DefinitionBuilder::AncestorBuilder) -> void
+
+      def class?: (RBS::TypeName name) -> bool
+
+      def module?: (RBS::TypeName name) -> bool
+
+      @descendants: Hash[RBS::TypeName, names]
+
+      # The classes that inherit from the class, transitively, the class itself excluded
+      def descendants: (RBS::TypeName class_name) -> names
+
+      @includers: Hash[RBS::TypeName, names]
+
+      # The classes and modules that have the module as an instance ancestor, transitively
+      def includers: (RBS::TypeName module_name) -> names
+
+      @extenders: Hash[RBS::TypeName, names]
+
+      # The classes and modules that have the module as a singleton ancestor, transitively
+      def extenders: (RBS::TypeName module_name) -> names
+
+      # The classes whose instances belong to the instance type of `name`
+      def instance_classes: (RBS::TypeName name) -> names
+
+      # `true` if the environment declares a class whose instances belong to both instance types
+      def common_instance?: (RBS::TypeName name1, RBS::TypeName name2) -> bool
+
+      # `true` if the environment declares a class, under `class_name` or `class_name` itself, whose singletons extend the module
+      def singleton_extends?: (RBS::TypeName class_name, RBS::TypeName module_name) -> bool
+
+      @direct_subclasses: Hash[RBS::TypeName, names]?
+
+      def direct_subclasses: () -> Hash[RBS::TypeName, names]
+
+      @direct_includers: Hash[RBS::TypeName, names]?
+
+      def direct_includers: () -> Hash[RBS::TypeName, names]
+
+      @direct_extenders: Hash[RBS::TypeName, names]?
+
+      def direct_extenders: () -> Hash[RBS::TypeName, names]
+
+      private
+
+      EMPTY_SET: names
+
+      def closure: (RBS::TypeName start) { (RBS::TypeName) -> names } -> names
+
+      def build: () -> void
+    end
+  end
+end

@@ -1,0 +1,21 @@
+# Generated from test/ast/types/negation_test.rb with RBS::Inline
+
+class NegationTypeTest < Minitest::Test
+  include TestHelper
+
+  include FactoryHelper
+
+  include Steep
+
+  Negation: untyped
+
+  def test_build: () -> untyped
+
+  def test_to_s: () -> untyped
+
+  def test_equality_and_hash: () -> untyped
+
+  def test_subst_and_free_variables: () -> untyped
+
+  def test_children: () -> untyped
+end

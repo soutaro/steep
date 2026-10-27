@@ -1,0 +1,57 @@
+# Generated from test/set_theoretic/emptiness_test.rb with RBS::Inline
+
+class SetTheoreticEmptinessTest < Minitest::Test
+  include SetTheoreticHelper
+
+  include Steep
+
+  def test_class_and_module_without_includer_is_empty_in_rbs: () -> untyped
+
+  def test_module_and_module_without_common_includer_is_empty_in_rbs: () -> untyped
+
+  def test_module_with_includer_is_inhabited: () -> untyped
+
+  def test_unrelated_classes_are_empty: () -> untyped
+
+  def test_negated_class: () -> untyped
+
+  def test_lone_module_is_inhabited: () -> untyped
+
+  def test_module_under_class_in_rbs: () -> untyped
+
+  def test_literals: () -> untyped
+
+  def test_nil_and_booleans: () -> untyped
+
+  def test_singletons: () -> untyped
+
+  def test_generics_covariant: () -> untyped
+
+  def test_generics_contravariant_and_invariant: () -> untyped
+
+  def test_generics_merge_positive_arguments: () -> untyped
+
+  def test_untyped_in_subtyping_mode: () -> untyped
+
+  def test_untyped_in_inhabitation_mode: () -> untyped
+
+  def test_type_variables: () -> untyped
+
+  def test_aliases: () -> untyped
+
+  def test_recursive_aliases: () -> untyped
+
+  def test_structural_types_are_their_classes: () -> untyped
+
+  def test_opaque_atoms: () -> untyped
+
+  def test_top_bot_void: () -> untyped
+
+  def test_subtyping_api: () -> untyped
+
+  def test_verdict_reasons: () -> untyped
+
+  def test_unknown_mode: () -> untyped
+
+  def test_cache_is_for_ground_types_only: () -> untyped
+end

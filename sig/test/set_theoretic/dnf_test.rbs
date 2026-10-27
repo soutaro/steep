@@ -1,0 +1,29 @@
+# Generated from test/set_theoretic/dnf_test.rb with RBS::Inline
+
+class SetTheoreticDNFTest < Minitest::Test
+  include SetTheoreticHelper
+
+  include Steep
+
+  DNF: untyped
+
+  def normalizer: () -> untyped
+
+  def clauses: (untyped string) -> untyped
+
+  def test_distribution: () -> untyped
+
+  def test_de_morgan: () -> untyped
+
+  def test_double_negation_and_contradiction: () -> untyped
+
+  def test_booleans_and_builtin_values: () -> untyped
+
+  def test_alias_expansion: () -> untyped
+
+  def test_to_type: () -> untyped
+
+  def test_negation_type_is_parsed_from_ast: () -> untyped
+
+  def test_dnf_equality: () -> untyped
+end

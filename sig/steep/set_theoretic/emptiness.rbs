@@ -1,0 +1,106 @@
+module Steep
+  module SetTheoretic
+    # Decides whether a type is empty, reading the types as sets of values
+    class Emptiness
+      # How `untyped` is read: as small as possible for subtyping, as large as possible for reachability
+      type mode = :subtyping | :inhabitation
+
+      # The upper bounds of the type variables in scope
+      type bounds = Hash[Symbol, AST::Types::t?]
+
+      type cache_key = [AST::Types::t, mode]
+
+      type assumption = [AST::Types::t, mode, bounds]
+
+      # The type arguments of each ancestor: `name => args`
+      type views = Hash[RBS::TypeName, Array[AST::Types::t]]
+
+      MODES: Array[mode]
+
+      attr_reader factory: AST::Types::Factory
+
+      attr_reader class_index: ClassIndex
+
+      attr_reader normalizer: Normalizer
+
+      @cache: Hash[cache_key, Verdict]
+
+      @assumptions: Set[assumption]
+
+      @instance_views: Hash[AST::Types::Name::Instance, views?]
+
+      @singleton_views: Hash[RBS::TypeName, [views, Set[RBS::TypeName]]?]
+
+      def initialize: (factory: AST::Types::Factory, ?class_index: ClassIndex?) -> void
+
+      def env: () -> RBS::Environment
+
+      # The verdict of `type`
+      def check: (AST::Types::t type, mode: mode, ?bounds: bounds) -> Verdict
+
+      # The verdict of `sub & !sup`: `empty` means `sub <: sup`
+      def subtype?: (AST::Types::t sub_type, AST::Types::t super_type, ?bounds: bounds) -> Verdict
+
+      # `true` if `sub <: sup`
+      def subtype: (AST::Types::t sub_type, AST::Types::t super_type, ?bounds: bounds) -> bool
+
+      # The verdict of `type1 & type2`, read for reachability
+      def disjoint?: (AST::Types::t type1, AST::Types::t type2, ?bounds: bounds) -> Verdict
+
+      def check_dnf: (DNF dnf, mode mode, bounds bounds) -> Verdict
+
+      # A positive atom of a clause, seen through the class hierarchy
+      class Positive
+        NO_VALUE: Object
+
+        # The instance type (the literal's class for a literal, `Class` or `Module` for a singleton)
+        attr_reader name: RBS::TypeName
+
+        # The ancestors of the instance type with the type arguments applied
+        attr_reader views: views
+
+        # The singleton ancestors of a singleton type
+        attr_reader singletons: Set[RBS::TypeName]
+
+        # The class name of a singleton type
+        attr_reader singleton_name: RBS::TypeName?
+
+        # The literal value of a literal type, `nil` for `nil`; `NO_VALUE` for the other types
+        attr_reader value: untyped
+
+        def initialize: (name: RBS::TypeName, views: views, ?singletons: Set[RBS::TypeName], ?singleton_name: RBS::TypeName?, ?value: untyped) -> void
+
+        def exact?: () -> bool
+
+        def singleton?: () -> bool
+
+        def has_ancestor?: (RBS::TypeName name) -> bool
+      end
+
+      def check_clause: (DNF::Clause clause, mode mode, bounds bounds) -> Verdict
+
+      # The verdict of `C[a] & !D[b]` for the type arguments, given the views `a` of `D` from the positive atoms
+      def covered?: (RBS::TypeName name, Array[AST::Types::t] negative_args, Array[Array[AST::Types::t]] views, mode mode, bounds bounds) -> Verdict
+
+      def type_params: (RBS::TypeName name) -> Array[RBS::AST::TypeParam]
+
+      # `true` if the instance type of `sub` is a subclass of the one of `sup`, or the same class
+      def subclass?: (Positive sub, Positive sup) -> bool
+
+      def describe: (Positive positive) -> String
+
+      # The nominal view of a positive atom; `nil` for an opaque atom
+      def positive: (AST::Types::t type) -> Positive?
+
+      def instance_positive: (AST::Types::Name::Instance type, ?value: untyped) -> Positive?
+
+      def singleton_positive: (AST::Types::Name::Singleton type) -> Positive?
+
+      # The instance ancestors of an instance type with the type arguments applied; `nil` if the class is unknown
+      def instance_views: (AST::Types::Name::Instance type) -> views?
+
+      # The instance and singleton ancestors of a class or module; `nil` if it is unknown
+      def singleton_views: (RBS::TypeName name) -> [views, Set[RBS::TypeName]]?
+    end
+  end
+end

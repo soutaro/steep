@@ -550,6 +550,8 @@ module Steep
               name: type.name,
               args: type.args.map {|ty| normalize_type(ty) }
             )
+          when AST::Types::Negation
+            AST::Types::Negation.build(type: normalize_type(type.type))
           end
         end
       end

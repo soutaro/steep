@@ -1,0 +1,44 @@
+# Generated from test/set_theoretic/set_theoretic_helper.rb with RBS::Inline
+
+module SetTheoreticHelper
+  include TestHelper
+
+  include FactoryHelper
+
+  # A class hierarchy with the shapes the emptiness check decides on, without the whole core library
+  SIGS: ::String
+
+  def with_sigs: () ?{ (?) -> untyped } -> untyped
+
+  NEG: untyped
+
+  # Parses a type, with the negation `!T` of a simple type `T` allowed anywhere
+  def parse_type: (untyped string, ?factory: untyped, ?variables: untyped) -> untyped
+
+  # The simple type at the beginning of the string: a name with its type arguments, a literal, or a parenthesized type
+  def simple_type_prefix: (untyped string) -> untyped
+
+  def matching_close: (untyped string, untyped open, untyped close) -> untyped
+
+  def denegate: (untyped type) -> untyped
+
+  def emptiness: () -> untyped
+
+  def class_index: () -> untyped
+
+  def type_name: (untyped string) -> untyped
+
+  def assert_empty_verdict: (untyped verdict, ?untyped message) -> untyped
+
+  def assert_empty_in_rbs_verdict: (untyped verdict, ?untyped message) -> untyped
+
+  def assert_inhabited_verdict: (untyped verdict, ?untyped message) -> untyped
+
+  # The verdict of a type for reachability, with the RBS type variables bound by `bounds`
+  def inhabitation: (untyped string, ?bounds: untyped) -> untyped
+
+  # The verdict of `sub & !sup` for subtyping
+  def subtyping: (untyped sub, untyped sup, ?bounds: untyped) -> untyped
+
+  def negation: (untyped type) -> untyped
+end

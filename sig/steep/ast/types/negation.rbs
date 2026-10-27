@@ -1,0 +1,39 @@
+module Steep
+  module AST
+    module Types
+      # The negation type `!T`: the values that are not of type `T`
+      #
+      # An internal type of the set-theoretic type checking, without RBS syntax yet.
+      class Negation
+        attr_reader type: t
+
+        def initialize: (type: t) -> void
+
+        # Builds the negation of `type`, cancelling `!!T`, `!top`, and `!bot`
+        def self.build: (type: t) -> t
+
+        def ==: (untyped other) -> bool
+
+        @hash: Integer
+        def hash: () -> Integer
+
+        alias eql? ==
+
+        def subst: (Interface::Substitution s) -> t
+
+        def to_s: () -> String
+
+        def free_variables: () -> Set[variable]
+
+        def each_child: () { (t) -> void } -> void
+                      | () -> Enumerator[t, void]
+
+        def map_type: () { (t) -> t } -> t
+
+        include Helper::ChildrenLevel
+
+        def level: () -> Array[Integer]
+      end
+    end
+  end
+end

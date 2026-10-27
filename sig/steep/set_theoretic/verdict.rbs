@@ -1,0 +1,54 @@
+module Steep
+  module SetTheoretic
+    # The result of an emptiness check of a type: `empty`, `empty_in_rbs`, or `inhabited`
+    class Verdict
+      type kind = :empty | :empty_in_rbs | :inhabited
+
+      KINDS: Array[kind]
+
+      STRENGTH: Hash[kind, Integer]
+
+      INHABITED: Verdict
+
+      attr_reader kind: kind
+
+      # Why the type is (possibly) empty; `nil` when it is inhabited
+      attr_reader reason: String?
+
+      def initialize: (kind kind, ?String? reason) -> void
+
+      def self.empty: (?String? reason) -> Verdict
+
+      def self.empty_in_rbs: (?String? reason) -> Verdict
+
+      def self.inhabited: () -> Verdict
+
+      def empty?: () -> bool
+
+      def empty_in_rbs?: () -> bool
+
+      def inhabited?: () -> bool
+
+      # `true` if the type is empty under the assumption that the RBS environment declares the whole class hierarchy
+      def empty_in_rbs_or_stronger?: () -> bool
+
+      def strength: () -> Integer
+
+      # The verdict of an intersection: the strongest evidence wins
+      def &: (Verdict other) -> Verdict
+
+      # The verdict of a union: the weakest evidence wins
+      def |: (Verdict other) -> Verdict
+
+      def ==: (untyped other) -> bool
+
+      alias eql? ==
+
+      def hash: () -> Integer
+
+      def to_s: () -> String
+
+      alias inspect to_s
+    end
+  end
+end

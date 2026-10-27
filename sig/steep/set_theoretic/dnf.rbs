@@ -1,0 +1,74 @@
+module Steep
+  module SetTheoretic
+    # The disjunctive normal form of a type: a union of clauses, each the intersection of atoms and negated atoms
+    class DNF
+      class Clause
+        attr_reader positives: Set[AST::Types::t]
+
+        attr_reader negatives: Set[AST::Types::t]
+
+        def initialize: (positives: Set[AST::Types::t], negatives: Set[AST::Types::t]) -> void
+
+        def self.top: () -> Clause
+
+        def &: (Clause other) -> Clause
+
+        # `true` if an atom is both required and excluded, so that the clause is `bot` syntactically
+        def contradiction?: () -> bool
+
+        def top?: () -> bool
+
+        def ==: (untyped other) -> bool
+
+        alias eql? ==
+
+        def hash: () -> Integer
+
+        def to_type: () -> AST::Types::t
+
+        def to_s: () -> String
+      end
+
+      attr_reader clauses: Array[Clause]
+
+      def initialize: (Array[Clause] clauses) -> void
+
+      def self.bot: () -> DNF
+
+      def self.top: () -> DNF
+
+      def self.atom: (AST::Types::t type) -> DNF
+
+      def bot?: () -> bool
+
+      def top?: () -> bool
+
+      def |: (DNF other) -> DNF
+
+      def &: (DNF other) -> DNF
+
+      # De Morgan: `!(C1 | C2)` is `!C1 & !C2`, and `!(p1 & p2 & !n1)` is `!p1 | !p2 | n1`
+      def negate: () -> DNF
+
+      def to_type: () -> AST::Types::t
+
+      def to_s: () -> String
+
+      def ==: (untyped other) -> bool
+
+      alias eql? ==
+
+      def hash: () -> Integer
+    end
+
+    # Builds the DNF of a type
+    class Normalizer
+      attr_reader factory: AST::Types::Factory
+
+      def initialize: (factory: AST::Types::Factory) -> void
+
+      # `expanding` is the set of the aliases being unfolded, to keep a cyclic alias opaque
+      def normalize: (AST::Types::t type, ?Set[RBS::TypeName] expanding) -> DNF
+    end
+  end
+end
