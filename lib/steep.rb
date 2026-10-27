@@ -198,6 +198,8 @@ module Steep
 
     if output.is_a?(String)
       io = File.open(output, "a")
+      # The workers forked from the master would write the lines buffered before the fork again
+      io.sync = true
     else
       io = output
     end
