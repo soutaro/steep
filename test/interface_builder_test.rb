@@ -204,7 +204,8 @@ end
 
       builder.shape(parse_type("::_Foo & ::_Bar"), config).tap do |shape|
         assert_equal parse_type("::_Foo & ::_Bar"), shape.type
-        assert_equal [parse_method_type("(::String) -> ::_Bar")], shape.methods[:f].method_types
+        # The value satisfies both interfaces, so the overloads of both are available, the later member's first
+        assert_equal [parse_method_type("(::String) -> ::_Bar"), parse_method_type("(::Integer) -> ::_Foo")], shape.methods[:f].method_types
 
         assert shape.methods[:g]
         assert shape.methods[:h]
@@ -212,12 +213,51 @@ end
 
       builder.shape(parse_type("::_Foo & self"), config(self_type: parse_type("::_Bar"))).tap do |shape|
         assert_equal parse_type("::_Foo & self"), shape.type
-        assert_equal [parse_method_type("(::String) -> self")], shape.methods[:f].method_types
+        assert_equal [parse_method_type("(::String) -> self"), parse_method_type("(::Integer) -> ::_Foo")], shape.methods[:f].method_types
       end
 
       builder.shape(parse_type("self"), config(self_type: parse_type("::_Foo & ::_Bar"))).tap do |shape|
         assert_equal parse_type("::_Foo & ::_Bar"), shape.type
-        assert_equal [parse_method_type("(::String) -> ::_Bar")], shape.methods[:f].method_types
+        assert_equal [parse_method_type("(::String) -> ::_Bar"), parse_method_type("(::Integer) -> ::_Foo")], shape.methods[:f].method_types
+      end
+    end
+  end
+
+  def test_shape__intersection__same_params
+    with_factory({ "a.rbs" => <<-RBS }) do
+class Options
+end
+
+module AuthOptions
+end
+
+module RetryOptions
+end
+
+interface _AuthRequest
+  def options: () -> (::Options & ::AuthOptions)
+end
+
+interface _RetryRequest
+  def options: () -> (::Options & ::RetryOptions)
+
+  def to_a: () -> ::Array[untyped]
+end
+
+interface _Tuple
+  def to_a: () -> [::Symbol, ::String]
+end
+      RBS
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
+
+      builder.shape(parse_type("::_AuthRequest & ::_RetryRequest"), config).tap do |shape|
+        # The return types of the overloads with the same params are intersected
+        assert_equal [parse_method_type("() -> (::Options & ::AuthOptions & ::Options & ::RetryOptions)")], shape.methods[:options].method_types
+      end
+
+      builder.shape(parse_type("::_RetryRequest & ::_Tuple"), config).tap do |shape|
+        # The subtype is kept instead of the intersection
+        assert_equal [parse_method_type("() -> [::Symbol, ::String]")], shape.methods[:to_a].method_types
       end
     end
   end

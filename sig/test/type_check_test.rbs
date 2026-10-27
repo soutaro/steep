@@ -103,6 +103,8 @@ class TypeCheckTest < Minitest::Test
 
   def test_if__narrow_record_union__nilable_literal_discriminant: () -> untyped
 
+  def test_intersection__methods_of_all_members: () -> untyped
+
   def test_narrow_record_union__non_literal_key_member_kept: () -> untyped
 
   def test_narrow_record_union__keeps_previously_refined_pure_calls: () -> untyped

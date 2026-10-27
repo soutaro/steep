@@ -540,15 +540,77 @@ module Steep
 
         shapes.each do |s|
           shape.methods.merge!(s.methods) do |name, old_entry, new_entry|
-            if old_entry.public_method? && new_entry.private_method?
+            case
+            when old_entry.public_method? && new_entry.private_method?
               old_entry
-            else
+            when old_entry.private_method? && new_entry.public_method?
               new_entry
+            else
+              Interface::Shape::Entry.new(method_name: name, private_method: new_entry.private_method?) do
+                intersection_overloads(old_entry.overloads, new_entry.overloads)
+              end
             end
           end
         end
 
         shape
+      end
+
+      # Combines the overloads of a method defined by more than one member of an intersection
+      #
+      # A value of the intersection type satisfies all of the members, so overloads with the same params return the
+      # intersection of their return types. The other overloads follow, the later member's first.
+      #
+      def intersection_overloads(old_overloads, new_overloads)
+        merged = [] #: Array[Shape::MethodOverload]
+        rest_old = old_overloads.dup
+        rest_new = [] #: Array[Shape::MethodOverload]
+
+        new_overloads.each do |new_overload|
+          if old_overload = rest_old.find {|overload| same_params?(overload.method_type, new_overload.method_type) }
+            rest_old.delete(old_overload)
+
+            method_type = new_overload.method_type
+            return_type = intersection_return_type(old_overload.method_type.type.return_type, method_type.type.return_type)
+            merged << Shape::MethodOverload.new(
+              method_type.with(type: method_type.type.with(return_type: return_type)),
+              old_overload.method_defs + new_overload.method_defs
+            )
+          else
+            rest_new << new_overload
+          end
+        end
+
+        [*merged, *rest_new, *rest_old]
+      end
+
+      # Returns the intersection of the return types, or one of them if it's a subtype of the other
+      #
+      # `Array[untyped] & [Symbol, String]` is simplified to `[Symbol, String]`, so it can be converted to a tuple.
+      #
+      def intersection_return_type(type1, type2)
+        return type1 if type1 == type2
+        return type2 if return_subtype?(type2, type1)
+        return type1 if return_subtype?(type1, type2)
+
+        AST::Types::Intersection.build(types: [type1, type2])
+      end
+
+      def return_subtype?(sub_type, super_type)
+        relation = Subtyping::Relation.new(sub_type: sub_type, super_type: super_type)
+        subtyping.check(
+          relation,
+          constraints: Subtyping::Constraints.empty,
+          self_type: AST::Types::Self.instance,
+          instance_type: AST::Types::Instance.instance,
+          class_type: AST::Types::Class.instance
+        ).success?
+      end
+
+      def same_params?(method_type1, method_type2)
+        method_type1.type_params.empty? && method_type2.type_params.empty? &&
+          method_type1.type.params == method_type2.type.params &&
+          method_type1.block == method_type2.block
       end
 
       def method_name_for(type_def, name)
