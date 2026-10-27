@@ -409,11 +409,23 @@ module Steep
       # The verdict of `[c1, ..., ck] & ![n1, ..., nk] & ...`
       #
       # A tuple with an empty component has no value, and `[c1, c2] & ![n1, n2]` is `[c1 & !n1, c2] | [c1, c2 & !n2]`.
+      # A negative tuple with a component disjoint from the positive one excludes nothing and is dropped, which keeps
+      # the decomposition from branching on it.
       def tuple_empty?(components, negatives, mode, bounds)
         verdict = Verdict.inhabited
         components.each do |component|
           verdict = verdict & check(component, mode: mode, bounds: bounds)
           return verdict if verdict.empty?
+        end
+
+        negatives = negatives.reject do |negative|
+          components.each_with_index.any? do |component, index|
+            check(
+              AST::Types::Intersection.build(types: [component, negative[index] || AST::Types::Any.instance]),
+              mode: mode,
+              bounds: bounds
+            ).empty?
+          end
         end
         return verdict if negatives.empty?
 
@@ -422,11 +434,15 @@ module Steep
 
         result = Verdict.empty
         components.each_with_index do |component, index|
-          refined = components.dup
-          refined[index] = AST::Types::Intersection.build(
+          refined = AST::Types::Intersection.build(
             types: [component, AST::Types::Negation.build(type: negative[index] || AST::Types::Any.instance)]
           )
-          result = result | tuple_empty?(refined, rest, mode, bounds)
+          # The component is covered by the negative one: nothing is left on this side
+          next if check(refined, mode: mode, bounds: bounds).empty?
+
+          refined_components = components.dup
+          refined_components[index] = refined
+          result = result | tuple_empty?(refined_components, rest, mode, bounds)
           return result if result.inhabited?
         end
 
@@ -464,12 +480,16 @@ module Steep
         end
       end
 
+      # The most positive arrows a clause is decided with: the decomposition visits up to `2 ** n` cases
+      MAX_ARROWS = 8
+
       # The verdict of the arrows of a clause: `empty` when a negative arrow covers the intersection of the positive ones
       #
-      # The arrows with a `self` binding are opaque and left out.
+      # The arrows with a `self` binding are opaque and left out, and a clause with more than `MAX_ARROWS` positive
+      # arrows is left undecided.
       def check_arrows(positives, negatives, mode, bounds)
         arrows = positives.grep(AST::Types::Proc).reject(&:self_type)
-        return Verdict.inhabited if arrows.empty?
+        return Verdict.inhabited if arrows.empty? || arrows.size > MAX_ARROWS
         negative_arrows = negatives.grep(AST::Types::Proc).reject(&:self_type)
         return Verdict.inhabited if negative_arrows.empty?
 

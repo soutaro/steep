@@ -110,6 +110,9 @@ module Steep
         def initialize: (Array[AST::Types::Proc] arrows, Integer positive_count) -> void
       end
 
+      # The most positive arrows a clause is decided with
+      MAX_ARROWS: Integer
+
       # The verdict of the arrows of a clause: `empty` when a negative arrow covers the intersection of the positive ones
       def check_arrows: (Array[AST::Types::t] positives, Array[AST::Types::t] negatives, mode mode, bounds bounds) -> Verdict
 
