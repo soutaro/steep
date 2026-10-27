@@ -15,9 +15,10 @@ module Steep
     # - `:inhabitation` makes the type as large as possible, so that a branch guarded by an `untyped` value is reachable
     #   (a positive `untyped` is `top`, a negated one is `!bot`)
     #
-    # Structural types are not interpreted yet: tuples, records, and procs count as instances of `Array`, `Hash`, and
-    # `Proc` when they are positive, and interfaces, type variables without a bound, and `self`, `instance`, and `class`
-    # are opaque atoms that only cancel with their own negation.
+    # Tuples are products: `[A, B] & ![C, D]` is empty when `A <: C` and `B <: D`, and a tuple is also an instance of
+    # `Array`. Records and procs count as instances of `Hash` and `Proc` when they are positive, and interfaces, type
+    # variables without a bound, and `self`, `instance`, and `class` are opaque atoms that only cancel with their own
+    # negation.
     class Emptiness
       MODES = [:subtyping, :inhabitation].freeze #: Array[mode]
 
@@ -251,6 +252,18 @@ module Steep
           end
         end
 
+        # Tuples
+        tuples = positives.grep(AST::Types::Tuple)
+        unless tuples.empty?
+          verdict = check_tuples(tuples, positives, negatives, mode, bounds)
+          case
+          when verdict.empty?
+            return verdict
+          when verdict.empty_in_rbs?
+            rbs_reasons << (verdict.reason || "the tuple is empty")
+          end
+        end
+
         negatives.each do |negative|
           case negative
           when AST::Types::Literal, AST::Types::Nil
@@ -289,6 +302,82 @@ module Steep
         else
           Verdict.inhabited
         end
+      end
+
+      # The verdict of the tuples of a clause: the positive tuples intersected component-wise, minus the negative tuples
+      # and the negative `Array[T]`-like atoms, which exclude the tuples whose components are all `T`
+      def check_tuples(tuples, positives, negatives, mode, bounds)
+        arity = tuples.first&.types&.size or raise
+        unless tuples.all? {|tuple| tuple.types.size == arity }
+          return Verdict.empty("tuples of different lengths have no common value")
+        end
+
+        components = Array.new(arity) do |index|
+          AST::Types::Intersection.build(types: tuples.map {|tuple| tuple.types.fetch(index) })
+        end
+
+        # `[A, B] & Array[T]` is `[A & T, B & T]`
+        positives.each do |positive|
+          if positive.is_a?(AST::Types::Name::Instance) && (element = tuple_element_type(positive))
+            components = components.map {|component| AST::Types::Intersection.build(types: [component, element]) }
+          end
+        end
+
+        negative_tuples = [] #: Array[Array[AST::Types::t]]
+        negatives.each do |negative|
+          case negative
+          when AST::Types::Tuple
+            negative_tuples << negative.types if negative.types.size == arity
+          when AST::Types::Name::Instance
+            if (element = tuple_element_type(negative))
+              negative_tuples << Array.new(arity, element)
+            end
+          end
+        end
+
+        tuple_empty?(components, negative_tuples, mode, bounds)
+      end
+
+      # The element type of an `Array[T]`-like instance type, one whose only type argument is the element type of the
+      # arrays (`Array[T]` and `Enumerable[T]`); `nil` for the other types
+      def tuple_element_type(type)
+        element = AST::Types::Var.new(name: :__tuple_element__)
+        @tuple_element_ancestors ||= begin
+          views = instance_views(AST::Builtin::Array.instance_type(element)) || {}
+          views.filter_map {|name, args| name if args == [element] }.to_set
+        end
+
+        if @tuple_element_ancestors.include?(env.normalize_module_name(type.name)) && type.args.size == 1
+          type.args.fetch(0)
+        end
+      end
+
+      # The verdict of `[c1, ..., ck] & ![n1, ..., nk] & ...`
+      #
+      # A tuple with an empty component has no value, and `[c1, c2] & ![n1, n2]` is `[c1 & !n1, c2] | [c1, c2 & !n2]`.
+      def tuple_empty?(components, negatives, mode, bounds)
+        verdict = Verdict.inhabited
+        components.each do |component|
+          verdict = verdict & check(component, mode: mode, bounds: bounds)
+          return verdict if verdict.empty?
+        end
+        return verdict if negatives.empty?
+
+        negative, *rest = negatives
+        negative or raise
+
+        result = Verdict.empty
+        components.each_with_index do |component, index|
+          refined = components.dup
+          refined[index] = AST::Types::Intersection.build(
+            types: [component, AST::Types::Negation.build(type: negative[index] || AST::Types::Any.instance)]
+          )
+          result = result | tuple_empty?(refined, rest, mode, bounds)
+          return result if result.inhabited?
+        end
+
+        # The components may be empty in the environment only, which the recursion reports the same way
+        result & verdict
       end
 
       # The verdict of `C[a] & !D[b]` for the type arguments, given the views `a` of `D` from the positive atoms:

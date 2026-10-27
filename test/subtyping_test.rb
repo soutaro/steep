@@ -490,6 +490,37 @@ end
     end
   end
 
+  def test_set_theoretic_connectives
+    with_checker do |checker|
+      # Distribution, which the one-connective-at-a-time decomposition cannot prove
+      assert_success_check checker, "(::Integer | ::String) & ::Numeric", "(::Integer & ::Numeric) | (::String & ::Numeric)"
+      assert_success_check checker, "(::Integer | ::String) & (::Integer | ::Symbol)", "::Integer | (::String & ::Symbol)"
+      assert_success_check checker, "::Integer & ::String", "bot"
+
+      # The arrays are nominal: a mixed array is in neither
+      assert_fail_check checker, "::Array[::Integer | ::String]", "::Array[::Integer] | ::Array[::String]"
+      assert_fail_check checker, "::Integer | ::String", "::Integer"
+
+      # Negations
+      negation = ->(string) { AST::Types::Negation.build(type: parse_type(string, checker: checker)) }
+      assert_success_check checker, AST::Types::Intersection.build(types: [parse_type("::Integer | ::String", checker: checker), negation["::Integer"]]), parse_type("::String", checker: checker)
+      assert_success_check checker, parse_type("::Integer", checker: checker), negation["::String"]
+      assert_success_check checker, parse_type("::Numeric", checker: checker), AST::Types::Union.build(types: [parse_type("::Integer", checker: checker), AST::Types::Intersection.build(types: [parse_type("::Numeric", checker: checker), negation["::Integer"]])])
+      assert_fail_check checker, AST::Types::Intersection.build(types: [parse_type("::Numeric", checker: checker), negation["::Integer"]]), parse_type("::Integer", checker: checker)
+      assert_fail_check checker, parse_type("::Numeric", checker: checker), negation["::Integer"]
+    end
+  end
+
+  def test_set_theoretic_tuples
+    with_checker do |checker|
+      assert_success_check checker, "[::Integer, ::String]", "[::Numeric, ::String]"
+      assert_success_check checker, "[::Integer, ::String] | [::String, ::Integer]", "[::Integer | ::String, ::Integer | ::String]"
+      assert_success_check checker, "[::Integer, ::String] & ::Array[::Numeric | ::String]", "[::Integer, ::String]"
+      assert_fail_check checker, "[::Integer, ::String]", "[::String, ::Integer]"
+      assert_fail_check checker, "[::Integer | ::String, ::Integer]", "[::Integer, ::Integer] | [::String, ::String]"
+    end
+  end
+
   def assert_success_check(checker, sub_type, super_type, self_type: parse_type("self", checker: checker), instance_type: parse_type("instance", checker: checker), class_type: parse_type("class", checker: checker), constraints: Constraints.empty)
     self_type = parse_type(self_type, checker: checker) if self_type.is_a?(String)
     instance_type = parse_type(instance_type, checker: checker) if instance_type.is_a?(String)

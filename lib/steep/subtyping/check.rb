@@ -412,6 +412,12 @@ module Steep
             check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
           end
 
+        when set_theoretic_relation?(relation) && emptiness.subtype?(relation.sub_type, relation.super_type, bounds: variable_upper_bounds).empty?
+          # The set-theoretic check decides the relations with unions, intersections, and negations, which the rules
+          # below decompose one connective at a time (`(A | B) & C <: (A & C) | (B & C)` holds here, not below).
+          # A relation it does not prove goes on to the rules below, which explain the failure.
+          Success(relation)
+
         when relation.sub_type.is_a?(AST::Types::Intersection) && relation.super_type.is_a?(AST::Types::Union)
           Any(relation) do |base_result|
             # Expand the super_type first
@@ -692,6 +698,19 @@ module Steep
           end
         else
           Failure(relation, Result::Failure::UnknownPairError.new(relation: relation))
+        end
+      end
+
+      # `true` if the relation has a union, intersection, or negation to decide, and no type variable the constraints are
+      # collected for: those are recorded by the rules that decompose the types
+      def set_theoretic_relation?(relation)
+        connective = [relation.sub_type, relation.super_type].any? do |type|
+          type.is_a?(AST::Types::Union) || type.is_a?(AST::Types::Intersection) || type.is_a?(AST::Types::Negation)
+        end
+        return false unless connective
+
+        (relation.sub_type.free_variables + relation.super_type.free_variables).none? do |var|
+          var.is_a?(Symbol) && constraints.unknown?(var)
         end
       end
 

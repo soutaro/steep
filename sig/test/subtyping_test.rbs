@@ -73,6 +73,10 @@ class SubtypingTest < Minitest::Test
 
   def print_result: (untyped result, untyped output, ?prefix: untyped) -> untyped
 
+  def test_set_theoretic_connectives: () -> untyped
+
+  def test_set_theoretic_tuples: () -> untyped
+
   def assert_success_check: (untyped checker, untyped sub_type, untyped super_type, ?self_type: untyped, ?instance_type: untyped, ?class_type: untyped, ?constraints: untyped) -> untyped
 
   def assert_fail_check: (untyped checker, untyped sub_type, untyped super_type, ?self_type: untyped, ?instance_type: untyped, ?class_type: untyped, ?constraints: untyped) -> untyped

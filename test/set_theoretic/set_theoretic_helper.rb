@@ -161,6 +161,8 @@ module SetTheoreticHelper
     case string
     when /\A\(/
       string[0..matching_close(string, "(", ")")]
+    when /\A\[/
+      string[0..matching_close(string, "[", "]")]
     when /\A(::)?[A-Za-z_][A-Za-z0-9_:]*/
       name = $&
       if string[name.size] == "[" || (string[name.size] == "(" && name == "singleton")

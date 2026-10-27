@@ -79,6 +79,17 @@ module Steep
 
       def check_clause: (DNF::Clause clause, mode mode, bounds bounds) -> Verdict
 
+      # The verdict of the tuples of a clause
+      def check_tuples: (Array[AST::Types::Tuple] tuples, Array[AST::Types::t] positives, Array[AST::Types::t] negatives, mode mode, bounds bounds) -> Verdict
+
+      @tuple_element_ancestors: Set[RBS::TypeName]?
+
+      # The element type of an `Array[T]`-like instance type; `nil` for the other types
+      def tuple_element_type: (AST::Types::Name::Instance type) -> AST::Types::t?
+
+      # The verdict of `[c1, ..., ck] & ![n1, ..., nk] & ...`
+      def tuple_empty?: (Array[AST::Types::t] components, Array[Array[AST::Types::t]] negatives, mode mode, bounds bounds) -> Verdict
+
       # The verdict of `C[a] & !D[b]` for the type arguments, given the views `a` of `D` from the positive atoms
       def covered?: (RBS::TypeName name, Array[AST::Types::t] negative_args, Array[Array[AST::Types::t]] views, mode mode, bounds bounds) -> Verdict
 

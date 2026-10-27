@@ -230,6 +230,37 @@ class SetTheoreticEmptinessTest < Minitest::Test
     end
   end
 
+  def test_tuples
+    with_sigs do
+      assert_empty_verdict subtyping("[::Integer, ::String]", "[::Numeric, ::String]")
+      assert_empty_verdict subtyping("[::Integer, ::String]", "[::Integer, ::String]")
+      assert_empty_verdict subtyping("[1, 2]", "[::Integer, ::Integer]")
+      assert_empty_verdict subtyping("[untyped, ::Integer]", "[::String, ::Integer]")
+      assert_empty_verdict subtyping("[::Integer, ::String]", "::Array[::Numeric | ::String]")
+      assert_empty_verdict subtyping("[::Integer, ::String]", "::Enumerable[::Object]")
+      assert_empty_verdict subtyping("[::Integer, ::String] & ::Array[::Numeric | ::String]", "[::Integer, ::String]")
+
+      assert_inhabited_verdict subtyping("[::Integer, ::String]", "[::String, ::Integer]")
+      assert_inhabited_verdict subtyping("[::Integer]", "[::Integer, ::Integer]")
+      assert_inhabited_verdict subtyping("[::Integer, ::String]", "::Array[::Integer]")
+      assert_inhabited_verdict subtyping("::Array[::Integer]", "[::Integer, ::Integer]"), "an array of any length is not a pair"
+
+      assert_empty_verdict inhabitation("[::Integer, ::String] & [::String, ::String]")
+      assert_empty_verdict inhabitation("[::Integer] & [::Integer, ::Integer]")
+      assert_empty_verdict inhabitation("[bot, ::Integer]")
+      assert_empty_verdict inhabitation("[::Integer, ::String] & ::Integer")
+      assert_inhabited_verdict inhabitation("[::Integer, ::String] & [::Numeric, top]")
+      assert_inhabited_verdict inhabitation("[::Integer, ::String] & ::Array[::Comparable]")
+      assert_empty_verdict inhabitation("[::Integer, ::String] & ::Array[::Integer]"), "the String component is not an Integer"
+
+      # The negative tuples are decomposed component by component
+      assert_empty_verdict inhabitation("[::Integer | ::String, ::Integer] & ![::Integer, ::Integer] & ![::String, ::Integer]")
+      assert_inhabited_verdict inhabitation("[::Integer | ::String, ::Integer] & ![::Integer, ::Integer]")
+      assert_empty_verdict inhabitation("[::Integer, ::String] & !::Array[top]")
+      assert_inhabited_verdict inhabitation("[::Integer, ::String] & ![::Integer]"), "a pair is not a singleton tuple"
+    end
+  end
+
   def test_opaque_atoms
     with_sigs do
       assert_inhabited_verdict inhabitation("::_Quacks & ::Integer")
