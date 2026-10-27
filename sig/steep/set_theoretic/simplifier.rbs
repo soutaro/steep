@@ -32,6 +32,14 @@ module Steep
 
       # Drops the negations the union covers
       def eliminate_against_union: (Array[DNF::Clause] clauses, Emptiness::bounds bounds) -> Array[DNF::Clause]
+
+      # `true` if the union may cover a negative atom: a negated literal is covered only by the same literal among
+      # the positives of the other clauses or by a non-literal atom
+      def coverable?: (AST::Types::t negative, Array[AST::Types::t] positives, Array[AST::Types::t] negatives) -> bool
+
+      def literal?: (AST::Types::t `type`) -> bool
+
+      def literals?: (Set[AST::Types::t] types) -> bool
     end
   end
 end

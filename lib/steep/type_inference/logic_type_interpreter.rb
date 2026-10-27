@@ -125,9 +125,10 @@ module Steep
       # Narrows `type` by `is_a?(klass)`: the instances of the class are `klass[untyped, ...]` on the truthy branch and
       # `klass[top, ...]` on the falsy one
       def type_case(type, klass)
+        # One lookup of the type parameters: `Definition#type_params` validates them on every call
         arity = factory.definition_builder.build_singleton(klass).type_params.size
-        positive = factory.instance_type(klass)
-        negative = factory.instance_type(klass, args: Array.new(arity, AST::Types::Top.instance))
+        positive = AST::Types::Name::Instance.new(name: klass, args: Array.new(arity, AST::Builtin.any_type))
+        negative = AST::Types::Name::Instance.new(name: klass, args: Array.new(arity, AST::Types::Top.instance))
         narrow(type, positive, negative: negative)
       end
 

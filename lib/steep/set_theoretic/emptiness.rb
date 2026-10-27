@@ -42,6 +42,7 @@ module Steep
         @assumptions = Set[]
         @instance_views = {}
         @singleton_views = {}
+        @type_params = {}
       end
 
       def env
@@ -54,9 +55,9 @@ module Steep
       def check(type, mode:, bounds: {})
         MODES.include?(mode) or raise ArgumentError, "Unknown mode: #{mode.inspect}"
 
-        ground = type.free_variables.empty?
-        cache_key = [type, mode] #: cache_key
-        if ground && (cached = @cache[cache_key])
+        # The verdict of a type with type variables depends on their bounds, which are part of the key
+        cache_key = [type, mode, type.free_variables.empty? ? nil : bounds] #: cache_key
+        if (cached = @cache[cache_key])
           return cached
         end
 
@@ -78,7 +79,7 @@ module Steep
             @assumptions.delete(assumption)
           end
 
-        @cache[cache_key] = verdict if ground
+        @cache[cache_key] = verdict
         verdict
       end
 
@@ -676,11 +677,13 @@ module Steep
       end
 
       def type_params(name)
-        if entry = env.class_decls[name]
-          entry.type_params
-        else
-          []
-        end
+        # `ModuleEntry#type_params` validates and aligns the parameters on every call
+        @type_params[name] ||=
+          if entry = env.class_decls[name]
+            entry.type_params
+          else
+            []
+          end
       end
 
       # `true` if the instance type of `sub` is a subclass of the one of `sup` (or the same class)

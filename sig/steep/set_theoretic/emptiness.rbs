@@ -8,7 +8,8 @@ module Steep
       # The upper bounds of the type variables in scope
       type bounds = Hash[Symbol, AST::Types::t?]
 
-      type cache_key = [AST::Types::t, mode]
+      # The bounds are `nil` for a type without type variables
+      type cache_key = [AST::Types::t, mode, bounds?]
 
       type assumption = [AST::Types::t, mode, bounds]
 
@@ -27,6 +28,8 @@ module Steep
       attr_reader normalizer: Normalizer
 
       @cache: Hash[cache_key, Verdict]
+
+      @type_params: Hash[RBS::TypeName, Array[RBS::AST::TypeParam]]
 
       @assumptions: Set[assumption]
 

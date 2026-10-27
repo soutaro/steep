@@ -181,9 +181,19 @@ module Steep
       def initialize(factory:, expand_aliases: true)
         @factory = factory
         @expand_aliases = expand_aliases
+        @cache = {}
       end
 
+      # The DNFs are immutable, so that the normalization of a type is computed once
       def normalize(type, expanding = Set[], negated = false)
+        if expanding.empty?
+          @cache[[type, negated]] ||= normalize0(type, expanding, negated)
+        else
+          normalize0(type, expanding, negated)
+        end
+      end
+
+      def normalize0(type, expanding, negated)
         case type
         when AST::Types::Top, AST::Types::Void
           negated ? DNF.bot : DNF.top
@@ -220,7 +230,7 @@ module Steep
             if expanded == type
               atom(type, negated)
             else
-              normalize(expanded, expanding + [type.name], negated)
+              normalize0(expanded, expanding + [type.name], negated)
             end
           end
         when AST::Types::Name::Instance

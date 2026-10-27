@@ -135,10 +135,13 @@ module Steep
       def absorb(clauses, bounds)
         types = clauses.map(&:to_type)
 
-        clauses.select.with_index do |_, index|
+        clauses.select.with_index do |clause, index|
           type = types.fetch(index)
-          !types.each_with_index.any? do |other, other_index|
+          !clauses.each_with_index.any? do |other_clause, other_index|
             next false if index == other_index
+            # A clause of literals subsumes a clause with one of the literals only
+            next false if literals?(other_clause.positives) && !clause.positives.intersect?(other_clause.positives)
+            other = types.fetch(other_index)
             next false unless emptiness.subtype(type, other, bounds: bounds)
             !(other_index > index && emptiness.subtype(other, type, bounds: bounds))
           end
@@ -150,12 +153,18 @@ module Steep
         union = DNF.new(clauses).to_type
         changed = false
 
-        clauses = clauses.map do |clause|
+        clauses = clauses.map.with_index do |clause, index|
           if clause.negatives.empty?
             clause
           else
+            others = [] #: Array[AST::Types::t]
+            clauses.each_with_index do |other, other_index|
+              others.concat(other.positives.to_a) unless other_index == index
+            end
             negatives = clause.negatives.to_a
             clause.negatives.each do |negative|
+              next unless coverable?(negative, others, negatives - [negative])
+
               candidate = DNF::Clause.new(positives: clause.positives, negatives: Set.new(negatives - [negative]))
               if emptiness.subtype(candidate.to_type, union, bounds: bounds)
                 negatives.delete(negative)
@@ -172,6 +181,22 @@ module Steep
         else
           clauses
         end
+      end
+
+      # `true` if the union may cover a negative atom: a negated literal is covered only by the same literal among
+      # the positives of the other clauses or by a non-literal atom, so that `Symbol & !:a & !:b & ...` costs nothing
+      def coverable?(negative, positives, negatives)
+        return true unless literal?(negative)
+
+        positives.any? {|type| !literal?(type) || type == negative } || negatives.any? {|type| !literal?(type) }
+      end
+
+      def literal?(type)
+        type.is_a?(AST::Types::Literal) || type.is_a?(AST::Types::Nil)
+      end
+
+      def literals?(types)
+        types.all? {|type| literal?(type) }
       end
     end
   end
