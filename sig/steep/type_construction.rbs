@@ -335,6 +335,9 @@ module Steep
 
     def inspect: () -> ::String
 
+    # The type of a literal node, `nil` for the other nodes
+    def literal_argument_type: (Parser::AST::Node node) -> AST::Types::t?
+
     def with_child_typing: [A] () { (TypeConstruction) -> A } -> A
                          | () -> TypeConstruction
 

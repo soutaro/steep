@@ -3858,15 +3858,16 @@ module Steep
       domains = method.overloads.map {|overload| shape.domain(overload.method_type) }
       ordered = TypeInference::OrderedOverloads.new(emptiness: checker.emptiness, simplifier: checker.simplifier, bounds: variable_context.upper_bounds)
 
-      # The types of the arguments: the ones the accepting overload read them as, or the ones without a hint
+      # The types of the arguments: the ones the accepting overload read them as, or the ones without a hint; a
+      # literal has its own type, so that `1234` reaches no overload with the parameter `123`
       tuple =
         if winner
-          nodes.map {|arg| typing.type_of(node: arg) }
+          nodes.map {|arg| literal_argument_type(arg) || typing.type_of(node: arg) }
         else
           with_child_typing do |constr|
             nodes.map do |arg|
               type, constr = constr.synthesize(arg)
-              type
+              literal_argument_type(arg) || type
             end
           end
         end
@@ -3931,6 +3932,20 @@ module Steep
         first.update(return_type: return_type, actual_method_type: method_type, method_decls: decls),
         update_type_env { context.type_env.join(*envs) }
       ]
+    end
+
+    # The type of a literal node, `nil` for the other nodes
+    def literal_argument_type(node)
+      case node.type
+      when :int, :str, :sym
+        AST::Types::Literal.new(value: node.children[0])
+      when :true
+        AST::Types::Literal.new(value: true)
+      when :false
+        AST::Types::Literal.new(value: false)
+      when :nil
+        AST::Builtin.nil_type
+      end
     end
 
     def with_child_typing()
