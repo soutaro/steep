@@ -40,7 +40,8 @@ module Steep
         #
         def updated?: () -> bool
 
-        # The fingerprint of the declarations in the content, `nil` when the RBS file cannot be parsed
+        # The fingerprint of the declarations in the content, `nil` when the RBS file cannot be parsed or the content
+        # is not valid UTF-8
         def self.fingerprint: (kind, String content) -> untyped
 
         def self.directive_fingerprint: (RBS::AST::Directives::t) -> untyped

@@ -15,6 +15,8 @@ class Steep::Server::SignatureChangeDetectorTest < Minitest::Test
 
   def test_source_rbs_syntax_error: () -> untyped
 
+  def test_source_invalid_encoding: () -> untyped
+
   def test_source_same_content: () -> untyped
 
   def test_detector: () -> untyped

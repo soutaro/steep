@@ -65,6 +65,18 @@ class Steep::Server::SignatureChangeDetectorTest < Minitest::Test
     assert source.updated?
   end
 
+  def test_source_invalid_encoding
+    source = Source.new(:rbs, "# あ\nclass Foo\nend\n".encode(Encoding::EUC_JP).force_encoding(Encoding::UTF_8))
+    assert_nil source.fingerprint
+
+    # A content that is not valid UTF-8 cannot be parsed, like a syntax error
+    source.push("# \xe3\x81\x82\xff\nclass Foo\nend\n".b.force_encoding(Encoding::UTF_8))
+    refute source.updated?
+
+    source.push("class Foo\nend\n")
+    assert source.updated?
+  end
+
   def test_source_same_content
     source = Source.new(:rbs, "class Foo\nend\n")
 

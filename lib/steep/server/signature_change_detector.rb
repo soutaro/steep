@@ -35,6 +35,9 @@ module Steep
         end
 
         def self.fingerprint(kind, content)
+          # The parsers take UTF-8 only, as the environments do
+          return unless content.valid_encoding?
+
           case kind
           when :rbs
             buffer = RBS::Buffer.new(name: Pathname("a.rbs"), content: content)
