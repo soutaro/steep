@@ -140,7 +140,7 @@ module Steep
           end
         end
 
-        def update(node: self.node, return_type: self.return_type)
+        def update(node: self.node, return_type: self.return_type, actual_method_type: self.actual_method_type, method_decls: self.method_decls)
           _ = self.class.new(
             node: node,
             return_type: return_type,

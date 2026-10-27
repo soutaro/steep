@@ -1,0 +1,34 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 19
+        character: 0
+      end:
+        line: 19
+        character: 15
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `pair` of type `::Calc`
+      Method types:
+        def pair: (::Integer, ::Integer) -> :ii
+                | (::Integer, ::String) -> :is
+                | (::String, ::Integer) -> :si
+                | (::String, ::String) -> :ss
+    code: Ruby::UnresolvedOverloading
+  - range:
+      start:
+        line: 34
+        character: 0
+      end:
+        line: 34
+        character: 12
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `plus` of type `::Calc`
+      Method types:
+        def plus: (::Integer) -> ::Integer
+                | (::Float) -> ::Float
+                | (::String) -> ::String
+    code: Ruby::UnresolvedOverloading

@@ -1,0 +1,18 @@
+class Calc
+  def plus: (Integer) -> Integer
+          | (Float) -> Float
+          | (String) -> String
+
+  def pair: (Integer, Integer) -> :ii
+          | (Integer, String) -> :is
+          | (String, Integer) -> :si
+          | (String, String) -> :ss
+
+  def scale: (by: Integer) -> Integer
+           | (by: Float) -> Float
+end
+
+class Store[Elem]
+  def get: (Integer) -> Elem
+         | (Range[Integer]) -> Array[Elem]?
+end

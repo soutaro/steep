@@ -54,9 +54,18 @@ module Steep
 
     %a{pure} def variable_context: () -> TypeInference::Context::TypeVariableContext
 
-    def initialize: (checker: untyped, source: untyped, annotations: untyped, typing: untyped, context: untyped) -> void
+    # The types the arguments of the method call being type checked are read as, by node, while the union type of an
+    # argument is split across the overloads
+    attr_reader argument_pins: Hash[Parser::AST::Node, AST::Types::t]
+
+    # The bound on the number of combinations of the members of the union types of the arguments of a call
+    MAX_ARGUMENT_SPLITS: Integer
+
+    def initialize: (checker: untyped, source: untyped, annotations: untyped, typing: untyped, context: untyped, ?argument_pins: Hash[Parser::AST::Node, AST::Types::t]) -> void
 
     def with_new_typing: (Typing typing) -> TypeConstruction
+
+    def with_argument_pins: (Hash[Parser::AST::Node, AST::Types::t] pins) -> TypeConstruction
 
     def with_updated_context: (?type_env: TypeInference::TypeEnv) -> TypeConstruction
 
@@ -231,6 +240,40 @@ module Steep
       tapp: AST::Node::TypeApplication?,
       hint: Types::t?
     ) -> [TypeInference::MethodCall::t, TypeConstruction]?
+
+    # Tries the overloads in their order and returns the first one that accepts the call; the failures go to `fails`
+    def try_overloads: (
+      Parser::AST::Node node,
+      method_name: Symbol,
+      receiver_type: AST::Types::t,
+      method: Interface::Shape::Entry,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?,
+      fails: Array[[TypeInference::MethodCall::t, TypeConstruction]]
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
+
+    # The set-theoretic application of the overloads: an argument with a union type is split into its members, the
+    # overloads are tried for every combination of the members, and the call has the union of their return types
+    #
+    # Returns `nil` when no argument has a union type, when a combination has no overload, or when there are more than
+    # `MAX_ARGUMENT_SPLITS` combinations.
+    def try_split_arguments: (
+      Parser::AST::Node node,
+      method_name: Symbol,
+      receiver_type: AST::Types::t,
+      method: Interface::Shape::Entry,
+      arguments: Array[Parser::AST::Node],
+      block_params: Parser::AST::Node?,
+      block_body: Parser::AST::Node?,
+      tapp: AST::Node::TypeApplication?,
+      hint: Types::t?
+    ) -> [TypeInference::MethodCall::t, TypeConstruction]?
+
+    # The members of the union type of an argument: the clauses of its DNF, with the aliases unfolded
+    def split_argument_type: (AST::Types::t `type`) -> Array[AST::Types::t]
 
     # The core to type check method calls, which implements type checking arguments including blocks and type inference
     #

@@ -872,6 +872,225 @@ d = k.foo(c)
     end
   end
 
+  def test_split_union_argument_across_overloads
+    with_checker(<<-RBS) do |checker|
+class Calc
+  def plus: (Integer) -> Integer
+          | (Float) -> Float
+          | (String) -> String
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var y: Integer | Float
+y = (_ = nil)
+Calc.new.plus(y)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # No single overload accepts `Integer | Float`: the members are matched one by one
+        assert_equal parse_type("::Integer | ::Float"), type
+      end
+    end
+  end
+
+  def test_split_union_argument_generic_method
+    with_checker(<<-RBS) do |checker|
+class Store[Elem]
+  def get: (Integer) -> Elem
+         | (Range[Integer]) -> Array[Elem]?
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var a: Store[String]
+# @type var i: Integer | Range[Integer]
+a = (_ = nil)
+i = (_ = nil)
+a.get(i)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # The type parameter is solved per member
+        assert_equal parse_type("::String | ::Array[::String] | nil"), type
+      end
+    end
+  end
+
+  def test_split_union_argument_generic_method_type
+    with_checker(<<-RBS) do |checker|
+class Picker
+  def pick: [T] (Integer, T) -> T
+          | [T] (String, Array[T]) -> T
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var k: Integer | String
+k = (_ = nil)
+Picker.new.pick(k, [1])
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # The method type variable is solved per combination: `Array[Integer]` and `Integer`
+        assert_equal parse_type("::Array[::Integer] | ::Integer"), type
+      end
+    end
+  end
+
+  def test_split_union_arguments_combinations
+    with_checker(<<-RBS) do |checker|
+class Calc
+  def pair: (Integer, Integer) -> :ii
+          | (Integer, String) -> :is
+          | (String, Integer) -> :si
+          | (String, String) -> :ss
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var x: Integer | String
+# @type var y: Integer | String
+x = (_ = nil)
+y = (_ = nil)
+Calc.new.pair(x, y)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type(":ii | :is | :si | :ss"), type
+      end
+    end
+  end
+
+  def test_split_union_keyword_argument
+    with_checker(<<-RBS) do |checker|
+class Calc
+  def scale: (by: Integer) -> Integer
+           | (by: Float) -> Float
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var y: Integer | Float
+y = (_ = nil)
+Calc.new.scale(by: y)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        assert_equal parse_type("::Integer | ::Float"), type
+      end
+    end
+  end
+
+  def test_split_union_argument_with_member_no_overload_accepts
+    with_checker(<<-RBS) do |checker|
+class Calc
+  def plus: (Integer) -> Integer
+          | (Float) -> Float
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var y: Integer | String
+y = (_ = nil)
+Calc.new.plus(y)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        # `String` has no overload: the call fails as before
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_instance_of Diagnostic::Ruby::UnresolvedOverloading, errors[0]
+        end
+      end
+    end
+  end
+
+  def test_split_union_argument_prefers_a_single_overload
+    with_checker(<<-RBS) do |checker|
+class Calc
+  def plus: (Integer) -> Integer
+          | (Numeric) -> Numeric
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var y: Integer | Float
+y = (_ = nil)
+Calc.new.plus(y)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # `(Numeric) -> Numeric` accepts the whole union: no split
+        assert_equal parse_type("::Numeric"), type
+      end
+    end
+  end
+
+  def test_split_union_argument_with_block
+    with_checker(<<-RBS) do |checker|
+class Calc
+  def each_scaled: (Integer) { (Integer) -> void } -> Integer
+                 | (Float) { (Float) -> void } -> Float
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var y: Integer | Float
+y = (_ = nil)
+Calc.new.each_scaled(y) do |z|
+  z + 1
+end
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # The block body is type checked once per member
+        assert_equal parse_type("::Integer | ::Float"), type
+      end
+    end
+  end
+
+  def test_split_union_argument_call_record
+    with_checker(<<-RBS) do |checker|
+class Calc
+  def plus: (Integer) -> Integer
+          | (Float) -> Float
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+# @type var y: Integer | Float
+y = (_ = nil)
+Calc.new.plus(y)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+        call = typing.call_of(node: dig(source.node, 1))
+        assert_instance_of TypeInference::MethodCall::Typed, call
+        # The method type of the first member, with the return type of the whole call
+        assert_equal parse_method_type("(::Integer) -> (::Integer | ::Float)"), call.actual_method_type
+        assert_equal parse_type("::Integer | ::Float"), call.return_type
+        assert_equal 2, call.method_decls.size
+      end
+    end
+  end
+
   def test_overloaded_method2
     with_checker <<-EOF do |checker|
 class Hello
