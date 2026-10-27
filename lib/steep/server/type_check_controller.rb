@@ -207,6 +207,7 @@ module Steep
       attr_reader :files
       attr_reader :signature_changes
       attr_reader :updated_signature_paths
+      attr_reader :pending_declaration_changes
       attr_reader :type_check_service
       attr_reader :file_contents
       attr_reader :changed_paths
@@ -226,6 +227,7 @@ module Steep
         @dirty_inline_paths = Set[]
         @signature_changes = SignatureChangeDetector.new
         @updated_signature_paths = Set[]
+        @pending_declaration_changes = Set[]
       end
 
       def load(command_line_args:)
@@ -290,7 +292,14 @@ module Steep
       def detect_declaration_changes
         updated_paths = signature_changes.updated_paths
         updated_signature_paths.merge(updated_paths)
-        updated_paths
+        pending_declaration_changes.merge(updated_paths)
+      end
+
+      def pop_declaration_changes
+        detect_declaration_changes()
+        paths = pending_declaration_changes.dup
+        pending_declaration_changes.clear
+        paths
       end
 
       def pop_file_changes

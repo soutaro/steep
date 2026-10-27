@@ -1248,7 +1248,7 @@ module Steep
         service = controller.type_check_service or return
 
         signature_files = signature_files_in(changes)
-        updated_paths = controller.detect_declaration_changes()
+        updated_paths = controller.pop_declaration_changes()
         generation = nil #: Integer?
 
         case launcher

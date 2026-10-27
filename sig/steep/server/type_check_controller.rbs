@@ -159,6 +159,12 @@ module Steep
       #
       attr_reader updated_signature_paths: Set[Pathname]
 
+      # The RBS files and inline RBS sources whose declarations changed since the last `#pop_declaration_changes`
+      #
+      # Detected by `#detect_declaration_changes`, and taken by `#pop_declaration_changes`.
+      #
+      attr_reader pending_declaration_changes: Set[Pathname]
+
       attr_reader files: TargetGroupFiles
 
       # The RBS environments of the targets and the contents of the project files, loaded by `#load`
@@ -215,16 +221,23 @@ module Steep
       # Returns the contents of the files changed since the last call, as changes for `#type_check_service`
       def pop_file_changes: () -> ChangeBuffer::changes
 
-      # Returns the RBS files and inline RBS sources whose declarations changed since the last detection, by absolute path
+      # Detects the RBS files and inline RBS sources whose declarations changed since the last detection
       #
       # The declarations are what the type checking sees: a change of the comments or the formatting doesn't count,
       # nor does a content that cannot be parsed. See `SignatureChangeDetector`.
       #
-      # The master calls it after popping the changes, to tell if the typecheck workers forked from the environments
-      # can go on with them. The detected paths are kept in `#updated_signature_paths` for the next `#make_request`,
-      # which type checks the files depending on them.
+      # The detected paths go to `#updated_signature_paths`, for the next `#make_request` to type check the files
+      # depending on them, and to `#pending_declaration_changes`, for the master to tell if the typecheck workers
+      # forked from the environments can go on with the changes.
       #
-      def detect_declaration_changes: () -> Set[Pathname]
+      def detect_declaration_changes: () -> void
+
+      # Returns the RBS files and inline RBS sources whose declarations changed since the last call, by absolute path
+      #
+      # The master calls it after popping the changes, to tell if the typecheck workers forked from the environments
+      # can go on with them. The detection by `#make_request` doesn't take the paths away from it.
+      #
+      def pop_declaration_changes: () -> Set[Pathname]
 
       def code_path?: (Pathname path) -> bool
 

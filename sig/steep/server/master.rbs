@@ -409,7 +409,7 @@ module Steep
       #
       # With `SpawnLauncher`, the changed RBS files and inline RBS sources are sent to the workers, which update their
       # own environments. With `ForkLauncher`, the workers never update their environments: when the declarations
-      # changed (see `TypeCheckController#detect_declaration_changes`), the typecheck workers are retired, the
+      # changed (see `TypeCheckController#pop_declaration_changes`), the typecheck workers are retired, the
       # definitions are built, and the next generation is forked from the environments; the jobs wait for it. When
       # the declarations stay the same, the workers go on with their environments, and the master validates the
       # changed RBS files itself.
