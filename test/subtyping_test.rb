@@ -553,6 +553,36 @@ RBS
     end
   end
 
+  def test_polarity_constraints
+    with_checker do |checker|
+      var_type = ->(string) { parse_type(string, checker: checker, variables: [:X]) }
+
+      # Only `Integer` needs `X`: the `String` member is covered by the union
+      constraints = Constraints.new(unknowns: [:X])
+      assert_success_check checker, "::Integer | ::String", var_type["X | ::String"], constraints: constraints
+      assert_equal "::Integer", constraints.lower_bound(:X).to_s
+      assert_instance_of AST::Types::Top, constraints.upper_bound(:X)
+
+      # The relation holds whatever `X` is
+      constraints = Constraints.new(unknowns: [:X])
+      assert_success_check checker, var_type["(::Integer | ::String) & X"], var_type["(::Integer & X) | (::String & X)"], constraints: constraints
+      refute constraints.has_constraint?(:X)
+
+      # `X & Integer <: String` is `X <: String | !Integer`
+      constraints = Constraints.new(unknowns: [:X])
+      assert_success_check checker, var_type["X & ::Integer"], "::String", constraints: constraints
+      upper_bound = constraints.upper_bound(:X)
+      assert checker.emptiness.subtype(parse_type("::String", checker: checker), upper_bound)
+      assert checker.emptiness.subtype(AST::Types::Negation.build(type: parse_type("::Integer", checker: checker)), upper_bound)
+      refute checker.emptiness.subtype(parse_type("::Integer", checker: checker), upper_bound)
+
+      # A variable inside a type argument is left to the decomposition
+      constraints = Constraints.new(unknowns: [:X])
+      assert_success_check checker, "::Array[::Integer]", var_type["::Array[X] | ::String"], constraints: constraints
+      assert_equal "::Integer", constraints.lower_bound(:X).to_s
+    end
+  end
+
   def assert_success_check(checker, sub_type, super_type, self_type: parse_type("self", checker: checker), instance_type: parse_type("instance", checker: checker), class_type: parse_type("class", checker: checker), constraints: Constraints.empty)
     self_type = parse_type(self_type, checker: checker) if self_type.is_a?(String)
     instance_type = parse_type(instance_type, checker: checker) if instance_type.is_a?(String)

@@ -35,6 +35,13 @@ module Steep
       # `true` if the relation has a union, intersection, or negation to decide, and no type variable the constraints are collected for
       def set_theoretic_relation?: (Relation[AST::Types::t] relation) -> bool
 
+      # `true` if the relation has a union, intersection, or negation to decide, and a type variable the constraints are collected for
+      def constraint_relation?: (Relation[AST::Types::t] relation) -> bool
+
+      def connective_relation?: (Relation[AST::Types::t] relation) -> bool
+
+      def unknown_relation?: (Relation[AST::Types::t] relation) -> bool
+
       # `true` if the intersection of the method types, read as arrows, is a subtype of `super_type`
       def overloads_cover?: (Array[Interface::MethodType] sub_types, Interface::MethodType super_type) -> bool
 

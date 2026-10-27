@@ -412,6 +412,24 @@ module Steep
             check_type(Relation.new(sub_type: ub, super_type: relation.super_type))
           end
 
+        when constraint_relation?(relation) && (collected = emptiness.constrain(
+               AST::Types::Intersection.build(types: [relation.sub_type, AST::Types::Negation.build(type: relation.super_type)]),
+               unknowns: constraints.unknowns,
+               bounds: variable_upper_bounds
+             ))
+          # The relation holds once the type variables are constrained by the polarity of their occurrences: a variable
+          # under a negation gets a lower bound, the other ones an upper bound
+          collected.each do |name, kind, type|
+            type = simplifier.simplify(type, bounds: variable_upper_bounds)
+            case kind
+            when :sub
+              constraints.add(name, sub_type: type)
+            when :super
+              constraints.add(name, super_type: type)
+            end
+          end
+          Success(relation)
+
         when set_theoretic_relation?(relation) && emptiness.subtype?(relation.sub_type, relation.super_type, bounds: variable_upper_bounds).empty?
           # The set-theoretic check decides the relations with unions, intersections, and negations, which the rules
           # below decompose one connective at a time (`(A | B) & C <: (A & C) | (B & C)` holds here, not below).
@@ -704,12 +722,23 @@ module Steep
       # `true` if the relation has a union, intersection, or negation to decide, and no type variable the constraints are
       # collected for: those are recorded by the rules that decompose the types
       def set_theoretic_relation?(relation)
-        connective = [relation.sub_type, relation.super_type].any? do |type|
+        connective_relation?(relation) && !unknown_relation?(relation)
+      end
+
+      # `true` if the relation has a union, intersection, or negation to decide, and a type variable the constraints
+      # are collected for
+      def constraint_relation?(relation)
+        connective_relation?(relation) && unknown_relation?(relation)
+      end
+
+      def connective_relation?(relation)
+        [relation.sub_type, relation.super_type].any? do |type|
           type.is_a?(AST::Types::Union) || type.is_a?(AST::Types::Intersection) || type.is_a?(AST::Types::Negation)
         end
-        return false unless connective
+      end
 
-        (relation.sub_type.free_variables + relation.super_type.free_variables).none? do |var|
+      def unknown_relation?(relation)
+        (relation.sub_type.free_variables + relation.super_type.free_variables).any? do |var|
           var.is_a?(Symbol) && constraints.unknown?(var)
         end
       end

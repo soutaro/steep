@@ -50,6 +50,12 @@ module Steep
       # The verdict of `type1 & type2`, read for reachability
       def disjoint?: (AST::Types::t type1, AST::Types::t type2, ?bounds: bounds) -> Verdict
 
+      # A constraint on a type variable: `[name, :sub, t]` for `t <: name`, `[name, :super, t]` for `name <: t`
+      type constraint = [Symbol, :sub | :super, AST::Types::t]
+
+      # The constraints on the type variables `unknowns` that make `type` empty, or `nil` when a clause without such a variable is inhabited
+      def constrain: (AST::Types::t `type`, unknowns: Set[Symbol], ?bounds: bounds) -> Array[constraint]?
+
       def check_dnf: (DNF dnf, mode mode, bounds bounds) -> Verdict
 
       # A positive atom of a clause, seen through the class hierarchy

@@ -97,6 +97,45 @@ module Steep
         check(AST::Types::Intersection.build(types: [type1, type2]), mode: :inhabitation, bounds: bounds)
       end
 
+      # The constraints on the type variables `unknowns` that make `type` empty, or `nil` when a clause without such
+      # a variable is inhabited
+      #
+      # A clause `α & P & !N` is emptied by `α <: !(P & !N)` (an upper bound), and `!α & P & !N` by `P & !N <: α`
+      # (a lower bound); the lower bound is preferred when the clause has both. The other unknown variables of the
+      # clause are left out of the bound. Each constraint is `[name, :sub, t]` for `t <: name` or `[name, :super, t]`
+      # for `name <: t`.
+      def constrain(type, unknowns:, bounds: {})
+        constraints = [] #: Array[constraint]
+
+        normalizer.normalize(type).clauses.each do |clause|
+          positive_vars = clause.positives.select {|atom| atom.is_a?(AST::Types::Var) && unknowns.include?(atom.name) }
+          negative_vars = clause.negatives.select {|atom| atom.is_a?(AST::Types::Var) && unknowns.include?(atom.name) }
+          rest = DNF::Clause.new(positives: clause.positives - positive_vars, negatives: clause.negatives - negative_vars)
+
+          next if rest.contradiction?
+          next if check_clause(rest, :subtyping, bounds).empty?
+
+          # A variable inside an atom (`Array[α]`) cannot be a bound; the decomposition handles it
+          nested = (rest.positives.to_a + rest.negatives.to_a).any? do |atom|
+            atom.free_variables.any? {|var| var.is_a?(Symbol) && unknowns.include?(var) }
+          end
+          return nil if nested
+
+          case
+          when (var = negative_vars.first)
+            var.is_a?(AST::Types::Var) or raise
+            constraints << [var.name, :sub, rest.to_type]
+          when (var = positive_vars.first)
+            var.is_a?(AST::Types::Var) or raise
+            constraints << [var.name, :super, AST::Types::Negation.build(type: rest.to_type)]
+          else
+            return nil
+          end
+        end
+
+        constraints
+      end
+
       def check_dnf(dnf, mode, bounds)
         dnf.clauses.inject(Verdict.empty) do |verdict, clause|
           verdict = verdict | check_clause(clause, mode, bounds)
