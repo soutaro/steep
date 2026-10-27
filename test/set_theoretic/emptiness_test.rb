@@ -375,4 +375,14 @@ class SetTheoreticEmptinessTest < Minitest::Test
       assert_inhabited_verdict inhabitation("T & ::String", bounds: { T: parse_type("::String") })
     end
   end
+
+  def test_too_large_is_inhabited
+    with_sigs do
+      # The DNF of the product of two large unions is not built: the verdict is unknown, which is `inhabited`
+      literals = (1..70).map(&:to_s).join(" | ")
+      type = AST::Types::Intersection.build(types: [parse_type(literals), parse_type(literals.sub("1 |", "1 | 100 |"))])
+      assert_inhabited_verdict emptiness.check(type, mode: :subtyping)
+      assert_nil emptiness.constrain(type, unknowns: Set[:X])
+    end
+  end
 end

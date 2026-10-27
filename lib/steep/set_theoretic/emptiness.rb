@@ -68,11 +68,15 @@ module Steep
         end
 
         @assumptions << assumption
-        begin
-          verdict = check_dnf(normalizer.normalize(type), mode, bounds)
-        ensure
-          @assumptions.delete(assumption)
-        end
+        verdict =
+          begin
+            check_dnf(normalizer.normalize(type), mode, bounds)
+          rescue DNF::TooLarge
+            # The type is too large to decide: unknown, which is `inhabited`
+            Verdict.inhabited
+          ensure
+            @assumptions.delete(assumption)
+          end
 
         @cache[cache_key] = verdict if ground
         verdict
@@ -107,7 +111,14 @@ module Steep
       def constrain(type, unknowns:, bounds: {})
         constraints = [] #: Array[constraint]
 
-        normalizer.normalize(type).clauses.each do |clause|
+        dnf =
+          begin
+            normalizer.normalize(type)
+          rescue DNF::TooLarge
+            return nil
+          end
+
+        dnf.clauses.each do |clause|
           positive_vars = clause.positives.select {|atom| atom.is_a?(AST::Types::Var) && unknowns.include?(atom.name) }
           negative_vars = clause.negatives.select {|atom| atom.is_a?(AST::Types::Var) && unknowns.include?(atom.name) }
           rest = DNF::Clause.new(positives: clause.positives - positive_vars, negatives: clause.negatives - negative_vars)
@@ -298,7 +309,7 @@ module Steep
         end
 
         # Tuples
-        tuples = positives.grep(AST::Types::Tuple)
+        tuples = positives.filter_map {|type| type if type.is_a?(AST::Types::Tuple) }
         unless tuples.empty?
           verdict = check_tuples(tuples, positives, negatives, mode, bounds)
           case
@@ -395,14 +406,17 @@ module Steep
       # The element type of an `Array[T]`-like instance type, one whose only type argument is the element type of the
       # arrays (`Array[T]` and `Enumerable[T]`); `nil` for the other types
       def tuple_element_type(type)
-        element = AST::Types::Var.new(name: :__tuple_element__)
+        if tuple_element_ancestors.include?(env.normalize_module_name(type.name)) && type.args.size == 1
+          type.args.fetch(0)
+        end
+      end
+
+      # The names of the ancestors of `Array[T]` whose only type argument is `T`
+      def tuple_element_ancestors
         @tuple_element_ancestors ||= begin
+          element = AST::Types::Var.new(name: :__tuple_element__)
           views = instance_views(AST::Builtin::Array.instance_type(element)) || {}
           views.filter_map {|name, args| name if args == [element] }.to_set
-        end
-
-        if @tuple_element_ancestors.include?(env.normalize_module_name(type.name)) && type.args.size == 1
-          type.args.fetch(0)
         end
       end
 
@@ -488,9 +502,9 @@ module Steep
       # The arrows with a `self` binding are opaque and left out, and a clause with more than `MAX_ARROWS` positive
       # arrows is left undecided.
       def check_arrows(positives, negatives, mode, bounds)
-        arrows = positives.grep(AST::Types::Proc).reject(&:self_type)
+        arrows = positives.filter_map {|type| type if type.is_a?(AST::Types::Proc) && !type.self_type }
         return Verdict.inhabited if arrows.empty? || arrows.size > MAX_ARROWS
-        negative_arrows = negatives.grep(AST::Types::Proc).reject(&:self_type)
+        negative_arrows = negatives.filter_map {|type| type if type.is_a?(AST::Types::Proc) && !type.self_type }
         return Verdict.inhabited if negative_arrows.empty?
 
         universe = ArrowUniverse.new(arrows + negative_arrows, arrows.size)

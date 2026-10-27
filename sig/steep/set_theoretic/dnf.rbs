@@ -2,6 +2,13 @@ module Steep
   module SetTheoretic
     # The disjunctive normal form of a type: a union of clauses, each the intersection of atoms and negated atoms
     class DNF
+      # The bound on the number of clauses of a product
+      MAX_CLAUSES: Integer
+
+      # Raised when the DNF of a type has too many clauses to build
+      class TooLarge < StandardError
+      end
+
       class Clause
         attr_reader positives: Set[AST::Types::t]
 
@@ -17,6 +24,12 @@ module Steep
         def contradiction?: () -> bool
 
         def top?: () -> bool
+
+        def size: () -> Integer
+
+        # `true` if every value of `other` is a value of this clause syntactically: the atoms of this clause are
+        # among the atoms of `other`
+        def subsumes?: (Clause other) -> bool
 
         def ==: (untyped other) -> bool
 
@@ -39,12 +52,18 @@ module Steep
 
       def self.atom: (AST::Types::t type) -> DNF
 
+      def self.negated_atom: (AST::Types::t type) -> DNF
+
+      # The clauses without the duplicates, the contradictions, and the ones another clause subsumes, in their order
+      def self.prune: (Array[Clause] clauses) -> Array[Clause]
+
       def bot?: () -> bool
 
       def top?: () -> bool
 
       def |: (DNF other) -> DNF
 
+      # Raises `TooLarge` when the product has more than `MAX_CLAUSES` clauses
       def &: (DNF other) -> DNF
 
       # De Morgan: `!(C1 | C2)` is `!C1 & !C2`, and `!(p1 & p2 & !n1)` is `!p1 | !p2 | n1`
@@ -70,8 +89,11 @@ module Steep
 
       def initialize: (factory: AST::Types::Factory, ?expand_aliases: bool) -> void
 
-      # `expanding` is the set of the aliases being unfolded, to keep a cyclic alias opaque
-      def normalize: (AST::Types::t type, ?Set[RBS::TypeName] expanding) -> DNF
+      # `expanding` is the set of the aliases being unfolded, to keep a cyclic alias opaque, and `negated` is `true`
+      # under an odd number of negations
+      def normalize: (AST::Types::t type, ?Set[RBS::TypeName] expanding, ?bool negated) -> DNF
+
+      def atom: (AST::Types::t type, bool negated) -> DNF
     end
   end
 end

@@ -25,6 +25,9 @@ module Steep
       # The simplified `type`, or the first of `candidates` that is equivalent to it
       def simplify(type, bounds: {}, candidates: [])
         finish(simplify_clauses(normalizer.normalize(type).clauses, bounds), bounds, candidates)
+      rescue DNF::TooLarge
+        # Too large to simplify: keep the type as it is
+        type
       end
 
       # The simplified `type & predicate`
@@ -33,6 +36,9 @@ module Steep
       def intersect(type, predicate, bounds: {}, candidates: [])
         dnf = normalizer.normalize(type) & normalizer.normalize(predicate)
         finish(simplify_clauses(dnf.clauses, bounds), bounds, candidates)
+      rescue DNF::TooLarge
+        # Too large to simplify: keep the intersection as it is
+        AST::Types::Intersection.build(types: [type, predicate])
       end
 
       # Returns the first of `candidates` that normalizes to the same clauses, so that the original type keeps its
@@ -42,6 +48,8 @@ module Steep
         dnf = DNF.new(clauses)
         candidates.each do |candidate|
           return candidate if normalizer.normalize(candidate) == dnf
+        rescue DNF::TooLarge
+          next
         end
         dnf.to_type
       end

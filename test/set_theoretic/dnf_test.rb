@@ -89,4 +89,43 @@ class SetTheoreticDNFTest < Minitest::Test
       assert_equal normalizer.normalize(parse_type("(::Integer | ::String) & ::Foo")), normalizer.normalize(parse_type("(::Integer & ::Foo) | (::String & ::Foo)"))
     end
   end
+
+  def test_subsumed_clauses_are_pruned
+    with_sigs do
+      # `A | (A & B)` is `A`
+      assert_equal [[["::Integer"], []]], clauses("::Integer | (::Integer & ::Foo)")
+      assert_equal [[["::Integer"], []], [["::String"], []]], clauses("(::Integer | ::String) & (::Integer | ::String)")
+      # A clause of the same size is kept
+      assert_equal [[["::Foo", "::Integer"], []], [["::Foo", "::String"], []]], clauses("(::Integer | ::String) & ::Foo")
+    end
+  end
+
+  def test_negation_is_pushed_down_before_the_product
+    with_sigs do
+      literals = (1..30).map(&:to_s).join(" | ")
+      union = parse_type(literals)
+      # `U & !((U | Integer) & U)`: the negated intersection of unions is read as `!(U | Integer) | !U`, without the
+      # DNF of `(U | Integer) & U` being built only to be negated clause by clause
+      type = AST::Types::Intersection.build(
+        types: [
+          union,
+          negation(AST::Types::Intersection.build(types: [AST::Types::Union.build(types: [union, parse_type("::Integer")]), union]))
+        ]
+      )
+      assert_predicate normalizer.normalize(type), :bot?
+
+      # `!(U | Integer) | !U` is `!U`, since `!U` subsumes `!(U | Integer)`
+      negated = normalizer.normalize(negation(AST::Types::Intersection.build(types: [AST::Types::Union.build(types: [union, parse_type("::Integer")]), union])))
+      assert_equal 1, negated.clauses.size
+      assert_equal 30, negated.clauses[0].negatives.size
+    end
+  end
+
+  def test_too_large
+    with_sigs do
+      literals = (1..70).map(&:to_s).join(" | ")
+      type = AST::Types::Intersection.build(types: [parse_type(literals), parse_type(literals.sub("1 |", "1 | 100 |"))])
+      assert_raises(SetTheoretic::DNF::TooLarge) { normalizer.normalize(type) }
+    end
+  end
 end

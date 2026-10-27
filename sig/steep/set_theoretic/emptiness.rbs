@@ -96,6 +96,9 @@ module Steep
       # The element type of an `Array[T]`-like instance type; `nil` for the other types
       def tuple_element_type: (AST::Types::Name::Instance type) -> AST::Types::t?
 
+      # The names of the ancestors of `Array[T]` whose only type argument is `T`
+      def tuple_element_ancestors: () -> Set[RBS::TypeName]
+
       # The verdict of `[c1, ..., ck] & ![n1, ..., nk] & ...`
       def tuple_empty?: (Array[AST::Types::t] components, Array[Array[AST::Types::t]] negatives, mode mode, bounds bounds) -> Verdict
 
