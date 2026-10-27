@@ -1544,6 +1544,56 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_module_self_type__instance_and_self
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Session
+            def with: (Integer) -> instance
+            def itself: () -> self
+          end
+
+          module Auth
+            module InstanceMethods : Session
+              def bearer: (String) -> instance
+              def authorized: () -> self
+              def chain: () -> instance
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          module Auth
+            module InstanceMethods
+              def bearer(token)
+                with(1)
+              end
+
+              def authorized
+                itself
+              end
+
+              def chain
+                with(1).bearer("token").itself
+              end
+            end
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    ) do |typings|
+      typing = typings["a.rb"] or raise
+
+      node, * = typing.source.find_nodes(line: 12, column: 8)
+      assert_equal "(::Object & ::Session & ::Auth::InstanceMethods)", typing.type_of(node: node).to_s
+    end
+  end
+
   def test_narrow_record_union__non_literal_key_member_kept
     run_type_check_test(
       signatures: {
