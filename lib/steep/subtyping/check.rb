@@ -842,6 +842,13 @@ module Steep
         All(relation) do |all|
           super_method.method_types.each do |super_type|
             all.add(Relation.new(sub_type: sub_method, super_type: super_type)) do |rel|
+              if constraints.deferring? && sub_method.method_types.size > 1 && super_type.type_params.empty? && unknown_domain?(super_type)
+                # The overload the arguments reach depends on the variables in the domain: the relation is checked
+                # once the constraints on the variables are solved
+                constraints.defer(name: name, sub_method: sub_method, super_type: super_type)
+                next Success(rel)
+              end
+
               domains = ordered_overload_domains(sub_method.method_types, super_type)
 
               if domains
@@ -866,15 +873,40 @@ module Steep
         end
       end
 
-      # The domain of `super_type` and the domains of the overloads, read as arrows, as the types of the argument
-      # tuples; `nil` for the method types with type parameters or with a type variable the constraints are collected
-      # for
-      def ordered_overload_domains(sub_types, super_type)
-        types = sub_types + [super_type]
-        return nil unless types.all? {|type| type.type_params.empty? }
-        return nil if types.any? {|type| type.free_variables.any? {|var| var.is_a?(Symbol) && constraints.unknown?(var) } }
+      # The free variables of the domain of a method type: its parameters and its block
+      def self.domain_free_variables(method_type)
+        fvs = Set[] #: Set[AST::Types::variable]
+        method_type.type.params&.each_type {|type| fvs.merge(type.free_variables) }
+        if (block = method_type.block)
+          fvs.merge(block.free_variables)
+        end
+        fvs
+      end
 
-        arrows = sub_types.map {|type| AST::Types::Proc.new(type: type.type, block: type.block, self_type: nil) }
+      # `true` if the domain of the method type has a type variable the constraints are collected for
+      def unknown_domain?(method_type)
+        Check.domain_free_variables(method_type).any? {|var| var.is_a?(Symbol) && constraints.unknown?(var) }
+      end
+
+      # The domain of `super_type` and the domains of the overloads, read as arrows, as the types of the argument
+      # tuples; `nil` when `super_type` has type parameters, or when a domain has a type variable the constraints are
+      # collected for
+      #
+      # The type parameters of an overload are read as their upper bounds, or `top`, in its domain.
+      def ordered_overload_domains(sub_types, super_type)
+        return nil unless super_type.type_params.empty?
+        return nil if unknown_domain?(super_type)
+
+        arrows = sub_types.map do |type|
+          unless type.type_params.empty?
+            names = type.type_params.map(&:name)
+            bounds = type.type_params.map {|param| param.upper_bound || AST::Builtin.top_type }
+            type = type.instantiate(Interface::Substitution.build(names, bounds))
+          end
+          return nil if unknown_domain?(type)
+
+          AST::Types::Proc.new(type: type.type, block: type.block, self_type: nil)
+        end
         super_arrow = AST::Types::Proc.new(type: super_type.type, block: super_type.block, self_type: nil)
         universe = SetTheoretic::Emptiness::ArrowUniverse.new(arrows + [super_arrow], arrows.size)
 
@@ -910,8 +942,15 @@ module Steep
             )
             next if emptiness.check(reach, mode: :inhabitation, bounds: variable_upper_bounds).empty?
 
-            result.add(Relation.new(sub_type: sub_type.type.return_type, super_type: super_type.type.return_type)) do |rel|
-              check_type(rel)
+            if sub_type.type_params.empty?
+              result.add(Relation.new(sub_type: sub_type.type.return_type, super_type: super_type.type.return_type)) do |rel|
+                check_type(rel)
+              end
+            else
+              # The return type of a generic overload depends on its instantiation
+              result.add(Relation.new(sub_type: sub_type, super_type: super_type)) do |rel|
+                check_generic_method_type(name, rel)
+              end
             end
           end
         end

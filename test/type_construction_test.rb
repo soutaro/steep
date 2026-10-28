@@ -1154,6 +1154,98 @@ Calc.new.plus(y)
     end
   end
 
+  def test_deferred_overload_resolution_numeric_add
+    with_checker(<<-RBS) do |checker|
+interface _Add[Other, Return]
+  def +: (Other) -> Return
+end
+
+interface _Coerce[Other, ConvertedOther, ConvertedSelf]
+  def coerce: (Other) -> [ConvertedOther, ConvertedSelf]
+end
+
+class Num
+end
+
+class Int < Num
+  def +: (Int) -> Int
+       | [O < _Add[S, R], S, R] (_Coerce[Int, O, S] other) -> R
+
+  def coerce: (Int) -> [Int, Int]
+end
+
+class Rat < Num
+  def +: (Int) -> Rat
+       | (Flt) -> Flt
+       | (Rat) -> Rat
+       | [O < _Add[S, R], S, R] (_Coerce[Rat, O, S] other) -> R
+
+  def coerce: (Int) -> [Rat, Rat]
+            | (Flt) -> [Flt, Flt]
+            | (Rat) -> [Rat, Rat]
+end
+
+class Flt < Num
+  def +: (Flt) -> Flt
+       | (Int) -> Flt
+       | [O < _Add[S, R], S, R] (_Coerce[Flt, O, S] other) -> R
+
+  def coerce: (Int) -> [Flt, Flt]
+            | (Flt) -> [Flt, Flt]
+            | (Rat) -> [Flt, Flt]
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+i = Int.new
+r = Rat.new
+f = Flt.new
+a = i + r
+b = i + f
+c = r + i
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # `Rat <: _Add[S, R]` is deferred until `S` is solved from `Rat#coerce`: with `S = Rat`, only `(Rat) -> Rat`
+        # of `Rat#+` is reached, so that `R = Rat`; the first overload `(Int) -> Rat` is not picked for `S`
+        assert_equal parse_type("::Rat"), context.type_env[:a]
+        assert_equal parse_type("::Flt"), context.type_env[:b]
+        assert_equal parse_type("::Rat"), context.type_env[:c]
+      end
+    end
+  end
+
+  def test_deferred_overload_resolution_falls_back_without_a_bound
+    with_checker(<<-RBS) do |checker|
+interface _Each[T]
+  def each: () { (T) -> void } -> void
+end
+
+class Box
+  def each: () { (Integer) -> void } -> self
+          | () -> Array[Integer]
+end
+
+class Collector
+  def collect: [T] (_Each[T]) -> Array[T]
+end
+    RBS
+      source = parse_ruby(<<-RUBY)
+Collector.new.collect(Box.new)
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        type, _ = construction.synthesize(source.node)
+
+        assert_no_error typing
+        # `T` is only in the deferred relation: it is checked with `T` unknown, as before, and `Integer <: T`
+        assert_equal parse_type("::Array[::Integer]"), type
+      end
+    end
+  end
+
   def test_overloaded_method2
     with_checker <<-EOF do |checker|
 class Hello

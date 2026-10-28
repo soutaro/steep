@@ -75,13 +75,28 @@ module Steep
       attr_reader :dictionary
       attr_reader :vars
 
+      # The method type relations whose domain has an unknown variable: the overload the arguments reach depends on
+      # the variable, so that the relation is checked once the variable is solved
+      attr_reader :deferred
+
       def initialize(unknowns:)
         @dictionary = {}
         @vars = Set.new
+        @deferred = []
+        @deferring = true
 
         unknowns.each do |var|
           dictionary[var] = [Set.new, Set.new, Set.new]
         end
+      end
+
+      # `false` while the deferred relations are checked with the variables left unknown
+      def deferring?
+        @deferring
+      end
+
+      def defer(name:, sub_method:, super_type:)
+        deferred << [name, sub_method, super_type]
       end
 
       def self.empty
@@ -234,6 +249,13 @@ module Steep
 
       Context = _ = Struct.new(:variance, :self_type, :instance_type, :class_type, keyword_init: true)
 
+      # The solution of the variables, one variable at a time
+      #
+      # A variable is solved when its bounds, with the solved variables substituted, have no other variable to solve,
+      # and when a deferred relation mentions it only if it has a bound: the variables of the domains of the deferred
+      # relations are solved first, the relations are checked with them substituted, which bounds the variables of
+      # their return types, and the other variables follow. When no variable is ready, the deferred relations are
+      # checked with the variables left unknown, as the rules without deferral do, and the first variable is solved.
       def solution(checker, variance: nil, variables:, self_type: nil, instance_type: nil, class_type: nil, context: nil)
         if context
           raise if variance
@@ -247,59 +269,137 @@ module Steep
           class_type = context.class_type
         end
 
-        vars = [] #: Array[Symbol]
-        types = [] #: Array[AST::Types::t]
+        remaining = dictionary.each_key.select {|var| variables.include?(var) }
+        solved = {} #: Hash[Symbol, AST::Types::t]
 
-        dictionary.each_key do |var|
-          if variables.include?(var)
-            if has_constraint?(var)
-              relation = Relation.new(
-                sub_type: lower_bound(var, skip: false),
-                super_type: upper_bound(var, skip: false)
-              )
+        until remaining.empty?
+          subst = Interface::Substitution.build(solved.keys, solved.values)
+          check_deferred(checker, subst, remaining, force: false, self_type: self_type, instance_type: instance_type, class_type: class_type)
 
-              checker.check(relation, self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: self.class.empty).yield_self do |result|
-                if result.success?
-                  vars << var
-
-                  upper_bound = upper_bound(var, skip: true)
-                  lower_bound = lower_bound(var, skip: true)
-
-                  type =
-                    case
-                    when variance.contravariant?(var)
-                      upper_bound
-                    when variance.covariant?(var)
-                      lower_bound
-                    else
-                      if lower_bound.level.join > upper_bound.level.join
-                        upper_bound
-                      else
-                        lower_bound
-                      end
-                    end
-
-                  types << type
-                else
-                  raise UnsatisfiableConstraint.new(
-                    var: var,
-                    sub_type: result.relation.sub_type,
-                    super_type: result.relation.super_type,
-                    result: result
-                  )
-                end
-              end
-            else
-              vars << var
-              types << AST::Types::Any.instance
-            end
+          var = remaining.find {|v| ready?(v, remaining, subst) }
+          unless var
+            subst = Interface::Substitution.build(solved.keys, solved.values)
+            check_deferred(checker, subst, remaining, force: true, self_type: self_type, instance_type: instance_type, class_type: class_type)
+            var = remaining.find {|v| ready?(v, remaining, subst) } || remaining.fetch(0)
           end
+
+          subst = Interface::Substitution.build(solved.keys, solved.values)
+          solved[var] = solve_variable(checker, var, subst, variance, self_type: self_type, instance_type: instance_type, class_type: class_type)
+          remaining.delete(var)
         end
 
-        Interface::Substitution.build(vars, types)
+        subst = Interface::Substitution.build(solved.keys, solved.values)
+        check_deferred(checker, subst, remaining, force: true, self_type: self_type, instance_type: instance_type, class_type: class_type)
+
+        Interface::Substitution.build(solved.keys, solved.values)
       end
 
+      # `true` if the bounds of the variable mention no variable left to solve, and a deferred relation mentions the
+      # variable only if it has a bound
+      def ready?(var, remaining, subst)
+        others = remaining - [var]
+
+        bounds = lower_bound_types(var).to_a + upper_bound_types(var).to_a
+        return false if bounds.any? {|type| type.subst(subst).free_variables.any? {|fv| others.include?(fv) } }
+
+        bounded?(var) || !deferred_mention?(var)
+      end
+
+      # `true` if a deferred relation mentions the variable
+      def deferred_mention?(var)
+        deferred.any? do |_, sub_method, super_type|
+          super_type.free_variables.include?(var) || sub_method.method_types.any? {|type| type.free_variables.include?(var) }
+        end
+      end
+
+      # Checks the deferred relations whose domains have no variable left to solve, with the solved variables
+      # substituted; `force` checks every deferred relation, with the variables left unknown
+      def check_deferred(checker, subst, remaining, force:, self_type:, instance_type:, class_type:)
+        deferred.dup.each do |item|
+          name, sub_method, super_type = item
+          super_type = super_type.subst(subst)
+          sub_method = Interface::Shape::Entry.new(
+            overloads: sub_method.overloads.map {|overload| overload.subst(subst) },
+            private_method: sub_method.private_method?,
+            method_name: sub_method.method_name
+          )
+
+          open = Check.domain_free_variables(super_type).any? {|fv| fv.is_a?(Symbol) && unknown?(fv) }
+          next if open && !force
+
+          deferred.delete(item)
+
+          super_method = Interface::Shape::Entry.new(
+            overloads: [Interface::Shape::MethodOverload.new(super_type, [])],
+            private_method: sub_method.private_method?,
+            method_name: sub_method.method_name
+          )
+          relation = Relation.new(sub_type: sub_method, super_type: super_method)
+          result =
+            begin
+              @deferring = false if open
+              checker.with_context(self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: self) do
+                checker.check_method(name, relation)
+              end
+            ensure
+              @deferring = true
+            end
+
+          if result.failure?
+            domain_var = Check.domain_free_variables(super_type).find {|fv| fv.is_a?(Symbol) && unknown?(fv) }
+            var = (domain_var if domain_var.is_a?(Symbol)) || remaining.first || dictionary.each_key.first or raise
+            raise UnsatisfiableConstraint.new(
+              var: var,
+              sub_type: lower_bound(var).subst(subst),
+              super_type: upper_bound(var).subst(subst),
+              result: result
+            )
+          end
+        end
+      end
+
+      def solve_variable(checker, var, subst, variance, self_type:, instance_type:, class_type:)
+        return AST::Types::Any.instance unless bounded?(var)
+
+        relation = Relation.new(
+          sub_type: lower_bound(var, skip: false).subst(subst),
+          super_type: upper_bound(var, skip: false).subst(subst)
+        )
+
+        result = checker.check(relation, self_type: self_type, instance_type: instance_type, class_type: class_type, constraints: self.class.empty)
+        unless result.success?
+          raise UnsatisfiableConstraint.new(
+            var: var,
+            sub_type: result.relation.sub_type,
+            super_type: result.relation.super_type,
+            result: result
+          )
+        end
+
+        upper_bound = upper_bound(var, skip: true).subst(subst)
+        lower_bound = lower_bound(var, skip: true).subst(subst)
+
+        case
+        when variance.contravariant?(var)
+          upper_bound
+        when variance.covariant?(var)
+          lower_bound
+        else
+          if lower_bound.level.join > upper_bound.level.join
+            upper_bound
+          else
+            lower_bound
+          end
+        end
+      end
+
+      # `true` if the variable has a bound, or is mentioned by a deferred relation, which bounds it once checked
       def has_constraint?(var)
+        bounded?(var) || deferred_mention?(var)
+      end
+
+      # `true` if the variable has a lower or an upper bound
+      def bounded?(var)
         !upper_bound_types(var).empty? || !lower_bound_types(var).empty?
       end
 

@@ -49,6 +49,12 @@ module Steep
 
       def ordered_overload_domains: (Array[Interface::MethodType] sub_types, Interface::MethodType super_type) -> ordered_overload_domains?
 
+      # The free variables of the domain of a method type: its parameters and its block
+      def self.domain_free_variables: (Interface::MethodType method_type) -> Set[AST::Types::variable]
+
+      # `true` if the domain of the method type has a type variable the constraints are collected for
+      def unknown_domain?: (Interface::MethodType method_type) -> bool
+
       # `true` if an overload before `index` takes a part of the domain of the super type
       def shadowed_overload?: (Integer index, ordered_overload_domains domains) -> bool
 

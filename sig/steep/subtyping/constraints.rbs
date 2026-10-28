@@ -79,6 +79,35 @@ module Steep
 
       def add: (Symbol var, ?sub_type: AST::Types::t?, ?super_type: AST::Types::t?, ?skip: bool) -> void
 
+      type deferred_relation = [Symbol, Interface::Shape::Entry, Interface::MethodType]
+
+      # The method type relations whose domain has an unknown variable: the overload the arguments reach depends on
+      # the variable, so that the relation is checked once the variable is solved
+      attr_reader deferred: Array[deferred_relation]
+
+      @deferring: bool
+
+      # `false` while the deferred relations are checked with the variables left unknown
+      def deferring?: () -> bool
+
+      def defer: (name: Symbol, sub_method: Interface::Shape::Entry, super_type: Interface::MethodType) -> void
+
+      # `true` if the bounds of the variable mention no variable left to solve, and a deferred relation mentions the
+      # variable only if it has a bound
+      def ready?: (Symbol var, Array[Symbol] remaining, Interface::Substitution subst) -> bool
+
+      # Checks the deferred relations whose domains have no variable left to solve, with the solved variables
+      # substituted; `force` checks every deferred relation, with the variables left unknown
+      def check_deferred: (Check checker, Interface::Substitution subst, Array[Symbol] remaining, force: bool, self_type: AST::Types::t?, instance_type: AST::Types::t?, class_type: AST::Types::t?) -> void
+
+      def solve_variable: (Check checker, Symbol var, Interface::Substitution subst, VariableVariance variance, self_type: AST::Types::t?, instance_type: AST::Types::t?, class_type: AST::Types::t?) -> AST::Types::t
+
+      # `true` if a deferred relation mentions the variable
+      def deferred_mention?: (Symbol var) -> bool
+
+      # `true` if the variable has a lower or an upper bound
+      def bounded?: (Symbol var) -> bool
+
       def eliminate_variable: (AST::Types::t `type`, to: AST::Types::t) -> AST::Types::t
 
       def unknown?: (Symbol var) -> bool

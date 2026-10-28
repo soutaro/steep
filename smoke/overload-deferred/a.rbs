@@ -1,0 +1,38 @@
+interface _Add[Other, Return]
+  def +: (Other) -> Return
+end
+
+interface _Coerce[Other, ConvertedOther, ConvertedSelf]
+  def coerce: (Other) -> [ConvertedOther, ConvertedSelf]
+end
+
+class Num
+end
+
+class Int < Num
+  def +: (Int) -> Int
+       | [O < _Add[S, R], S, R] (_Coerce[Int, O, S] other) -> R
+
+  def coerce: (Int) -> [Int, Int]
+end
+
+class Rat < Num
+  def +: (Int) -> Rat
+       | (Flt) -> Flt
+       | (Rat) -> Rat
+       | [O < _Add[S, R], S, R] (_Coerce[Rat, O, S] other) -> R
+
+  def coerce: (Int) -> [Rat, Rat]
+            | (Flt) -> [Flt, Flt]
+            | (Rat) -> [Rat, Rat]
+end
+
+class Flt < Num
+  def +: (Flt) -> Flt
+       | (Int) -> Flt
+       | [O < _Add[S, R], S, R] (_Coerce[Flt, O, S] other) -> R
+
+  def coerce: (Int) -> [Flt, Flt]
+            | (Flt) -> [Flt, Flt]
+            | (Rat) -> [Flt, Flt]
+end

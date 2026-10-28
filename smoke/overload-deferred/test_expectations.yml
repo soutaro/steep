@@ -1,0 +1,17 @@
+---
+- file: a.rb
+  diagnostics:
+  - range:
+      start:
+        line: 21
+        character: 0
+      end:
+        line: 21
+        character: 11
+    severity: ERROR
+    message: |-
+      Cannot find compatible overloading of method `+` of type `::Int`
+      Method types:
+        def +: (::Int) -> ::Int
+             | [O < ::_Add[S, R], S, R] (::_Coerce[::Int, O, S]) -> R
+    code: Ruby::UnresolvedOverloading
