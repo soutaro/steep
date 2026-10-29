@@ -1002,6 +1002,17 @@ module Steep
                 )
               )
             end
+          when :respond_to?
+            case defined_in
+            when RBS::BuiltinNames::Kernel.name
+              if member.instance?
+                return method_type.with(
+                  type: method_type.type.with(
+                    return_type: AST::Types::Logic::ReceiverRespondsTo.instance()
+                  )
+                )
+              end
+            end
           end
         end
 

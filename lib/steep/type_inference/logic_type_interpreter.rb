@@ -437,6 +437,45 @@ module Steep
             end
           end
 
+        when AST::Types::Logic::ReceiverRespondsTo
+          if receiver && (arg = arguments[0]) && arguments.size <= 2
+            method_name =
+              case arg.type
+              when :sym
+                arg.children[0] #: Symbol
+              when :str
+                arg.children[0].to_sym #: Symbol
+              end
+
+            include_all =
+              case arguments[1]&.type
+              when nil, :false
+                false
+              when :true
+                true
+              end
+
+            if method_name && !include_all.nil?
+              receiver_type = typing.type_of(node: receiver)
+
+              if (truthy_type, falsy_type = responds_to_case_select(receiver_type, method_name, include_all: include_all))
+                truthy_env, falsy_env = refine_node_type(
+                  env: env,
+                  node: receiver,
+                  truthy_type: truthy_type,
+                  falsy_type: falsy_type
+                )
+              else
+                truthy_env = falsy_env = env
+              end
+
+              [
+                Result.new(type: TRUE, env: truthy_env, unreachable: false),
+                Result.new(type: FALSE, env: falsy_env, unreachable: false)
+              ]
+            end
+          end
+
         when AST::Types::Logic::Not
           if receiver
             truthy_result, falsy_result = evaluate_node(env: env, node: receiver)
@@ -647,6 +686,46 @@ module Steep
             end
           end
         end
+      end
+
+      # Partitions the union members of `type` into ones that have a method named `method_name` and ones that don't.
+      #
+      # Returns `nil` when no narrowing can be done, i.e. when every member is known to have the method or every member is known not to have it.
+      # Members whose method set cannot be determined (like `untyped`) are kept in both sides.
+      #
+      def responds_to_case_select(type, method_name, include_all:)
+        expanded = factory.deep_expand_alias(type) or return
+        members = expanded.is_a?(AST::Types::Union) ? expanded.types : [expanded]
+
+        truthy_types = [] #: Array[AST::Types::t]
+        falsy_types = [] #: Array[AST::Types::t]
+
+        members.each do |member|
+          case member
+          when AST::Types::Any, AST::Types::Top, AST::Types::Bot, AST::Types::Var, AST::Types::Name::Interface
+            truthy_types << member
+            falsy_types << member
+          else
+            if shape = subtyping.builder.shape(member, config)
+              entry = shape.methods[method_name]
+              if entry && (include_all || entry.public_method?)
+                truthy_types << member
+              else
+                falsy_types << member
+              end
+            else
+              truthy_types << member
+              falsy_types << member
+            end
+          end
+        end
+
+        return if truthy_types.size == members.size || falsy_types.size == members.size
+
+        [
+          AST::Types::Union.build(types: truthy_types),
+          AST::Types::Union.build(types: falsy_types)
+        ]
       end
 
       def type_case_select(type, klass)

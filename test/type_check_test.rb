@@ -5586,4 +5586,60 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_respond_to_narrowing
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class RespondToA
+            def foo: () -> void
+          end
+          class RespondToB
+            def bar: () -> void
+            private def baz: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = (_ = nil) #: RespondToA | RespondToB
+          if a.respond_to?(:foo)
+            a.foo
+          else
+            a.bar
+          end
+
+          if a.respond_to?("bar")
+            a.bar
+          else
+            a.foo
+          end
+
+          b = (_ = nil) #: RespondToA?
+          b.foo if b.respond_to?(:foo)
+
+          c = (_ = nil) #: RespondToA | RespondToB
+          c.foo unless c.respond_to?(:baz, true)
+
+          d = (_ = nil) #: RespondToA | RespondToB
+          d.foo if d.respond_to?(:baz)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 21
+                character: 2
+              end:
+                line: 21
+                character: 5
+            severity: ERROR
+            message: Type `(::RespondToA | ::RespondToB)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
