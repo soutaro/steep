@@ -249,6 +249,12 @@ RUBY
 
         client.diagnostics.clear
 
+        # A change of the declarations on disk type checks the files depending on them
+        write_file("sig/core/core.rbs", <<~RBS)
+          class Core
+            def name: () -> String
+          end
+        RBS
         client.change_watched_file("sig/core/core.rbs")
 
         finally_holds(timeout: 3) do

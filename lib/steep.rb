@@ -135,7 +135,7 @@ require "steep/server/type_check_controller"
 require "steep/server/type_check_database"
 require "steep/server/rbs_entry_builder"
 require "steep/server/goto_resolver"
-require "steep/server/inline_source_change_detector"
+require "steep/server/signature_change_detector"
 require "steep/server/master"
 require "steep/server/command_socket"
 require "steep/daemon"
@@ -198,6 +198,8 @@ module Steep
 
     if output.is_a?(String)
       io = File.open(output, "a")
+      # The workers forked from the master would write the lines buffered before the fork again
+      io.sync = true
     else
       io = output
     end

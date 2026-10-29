@@ -198,16 +198,17 @@ module Steep
       #
       attr_reader pending_typecheck_jobs: Array[TypeCheckController::Request::job]
 
-      # The number of `$/steep/typecheck/file` requests each worker is working on, including the index jobs
+      # The number of `$/steep/typecheck/file` requests each worker is working on
       attr_reader typecheck_jobs_in_flight: Hash[WorkerProcess, Integer]
 
-      # The files to index, as the target and the absolute path, in the order to hand out to the workers
+      # The RBS files of the project the master validates instead of the typecheck workers, by absolute path
       #
-      # The index jobs have the entries of the declarations reported for the files that are not validated: the library
-      # RBS files, and the RBS files of the groups not type checked. They go to the workers that have room after the
-      # jobs of the current type check.
+      # The workers keep their environments while the declarations stay the same, and an RBS file changed since then --
+      # in its comments or formatting -- never reaches them: the master validates it with its own environments, which
+      # have the latest content. Emptied when the declarations change, and the workers are forked again or receive the
+      # files.
       #
-      attr_reader pending_index_jobs: Hash[[Symbol, Pathname], true]
+      attr_reader signature_paths_to_validate: Set[Pathname]
 
       # The number of the interaction requests -- hover, completion, signature help, and goto -- received so far
       #
@@ -215,6 +216,24 @@ module Steep
       # answer of the last one matters.
       #
       @interaction_count: Integer
+
+      # The number of the generations of the workers asked for by the changes of the declarations
+      #
+      # Only the update of the latest generation forks the workers, so that the changes coming one after another fork
+      # the workers once.
+      #
+      @environment_generation: Integer
+
+      # The retired workers told to exit, until their pipes are closed
+      attr_reader exiting_workers: Set[WorkerProcess]
+
+      # The `wait_thread` of the retired workers told to exit, which `#start` waits on without stopping the server
+      #
+      # Read by the thread of `#start`, and written by the main loop.
+      #
+      @exited_wait_threads: Set[Thread]
+
+      @exited_wait_threads_mutex: Thread::Mutex
 
       # `true` once the client has sent `shutdown`: no more job goes to the workers, which stop at `exit`
       @shutting_down: bool
@@ -250,6 +269,7 @@ module Steep
       # Raises an exception if the worker processes doesn't shutdown properly, like being `#kill`-ed.
       # Exiting the process is assumed in the case of error.
       # The only one cleanup it does is stopping the worker processes, by `SIGKILL`.
+      # A retired worker that exits after the master tells it to is not an error.
       #
       def start: () -> void
 
@@ -261,9 +281,11 @@ module Steep
       # Called on the `initialize` request, once the project is loaded. The threads reading from the workers are
       # started only while `#start` is running.
       #
-      # `SpawnLauncher` starts the workers right away. `ForkLauncher` forks them once the environments have the files of the
-      # project, which the main thread updates by itself before the environment thread has any job, and the workers start
-      # with the files.
+      # `SpawnLauncher` starts the workers right away, which receive every RBS file and inline RBS source of the project,
+      # and the environment thread updates the environments with the files. `ForkLauncher` forks the workers once the
+      # environments have the files of the project and the definitions of its classes, which the main thread builds by
+      # itself before the environment thread has any job, and the workers start with them. The RBS files of the project
+      # are indexed on the environment thread afterwards.
       #
       def start_workers: () -> void
 
@@ -273,54 +295,87 @@ module Steep
       # Starts the thread reading the messages from the worker, and waits for the exit of the worker
       def start_worker_thread: (WorkerProcess worker) -> void
 
-      # Hands the pending jobs of the current type check, and then the pending index jobs, to the workers that have
-      # room for more
+      # Closes the pipes of the retired worker that has exited, and forgets it
+      def close_exited_worker: (WorkerProcess worker) -> void
+
+      # The retired workers not told to exit yet, which finish the jobs given to them
+      def retiring_workers: () -> Array[WorkerProcess]
+
+      # Forks the workers of the generation from the environments, unless a newer generation is asked for
+      #
+      # Called on the main loop while the environment thread waits after updating the environments. The workers start
+      # with the files and the definitions in the environments, and get the pending jobs.
+      #
+      def fork_workers: (Services::TypeCheckService service, Integer generation) -> void
+
+      # Builds the definitions of the classes, modules, and interfaces declared in the project, before the workers are
+      # forked from the environments
+      #
+      # The workers share the definitions with the master instead of building them one by one. A declaration that
+      # cannot be built is left to the validation.
+      #
+      def warm_definitions: (Services::TypeCheckService service) -> void
+
+      # Tells the retiring workers with no job in flight to exit
+      def release_retired_workers: () -> void
+
+      # Hands the pending jobs of the current type check to the workers that have room for more
       #
       # Each worker with room takes one job per round, so that the files are spread across the workers from the
       # start, and a worker checks each file of a small project alone. Nothing is sent after `shutdown`.
       #
       def dispatch_typecheck_jobs: () -> void
 
-      # Sends a `$/steep/typecheck/file` request to index the file in the target, and stores the entries in the
-      # database when the response comes back
+      # Indexes every library RBS file in every target that loads it, on the environment thread
       #
-      def send_index_job: (WorkerProcess worker, Symbol target_name, Pathname path) -> void
+      # Called on `initialize`, after the RBS files of the project: the libraries take longer, and the interactions run
+      # in between.
+      #
+      def index_library_signatures: () -> void
 
-      # Adds the files to index to `pending_index_jobs`, and delivers the RBS files to the workers
+      # Collects the entries of the declarations in the files, as the target name and the absolute path, from the
+      # environments, and hands them to the main loop to store in the database
       #
-      # The jobs are handed out by the next `#dispatch_typecheck_jobs`, after the jobs of the type check that follows.
+      # Runs on the environment thread. The files of a target whose signatures failed to load are skipped: the index
+      # of the last loaded signatures would have stale locations.
       #
-      def enqueue_index_jobs: (Array[[Symbol, Pathname]] target_paths) -> void
+      def index_signatures: (Services::TypeCheckService service, Array[[Symbol, Pathname]] target_files) -> void
 
-      # Indexes every RBS file of the project in its target, and every library RBS file in every target that loads it
+      # Updates the environments with the changes, and indexes the RBS files and inline RBS sources among them
       #
-      # Called on `initialize`: the definitions and references of the declarations are not found until the workers
-      # report them.
+      # Runs on the environment thread.
       #
-      def index_all_signatures: () -> void
+      def update_environments: (Services::TypeCheckService service, ChangeBuffer::changes changes, Array[[Symbol, Pathname]] signature_files) -> void
 
-      # Sends a `$/steep/typecheck/file` request of the job to the worker, with the content of the Ruby file when the
-      # worker doesn't have it yet, and stores the result in the database when the response comes back
+      # The RBS files and inline RBS sources among the changes, as the target name and the absolute path
+      def signature_files_in: (ChangeBuffer::changes changes) -> Array[[Symbol, Pathname]]
+
+      # Sends a `$/steep/typecheck/file` request of the job to the worker, with the content of the Ruby file, and
+      # stores the result in the database when the response comes back
       #
       # The response of a request that is superseded by a newer type check is ignored, except for handing the next
-      # job to the worker. A validation of an RBS file drops the pending index job of the file, because it reports the
-      # entries too.
+      # job to the worker.
       #
       def send_typecheck_job: (WorkerProcess worker, TypeCheckController::Request request, TypeCheckController::Request::job job) -> void
 
-      # Returns the latest content of the file to send to the worker, or `nil` when the worker has it already
+      # Validates the RBS file of the job on the environment thread, and reports the result to the type check as the
+      # workers do
       #
-      # Records the version in `worker.known_versions`. The content is base64 encoded when it is not valid UTF-8.
+      # For the files in `signature_paths_to_validate`. The diagnostics are `nil` when the validation fails, keeping
+      # the ones of the last validation.
       #
-      def content_for: (WorkerProcess worker, Pathname path) -> ChangeBuffer::content?
+      def validate_signature_on_environment: (TypeCheckController::Request request, Symbol target_name, Pathname path) -> void
 
-      # Sends the worker the latest contents of the files it doesn't have yet, as a `$/steep/file/load` notification
+      # The content of a file for the workers, base64 encoded when it is not valid UTF-8
+      def wire_content: (String text) -> ChangeBuffer::content
+
+      # Sends the typecheck workers the latest contents of the files, as a `$/steep/file/load` notification
       #
-      # The master is the source of truth of the file contents, and the workers receive them right before they need
-      # them: the RBS files before a type check. The Ruby files to type check go with the `$/steep/typecheck/file`
-      # requests. `worker.known_versions` records what the worker has, so unchanged files are not sent again.
+      # The master is the source of truth of the file contents. The workers started by `SpawnLauncher` receive the RBS
+      # files and inline RBS sources of the project this way, and the changes of their declarations. The Ruby files to
+      # type check go with the `$/steep/typecheck/file` requests.
       #
-      def deliver_contents: (WorkerProcess worker, Array[Pathname] paths) -> void
+      def broadcast_contents: (Array[Pathname] paths) -> void
 
       # The result of a hover, completion, or signature help interaction
       type interaction_result = InteractionProvider::Hover::result
@@ -353,20 +408,24 @@ module Steep
       #
       def respond_to_interaction: (untyped message, interaction_result? result) -> void
 
-      # The RBS files and inline RBS sources of the project, which every worker needs for its environments
-      def signature_paths_to_deliver: () -> Array[Pathname]
-
-      # Hands the buffered file changes to the environment thread
+      # Hands the buffered file changes to the environment thread, and the typecheck workers
       #
-      # Called when a type check starts, so that the environments and the file contents in `controller.type_check_service`
-      # follow the files the same way the typecheck workers do. The changed RBS files and Ruby files with inline RBS
-      # declarations are added to the index jobs.
+      # Called when a type check or an interaction starts, so that the environments and the file contents in
+      # `controller.type_check_service` follow the files. The environment thread updates the environments, and indexes
+      # the changed RBS files and inline RBS sources.
+      #
+      # The workers get the changed RBS files and inline RBS sources only when the declarations changed (see
+      # `TypeCheckController#pop_declaration_changes`): with `SpawnLauncher`, the files are sent to the workers, which
+      # update their own environments, and with `ForkLauncher`, the typecheck workers are retired, the definitions are
+      # built, and the next generation is forked from the environments, with the jobs waiting for it. When the
+      # declarations stay the same, the workers go on with their environments, and the master validates the changed
+      # RBS files itself.
       #
       def update_environment: () -> void
 
       # The symbols of the RBS declarations matching `query` in `TypeCheckDatabase`, for `workspace/symbol`
       #
-      # The declarations of an RBS file are found once the workers index or validate the file, so the symbols may be
+      # The declarations of an RBS file are found once the environment thread indexes the file, so the symbols may be
       # missing for a while after `initialize`. The location of a symbol is the name of the declaration.
       #
       def workspace_symbol_result: (String query) -> Array[LSP::Interface::SymbolInformation]
@@ -389,6 +448,10 @@ module Steep
       # Queues a message from a worker to the main loop, and drops it once the server is exiting
       def enqueue_worker_message: (WorkerProcess worker, untyped message) -> void
 
+      # The typecheck workers and the retired workers whose pipes are not closed yet, which `#kill` stops
+      #
+      # `exit` goes to the workers but the ones told to exit already.
+      #
       def each_worker: () { (WorkerProcess) -> void } -> void
                      | () -> Enumerator[WorkerProcess, void]
 
