@@ -203,9 +203,10 @@ module Steep
 
       # The RBS files of the project the master validates instead of the typecheck workers, by absolute path
       #
-      # With `ForkLauncher`, the workers keep the environments they are forked from while the declarations stay the
-      # same, and an RBS file changed since then -- in its comments or formatting -- never reaches them: the master
-      # validates it with its own environments, which have the latest content. Emptied when the workers are forked again.
+      # The workers keep their environments while the declarations stay the same, and an RBS file changed since then --
+      # in its comments or formatting -- never reaches them: the master validates it with its own environments, which
+      # have the latest content. Emptied when the declarations change, and the workers are forked again or receive the
+      # files.
       #
       attr_reader signature_paths_to_validate: Set[Pathname]
 
@@ -280,11 +281,11 @@ module Steep
       # Called on the `initialize` request, once the project is loaded. The threads reading from the workers are
       # started only while `#start` is running.
       #
-      # `SpawnLauncher` starts the workers right away, and the files of the project go to them and to the environments
-      # through `#update_environment`. `ForkLauncher` forks the workers once the environments have the files of the
-      # project and the definitions of its classes, which the main thread builds by itself before the environment
-      # thread has any job, and the workers start with them. The RBS files of the project are indexed on the
-      # environment thread afterwards.
+      # `SpawnLauncher` starts the workers right away, which receive every RBS file and inline RBS source of the project,
+      # and the environment thread updates the environments with the files. `ForkLauncher` forks the workers once the
+      # environments have the files of the project and the definitions of its classes, which the main thread builds by
+      # itself before the environment thread has any job, and the workers start with them. The RBS files of the project
+      # are indexed on the environment thread afterwards.
       #
       def start_workers: () -> void
 
@@ -340,6 +341,12 @@ module Steep
       #
       def index_signatures: (Services::TypeCheckService service, Array[[Symbol, Pathname]] target_files) -> void
 
+      # Updates the environments with the changes, and indexes the RBS files and inline RBS sources among them
+      #
+      # Runs on the environment thread.
+      #
+      def update_environments: (Services::TypeCheckService service, ChangeBuffer::changes changes, Array[[Symbol, Pathname]] signature_files) -> void
+
       # The RBS files and inline RBS sources among the changes, as the target name and the absolute path
       def signature_files_in: (ChangeBuffer::changes changes) -> Array[[Symbol, Pathname]]
 
@@ -365,8 +372,8 @@ module Steep
       # Sends the typecheck workers the latest contents of the files, as a `$/steep/file/load` notification
       #
       # The master is the source of truth of the file contents. The workers started by `SpawnLauncher` receive the RBS
-      # files and inline RBS sources of the project this way, and every change of them. The Ruby files to type check go
-      # with the `$/steep/typecheck/file` requests.
+      # files and inline RBS sources of the project this way, and the changes of their declarations. The Ruby files to
+      # type check go with the `$/steep/typecheck/file` requests.
       #
       def broadcast_contents: (Array[Pathname] paths) -> void
 
@@ -407,12 +414,12 @@ module Steep
       # `controller.type_check_service` follow the files. The environment thread updates the environments, and indexes
       # the changed RBS files and inline RBS sources.
       #
-      # With `SpawnLauncher`, the changed RBS files and inline RBS sources are sent to the workers, which update their
-      # own environments. With `ForkLauncher`, the workers never update their environments: when the declarations
-      # changed (see `TypeCheckController#pop_declaration_changes`), the typecheck workers are retired, the
-      # definitions are built, and the next generation is forked from the environments; the jobs wait for it. When
-      # the declarations stay the same, the workers go on with their environments, and the master validates the
-      # changed RBS files itself.
+      # The workers get the changed RBS files and inline RBS sources only when the declarations changed (see
+      # `TypeCheckController#pop_declaration_changes`): with `SpawnLauncher`, the files are sent to the workers, which
+      # update their own environments, and with `ForkLauncher`, the typecheck workers are retired, the definitions are
+      # built, and the next generation is forked from the environments, with the jobs waiting for it. When the
+      # declarations stay the same, the workers go on with their environments, and the master validates the changed
+      # RBS files itself.
       #
       def update_environment: () -> void
 

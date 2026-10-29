@@ -2458,6 +2458,7 @@ end
         writer: worker_writer,
         launcher: WorkersLauncher.new(*workers)
       )
+      master.typecheck_automatically = false
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
 
@@ -2532,6 +2533,67 @@ end
         ],
         jobs.map { |job| [job.dest, job.message[:method], job.message[:params][:content]] }
       )
+      jobs.each do |job|
+        master.result_controller.process_response({ id: job.message[:id], result: { source: nil, signature: nil } }) if job.message[:id]
+      end
+      flush_queue(master.write_queue)
+      run_environment_jobs(master)
+
+      # A change that leaves the declarations as they are is not sent: the master validates the file itself
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir + "sig/customer.rbs"}" },
+            contentChanges: [{ text: "# The customer\nclass Customer\n  def name: () -> String\nend\n" }]
+          }
+        }
+      )
+      master.process_message_from_client({
+        id: "check-3",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [],
+          inline_paths: []
+        }
+      })
+
+      assert_empty flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal Set[current_dir + "sig/customer.rbs"], master.signature_paths_to_validate
+      refute_nil master.current_type_check_request
+
+      run_environment_jobs(master)
+      assert_nil master.current_type_check_request
+      assert_equal [], master.type_check_database.diagnostics(current_dir + "sig/customer.rbs")
+      assert_equal [[current_dir + "sig/customer.rbs", 1]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.start_line] }
+
+      # The next change of the declarations goes to the workers, which validate the file again
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir + "sig/customer.rbs"}" },
+            contentChanges: [{ text: "# The customer\nclass Customer\n  def name: () -> String\n  def id: () -> Integer\nend\n" }]
+          }
+        }
+      )
+      master.process_message_from_client({
+        id: "check-4",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal [FileLoad::METHOD, FileLoad::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal "signature", jobs[2].message[:params][:kind]
+      assert_empty master.signature_paths_to_validate
     end
   end
 end

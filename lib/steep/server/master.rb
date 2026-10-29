@@ -373,8 +373,12 @@ module Steep
           end
           start_worker_threads()
 
-          # The workers receive the files of the project, and the environments follow them in the background
-          update_environment()
+          # The workers receive every RBS file and inline RBS source of the project, and the environments follow them in
+          # the background
+          changes = controller.pop_file_changes
+          signature_files = signature_files_in(changes)
+          broadcast_contents(signature_files.map { |_, path| path })
+          environment_queue << -> { update_environments(service, changes, signature_files) }
 
         when ForkLauncher
           # The workers are forked from the environments with the files of the project. The main loop updates the
@@ -1251,20 +1255,22 @@ module Steep
         updated_paths = controller.pop_declaration_changes()
         generation = nil #: Integer?
 
-        case launcher
-        when SpawnLauncher
-          # The workers update their environments with the files by themselves
-          broadcast_contents(signature_files.map { |_, path| path })
-        when ForkLauncher
-          if updated_paths.empty?
-            # The workers keep their environments, and the master validates the RBS files they don't have
-            signature_files.each do |_, path|
-              signature_paths_to_validate << path if controller.files.signature_paths.registered_path?(path)
-            end
-          else
+        if updated_paths.empty?
+          # The workers keep their environments, which differ from the files in the text only, and the master validates
+          # the RBS files they don't have
+          signature_files.each do |_, path|
+            signature_paths_to_validate << path if controller.files.signature_paths.registered_path?(path)
+          end
+        else
+          signature_paths_to_validate.clear
+
+          case launcher
+          when SpawnLauncher
+            # The workers update their environments with the files by themselves
+            broadcast_contents(signature_files.map { |_, path| path })
+          when ForkLauncher
             # The next generation is forked from the environments updated with the declarations
             generation = (@environment_generation += 1)
-            signature_paths_to_validate.clear
             launcher.retire_workers()
             release_retired_workers()
           end
@@ -1272,10 +1278,7 @@ module Steep
 
         environment_queue << -> do
           begin
-            Steep.measure("Updating the environments with #{changes.size} files") do
-              service.update(changes: changes)
-            end
-            index_signatures(service, signature_files)
+            update_environments(service, changes, signature_files)
 
             if generation && generation == @environment_generation
               warm_definitions(service)
@@ -1298,6 +1301,13 @@ module Steep
         rescue ClosedQueueError
           # The main loop has stopped
         end
+      end
+
+      def update_environments(service, changes, signature_files)
+        Steep.measure("Updating the environments with #{changes.size} files") do
+          service.update(changes: changes)
+        end
+        index_signatures(service, signature_files)
       end
 
       def signature_files_in(changes)
