@@ -5586,4 +5586,166 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_respond_to_narrowing
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class RespondToA
+            def foo: () -> void
+          end
+          class RespondToB
+            def bar: () -> void
+            private def baz: () -> void
+          end
+          class RespondToC
+          end
+          class RespondToD < RespondToC
+            def foo: () -> void
+          end
+          module RespondToM
+          end
+          class RespondToE
+            include RespondToM
+            def foo: () -> void
+          end
+          class RespondToF
+            def self.foo: () -> void
+          end
+          class RespondToG < RespondToF
+          end
+          module RespondToN
+            def self.foo: () -> void
+          end
+          module RespondToO
+          end
+          interface _RespondToFoo
+            def respond_to?: (Symbol) -> bool
+            def foo: () -> void
+          end
+          interface _RespondToBar
+            def respond_to?: (Symbol) -> bool
+            def bar: () -> void
+          end
+          interface _RespondToNothing
+            def respond_to?: (Symbol) -> bool
+            def respond_to_nothing: () -> void
+          end
+          interface _RespondToQux
+            def respond_to?: (Symbol) -> bool
+            def qux: () -> void
+          end
+          class RespondToQ
+            def qux: () -> void
+            def foo: () -> void
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = (_ = nil) #: RespondToA | RespondToB
+          if a.respond_to?(:foo)
+            a.foo
+          else
+            a.bar
+          end
+
+          if a.respond_to?("bar")
+            a.bar
+          else
+            a.foo
+          end
+
+          b = (_ = nil) #: RespondToA?
+          b.foo if b.respond_to?(:foo)
+
+          c = (_ = nil) #: RespondToA | RespondToB
+          c.foo unless c.respond_to?(:baz, true)
+
+          d = (_ = nil) #: RespondToA | RespondToB
+          d.foo if d.respond_to?(:baz)
+
+          e = (_ = nil) #: RespondToA | RespondToC
+          if e.respond_to?(:foo)
+            e.foo
+          else
+            e.foo
+          end
+
+          f = (_ = nil) #: RespondToA | RespondToM
+          f.foo if f.respond_to?(:foo)
+
+          g = (_ = nil) #: singleton(RespondToF) | singleton(RespondToC)
+          g.foo if g.respond_to?(:foo)
+
+          h = (_ = nil) #: singleton(RespondToN) | singleton(RespondToO)
+          h.foo if h.respond_to?(:foo)
+
+          i = (_ = nil) #: _RespondToFoo | _RespondToNothing
+          i.foo if i.respond_to?(:foo)
+
+          j = (_ = nil) #: _RespondToFoo | _RespondToBar
+          j.foo if j.respond_to?(:foo)
+
+          k = (_ = nil) #: _RespondToFoo | _RespondToQux
+          k.foo if k.respond_to?(:foo)
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 21
+                character: 2
+              end:
+                line: 21
+                character: 5
+            severity: ERROR
+            message: Type `(::RespondToA | ::RespondToB)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 25
+                character: 4
+              end:
+                line: 25
+                character: 7
+            severity: ERROR
+            message: Type `(::RespondToA | ::RespondToC)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 27
+                character: 4
+              end:
+                line: 27
+                character: 7
+            severity: ERROR
+            message: Type `::RespondToC` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 31
+                character: 2
+              end:
+                line: 31
+                character: 5
+            severity: ERROR
+            message: Type `(::RespondToA | ::RespondToM)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 46
+                character: 2
+              end:
+                line: 46
+                character: 5
+            severity: ERROR
+            message: Type `(::_RespondToFoo | ::_RespondToQux)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
