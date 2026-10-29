@@ -1003,15 +1003,14 @@ module Steep
               )
             end
           when :respond_to?
-            case defined_in
-            when RBS::BuiltinNames::Kernel.name
-              if member.instance?
-                return method_type.with(
-                  type: method_type.type.with(
-                    return_type: AST::Types::Logic::ReceiverRespondsTo.instance()
-                  )
+            # Interfaces can declare `respond_to?` to allow narrowing union of interfaces
+            if (defined_in == RBS::BuiltinNames::Kernel.name && member.instance?) ||
+                (defined_in.interface? && method_type.type.return_type.is_a?(AST::Types::Boolean))
+              return method_type.with(
+                type: method_type.type.with(
+                  return_type: AST::Types::Logic::ReceiverRespondsTo.instance()
                 )
-              end
+              )
             end
           end
         end

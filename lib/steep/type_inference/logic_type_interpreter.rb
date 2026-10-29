@@ -690,8 +690,8 @@ module Steep
 
       # Partitions the union members of `type` into ones that have a method named `method_name` and ones that don't.
       #
-      # Returns `nil` when no narrowing can be done, i.e. when every member is known to have the method or every member is known not to have it.
-      # Members whose method set cannot be determined (like `untyped`) are kept in both sides.
+      # Returns `nil` when one of the branches would be empty, i.e. when every member is known to have the method or every member is known not to have it.
+      # Members whose method set cannot be determined (like `untyped`), and members without the method but with a descendant class that has it, are kept in both sides.
       #
       def responds_to_case_select(type, method_name, include_all:)
         expanded = factory.deep_expand_alias(type) or return
@@ -702,7 +702,7 @@ module Steep
 
         members.each do |member|
           case member
-          when AST::Types::Any, AST::Types::Top, AST::Types::Bot, AST::Types::Var, AST::Types::Name::Interface
+          when AST::Types::Any, AST::Types::Top, AST::Types::Bot, AST::Types::Var
             truthy_types << member
             falsy_types << member
           else
@@ -710,6 +710,10 @@ module Steep
               entry = shape.methods[method_name]
               if entry && (include_all || entry.public_method?)
                 truthy_types << member
+              elsif descendant_responds_to?(member, method_name, include_all: include_all)
+                # A subclass instance may respond to the method
+                truthy_types << member
+                falsy_types << member
               else
                 falsy_types << member
               end
@@ -720,12 +724,91 @@ module Steep
           end
         end
 
-        return if truthy_types.size == members.size || falsy_types.size == members.size
+        return if truthy_types.empty? || falsy_types.empty?
 
         [
           AST::Types::Union.build(types: truthy_types),
           AST::Types::Union.build(types: falsy_types)
         ]
+      end
+
+      # Returns `true` if a class that is a subtype of `type` has a method named `method_name`.
+      #
+      # * For class/module instance types and singleton types, it checks the classes that inherit from (or include) the module.
+      # * For interface types, it checks the classes that structurally implement the interface.
+      #
+      def descendant_responds_to?(type, method_name, include_all:)
+        case type
+        when AST::Types::Name::Instance
+          singleton = false
+        when AST::Types::Name::Singleton
+          singleton = true
+        when AST::Types::Name::Interface
+          return implementation_responds_to?(type, method_name, include_all: include_all)
+        when AST::Types::Intersection
+          return type.types.any? {|ty| descendant_responds_to?(ty, method_name, include_all: include_all) }
+        else
+          return false
+        end
+
+        type_name = type.name
+        definition_builder = factory.definition_builder
+        ancestor_builder = definition_builder.ancestor_builder
+
+        factory.env.class_decls.each do |name, entry|
+          next if name == type_name
+          next unless entry.is_a?(RBS::Environment::ClassEntry)
+
+          begin
+            ancestors =
+              if singleton
+                ancestor_builder.singleton_ancestors(name)
+              else
+                ancestor_builder.instance_ancestors(name)
+              end
+
+            ancestor_class = singleton ? RBS::Definition::Ancestor::Singleton : RBS::Definition::Ancestor::Instance
+            next unless ancestors.ancestors.any? {|ancestor| ancestor.is_a?(ancestor_class) && ancestor.name == type_name }
+
+            definition =
+              if singleton
+                definition_builder.build_singleton(name)
+              else
+                definition_builder.build_instance(name)
+              end
+          rescue RBS::BaseError
+            # Skip classes with broken signatures, which are unrelated to the receiver
+            next
+          end
+
+          if (method = definition.methods[method_name])
+            return true if include_all || method.public?
+          end
+        end
+
+        false
+      end
+
+      # Returns `true` if a class that implements the interface `type` has a method named `method_name`.
+      #
+      def implementation_responds_to?(type, method_name, include_all:)
+        definition_builder = factory.definition_builder
+
+        factory.env.class_decls.each do |name, entry|
+          next unless entry.is_a?(RBS::Environment::ClassEntry)
+
+          begin
+            method = definition_builder.build_instance(name).methods[method_name] or next
+          rescue RBS::BaseError
+            # Skip classes with broken signatures, which are unrelated to the receiver
+            next
+          end
+          next unless include_all || method.public?
+
+          return true if subtyping?(sub_type: factory.instance_type(name), super_type: type)
+        end
+
+        false
       end
 
       def type_case_select(type, klass)
