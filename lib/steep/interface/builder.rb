@@ -510,6 +510,10 @@ module Steep
               end
 
               method_overloads = {} #: Hash[Shape::MethodOverload, bool]
+              # Overloads which accept the same arguments are redundant: only the first one is ever selected.
+              seen_signatures = {} #: Hash[untyped, bool]
+              # Overloads that require an uninhabited (`bot`) argument can never be called.
+              uncallable_overload = nil #: Shape::MethodOverload?
 
               overloads1.each do |overload1|
                 overloads2.each do |overload2|
@@ -518,6 +522,20 @@ module Steep
                     method_overloads[overload] = true
                   else
                     if type = MethodType.union(overload1.method_type, overload2.method_type, subtyping)
+                      if requires_bot_argument?(type)
+                        uncallable_overload ||= Shape::MethodOverload.new(type, overload1.method_defs + overload2.method_defs)
+                        next
+                      end
+
+                      if type.type_params.empty?
+                        signature = [
+                          type.type.params&.map_type {|ty| ty.is_a?(AST::Types::Intersection) ? AST::Types::Intersection.new(types: ty.types.sort_by(&:to_s)) : ty },
+                          type.block
+                        ]
+                        next if seen_signatures.key?(signature)
+                        seen_signatures[signature] = true
+                      end
+
                       overload = Shape::MethodOverload.new(type, overload1.method_defs + overload2.method_defs)
                       method_overloads[overload] = true
                     end
@@ -525,7 +543,10 @@ module Steep
                 end
               end
 
-              break nil if method_overloads.empty?
+              if method_overloads.empty?
+                break nil unless uncallable_overload
+                next [uncallable_overload]
+              end
 
               method_overloads.keys
             end
@@ -533,6 +554,19 @@ module Steep
         end
 
         shape
+      end
+
+      def requires_bot_argument?(method_type)
+        params = method_type.type.params or return false
+        params.positional_params&.each do |param|
+          next unless param.is_a?(Interface::Function::Params::PositionalParams::Required)
+
+          type = param.type
+          return true if type.is_a?(AST::Types::Bot)
+          # Two different literals have nothing in common, e.g. `:a & :b`
+          return true if type.is_a?(AST::Types::Intersection) && type.types.count {|ty| ty.is_a?(AST::Types::Literal) } > 1
+        end
+        false
       end
 
       def intersection_shape(type, shapes)
