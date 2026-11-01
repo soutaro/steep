@@ -12,6 +12,10 @@ module Steep
 
         def default_jobs_count: () -> Integer
 
+        # Physical cores, capped by the CPU limit of the cgroup (`docker run --cpus`, for example)
+        # so that Steep doesn't spawn more workers than the container can run
+        def available_processor_count: () -> Integer
+
         def jobs_count_value: () -> Integer
       end
     end
