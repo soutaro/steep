@@ -692,8 +692,8 @@ RUBY
       assert_instance_of Array, diagnostics
       assert_any!(diagnostics) do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal ::RBS::TypeName.parse("Str"), error.name
-        assert_equal "Cannot find type `Str`", error.header_line
+        assert_equal ::RBS::TypeName.parse("::Str"), error.name
+        assert_equal "Cannot find type `::Str`", error.header_line
       end
     end
   end

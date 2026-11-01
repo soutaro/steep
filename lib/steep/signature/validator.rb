@@ -3,6 +3,9 @@ module Steep
     class Validator
       Location = RBS::Location
       Declarations = RBS::AST::Declarations
+      Members = RBS::AST::Members
+      RubyDeclarations = RBS::AST::Ruby::Declarations
+      RubyMembers = RBS::AST::Ruby::Members
 
       attr_reader :checker
       attr_reader :context
@@ -10,7 +13,9 @@ module Steep
       def initialize(checker:)
         @checker = checker
         @errors = []
+        @error_keys = Set[]
         @context = []
+        @validated_definitions = Set[]
       end
 
       def push_context(self_type: latest_context[0], class_type: latest_context[1], instance_type: latest_context[2])
@@ -30,6 +35,19 @@ module Steep
 
       def no_error?
         @errors.empty?
+      end
+
+      # Adds an error, unless the same kind of error is reported at the same location already
+      #
+      # The definition builder raises the error of a type name in a method type that the declaration reports too.
+      #
+      def push_error(error)
+        if location = error.location
+          key = [error.class, location.buffer.name, location.start_pos, location.end_pos] #: Array[untyped]
+          return unless @error_keys.add?(key)
+        end
+
+        @errors << error
       end
 
       def each_error(&block)
@@ -62,11 +80,41 @@ module Steep
 
       def validate
         @errors = []
+        @error_keys.clear
+        @validated_definitions.clear
 
-        validate_decl
-        validate_const
-        validate_global
-        validate_alias
+        env.sources.each do |source|
+          validate_source(source)
+        end
+      end
+
+      def validate_source(source)
+        source.declarations.each do |decl|
+          validate_declaration(decl, outer: nil)
+        end
+      end
+
+      def validate_declaration(decl, outer:)
+        case decl
+        when Declarations::Class, Declarations::Module, RubyDeclarations::ClassDecl, RubyDeclarations::ModuleDecl
+          name = class_decl_name(decl)
+          validate_class_decl(decl)
+          validate_class_definition(name)
+          decl.each_decl do |nested|
+            validate_declaration(nested, outer: name)
+          end
+        when Declarations::Interface
+          validate_interface_decl(decl)
+          validate_interface_definition(decl.name)
+        when Declarations::TypeAlias
+          validate_type_alias_decl(decl, outer: outer)
+        when Declarations::Constant, RubyDeclarations::ConstantDecl
+          validate_constant_decl(decl)
+        when Declarations::Global
+          validate_global_decl(decl)
+        when Declarations::ClassAlias, Declarations::ModuleAlias, RubyDeclarations::ClassModuleAliasDecl
+          validate_class_alias_decl(decl)
+        end
       end
 
       def validate_type_application_constraints(type_name, type_params, type_args, location:)
@@ -94,7 +142,7 @@ module Steep
                 instance_type: instance_type,
                 constraints: constraints
               ).else do |result|
-                @errors << Diagnostic::Signature::UnsatisfiableTypeApplication.new(
+                push_error Diagnostic::Signature::UnsatisfiableTypeApplication.new(
                   type_name: type_name,
                   type_arg: arg_type,
                   type_param: Interface::TypeParam.new(
@@ -175,7 +223,7 @@ module Steep
 
       def validate_type_name_deprecation(type_name, location)
         if (_, message = AnnotationsHelper.deprecated_type_name?(type_name, env))
-          @errors << Diagnostic::Signature::DeprecatedTypeName.new(type_name, message, location: location)
+          push_error Diagnostic::Signature::DeprecatedTypeName.new(type_name, message, location: location)
         end
       end
 
@@ -229,57 +277,11 @@ module Steep
         relations
       end
 
-      def each_method_type(definition)
-        type_name = definition.type_name
-
-        definition.methods.each_value do |method|
-          if method.defined_in == type_name
-            method.method_types.each do |method_type|
-              yield method_type
-            end
-          end
-        end
-      end
-
-      def each_variable_type(definition)
-        type_name = definition.type_name
-
-        definition.instance_variables.each_value do |var|
-          if var.declared_in == type_name
-            yield var.type
-          end
-        end
-
-        definition.class_variables.each_value do |var|
-          if var.declared_in == type_name
-            yield var.type
-          end
-        end
-      end
-
-      def validate_definition_type(definition)
-        each_method_type(definition) do |method_type|
-          upper_bounds = method_type.type_params.each.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t?]
-            hash[param.name] = factory.type_opt(param.upper_bound_type)
-          end
-
-          checker.push_variable_bounds(upper_bounds) do
-            method_type.each_type do |type|
-              validate_type(type)
-            end
-          end
-        end
-
-        each_variable_type(definition) do |type|
-          validate_type(type)
-        end
-      end
-
       def validate_type_params(type_name, type_params)
         if error_type_params = RBS::AST::TypeParam.validate(type_params)
           error_type_params.each do |type_param|
             default_type = type_param.default_type or raise
-            @errors << Diagnostic::Signature::TypeParamDefaultReferenceError.new(type_param, location: default_type.location)
+            push_error Diagnostic::Signature::TypeParamDefaultReferenceError.new(type_param, location: default_type.location)
           end
         end
 
@@ -301,7 +303,7 @@ module Steep
             result = checker.check(relation, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
 
             if result.failure?
-              @errors << Diagnostic::Signature::UnsatisfiableGenericsDefaultType.new(
+              push_error Diagnostic::Signature::UnsatisfiableGenericsDefaultType.new(
                 type_param.name,
                 result,
                 location: (type_param.default_type || raise).location
@@ -311,35 +313,185 @@ module Steep
         end
       end
 
-      def validate_one_class_decl(name, entry)
+      def validate_method_type(method_type)
+        upper_bounds = method_type.type_params.each.with_object({}) do |param, hash| #$ Hash[Symbol, AST::Types::t?]
+          hash[param.name] = factory.type_opt(param.upper_bound_type)
+        end
+
+        checker.push_variable_bounds(upper_bounds) do
+          method_type.each_type do |type|
+            validate_type(type)
+          end
+        end
+      end
+
+      def validate_ancestor(type_name, args, location)
+        if location
+          validate_type_name_deprecation(type_name, location)
+        end
+
+        return if args.empty?
+
+        type_params =
+          case
+          when type_name.class?
+            # The definition reports the unknown module
+            name = env.normalize_module_name?(type_name) or return
+            builder.build_instance(name).type_params_decl
+          when type_name.interface?
+            return unless env.interface_decls.key?(type_name)
+            builder.build_interface(type_name).type_params_decl
+          else
+            return
+          end
+
+        validate_type_application_constraints(type_name, type_params, args, location: location)
+
+        args.each do |arg|
+          validate_type(arg)
+        end
+      end
+
+      def class_decl_name(decl)
+        case decl
+        when Declarations::Class, Declarations::Module
+          decl.name
+        when RubyDeclarations::ClassDecl
+          decl.class_name
+        when RubyDeclarations::ModuleDecl
+          decl.module_name
+        end
+      end
+
+      def validate_class_decl(decl)
+        name = class_decl_name(decl)
+        type_params = decl.type_params
+
+        Steep.logger.debug { "Validating class declaration `#{name}`..." }
+
+        class_type = AST::Types::Name::Singleton.new(name: name)
+        instance_type = AST::Types::Name::Instance.new(
+          name: name,
+          args: type_params.map { AST::Types::Any.instance() }
+        )
+        self_type = AST::Types::Name::Instance.new(
+          name: name,
+          args: type_params.map { AST::Types::Var.new(name: _1.name) }
+        )
+        upper_bounds = type_params.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
+          bounds[param.name] = factory.type_opt(param.upper_bound_type)
+        end
+
         rescue_validation_errors(name) do
-          Steep.logger.debug { "Validating class definition `#{name}`..." }
-
-          class_type = AST::Types::Name::Singleton.new(name: name)
-          instance_type = AST::Types::Name::Instance.new(
-            name: name,
-            args: entry.type_params.map { AST::Types::Any.instance() }
-          )
-
-          entry.each_decl do |decl|
-            if decl.is_a?(RBS::AST::Declarations::Base)
-              unless AnnotationsHelper.deprecated_annotation?(decl.annotations)
-                if location = decl.location
-                  validate_type_name_deprecation(name, location[:name])
-                end
+          if decl.is_a?(Declarations::Base)
+            unless AnnotationsHelper.deprecated_annotation?(decl.annotations)
+              if location = decl.location
+                validate_type_name_deprecation(name, location[:name])
               end
             end
           end
 
+          validate_type_params(name, type_params)
+        end
+
+        push_context(self_type: self_type, class_type: class_type, instance_type: instance_type) do
+          checker.push_variable_bounds(upper_bounds) do
+            case decl
+            when Declarations::Class
+              if super_class = decl.super_class
+                rescue_validation_errors(name) do
+                  validate_ancestor(super_class.name, super_class.args, super_class.location)
+                end
+              end
+            when RubyDeclarations::ClassDecl
+              if super_class = decl.super_class
+                rescue_validation_errors(name) do
+                  validate_ancestor(super_class.type_name, super_class.type_args, super_class.location)
+                end
+              end
+            when Declarations::Module, RubyDeclarations::ModuleDecl
+              decl.self_types.each do |self_type|
+                rescue_validation_errors(name) do
+                  validate_ancestor(self_type.name, self_type.args, self_type.location)
+                end
+              end
+            end
+
+            decl.members.each do |member|
+              validate_member(name, member, class_type: class_type, instance_type: instance_type)
+            end
+          end
+        end
+      end
+
+      def validate_member(type_name, member, class_type:, instance_type:)
+        rescue_validation_errors(type_name) do
+          case member
+          when Members::MethodDefinition, RubyMembers::DefMember
+            member.overloads.each do |overload|
+              validate_method_type(overload.method_type) if member.instance?
+              if member.singleton?
+                push_context(self_type: class_type, class_type: class_type, instance_type: instance_type) do
+                  validate_method_type(overload.method_type)
+                end
+              end
+            end
+          when Members::AttrReader, Members::AttrWriter, Members::AttrAccessor
+            if member.kind == :singleton
+              push_context(self_type: class_type, class_type: class_type, instance_type: instance_type) do
+                validate_type(member.type)
+              end
+            else
+              validate_type(member.type)
+            end
+          when RubyMembers::AttributeMember
+            if type = member.type
+              validate_type(type)
+            end
+          when Members::InstanceVariable, Members::ClassVariable, RubyMembers::InstanceVariableMember
+            validate_type(member.type)
+          when Members::ClassInstanceVariable
+            push_context(self_type: class_type, class_type: class_type, instance_type: instance_type) do
+              validate_type(member.type)
+            end
+          when Members::Include, Members::Prepend
+            validate_ancestor(member.name, member.args, member.location)
+          when RubyMembers::IncludeMember, RubyMembers::PrependMember
+            validate_ancestor(member.module_name, member.type_args, member.location)
+          when Members::Extend
+            push_context(self_type: class_type, class_type: class_type, instance_type: instance_type) do
+              validate_ancestor(member.name, member.args, member.location)
+            end
+          when RubyMembers::ExtendMember
+            push_context(self_type: class_type, class_type: class_type, instance_type: instance_type) do
+              validate_ancestor(member.module_name, member.type_args, member.location)
+            end
+          end
+        end
+      end
+
+      def validate_class_definition(name)
+        return unless @validated_definitions.add?(name)
+
+        rescue_validation_errors(name) do
+          Steep.logger.debug { "Validating class definition `#{name}`..." }
+
+          class_type = AST::Types::Name::Singleton.new(name: name)
+
           Steep.logger.tagged "#{name}" do
             builder.build_instance(name).tap do |definition|
+              instance_type = AST::Types::Name::Instance.new(
+                name: name,
+                args: definition.type_params_decl.map { AST::Types::Any.instance() }
+              )
+
               upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
                 bounds[param.name] = factory.type_opt(param.upper_bound_type)
               end
 
               self_type = AST::Types::Name::Instance.new(
                 name: name,
-                args: entry.type_params.map { AST::Types::Var.new(name: _1.name) }
+                args: definition.type_params_decl.map { AST::Types::Var.new(name: _1.name) }
               )
 
               push_context(self_type: self_type, class_type: class_type, instance_type: instance_type) do
@@ -354,7 +506,7 @@ module Steep
                       result2 = checker.check(relation.flip, self_type: nil, instance_type: nil, class_type: nil, constraints: Subtyping::Constraints.empty)
 
                       unless result1.success? and result2.success?
-                        @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                        push_error Diagnostic::Signature::InstanceVariableTypeError.new(
                           name: name,
                           location: var.type.location,
                           var_type: var_type,
@@ -375,7 +527,7 @@ module Steep
                     ).else do
                       raise if ancestor.source.is_a?(Symbol)
 
-                      @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
+                      push_error Diagnostic::Signature::ModuleSelfTypeError.new(
                         name: name,
                         location: ancestor.source&.location || raise,
                         ancestor: ancestor,
@@ -383,29 +535,6 @@ module Steep
                       )
                     end
                   end
-
-                  ancestors.each_ancestor do |ancestor|
-                    case ancestor
-                    when RBS::Definition::Ancestor::Instance
-                      validate_ancestor_application(name, ancestor)
-                      location =
-                        case ancestor.source
-                        when :super
-                          if (primary_decl = entry.primary_decl).is_a?(RBS::AST::Declarations::Class)
-                            primary_decl.super_class&.location
-                          end
-                        when nil
-                          # skip
-                        else
-                          ancestor.source.location
-                        end
-                      if location
-                        validate_type_name_deprecation(ancestor.name, location)
-                      end
-                    end
-                  end
-
-                  validate_definition_type(definition)
                 end
               end
             end
@@ -418,6 +547,11 @@ module Steep
                 else
                   raise
                 end
+
+              instance_type = AST::Types::Name::Instance.new(
+                name: name,
+                args: entry.type_params.map { AST::Types::Any.instance() }
+              )
 
               push_context(self_type: class_type, class_type: class_type, instance_type: instance_type) do
                 definition.instance_variables.each do |name, var|
@@ -442,7 +576,7 @@ module Steep
                     )
 
                     unless result1.success? and result2.success?
-                      @errors << Diagnostic::Signature::InstanceVariableTypeError.new(
+                      push_error Diagnostic::Signature::InstanceVariableTypeError.new(
                         name: name,
                         location: var.type.location,
                         var_type: var_type,
@@ -467,7 +601,7 @@ module Steep
 
                       if class_var
                         loc = class_var.location #: RBS::Location[untyped, untyped]?
-                        @errors << Diagnostic::Signature::ClassVariableDuplicationError.new(
+                        push_error Diagnostic::Signature::ClassVariableDuplicationError.new(
                           class_name: definition.type_name,
                           other_class_name: parent.declared_in,
                           variable_name: name,
@@ -490,7 +624,7 @@ module Steep
                   ).else do
                     raise if ancestor.source.is_a?(Symbol)
 
-                    @errors << Diagnostic::Signature::ModuleSelfTypeError.new(
+                    push_error Diagnostic::Signature::ModuleSelfTypeError.new(
                       name: name,
                       location: ancestor.source&.location || raise,
                       ancestor: ancestor,
@@ -498,18 +632,139 @@ module Steep
                     )
                   end
                 end
-                ancestors.each_ancestor do |ancestor|
-                  case ancestor
-                  when RBS::Definition::Ancestor::Instance
-                    validate_ancestor_application(name, ancestor)
-                  end
-                end
-
-                validate_definition_type(definition)
               end
             end
+          end
+        end
+      end
 
-            validate_type_params(name, entry.type_params)
+      def validate_interface_decl(decl)
+        name = decl.name
+
+        Steep.logger.debug { "Validating interface declaration `#{name}`..." }
+
+        rescue_validation_errors(name) do
+          validate_type_params(name, decl.type_params)
+        end
+
+        upper_bounds = decl.type_params.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
+          bounds[param.name] = factory.type_opt(param.upper_bound_type)
+        end
+
+        self_type = AST::Types::Name::Interface.new(
+          name: name,
+          args: decl.type_params.map { AST::Types::Var.new(name: _1.name) }
+        )
+
+        push_context(self_type: self_type, class_type: nil, instance_type: nil) do
+          checker.push_variable_bounds(upper_bounds) do
+            decl.members.each do |member|
+              rescue_validation_errors(name) do
+                case member
+                when Members::MethodDefinition
+                  member.overloads.each do |overload|
+                    validate_method_type(overload.method_type)
+                  end
+                when Members::Include
+                  validate_ancestor(member.name, member.args, member.location)
+                end
+              end
+            end
+          end
+        end
+      end
+
+      def validate_interface_definition(name)
+        return unless @validated_definitions.add?(name)
+
+        rescue_validation_errors(name) do
+          Steep.logger.debug { "Validating interface definition `#{name}`..." }
+          builder.build_interface(name)
+        end
+      end
+
+      def validate_type_alias_decl(decl, outer:)
+        name = decl.name
+
+        if outer
+          outer_entry = env.module_class_entry(outer, normalized: true)
+          if outer_entry
+            class_type = AST::Types::Name::Singleton.new(name: outer_entry.name)
+            instance_type = AST::Types::Name::Instance.new(
+              name: outer_entry.name,
+              args: outer_entry.type_params.map { AST::Types::Any.instance() },
+            )
+          end
+        end
+
+        push_context(class_type: class_type, instance_type: instance_type, self_type: nil) do
+          rescue_validation_errors(name) do
+            Steep.logger.debug "Validating alias `#{name}`..."
+
+            unless name.namespace.empty?
+              outer_name = name.namespace.to_type_name
+              builder.validate_type_name(outer_name, decl.location&.aref(:name))
+            end
+
+            validate_type_params(name, decl.type_params)
+
+            upper_bounds = decl.type_params.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
+              bounds[param.name] = factory.type_opt(param.upper_bound_type)
+            end
+
+            entry = env.type_alias_decls.fetch(name)
+            validator.validate_type_alias(entry: entry) do |type|
+              checker.push_variable_bounds(upper_bounds) do
+                validate_type(decl.type)
+              end
+            end
+          end
+        end
+      end
+
+      def validate_constant_decl(decl)
+        name =
+          case decl
+          when Declarations::Constant
+            decl.name
+          when RubyDeclarations::ConstantDecl
+            decl.constant_name
+          end
+
+        rescue_validation_errors do
+          Steep.logger.debug "Validating constant `#{name}`..."
+          builder.ensure_namespace!(name.namespace, location: decl.location)
+          if type = decl.type
+            validate_type(type)
+          end
+        end
+      end
+
+      def validate_global_decl(decl)
+        rescue_validation_errors do
+          Steep.logger.debug "Validating global `#{decl.name}`..."
+          validate_type(decl.type)
+        end
+      end
+
+      def validate_class_alias_decl(decl)
+        name = decl.new_name
+
+        rescue_validation_errors(name) do
+          Steep.logger.debug "Validating class/module alias `#{name}`..."
+
+          entry = env.class_alias_decls.fetch(name)
+          validator.validate_class_alias(entry: entry)
+
+          case decl
+          when Declarations::ClassAlias, Declarations::ModuleAlias
+            if location = decl.location
+              validate_type_name_deprecation(decl.old_name, location[:old_name])
+            end
+          when RubyDeclarations::ClassModuleAliasDecl
+            if (annotation = decl.annotation) && (old_name = annotation.type_name) && (location = annotation.type_name_location)
+              validate_type_name_deprecation(old_name, location)
+            end
           end
         end
       end
@@ -519,95 +774,35 @@ module Steep
 
         case entry
         when RBS::Environment::ClassEntry, RBS::Environment::ModuleEntry
-          validate_one_class_decl(name, entry)
-        when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
-          validate_one_class_alias(name, entry)
-        end
-      end
-
-      def validate_ancestor_application(name, ancestor)
-        unless ancestor.args.empty?
-          definition =
-            case
-            when ancestor.name.class?
-              builder.build_instance(ancestor.name)
-            when ancestor.name.interface?
-              builder.build_interface(ancestor.name)
-            else
-              raise
-            end
-
-          location =
-            case ancestor.source
-            when :super
-              primary_decl = env.class_decls.fetch(name).primary_decl
-              unless primary_decl.is_a?(RBS::AST::Declarations::Class) || primary_decl.is_a?(RBS::AST::Ruby::Declarations::ClassDecl)
-                raise
-              end
-              if super_class = primary_decl.super_class
-                super_class.location
-              else
-                # Implicit super class (Object): this can be skipped in fact...
-                primary_decl.location&.aref(:name)
-              end
-            else
-              ancestor.source&.location
-            end
-
-          validate_type_application_constraints(
-            ancestor.name,
-            definition.type_params_decl,
-            ancestor.args,
-            location: location
-          )
-
-          ancestor.args.each do |arg|
-            validate_type(arg)
+          entry.each_decl do |decl|
+            validate_class_decl(decl)
           end
+          validate_class_definition(name)
+        when RBS::Environment::ClassAliasEntry, RBS::Environment::ModuleAliasEntry
+          validate_class_alias_decl(entry.decl)
         end
       end
 
       def validate_one_interface(name)
-        rescue_validation_errors(name) do
-          Steep.logger.debug "Validating interface `#{name}`..."
-          Steep.logger.tagged "#{name}" do
-            definition = builder.build_interface(name)
+        entry = env.interface_decls.fetch(name)
+        validate_interface_decl(entry.decl)
+        validate_interface_definition(name)
+      end
 
-            validate_type_params(name, definition.type_params_decl)
+      def validate_one_alias(name, entry = env.type_alias_decls.fetch(name))
+        validate_type_alias_decl(entry.decl, outer: entry.context&.last || nil)
+      end
 
-            upper_bounds = definition.type_params_decl.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
-              bounds[param.name] = factory.type_opt(param.upper_bound_type)
-            end
+      def validate_one_constant(name, entry)
+        validate_constant_decl(entry.decl)
+      end
 
-            self_type = AST::Types::Name::Interface.new(
-              name: name,
-              args: definition.type_params.map { AST::Types::Var.new(name: _1) }
-            )
+      def validate_one_global(name, entry)
+        validate_global_decl(entry.decl)
+      end
 
-            push_context(self_type: self_type, class_type: nil, instance_type: nil) do
-              checker.push_variable_bounds(upper_bounds) do
-                validate_definition_type(definition)
-
-                ancestors = builder.ancestor_builder.one_interface_ancestors(name)
-                ancestors.each_ancestor do |ancestor|
-                  case ancestor
-                  when RBS::Definition::Ancestor::Instance
-                    # Interface ancestor cannot be other than Interface
-                    ancestor.source.is_a?(Symbol) and raise
-
-                    defn = builder.build_interface(ancestor.name)
-                    validate_type_application_constraints(
-                      ancestor.name,
-                      defn.type_params_decl,
-                      ancestor.args,
-                      location: ancestor.source&.location || raise
-                    )
-                  end
-                end
-              end
-            end
-          end
-        end
+      def validate_one_class_alias(name, entry)
+        validate_class_alias_decl(entry.decl)
       end
 
       def validate_decl
@@ -630,72 +825,9 @@ module Steep
         end
       end
 
-      def validate_one_constant(name, entry)
-        rescue_validation_errors do
-          Steep.logger.debug "Validating constant `#{name}`..."
-          builder.ensure_namespace!(name.namespace, location: entry.decl.location)
-          validate_type entry.decl.type
-        end
-      end
-
       def validate_global
         env.global_decls.each do |name, entry|
           validate_one_global(name, entry)
-        end
-      end
-
-      def validate_one_global(name, entry)
-        rescue_validation_errors do
-          Steep.logger.debug "Validating global `#{name}`..."
-          validate_type entry.decl.type
-        end
-      end
-
-      def validate_one_alias(name, entry = env.type_alias_decls.fetch(name))
-        inner_most_outer_module_name = entry.context&.last
-
-        if inner_most_outer_module_name
-          inner_most_outer_module = env.module_class_entry(inner_most_outer_module_name, normalized: true)
-          if inner_most_outer_module
-            class_type = AST::Types::Name::Singleton.new(name: inner_most_outer_module.name)
-            instance_type = AST::Types::Name::Instance.new(
-              name: inner_most_outer_module.name,
-              args: inner_most_outer_module.type_params.map { AST::Types::Any.instance() },
-            )
-          end
-        end
-
-        push_context(class_type: class_type, instance_type: instance_type, self_type: nil) do
-          rescue_validation_errors(name) do
-            Steep.logger.debug "Validating alias `#{name}`..."
-
-            unless name.namespace.empty?
-              outer = name.namespace.to_type_name
-              builder.validate_type_name(outer, entry.decl.location&.aref(:name))
-            end
-
-            validate_type_params(name, entry.decl.type_params)
-
-            upper_bounds = entry.decl.type_params.each.with_object({}) do |param, bounds| #$ Hash[Symbol, AST::Types::t?]
-              bounds[param.name] = factory.type_opt(param.upper_bound_type)
-            end
-
-            validator.validate_type_alias(entry: entry) do |type|
-              checker.push_variable_bounds(upper_bounds) do
-                validate_type(entry.decl.type)
-              end
-            end
-          end
-        end
-      end
-
-      def validate_one_class_alias(name, entry)
-        rescue_validation_errors(name) do
-          Steep.logger.debug "Validating class/module alias `#{name}`..."
-          validator.validate_class_alias(entry: entry)
-          if location = entry.decl.location
-            validate_type_name_deprecation(entry.decl.old_name, location[:old_name])
-          end
         end
       end
 
@@ -708,7 +840,7 @@ module Steep
       def rescue_validation_errors(type_name = nil)
         yield
       rescue RBS::BaseError => exn
-        @errors << Diagnostic::Signature.from_rbs_error(exn, factory: factory)
+        push_error Diagnostic::Signature.from_rbs_error(exn, factory: factory)
       end
     end
   end
