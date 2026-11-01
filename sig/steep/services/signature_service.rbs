@@ -109,6 +109,12 @@ module Steep
 
       def latest_env: () -> RBS::Environment
 
+      # Returns the source of the file in the latest environment, or `nil` if the environment doesn't have it
+      #
+      # The buffer of a file of the project is named by its relative path, and the one of a library by its absolute path.
+      #
+      def latest_source: (Pathname path) -> (RBS::Source::RBS | RBS::Source::Ruby | nil)
+
       def latest_builder: () -> RBS::DefinitionBuilder
 
       def latest_constant_resolver: () -> RBS::Resolver::ConstantResolver

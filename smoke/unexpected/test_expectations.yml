@@ -9,5 +9,5 @@
         line: 2
         character: 24
     severity: ERROR
-    message: Cannot find type `String1`
+    message: Cannot find type `::String1`
     code: RBS::UnknownTypeName

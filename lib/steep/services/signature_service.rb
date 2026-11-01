@@ -124,6 +124,14 @@ module Steep
         latest_builder.env
       end
 
+      # Returns the source of the file in the latest environment
+      #
+      # The buffer of a file of the project is named by its relative path, and the one of a library by its absolute path.
+      #
+      def latest_source(path)
+        latest_env.sources.find { |source| Pathname(source.buffer.name) == path }
+      end
+
       def latest_builder
         case status = status()
         when LoadedStatus

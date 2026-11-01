@@ -88,4 +88,10 @@ class ValidationTest < Minitest::Test
   def test_validate__deprecated__generic: () -> untyped
 
   def test_validate__deprecated__namespace: () -> untyped
+
+  def test_validate_source__rbs: () -> untyped
+
+  def test_validate_source__rbs_valid: () -> untyped
+
+  def test_validate_source__inline: () -> untyped
 end

@@ -1,17 +1,49 @@
 module Steep
   module Signature
+    # Validates the declarations of RBS files and inline RBS sources against the environment
+    #
+    # The declarations are validated by walking the parsed syntax tree, with the environment to look the referenced
+    # types up: the type names exist, the type applications have the right number of arguments satisfying the bounds,
+    # and the type names are not deprecated. The definitions of the classes, modules, and interfaces are validated
+    # once per type, from the environment: the definition builder reports the inconsistencies between the
+    # declarations of a type, like the duplicated methods and the superclass mismatches, and the instance variables
+    # and the self types of the mixins are checked against the ancestors.
+    #
     class Validator
       Location: singleton(RBS::Location)
 
       Declarations: singleton(RBS::AST::Declarations)
 
+      Members: singleton(RBS::AST::Members)
+
+      RubyDeclarations: singleton(RBS::AST::Ruby::Declarations)
+
+      RubyMembers: singleton(RBS::AST::Ruby::Members)
+
+      type class_decl = RBS::AST::Declarations::Class
+                      | RBS::AST::Declarations::Module
+                      | RBS::AST::Ruby::Declarations::ClassDecl
+                      | RBS::AST::Ruby::Declarations::ModuleDecl
+
+      type declaration = RBS::AST::Declarations::t | RBS::AST::Ruby::Declarations::t
+
+      type member = RBS::AST::Members::t | RBS::AST::Ruby::Members::t | declaration
+
       attr_reader checker: Subtyping::Check
 
       @errors: Array[Diagnostic::Signature::Base]
 
+      # The kind and the location of each error, to report an error once
+      #
+      @error_keys: Set[Array[untyped]]
+
       @type_name_resolver: RBS::Resolver::TypeNameResolver?
 
       @validator: RBS::Validator?
+
+      # The names of the types whose definitions are validated
+      #
+      @validated_definitions: Set[RBS::TypeName]
 
       # Stack of `self_type`, `class_type`, `instance_type` tuple
       #
@@ -27,6 +59,10 @@ module Steep
 
       def no_error?: () -> bool
 
+      # Adds an error, unless the same kind of error is reported at the same location already
+      #
+      def push_error: (Diagnostic::Signature::Base) -> void
+
       def each_error: () { (Diagnostic::Signature::Base) -> void } -> void
                     | () -> Enumerator[Diagnostic::Signature::Base, void]
 
@@ -40,7 +76,19 @@ module Steep
 
       def factory: () -> AST::Types::Factory
 
+      # Validates every source in the environment
+      #
       def validate: () -> void
+
+      # Validates the declarations in the source, and the definitions of the types it declares
+      #
+      def validate_source: (RBS::Source::RBS | RBS::Source::Ruby) -> void
+
+      # Validates a declaration and the declarations nested in it
+      #
+      # `outer` is the name of the class or module the declaration is nested in.
+      #
+      def validate_declaration: (declaration, outer: RBS::TypeName?) -> void
 
       # Validate type parameters
       #
@@ -77,38 +125,73 @@ module Steep
 
       def mixin_constraints: (RBS::Definition definition, Array[RBS::Definition::Ancestor::Instance] mixin_ancestors, immediate_self_types: Array[RBS::Definition::Ancestor::t]?) -> Array[[Subtyping::Relation[AST::Types::t], RBS::Definition::Ancestor::Instance]]
 
-      def each_method_type: (RBS::Definition) { (RBS::MethodType) -> void } -> void
+      # Validates the types in a method type, with the bounds of its type parameters
+      #
+      def validate_method_type: (RBS::MethodType) -> void
 
-      def each_variable_type: (RBS::Definition) { (RBS::Types::t) -> void } -> void
+      # Validates the application of a superclass, a self type, or a mixin
+      #
+      # The type arguments are validated against the type parameters of the module or interface.
+      # The unknown module is reported by the validation of the definition.
+      #
+      def validate_ancestor: (RBS::TypeName, Array[RBS::Types::t] args, RBS::Location[untyped, untyped]? location) -> void
 
-      def validate_definition_type: (RBS::Definition) -> void
+      def class_decl_name: (class_decl) -> RBS::TypeName
 
-      def validate_one_class: (RBS::TypeName) -> void
+      # Validates the declaration of a class or module: its type parameters, superclass, self types, and members
+      #
+      def validate_class_decl: (class_decl) -> void
 
-      def validate_ancestor_application: (RBS::TypeName, RBS::Definition::Ancestor::Instance ancestor) -> void
+      # Validates a member of a class or module declaration
+      #
+      # Nested declarations are skipped.
+      #
+      def validate_member: (RBS::TypeName type_name, member, class_type: AST::Types::Name::Singleton, instance_type: AST::Types::Name::Instance) -> void
 
-      def validate_one_interface: (RBS::TypeName) -> void
+      # Validates the definition of a class or module, once per type
+      #
+      def validate_class_definition: (RBS::TypeName) -> void
 
-      def validate_decl: () -> void
+      def validate_interface_decl: (RBS::AST::Declarations::Interface) -> void
 
-      def validate_const: () -> void
-
-      def validate_one_constant: (RBS::TypeName name, RBS::Environment::ConstantEntry entry) -> void
-
-      def validate_global: () -> void
-
-      def validate_one_global: (Symbol name, RBS::Environment::GlobalEntry) -> void
+      # Validates the definition of an interface, once per type
+      #
+      def validate_interface_definition: (RBS::TypeName) -> void
 
       # Validate type alias
       #
       # 1. Make sure the outer namespace of given `name` exists
       # 2. Make sure the type alias is valid with respect to `RBS::Validator`
       #
+      def validate_type_alias_decl: (RBS::AST::Declarations::TypeAlias, outer: RBS::TypeName?) -> void
+
+      def validate_constant_decl: (RBS::AST::Declarations::Constant | RBS::AST::Ruby::Declarations::ConstantDecl) -> void
+
+      def validate_global_decl: (RBS::AST::Declarations::Global) -> void
+
+      def validate_class_alias_decl: (RBS::AST::Declarations::ClassAlias | RBS::AST::Declarations::ModuleAlias | RBS::AST::Ruby::Declarations::ClassModuleAliasDecl) -> void
+
+      # Validates the declarations and the definition of a class, module, or class alias in the environment
+      #
+      # The declarations nested in them are not validated.
+      #
+      def validate_one_class: (RBS::TypeName) -> void
+
+      def validate_one_interface: (RBS::TypeName) -> void
+
       def validate_one_alias: (RBS::TypeName name, ?RBS::Environment::TypeAliasEntry entry) -> void
 
-      def validate_one_class_decl: (RBS::TypeName, RBS::Environment::ClassEntry | RBS::Environment::ModuleEntry) -> void
+      def validate_one_constant: (RBS::TypeName name, RBS::Environment::ConstantEntry entry) -> void
+
+      def validate_one_global: (Symbol name, RBS::Environment::GlobalEntry) -> void
 
       def validate_one_class_alias: (RBS::TypeName, RBS::Environment::ClassAliasEntry | RBS::Environment::ModuleAliasEntry) -> void
+
+      def validate_decl: () -> void
+
+      def validate_const: () -> void
+
+      def validate_global: () -> void
 
       def validate_alias: () -> void
 
