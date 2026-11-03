@@ -446,17 +446,20 @@ module Steep
           end
         else
           command_line_patterns.each do |pattern|
-            path = Pathname(pattern)
-            path = project.absolute_path(path)
-            next unless path.file?
-            if target = project.target_for_source_path(path)
-              params[:code_paths] << [target.name.to_s, path.to_s]
-            end
-            if target = project.target_for_signature_path(path)
-              params[:signature_paths] << [target.name.to_s, path.to_s]
-            end
-            if target = project.target_for_inline_source_path(path)
-              params[:inline_paths] << [target.name.to_s, path.to_s]
+            path = project.absolute_path(Pathname(pattern))
+            paths = path.directory? ? path.glob("**/*.{rb,rbs}").sort : [path]
+
+            paths.each do |path|
+              next unless path.file?
+              if target = project.target_for_source_path(path)
+                params[:code_paths] << [target.name.to_s, path.to_s]
+              end
+              if target = project.target_for_signature_path(path)
+                params[:signature_paths] << [target.name.to_s, path.to_s]
+              end
+              if target = project.target_for_inline_source_path(path)
+                params[:inline_paths] << [target.name.to_s, path.to_s]
+              end
             end
           end
         end
