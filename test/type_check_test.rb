@@ -5586,4 +5586,69 @@ class TypeCheckTest < Minitest::Test
       YAML
     )
   end
+
+  def test_annotation_type_args_default_resolved_in_context
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Box[T = untyped]
+          end
+
+          module Outer
+            module Box
+              def box_method: () -> Integer
+            end
+
+            module Inner
+              def perform: () -> Integer
+            end
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY,
+          module Outer
+            module Inner
+              def perform
+                # @type self: Box
+                box_method + no_such_method
+              end
+            end
+          end
+        RUBY
+        "b.rb" => <<~RUBY
+          # @type var box: Box
+          box = _ = nil
+          box.no_such_method
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 19
+              end:
+                line: 5
+                character: 33
+            severity: ERROR
+            message: Type `::Outer::Box` does not have method `no_such_method`
+            code: Ruby::NoMethod
+        - file: b.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 4
+              end:
+                line: 3
+                character: 18
+            severity: ERROR
+            message: Type `::Box[untyped]` does not have method `no_such_method`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
 end
