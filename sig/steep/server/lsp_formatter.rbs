@@ -4,9 +4,9 @@ module Steep
   module Server
     # LSPFormatter renders the results of the interaction requests into LSP responses
     #
-    # A typecheck worker sends what is at a position with the names of the declarations involved -- see
-    # `InteractionProvider::Hover`, `InteractionProvider::Completion`, and `InteractionProvider::SignatureHelp`. The formatter runs
-    # in the master and resolves the names in the environment of the target to render the documentation.
+    # `InteractionProvider` finds what is at a position, with the names of the declarations involved -- see
+    # `InteractionProvider::Hover`, `InteractionProvider::Completion`, and `InteractionProvider::SignatureHelp`. The
+    # formatter resolves the names in the environment of the target to render the documentation.
     #
     # * `hover`, `completion_list`, and `signature_help` translate a result to an LSP response
     # * `format_hover_content` and `format_completion_docs` render the Markdown of a hover and a completion item

@@ -481,7 +481,40 @@ end
     end
   end
 
-  def test_hover_via_typecheck_worker
+  # Runs the jobs on the environment queue, and then the jobs they hand to the main loop
+  #
+  # @rbs (Server::Master) -> void
+  def run_environment_jobs(master)
+    until master.environment_queue.empty?
+      master.environment_queue.pop.call
+    end
+
+    until master.job_queue.empty?
+      job = master.job_queue.pop
+      job.call if job.is_a?(Proc)
+    end
+  end
+
+  # A master with the project loaded, and no worker
+  #
+  # @rbs (Pathname steepfile) -> Server::Master
+  def master_for_interaction(steepfile)
+    project = Project.new(steepfile_path: steepfile)
+    Project::DSL.parse(project, steepfile.read)
+
+    master = Server::Master.new(
+      project: project,
+      reader: worker_reader,
+      writer: worker_writer,
+      launcher: WorkersLauncher.new
+    )
+    master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+    master.controller.load(command_line_args: [])
+
+    master
+  end
+
+  def test_hover
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -490,54 +523,30 @@ target :lib do
   signature "sig"
 end
       EOF
+      (current_dir + "lib").mkpath
+      (current_dir + "lib/foo.rb").write("xs = [1, 2]\n")
 
-      project = Project.new(steepfile_path: steepfile)
-      Project::DSL.parse(project, steepfile.read)
+      master = master_for_interaction(steepfile)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
-
-      master = Server::Master.new(
-        project: project,
-        reader: worker_reader,
-        writer: worker_writer,
-        launcher: WorkersLauncher.new(worker)
-      )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
-      master.controller.load(command_line_args: [])
-
-      master.process_message_from_client(
-        {
-          method: "textDocument/hover",
-          id: "hover_id",
-          params: {
-            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-            position: { line: 3, character: 9 }
+      request_hover = -> (id, line, character) do
+        master.process_message_from_client(
+          {
+            method: "textDocument/hover",
+            id: id,
+            params: {
+              textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+              position: { line: line, character: character }
+            }
           }
-        }
-      )
+        )
+      end
 
-      # The request is forwarded to the typecheck worker as `$/steep/hover`
-      jobs = flush_queue(master.write_queue)
-      request = jobs.find { |job| job.message[:method] == Hover::METHOD } or raise
-      assert_equal worker, request.dest
-      assert_equal(
-        { uri: "#{file_scheme}#{current_dir}/lib/foo.rb", position: { line: 3, character: 9 } },
-        request.message[:params]
-      )
-      assert_equal 1, master.interaction_jobs_in_flight[worker]
+      # The interaction runs on the environment thread, which renders the result
+      request_hover["hover_id", 0, 0]
+      assert_empty flush_queue(master.write_queue)
+      refute_empty master.environment_queue
 
-      # The result is rendered with the environment of the master, on the main thread
-      master.result_controller.process_response(
-        {
-          id: request.message[:id],
-          result: {
-            target: "lib",
-            range: { start: { line: 3, character: 8 }, end: { line: 3, character: 10 } },
-            content: { kind: "variable", name: "xs", type: "::Array[::Integer]" }
-          }
-        }
-      )
-      assert_equal 0, master.interaction_jobs_in_flight[worker]
+      run_environment_jobs(master)
 
       jobs = flush_queue(master.write_queue)
       assert_equal 1, jobs.size
@@ -547,32 +556,39 @@ end
 
         hover = job.message[:result]
         assert_instance_of LSP::Interface::Hover, hover
-        assert_equal({ start: { line: 3, character: 8 }, end: { line: 3, character: 10 } }.to_json, hover.range.to_json)
+        assert_equal({ start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }.to_json, hover.range.to_json)
         assert_equal "**Local variable** `xs: ::Array[::Integer]`\n", hover.contents.value
       end
 
-      # Nothing at the position
-      master.process_message_from_client(
-        {
-          method: "textDocument/hover",
-          id: "hover_id2",
-          params: {
-            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-            position: { line: 0, character: 0 }
-          }
-        }
-      )
-      request = flush_queue(master.write_queue).find { |job| job.message[:method] == Hover::METHOD } or raise
-      master.result_controller.process_response({ id: request.message[:id], result: nil })
+      # The interaction sees the changes received before it
+      master.controller.push_file_change(current_dir + "lib/foo.rb", "xs = [\"a\"]\n")
+      request_hover["hover_id2", 0, 0]
+      run_environment_jobs(master)
 
+      jobs = flush_queue(master.write_queue)
+      assert_equal "**Local variable** `xs: ::Array[::String]`\n", jobs[0].message[:result].contents.value
+
+      # Nothing at the position
+      request_hover["hover_id3", 0, 12]
+      run_environment_jobs(master)
       assert_equal(
-        [Master::SendMessageJob.to_client(message: { id: "hover_id2", result: nil })],
+        [Master::SendMessageJob.to_client(message: { id: "hover_id3", result: nil })],
         flush_queue(master.write_queue)
       )
+
+      # Only the latest request is answered
+      request_hover["hover_id4", 0, 0]
+      request_hover["hover_id5", 0, 0]
+      run_environment_jobs(master)
+
+      jobs = flush_queue(master.write_queue)
+      assert_equal ["hover_id4", "hover_id5"], jobs.map { _1.message[:id] }
+      assert_nil jobs[0].message[:result]
+      assert_instance_of LSP::Interface::Hover, jobs[1].message[:result]
     end
   end
 
-  def test_signature_help_via_typecheck_worker
+  def test_signature_help
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -581,154 +597,65 @@ target :lib do
   signature "sig"
 end
       EOF
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/foo.rb").write("Foo.new.foo(\"hello\")\n")
+      (current_dir + "sig/foo.rbs").write("class Foo\n  def foo: (String name) -> void\nend\n")
 
-      project = Project.new(steepfile_path: steepfile)
-      Project::DSL.parse(project, steepfile.read)
+      master = master_for_interaction(steepfile)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
-
-      master = Server::Master.new(
-        project: project,
-        reader: worker_reader,
-        writer: worker_writer,
-        launcher: WorkersLauncher.new(worker)
-      )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
-      master.controller.load(command_line_args: [])
-
-      request_signature_help = -> (id, context = nil) do
+      request_signature_help = -> (id, character, context = nil) do
         params = {
           textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-          position: { line: 3, character: 9 }
+          position: { line: 0, character: character }
         }
         params[:context] = context if context
 
         master.process_message_from_client({ method: "textDocument/signatureHelp", id: id, params: params })
-        flush_queue(master.write_queue).find { |job| job.message[:method] == SignatureHelp::METHOD } or raise
+        run_environment_jobs(master)
+        flush_queue(master.write_queue)
       end
 
       # A signature help is rendered on the main thread
-      request = request_signature_help["help1"]
-      master.result_controller.process_response(
-        {
-          id: request.message[:id],
-          result: {
-            signature_help: {
-              target: "lib",
-              signatures: [{ method_type: "(::String) -> void", parameters: ["::String"], active_parameter: 0, method: nil }],
-              active_signature: 0
-            },
-            syntax_error: false
-          }
-        }
-      )
-
-      jobs = flush_queue(master.write_queue)
+      jobs = request_signature_help["help1", 13]
       assert_equal 1, jobs.size
       help = jobs[0].message[:result]
       assert_instance_of LSP::Interface::SignatureHelp, help
       assert_equal ["(::String) -> void"], help.signatures.map(&:label)
 
       # No signature help at the position closes the one showing
-      request = request_signature_help["help2"]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: false } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help2", result: nil })],
-        flush_queue(master.write_queue)
+        request_signature_help["help2", 0]
       )
 
       # A syntax error while the client shows a signature help is answered with the one showing, as the client sent it
+      master.controller.push_file_change(current_dir + "lib/foo.rb", "Foo.new.foo(\"hello\",\n")
       active_signature_help = {
         signatures: [{ label: "(::String) -> void", parameters: [{ label: "::String" }] }],
         activeSignature: 0,
         activeParameter: 0
       }
-      request = request_signature_help["help3", { triggerKind: 3, isRetrigger: true, activeSignatureHelp: active_signature_help }]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help3", result: active_signature_help })],
-        flush_queue(master.write_queue)
+        request_signature_help["help3", 20, { triggerKind: 3, isRetrigger: true, activeSignatureHelp: active_signature_help }]
       )
 
       # A syntax error with no signature help showing is answered with nil
-      request = request_signature_help["help4", { triggerKind: 2, triggerCharacter: "(", isRetrigger: false }]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help4", result: nil })],
-        flush_queue(master.write_queue)
+        request_signature_help["help4", 20, { triggerKind: 2, triggerCharacter: "(", isRetrigger: false }]
       )
 
       # ... and so is one from a client that sends no context
-      request = request_signature_help["help5"]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help5", result: nil })],
-        flush_queue(master.write_queue)
+        request_signature_help["help5", 20]
       )
     end
   end
 
-  def test_interaction_request_goes_to_the_least_loaded_worker
-    in_tmpdir do
-      steepfile = current_dir + "Steepfile"
-      steepfile.write(<<-EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-      EOF
-
-      project = Project.new(steepfile_path: steepfile)
-      Project::DSL.parse(project, steepfile.read)
-
-      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test1")
-      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test2")
-
-      master = Server::Master.new(
-        project: project,
-        reader: worker_reader,
-        writer: worker_writer,
-        launcher: WorkersLauncher.new(worker1, worker2)
-      )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
-      master.controller.load(command_line_args: [])
-
-      request_hover = -> (id) do
-        master.process_message_from_client(
-          {
-            method: "textDocument/hover",
-            id: id,
-            params: {
-              textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-              position: { line: 0, character: 0 }
-            }
-          }
-        )
-        flush_queue(master.write_queue).find { |job| job.message[:method] == Hover::METHOD } or raise
-      end
-
-      # The worker with the fewest type check jobs in flight takes the request
-      master.typecheck_jobs_in_flight[worker1] = 2
-      request1 = request_hover["hover1"]
-      assert_equal worker2, request1.dest
-      assert_equal({ worker2 => 1 }, master.interaction_jobs_in_flight)
-
-      # The interaction requests in flight count as the load, too
-      master.typecheck_jobs_in_flight[worker1] = 0
-      request2 = request_hover["hover2"]
-      assert_equal worker1, request2.dest
-      assert_equal({ worker2 => 1, worker1 => 1 }, master.interaction_jobs_in_flight)
-
-      # The response frees the worker
-      master.result_controller.process_response({ id: request1.message[:id], result: nil })
-      assert_equal({ worker2 => 0, worker1 => 1 }, master.interaction_jobs_in_flight)
-
-      request3 = request_hover["hover3"]
-      assert_equal worker2, request3.dest
-    end
-  end
-
-  def test_interaction_request_without_worker
+  def test_interaction_request_before_load
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -748,9 +675,8 @@ end
         launcher: WorkersLauncher.new
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
-      master.controller.load(command_line_args: [])
 
-      # Nothing answers hover, completion, and signature help
+      # Nothing answers hover, completion, and signature help before the project is loaded
       master.process_message_from_client(
         {
           method: "textDocument/hover",
@@ -765,8 +691,9 @@ end
         [Master::SendMessageJob.to_client(message: { id: "hover_id", result: nil })],
         flush_queue(master.write_queue)
       )
+      assert_empty master.environment_queue
 
-      # Goto finds no location
+      # Goto finds no location, on the main loop
       master.process_message_from_client(
         {
           method: "textDocument/definition",
@@ -777,14 +704,33 @@ end
           }
         }
       )
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
         flush_queue(master.write_queue)
       )
+
+      # A URI of no file is answered the same, after the project is loaded
+      master.controller.load(command_line_args: [])
+      master.process_message_from_client(
+        {
+          method: "textDocument/completion",
+          id: "completion_id",
+          params: {
+            textDocument: { uri: "untitled:Untitled-1" },
+            position: { line: 0, character: 0 }
+          }
+        }
+      )
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "completion_id", result: nil })],
+        flush_queue(master.write_queue)
+      )
+      assert_empty master.environment_queue
     end
   end
 
-  def test_goto_definition_via_typecheck_worker
+  def test_goto_definition
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -793,19 +739,12 @@ target :lib do
   signature "sig"
 end
       EOF
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("Customer.new.name\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\n  def name: () -> String\nend\n")
 
-      project = Project.new(steepfile_path: steepfile)
-      Project::DSL.parse(project, steepfile.read)
-
-      typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
-
-      master = Server::Master.new(
-        project: project,
-        reader: worker_reader,
-        writer: worker_writer,
-        launcher: WorkersLauncher.new(typecheck_worker)
-      )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master = master_for_interaction(steepfile)
 
       master.type_check_database.update_rbs(
         path: current_dir + "sig/customer.rbs",
@@ -821,24 +760,13 @@ end
           id: "definition_id",
           params: {
             textDocument: { uri: "#{file_scheme}#{current_dir}/lib/customer.rb" },
-            position: { line: 3, character: 9 }
+            position: { line: 0, character: 14 }
           }
         }
       )
 
-      # The request is forwarded to the typecheck worker as `$/steep/source/symbol`
-      jobs = flush_queue(master.write_queue)
-      request = jobs.find { |job| job.message[:method] == Source__Symbol::METHOD } or raise
-      assert_equal typecheck_worker, request.dest
-      assert_equal(
-        { uri: "#{file_scheme}#{current_dir}/lib/customer.rb", position: { line: 3, character: 9 } },
-        request.message[:params]
-      )
-
-      # The symbols in the response are resolved with the database
-      master.result_controller.process_response(
-        { id: request.message[:id], result: { method_names: ["::Customer#name"], type: "::String" } }
-      )
+      # The symbol at the position is resolved on the environment thread, and looked up in the database
+      run_environment_jobs(master)
 
       assert_equal(
         [
@@ -1945,6 +1873,8 @@ end
         }
       )
 
+      # Goto answers on the main loop
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
         flush_queue(master.write_queue)
@@ -1962,6 +1892,7 @@ end
         }
       )
 
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "implementation_id", result: [] })],
         flush_queue(master.write_queue)

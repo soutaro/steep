@@ -44,15 +44,23 @@ class MasterTest < Minitest::Test
 
   def test_on_type_check_update_stores_results_in_database: () -> untyped
 
-  def test_hover_via_typecheck_worker: () -> untyped
+  # Runs the jobs on the environment queue, and then the jobs they hand to the main loop
+  #
+  # @rbs (Server::Master) -> void
+  def run_environment_jobs: (Server::Master) -> void
 
-  def test_signature_help_via_typecheck_worker: () -> untyped
+  # A master with the project loaded, and no worker
+  #
+  # @rbs (Pathname steepfile) -> Server::Master
+  def master_for_interaction: (Pathname steepfile) -> Server::Master
 
-  def test_interaction_request_goes_to_the_least_loaded_worker: () -> untyped
+  def test_hover: () -> untyped
 
-  def test_interaction_request_without_worker: () -> untyped
+  def test_signature_help: () -> untyped
 
-  def test_goto_definition_via_typecheck_worker: () -> untyped
+  def test_interaction_request_before_load: () -> untyped
+
+  def test_goto_definition: () -> untyped
 
   def test_stats_from_database: () -> untyped
 
