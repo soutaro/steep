@@ -7,7 +7,7 @@ module Steep
     #
     # Each request becomes a *job*, and the response carries the result of the file.
     #
-    # * `ValidateAppSignatureJob` validates an *application* RBS file
+    # * `ValidateAppSignatureJob` validates an *application* RBS file, from the content sent with the request
     # * `ValidateLibrarySignatureJob` validates a *library* RBS file
     # * `TypeCheckCodeJob` type checks a ruby code
     # * `TypeCheckInlineCodeJob` type checks a Ruby file with inline RBS declarations, and validates the declarations
@@ -42,7 +42,13 @@ module Steep
 
         attr_reader target: Project::Target
 
-        def initialize: (id: String, path: Pathname, target: Project::Target) -> void
+        # The content of the file sent with the request, validated as it is without updating the environments
+        #
+        # The file in the environments is validated when `nil`.
+        #
+        attr_reader content: String?
+
+        def initialize: (id: String, path: Pathname, target: Project::Target, ?content: String?) -> void
       end
 
       class ValidateLibrarySignatureJob

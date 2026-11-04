@@ -94,4 +94,6 @@ class ValidationTest < Minitest::Test
   def test_validate_source__rbs_valid: () -> untyped
 
   def test_validate_source__inline: () -> untyped
+
+  def test_validate_source__ancestor_application: () -> untyped
 end

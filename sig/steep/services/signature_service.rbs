@@ -115,6 +115,13 @@ module Steep
       #
       def latest_source: (Pathname path) -> (RBS::Source::RBS | RBS::Source::Ruby | nil)
 
+      # Parses the content of an RBS file, and resolves the type names in the latest environment
+      #
+      # Returns the error of a content that cannot be parsed. The environment is not changed: the source is for the
+      # validation of a content the environment doesn't have.
+      #
+      def resolve_source: (Pathname path, String content) -> (RBS::Source::RBS | RBS::ParsingError | Diagnostic::Signature::UnexpectedError)
+
       def latest_builder: () -> RBS::DefinitionBuilder
 
       def latest_constant_resolver: () -> RBS::Resolver::ConstantResolver

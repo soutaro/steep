@@ -27,6 +27,10 @@ module Steep
       # Load files from `project` to `buffered_changes`
       #
       def load_files: (Hash[String, content] input) -> void
+
+      # Returns the text of a content on the wire: a binary content is base64-encoded
+      #
+      def decode_content: (content) -> String
     end
   end
 end
