@@ -132,6 +132,30 @@ module Steep
         latest_env.sources.find { |source| Pathname(source.buffer.name) == path }
       end
 
+      # Parses the content of an RBS file, and resolves the type names in the latest environment
+      #
+      # Returns the error of a content that cannot be parsed. The environment is not changed: the source is for the
+      # validation of a content the environment doesn't have.
+      #
+      def resolve_source(path, content)
+        case source = load_rbs_file(path, content, []).source
+        when RBS::Source::RBS
+          env = latest_env
+          resolver = RBS::Resolver::TypeNameResolver.build(env)
+          table = RBS::Environment::UseMap::Table.new()
+          table.known_types.merge(env.class_decls.keys)
+          table.known_types.merge(env.class_alias_decls.keys)
+          table.known_types.merge(env.type_alias_decls.keys)
+          table.known_types.merge(env.interface_decls.keys)
+          table.compute_children
+
+          _, decls = env.resolve_signature(resolver, table, source.directives, source.declarations)
+          RBS::Source::RBS.new(source.buffer, source.directives, decls)
+        else
+          source
+        end
+      end
+
       def latest_builder
         case status = status()
         when LoadedStatus

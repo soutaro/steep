@@ -300,6 +300,51 @@ RUBY
     end
   end
 
+  def test_validate__content
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+    core = project.targets.find { _1.name == :core } or raise
+
+    service.update(changes: { Pathname("sig/core.rbs") => [ContentChange.string("class Core\n  def foo: () -> Strin\nend\n")] })
+
+    # The content is validated as it is, with the environment as it is
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core, content: "# Core\n\nclass Core\n  def foo: () -> Strin\nend\n").tap do |diagnostics|
+      assert_any!(diagnostics, size: 1) do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal 4, error.location.start_line
+      end
+    end
+
+    assert_equal "class Core\n  def foo: () -> Strin\nend\n", service.signature_services.fetch(:core).files.fetch(Pathname("sig/core.rbs")).content
+
+    # A content that cannot be parsed reports the syntax error
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core, content: "class Core\n  def\nend\n").tap do |diagnostics|
+      assert_any!(diagnostics, size: 1) do |error|
+        assert_instance_of Diagnostic::Signature::SyntaxError, error
+      end
+    end
+  end
+
+  def test_validate__content__syntax_error
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+    core = project.targets.find { _1.name == :core } or raise
+
+    service.update(changes: { Pathname("sig/core.rbs") => [ContentChange.string("class Core\n  def foo: () -> )\nend\n")] })
+    assert_instance_of Services::SignatureService::SyntaxErrorStatus, service.signature_services.fetch(:core).status
+
+    # The content reports its own syntax error, not the one of the text in the environment
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core, content: "# Core\n\nclass Core\n  def foo: () -> )\nend\n").tap do |diagnostics|
+      assert_any!(diagnostics, size: 1) do |error|
+        assert_instance_of Diagnostic::Signature::SyntaxError, error
+        assert_equal 4, error.location.start_line
+      end
+    end
+
+    # A content that can be parsed has no syntax error
+    assert_empty service.validate_signature(path: Pathname("sig/core.rbs"), target: core, content: "class Core\n  def foo: () -> String\nend\n")
+  end
+
   def test_validate__other_target
     service = Services::TypeCheckService.new(project: project)
     service.update(changes: reset_changes)

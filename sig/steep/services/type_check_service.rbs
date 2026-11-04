@@ -63,11 +63,19 @@ module Steep
       #
       def update: (changes: Server::ChangeBuffer::changes) -> void
 
-      # Validates RBS signature included in the path
+      # Validates the RBS declarations of the file
+      #
+      # The declarations in the environment of the target are validated, or the ones of `content` of an RBS file when
+      # given: the content is parsed and validated as it is, with the environment as it is, so that a worker validates a
+      # content newer, in its text, than the file in its environment. A content that cannot be parsed reports the syntax
+      # error, and so does a content while the environment has a syntax error, which reports nothing else.
       #
       # Updates `#signature_validation_diagnostics` of the file and returns the diagnostics of the target-path pair.
       #
-      def validate_signature: (path: Pathname, target: Project::Target) -> Array[Diagnostic::Signature::Base]
+      def validate_signature: (path: Pathname, target: Project::Target, ?content: String?) -> Array[Diagnostic::Signature::Base]
+
+      # The diagnostic of the source of an RBS file that cannot be parsed, or none for a source parsed
+      private def parsing_error_diagnostics: (RBS::Source::RBS | RBS::Source::Ruby | RBS::ParsingError | Diagnostic::Signature::Base | nil source) -> Array[Diagnostic::Signature::Base]
 
       # Type checks the code of the path and returns the checked file
       #
