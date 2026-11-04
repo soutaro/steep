@@ -6,7 +6,8 @@ module Steep
     module CustomMethods
       # Notification with the latest contents of files, sent from master to a worker
       #
-      # The master sends a worker the files it needs right before a type check. See `Master#deliver_contents`.
+      # The master sends the workers the RBS files and the inline RBS sources of the project, and every change of them,
+      # when the workers are not forked from its environments. See `Master#broadcast_contents`.
       #
       module FileLoad
         METHOD: String
@@ -73,8 +74,8 @@ module Steep
       # validates an RBS file of the project, `library` validates an RBS file of a library, and `inline` type checks
       # a Ruby file with inline RBS declarations and validates the declarations.
       #
-      # `content` is the latest content of a Ruby file, given when the worker doesn't have it yet. The RBS files reach
-      # the workers by `$/steep/file/load` before the type check.
+      # `content` is the latest content of a Ruby file, with or without inline RBS declarations, which goes with every
+      # request of the file. The RBS files reach the workers by `$/steep/file/load`, or by being forked from the master.
       #
       module TypeCheck__File
         METHOD: String

@@ -713,29 +713,43 @@ end
       controller = Server::TypeCheckController.new(project: project)
       controller.load(command_line_args: []) {}
       controller.open_path(current_dir + "lib/customer.rb")
+      controller.pop_file_changes
       controller.make_request(progress: nil)
+
+      # The loaded contents are what the environments have
+      assert_empty controller.pop_declaration_changes
 
       # A change of the text alone is not a change of the declarations
       controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "# The customer\nclass Customer\nend\n")
       controller.add_dirty_inline_path(current_dir + "app/app.rb", "class App\n  def name = \"x\"\nend\n")
+      controller.pop_file_changes
+      assert_empty controller.pop_declaration_changes
 
       request = controller.make_request(progress: nil) or raise
       assert_equal Set[[:lib, current_dir + "sig/customer.rbs"]], request.signature_paths
       assert_equal Set[[:lib, current_dir + "app/app.rb"]], request.inline_paths
       assert_equal Set[], request.code_paths
 
-      # A change of the declarations type checks the files depending on them
+      # A change of the declarations is detected once for the fork decision, and once for the request
       controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      controller.pop_file_changes
+      assert_equal Set[current_dir + "sig/customer.rbs"], controller.pop_declaration_changes
+      assert_empty controller.pop_declaration_changes
+
       request = controller.make_request(progress: nil) or raise
       assert_equal Set[[:lib, current_dir + "lib/customer.rb"]], request.code_paths
 
-      # ... and so does a change of the inline declarations
+      # The request made before the changes are popped detects them, and leaves them for the fork decision
       controller.add_dirty_inline_path(current_dir + "app/app.rb", "class App\n  def name = \"x\"\n  def id = 1\nend\n")
       request = controller.make_request(progress: nil) or raise
       assert_equal Set[[:lib, current_dir + "lib/customer.rb"]], request.code_paths
+      controller.pop_file_changes
+      assert_equal Set[current_dir + "app/app.rb"], controller.pop_declaration_changes
 
       # A content that cannot be parsed is not a change of the declarations
       controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "class Customer\n  def name: () ->\nend\n")
+      controller.pop_file_changes
+      assert_empty controller.pop_declaration_changes
       request = controller.make_request(progress: nil) or raise
       assert_equal Set[], request.code_paths
     end
