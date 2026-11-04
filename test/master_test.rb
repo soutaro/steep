@@ -395,8 +395,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -457,8 +457,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -506,8 +506,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 10, needs_response: true)
@@ -550,8 +550,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -636,7 +636,7 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -1116,8 +1116,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -1430,6 +1430,11 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
+      # The master has the contents of the files, which it reads on `initialize`
+      master.controller.push_file_change(current_dir + "lib/a.rb", "class A\nend\n")
+      master.controller.push_file_change(current_dir + "lib/b.rb", "class B\nend\n")
+      master.controller.push_file_change(current_dir + "lib/c.rb", "class C\nend\n")
+
       master.process_message_from_client({
         id: "guid",
         method: TypeCheck::METHOD,
@@ -1479,6 +1484,10 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
+      # The master has the contents of the files, which it reads on `initialize`
+      master.controller.push_file_change(current_dir + "lib/customer.rb", "class Customer\nend\n")
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\nend\n")
+
       master.process_message_from_client({
         id: "guid",
         method: TypeCheck::METHOD,
@@ -1524,6 +1533,10 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
+      # The master has the contents of the files, which it reads on `initialize`
+      master.controller.push_file_change(current_dir + "lib/customer.rb", "class Customer\nend\n")
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\nend\n")
+
       master.process_message_from_client({
         id: "guid",
         method: TypeCheck::METHOD,
@@ -1542,7 +1555,7 @@ end
       assert_equal [TypeCheck__File::METHOD] * 2, jobs.map { _1.message[:method] }
       assert_equal(
         [
-          { guid: "guid", kind: "code", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s },
+          { guid: "guid", kind: "code", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s, content: "class Customer\nend\n" },
           { guid: "guid", kind: "signature", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s }
         ],
         jobs.map { _1.message[:params] }
