@@ -11,11 +11,9 @@ module Steep
     # * `ValidateLibrarySignatureJob` validates a *library* RBS file
     # * `TypeCheckCodeJob` type checks a ruby code
     # * `TypeCheckInlineCodeJob` type checks a Ruby file with inline RBS declarations, and validates the declarations
-    # * `IndexSignatureJob` reports the declarations in an RBS file (or the inline RBS declarations in a Ruby file)
-    #   without validating them
     #
     # The contents delivered by `$/steep/file/load` and with the requests are applied to the `TypeCheckService`
-    # right before each job.
+    # right before each job. The declarations in the RBS files are indexed by the master, from its own environments.
     #
     class TypeCheckWorker < BaseWorker
       attr_reader project: Project
@@ -69,30 +67,10 @@ module Steep
         def initialize: (id: String, path: Pathname, target: Project::Target) -> void
       end
 
-      # Reports the entries of the declarations in the file, of the library, the RBS files, or the inline RBS
-      # declarations of the project, without validating them
-      class IndexSignatureJob
-        # The id of the `$/steep/typecheck/file` request
-        attr_reader id: String
-
-        # The absolute path of the file
-        attr_reader path: Pathname
-
-        attr_reader target: Project::Target
-
-        def initialize: (id: String, path: Pathname, target: Project::Target) -> void
-      end
-
       # The queue of the jobs
       def queue: () -> Thread::Queue[job]
 
       attr_reader mutex: Mutex
-
-      # The entries of the declarations in the latest environment of each target, grouped by path
-      #
-      # The environment is kept with the entries to detect a newer environment of the target.
-      #
-      @rbs_entries_cache: Hash[Symbol, [RBS::Environment, Hash[Pathname, Array[TypeCheckDatabase::Entry]]]]
 
       include ChangeBuffer
 
@@ -114,7 +92,6 @@ module Steep
                | ValidateAppSignatureJob
                | ValidateLibrarySignatureJob
                | TypeCheckInlineCodeJob
-               | IndexSignatureJob
 
       # Runs a job and writes its response, after applying the buffered changes to the service
       def handle_job: (job) -> void
@@ -124,7 +101,8 @@ module Steep
 
       # The result of type checking Ruby code or validating RBS declarations in a file, to be reported to the master
       #
-      # `diagnostics` is `nil` when the type checking is skipped, and `entries` is `nil` when no entries are available.
+      # `diagnostics` is `nil` when the type checking is skipped. `entries` are the definitions and the references in
+      # the Ruby code, and `nil` for RBS declarations, which the master indexes itself, or when the file has no `Typing`.
       # `stats` counts the method calls of Ruby code, and is `nil` when the file is not type checked or for RBS declarations.
       #
       type result = { diagnostics: Array[LSPDiagnostic::json]?, entries: Array[TypeCheckDatabase::Entry]?, stats: StatsCalculator::calls? }
@@ -144,16 +122,6 @@ module Steep
       # when the file has no `Typing` because of a syntax error.
       #
       def source_result: (TypeCheckService::SourceFile? file, Diagnostic::LSPFormatter formatter) -> result
-
-      # Returns the declarations in the RBS file (or the inline RBS in the Ruby file) of the target
-      #
-      # `path` is the relative path of a project file, or the absolute path of a library file, which is the
-      # name of the buffer of the declarations.
-      #
-      # Returns `nil` when the signatures of the target failed to load, because the index would be of the last
-      # successfully loaded signatures, and its locations may be stale.
-      #
-      def signature_entries: (Project::Target target, Pathname path) -> Array[TypeCheckDatabase::Entry]?
     end
   end
 end
