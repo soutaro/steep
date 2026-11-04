@@ -1603,4 +1603,42 @@ end
       assert_equal 3, validator.each_error.count
     end
   end
+  def test_validate_source__ancestor_application
+    with_checker <<-EOF do |checker|
+module M[T]
+end
+
+interface _I[T]
+  def foo: () -> T
+end
+
+class Foo
+  include M
+  include M[Integer, String]
+  include _I
+  extend M[String, Integer]
+end
+
+class Bar::Baz
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      source = checker.factory.env.sources.find { Pathname(_1.buffer.name).basename.to_s == "0.rbs" } or raise
+      validator.validate_source(source)
+
+      # The type applications of the superclass and the mixins are validated with the declarations
+      applications = validator.each_error.select { _1.is_a?(Diagnostic::Signature::InvalidTypeApplication) }
+      assert_equal [9, 10, 11, 12], applications.map { _1.location&.start_line }.sort
+
+      # The namespace of a class declaration exists
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal RBS::TypeName.parse("::Bar"), error.name
+        assert_equal 15, error.location&.start_line
+      end
+
+      assert_equal 5, validator.each_error.count
+    end
+  end
 end

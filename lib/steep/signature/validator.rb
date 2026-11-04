@@ -330,8 +330,6 @@ module Steep
           validate_type_name_deprecation(type_name, location)
         end
 
-        return if args.empty?
-
         type_params =
           case
           when type_name.class?
@@ -345,10 +343,14 @@ module Steep
             return
           end
 
-        validate_type_application_constraints(type_name, type_params, args, location: location)
+        RBS::InvalidTypeApplicationError.check!(type_name: type_name, args: args, params: type_params, location: location)
 
-        args.each do |arg|
-          validate_type(arg)
+        unless args.empty?
+          validate_type_application_constraints(type_name, type_params, args, location: location)
+
+          args.each do |arg|
+            validate_type(arg)
+          end
         end
       end
 
@@ -383,6 +385,8 @@ module Steep
         end
 
         rescue_validation_errors(name) do
+          builder.ensure_namespace!(name.namespace, location: decl.location)
+
           if decl.is_a?(Declarations::Base)
             unless AnnotationsHelper.deprecated_annotation?(decl.annotations)
               if location = decl.location
@@ -473,7 +477,7 @@ module Steep
       def validate_class_definition(name)
         return unless @validated_definitions.add?(name)
 
-        rescue_validation_errors(name) do
+        rescue_definition_errors(name) do
           Steep.logger.debug { "Validating class definition `#{name}`..." }
 
           class_type = AST::Types::Name::Singleton.new(name: name)
@@ -644,6 +648,7 @@ module Steep
         Steep.logger.debug { "Validating interface declaration `#{name}`..." }
 
         rescue_validation_errors(name) do
+          builder.ensure_namespace!(name.namespace, location: decl.location)
           validate_type_params(name, decl.type_params)
         end
 
@@ -677,7 +682,7 @@ module Steep
       def validate_interface_definition(name)
         return unless @validated_definitions.add?(name)
 
-        rescue_validation_errors(name) do
+        rescue_definition_errors(name) do
           Steep.logger.debug { "Validating interface definition `#{name}`..." }
           builder.build_interface(name)
         end
@@ -839,6 +844,14 @@ module Steep
 
       def rescue_validation_errors(type_name = nil)
         yield
+      rescue RBS::BaseError => exn
+        push_error Diagnostic::Signature.from_rbs_error(exn, factory: factory)
+      end
+
+      def rescue_definition_errors(type_name)
+        yield
+      rescue RBS::NoTypeFoundError, RBS::InvalidTypeApplicationError
+        # The declarations report the type names and the type applications, at their locations in the validated source
       rescue RBS::BaseError => exn
         push_error Diagnostic::Signature.from_rbs_error(exn, factory: factory)
       end

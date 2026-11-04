@@ -196,6 +196,11 @@ module Steep
       def validate_alias: () -> void
 
       def rescue_validation_errors: (?RBS::TypeName? type_name) { () -> void } -> void
+
+      # Runs the validation of a definition, reporting the errors of the definition builder except the ones of the
+      # type references, which the declarations report at their locations in the validated source
+      #
+      def rescue_definition_errors: (RBS::TypeName type_name) { () -> void } -> void
     end
   end
 end
