@@ -201,15 +201,6 @@ module Steep
       # The number of `$/steep/typecheck/file` requests each worker is working on
       attr_reader typecheck_jobs_in_flight: Hash[WorkerProcess, Integer]
 
-      # The RBS files of the project the master validates instead of the typecheck workers, by absolute path
-      #
-      # The workers keep their environments while the declarations stay the same, and an RBS file changed since then --
-      # in its comments or formatting -- never reaches them: the master validates it with its own environments, which
-      # have the latest content. Emptied when the declarations change, and the workers are forked again or receive the
-      # files.
-      #
-      attr_reader signature_paths_to_validate: Set[Pathname]
-
       # The id of the latest interaction request -- hover, completion, signature help, and goto -- received
       #
       # Only the latest one is answered: the client sends a request on every keystroke and cursor move, and only the
@@ -350,21 +341,16 @@ module Steep
       # The RBS files and inline RBS sources among the changes, as the target name and the absolute path
       def signature_files_in: (ChangeBuffer::changes changes) -> Array[[Symbol, Pathname]]
 
-      # Sends a `$/steep/typecheck/file` request of the job to the worker, with the content of the Ruby file, and
+      # Sends a `$/steep/typecheck/file` request of the job to the worker, with the content of the Ruby or RBS file, and
       # stores the result in the database when the response comes back
+      #
+      # The worker validates the content of an RBS file as it is, without updating its environments, so that a file
+      # changed in its text only is validated at its latest positions by a worker whose environments have the older text.
       #
       # The response of a request that is superseded by a newer type check is ignored, except for handing the next
       # job to the worker.
       #
       def send_typecheck_job: (WorkerProcess worker, TypeCheckController::Request request, TypeCheckController::Request::job job) -> void
-
-      # Validates the RBS file of the job on the environment thread, and reports the result to the type check as the
-      # workers do
-      #
-      # For the files in `signature_paths_to_validate`. The diagnostics are `nil` when the validation fails, keeping
-      # the ones of the last validation.
-      #
-      def validate_signature_on_environment: (TypeCheckController::Request request, Symbol target_name, Pathname path) -> void
 
       # The content of a file for the workers, base64 encoded when it is not valid UTF-8
       def wire_content: (String text) -> ChangeBuffer::content
@@ -418,8 +404,8 @@ module Steep
       # `TypeCheckController#pop_declaration_changes`): with `SpawnLauncher`, the files are sent to the workers, which
       # update their own environments, and with `ForkLauncher`, the typecheck workers are retired, the definitions are
       # built, and the next generation is forked from the environments, with the jobs waiting for it. When the
-      # declarations stay the same, the workers go on with their environments, and the master validates the changed
-      # RBS files itself.
+      # declarations stay the same, the workers go on with their environments, and validate the changed RBS files from
+      # the contents sent with their jobs.
       #
       def update_environment: () -> void
 

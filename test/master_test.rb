@@ -301,38 +301,47 @@ end
     with_forked_master do |master, launcher, workers|
       path = current_dir + "sig/customer.rbs"
 
-      # A change that leaves the declarations as they are keeps the workers, which don't have the change
+      # A change that leaves the declarations as they are keeps the workers, and the file goes to a worker with its
+      # validation job, which validates the content without updating its environments
       master.controller.push_file_change(path, "# The customer\nclass Customer\nend\n")
       request_type_check(master, path)
 
       assert_equal [workers[0]], master.typecheck_workers
       assert_empty launcher.retired_workers
-      assert_equal Set[path], master.signature_paths_to_validate
 
-      # The master validates the file on the environment thread instead of the worker, and indexes it
-      assert_empty flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal(
+        [[workers[0], TypeCheck__File::METHOD, "signature", "# The customer\nclass Customer\nend\n"]],
+        jobs.map { [_1.dest, _1.message[:method], _1.message[:params][:kind], _1.message[:params][:content]] }
+      )
       assert_empty master.pending_typecheck_jobs
       refute_nil master.current_type_check_request
 
+      # The master updates its own environments, and indexes the file
       run_environment_jobs(master)
       assert_equal 1, launcher.start_count
-      assert_nil master.current_type_check_request
-      assert_equal [], master.type_check_database.diagnostics(path)
       assert_equal [[path, 1]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.start_line] }
 
-      # A content that cannot be parsed keeps the workers too, and the master reports the error
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: { diagnostics: [], entries: nil, stats: nil } } })
+      flush_queue(master.write_queue)
+      assert_nil master.current_type_check_request
+      assert_equal [], master.type_check_database.diagnostics(path)
+
+      # A content that cannot be parsed keeps the workers too, and goes to a worker, which reports the syntax error
       master.controller.push_file_change(path, "# The customer\nclass Customer\n  def\nend\n")
       request_type_check(master, path)
       assert_equal [workers[0]], master.typecheck_workers
 
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal ["# The customer\nclass Customer\n  def\nend\n"], jobs.map { _1.message[:params][:content] }
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: nil } })
+      flush_queue(master.write_queue)
       run_environment_jobs(master)
-      assert_equal ["RBS::SyntaxError"], master.type_check_database.diagnostics(path).map { _1[:code] }
 
       # The next change of the declarations forks the workers again, which validate the file by themselves
       master.controller.push_file_change(path, "# The customer\nclass Customer\n  def name: () -> String\nend\n")
       request_type_check(master, path)
       assert_empty master.typecheck_workers
-      assert_empty master.signature_paths_to_validate
 
       environment_jobs = flush_queue(master.environment_queue)
       assert_equal 1, environment_jobs.size
@@ -341,6 +350,7 @@ end
       assert_equal 2, launcher.start_count
       jobs = flush_queue(master.write_queue).select { _1.dest == workers[1] }
       assert_equal ["signature"], jobs.map { _1.message[:params][:kind] }
+      assert_equal ["# The customer\nclass Customer\n  def name: () -> String\nend\n"], jobs.map { _1.message[:params][:content] }
     end
   end
 
@@ -1556,7 +1566,7 @@ end
       assert_equal(
         [
           { guid: "guid", kind: "code", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s, content: "class Customer\nend\n" },
-          { guid: "guid", kind: "signature", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s }
+          { guid: "guid", kind: "signature", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s, content: "class Customer\nend\n" }
         ],
         jobs.map { _1.message[:params] }
       )
@@ -1565,7 +1575,7 @@ end
       master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: { diagnostics: [], entries: [], stats: nil }, signature: nil } })
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
       assert_equal(
-        [{ guid: "guid", kind: "library", target: "lib", uri: Steep::PathHelper.to_uri("/rbs/core/object.rbs").to_s }],
+        [{ guid: "guid", kind: "library", target: "lib", uri: Steep::PathHelper.to_uri("/rbs/core/object.rbs").to_s, content: nil }],
         jobs.map { _1.message[:params] }
       )
     end
@@ -2482,7 +2492,7 @@ end
       assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
       run_environment_jobs(master)
 
-      # The Ruby file goes to the worker with its request, and the RBS file is not sent again
+      # The Ruby file and the RBS file go to the workers with their requests, and the RBS file is not broadcast again
       master.process_message_from_client({
         id: "check-1",
         method: TypeCheck::METHOD,
@@ -2499,7 +2509,7 @@ end
       assert_equal "code", jobs[0].message[:params][:kind]
       assert_equal "class Customer\nend\n", jobs[0].message[:params][:content]
       assert_equal "signature", jobs[1].message[:params][:kind]
-      refute_operator jobs[1].message[:params], :key?, :content
+      assert_equal "class Customer\nend\n", jobs[1].message[:params][:content]
 
       jobs.each do |job|
         master.result_controller.process_response({ id: job.message[:id], result: { source: nil, signature: nil } })
@@ -2552,7 +2562,8 @@ end
       flush_queue(master.write_queue)
       run_environment_jobs(master)
 
-      # A change that leaves the declarations as they are is not sent: the master validates the file itself
+      # A change that leaves the declarations as they are is not broadcast: the file goes to a worker with its job, and the
+      # worker validates the content without updating its environments
       master.process_message_from_client(
         {
           method: "textDocument/didChange",
@@ -2573,14 +2584,18 @@ end
         }
       })
 
-      assert_empty flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
-      assert_equal Set[current_dir + "sig/customer.rbs"], master.signature_paths_to_validate
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal "signature", jobs[0].message[:params][:kind]
+      assert_equal "# The customer\nclass Customer\n  def name: () -> String\nend\n", jobs[0].message[:params][:content]
       refute_nil master.current_type_check_request
 
       run_environment_jobs(master)
-      assert_nil master.current_type_check_request
-      assert_equal [], master.type_check_database.diagnostics(current_dir + "sig/customer.rbs")
       assert_equal [[current_dir + "sig/customer.rbs", 1]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.start_line] }
+
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: nil } })
+      flush_queue(master.write_queue)
+      assert_nil master.current_type_check_request
 
       # The next change of the declarations goes to the workers, which validate the file again
       master.process_message_from_client(
@@ -2606,7 +2621,7 @@ end
       jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
       assert_equal [FileLoad::METHOD, FileLoad::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
       assert_equal "signature", jobs[2].message[:params][:kind]
-      assert_empty master.signature_paths_to_validate
+      assert_equal "# The customer\nclass Customer\n  def name: () -> String\n  def id: () -> Integer\nend\n", jobs[2].message[:params][:content]
     end
   end
 end

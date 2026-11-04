@@ -4,7 +4,7 @@ module Steep
       attr_reader :project
 
       TypeCheckCodeJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
-      ValidateAppSignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
+      ValidateAppSignatureJob = _ = Struct.new(:id, :path, :target, :content, keyword_init: true)
       ValidateLibrarySignatureJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
       TypeCheckInlineCodeJob = _ = Struct.new(:id, :path, :target, keyword_init: true)
 
@@ -39,7 +39,10 @@ module Steep
         target = project.targets.find {|target| target.name.to_s == params[:target] } or raise "Unknown target: #{params[:target]}"
         path = Steep::PathHelper.to_pathname!(params[:uri])
 
-        if content = params[:content]
+        content = params[:content]
+
+        # The content of an RBS file is validated as it is, and the environments stay as they are
+        if content && params[:kind] != "signature"
           load_files({ project.relative_path(path).to_s => content })
         end
 
@@ -48,7 +51,7 @@ module Steep
           when "code"
             TypeCheckCodeJob.new(id: id, path: path, target: target)
           when "signature"
-            ValidateAppSignatureJob.new(id: id, path: path, target: target)
+            ValidateAppSignatureJob.new(id: id, path: path, target: target, content: content && decode_content(content))
           when "library"
             ValidateLibrarySignatureJob.new(id: id, path: path, target: target)
           when "inline"
@@ -71,7 +74,7 @@ module Steep
           formatter = Diagnostic::LSPFormatter.new({}, base_dir: project.base_dir)
 
           relative_path = project.relative_path(job.path)
-          diagnostics = service.validate_signature(path: relative_path, target: job.target)
+          diagnostics = service.validate_signature(path: relative_path, target: job.target, content: job.content)
 
           respond(
             job.id,

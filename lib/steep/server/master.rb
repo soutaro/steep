@@ -197,7 +197,6 @@ module Steep
       attr_reader :environment_queue
       attr_reader :pending_typecheck_jobs
       attr_reader :typecheck_jobs_in_flight
-      attr_reader :signature_paths_to_validate
       attr_reader :exiting_workers
 
       TYPECHECK_JOBS_PER_WORKER = 2
@@ -230,7 +229,6 @@ module Steep
         @pending_typecheck_jobs = []
         @typecheck_jobs_in_flight = {}
         @latest_interaction_id = nil
-        @signature_paths_to_validate = Set[]
         @environment_generation = 0
         @exiting_workers = Set[].compare_by_identity
         @exited_wait_threads = Set[].compare_by_identity
@@ -939,15 +937,7 @@ module Steep
 
           Steep.logger.info "Dispatching the type check jobs"
 
-          jobs = request.jobs
-          jobs.delete_if do |kind, target_name, path|
-            if kind == :signature && signature_paths_to_validate.include?(path)
-              validate_signature_on_environment(request, target_name, path)
-              true
-            end
-          end
-
-          @pending_typecheck_jobs = jobs
+          @pending_typecheck_jobs = request.jobs
           dispatch_typecheck_jobs()
         end
       end
@@ -1029,18 +1019,23 @@ module Steep
             "inline"
           end #: CustomMethods::TypeCheck__File::kind
 
+        # The RBS files go with their jobs too: a worker validates the content it receives, which may be newer than the
+        # file in its environments, in its text. A library has no content, and the worker validates the file in its
+        # environments.
+        content =
+          unless kind == :library
+            if file = controller.file_contents.fetch(project.relative_path(path), nil)
+              wire_content(file.text)
+            end
+          end
+
         params = {
           guid: request.guid,
           kind: kind_string,
           target: target_name.to_s,
-          uri: PathHelper.to_uri(path).to_s
+          uri: PathHelper.to_uri(path).to_s,
+          content: content
         } #: CustomMethods::TypeCheck__File::params
-
-        if kind == :code || kind == :inline
-          if file = controller.file_contents.fetch(project.relative_path(path), nil)
-            params[:content] = wire_content(file.text)
-          end
-        end
 
         typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) + 1
 
@@ -1255,15 +1250,9 @@ module Steep
         updated_paths = controller.pop_declaration_changes()
         generation = nil #: Integer?
 
-        if updated_paths.empty?
-          # The workers keep their environments, which differ from the files in the text only, and the master validates
-          # the RBS files they don't have
-          signature_files.each do |_, path|
-            signature_paths_to_validate << path if controller.files.signature_paths.registered_path?(path)
-          end
-        else
-          signature_paths_to_validate.clear
-
+        # The workers keep their environments while the declarations stay the same: an RBS file changed in its text only
+        # goes to a worker with its validation job, which validates the content without updating the environments
+        unless updated_paths.empty?
           case launcher
           when SpawnLauncher
             # The workers update their environments with the files by themselves
@@ -1355,29 +1344,6 @@ module Steep
               # The validation reports the error
             end
           end
-        end
-      end
-
-      def validate_signature_on_environment(request, target_name, path)
-        service = controller.type_check_service or raise "The project is not loaded yet"
-        target = project.targets.find {|target| target.name == target_name } or raise "Unknown target: #{target_name}"
-        relative_path = project.relative_path(path)
-
-        environment_queue << -> do
-          diagnostics =
-            begin
-              formatter = Diagnostic::LSPFormatter.new({}, base_dir: project.base_dir)
-              service.validate_signature(path: relative_path, target: target).filter_map { formatter.format(_1) }
-            rescue => exn
-              Steep.log_error(exn, message: "Failed to validate #{relative_path}: #{exn.inspect}")
-              nil
-            end
-
-          job_queue << -> do
-            on_type_check_update(guid: request.guid, path: path, target: target, signature: { diagnostics: diagnostics, entries: nil, stats: nil })
-          end
-        rescue ClosedQueueError
-          # The main loop has stopped
         end
       end
 

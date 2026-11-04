@@ -82,12 +82,16 @@ module Steep
 
         type kind = "code" | "signature" | "library" | "inline"
 
+        # `content` is the latest content of the file for the `code`, `signature`, and `inline` kinds, and `nil` for the
+        # `library` kind. The worker applies the content of a Ruby file to its environments before the type checking,
+        # and validates the content of an RBS file as it is, without updating its environments.
+        #
         type params = {
           guid: String,
           kind: kind,
           target: String,
           uri: String,
-          ?content: ChangeBuffer::content
+          content: ChangeBuffer::content?
         }
 
         # The result of type checking Ruby code or validating RBS declarations in the file

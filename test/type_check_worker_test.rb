@@ -166,18 +166,19 @@ class TypeCheckWorkerTest < Minitest::Test
             }
           }
         )
+        # The content of an RBS file goes to the job, and is not buffered
         worker.handle_request(
           {
             id: "request-2",
             method: TypeCheck__File::METHOD,
-            params: { guid: "guid1", kind: "signature", target: "lib", uri: "#{file_scheme}#{current_dir}/sig/hello.rbs" }
+            params: { guid: "guid1", kind: "signature", target: "lib", uri: "#{file_scheme}#{current_dir}/sig/hello.rbs", content: "class Hello\nend\n" }
           }
         )
         worker.handle_request(
           {
             id: "request-3",
             method: TypeCheck__File::METHOD,
-            params: { guid: "guid1", kind: "library", target: "lib", uri: "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}" }
+            params: { guid: "guid1", kind: "library", target: "lib", uri: "#{file_scheme}#{RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "object.rbs"}", content: nil }
           }
         )
 
@@ -193,6 +194,7 @@ class TypeCheckWorkerTest < Minitest::Test
           assert_instance_of TypeCheckWorker::ValidateAppSignatureJob, job
           assert_equal "request-2", job.id
           assert_equal current_dir + "sig/hello.rbs", job.path
+          assert_equal "class Hello\nend\n", job.content
         end
         jobs[2].tap do |job|
           assert_instance_of TypeCheckWorker::ValidateLibrarySignatureJob, job
@@ -240,6 +242,34 @@ class TypeCheckWorkerTest < Minitest::Test
         master_read_queue.pop.tap do |message|
           assert_equal "guid", message[:id]
           assert_empty message[:result][:signature][:diagnostics]
+        end
+
+        # A job with a content validates the content, without updating the environments
+        content = <<~RBS
+          # Hello
+          class Hello
+            def world: () -> Strin
+          end
+        RBS
+        job = TypeCheckWorker::ValidateAppSignatureJob.new(id: "guid2", path: current_dir + "sig/hello.rbs", target: project.targets[0], content: content)
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal "guid2", message[:id]
+          assert_equal ["RBS::UnknownTypeName"], message[:result][:signature][:diagnostics].map { _1[:code] }
+          assert_equal 2, message[:result][:signature][:diagnostics][0][:range][:start][:line]
+        end
+
+        signature_service = worker.service.signature_services.fetch(:lib)
+        assert_equal "class Hello\n  def world: () -> void\nend\n", signature_service.files.fetch(Pathname("sig/hello.rbs")).content
+
+        # A content that cannot be parsed reports the syntax error
+        job = TypeCheckWorker::ValidateAppSignatureJob.new(id: "guid3", path: current_dir + "sig/hello.rbs", target: project.targets[0], content: "class Hello\n  def\nend\n")
+        worker.handle_job(job)
+
+        master_read_queue.pop.tap do |message|
+          assert_equal "guid3", message[:id]
+          assert_equal ["RBS::SyntaxError"], message[:result][:signature][:diagnostics].map { _1[:code] }
         end
       end
     end
