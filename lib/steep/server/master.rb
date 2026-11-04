@@ -621,12 +621,8 @@ module Steep
 
           if path = pathname(uri)
             if target = project.group_for_path(path)
-              if controller.inline_path?(path)
-                controller.open_inline_path(path, text)
-              else
-                controller.open_path(path)
-                controller.push_file_change(path, text) if text
-              end
+              controller.open_path(path)
+              controller.push_file_change(path, text) if text
 
               start_type_checking_queue.execute do
                 guid = SecureRandom.uuid

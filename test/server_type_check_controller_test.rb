@@ -435,7 +435,8 @@ end
 
       controller.open_path(current_dir + "test/customer_test.rb")
       controller.open_path(current_dir + "sig/test/customer_test.rbs")
-      controller.open_inline_path(current_dir + "lib/app/customer.rb", <<-RUBY)
+      controller.open_path(current_dir + "lib/app/customer.rb")
+      controller.push_file_change(current_dir + "lib/app/customer.rb", <<-RUBY)
 class Customer
   def initialize
   end
@@ -688,6 +689,55 @@ end
       assert_operator env.class_decls, :key?, RBS::TypeName.parse("::Customer")
       assert_operator env.class_decls, :key?, RBS::TypeName.parse("::App")
       assert_equal "class Customer\nend\n", service.source_files.fetch(Pathname("lib/customer.rb")).content
+    end
+  end
+
+  def test_declaration_changes
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+      Project::DSL.eval(project) do
+        target :lib do
+          check "lib"
+          signature "sig"
+          check "app", inline: true
+        end
+      end
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig").mkdir
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+      (current_dir + "app").mkdir
+      (current_dir + "app/app.rb").write("class App\n  def name = \"\"\nend\n")
+
+      controller = Server::TypeCheckController.new(project: project)
+      controller.load(command_line_args: []) {}
+      controller.open_path(current_dir + "lib/customer.rb")
+      controller.make_request(progress: nil)
+
+      # A change of the text alone is not a change of the declarations
+      controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "# The customer\nclass Customer\nend\n")
+      controller.add_dirty_inline_path(current_dir + "app/app.rb", "class App\n  def name = \"x\"\nend\n")
+
+      request = controller.make_request(progress: nil) or raise
+      assert_equal Set[[:lib, current_dir + "sig/customer.rbs"]], request.signature_paths
+      assert_equal Set[[:lib, current_dir + "app/app.rb"]], request.inline_paths
+      assert_equal Set[], request.code_paths
+
+      # A change of the declarations type checks the files depending on them
+      controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      request = controller.make_request(progress: nil) or raise
+      assert_equal Set[[:lib, current_dir + "lib/customer.rb"]], request.code_paths
+
+      # ... and so does a change of the inline declarations
+      controller.add_dirty_inline_path(current_dir + "app/app.rb", "class App\n  def name = \"x\"\n  def id = 1\nend\n")
+      request = controller.make_request(progress: nil) or raise
+      assert_equal Set[[:lib, current_dir + "lib/customer.rb"]], request.code_paths
+
+      # A content that cannot be parsed is not a change of the declarations
+      controller.add_dirty_signature_path(current_dir + "sig/customer.rbs", "class Customer\n  def name: () ->\nend\n")
+      request = controller.make_request(progress: nil) or raise
+      assert_equal Set[], request.code_paths
     end
   end
 
