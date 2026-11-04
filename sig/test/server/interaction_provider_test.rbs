@@ -1,0 +1,41 @@
+# Generated from test/server/interaction_provider_test.rb with RBS::Inline
+
+class Steep::Server::InteractionProviderTest < Minitest::Test
+  include TestHelper
+
+  include ShellHelper
+
+  include Steep
+
+  class ContentChange = Steep::Services::ContentChange
+
+  def dirs: () -> untyped
+
+  def test_source_symbol: () -> untyped
+
+  def test_hover: () -> untyped
+
+  def test_hover__definition_and_constant: () -> untyped
+
+  def test_hover__library_rbs: () -> untyped
+
+  def test_hover__alias_on_rbs: () -> untyped
+
+  def test_hover__interface_on_rbs: () -> untyped
+
+  def test_hover__class_on_rbs: () -> untyped
+
+  def test_hover__class_strips_html_comment: () -> untyped
+
+  def test_hover__invalid: () -> untyped
+
+  def test_completion: () -> untyped
+
+  def test_completion__inline: () -> untyped
+
+  def test_completion__on_signature: () -> untyped
+
+  def test_signature_help: () -> untyped
+
+  def test_signature_help__syntax_error: () -> untyped
+end

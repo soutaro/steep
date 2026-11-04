@@ -87,11 +87,11 @@ module Steep
 
         case kind
         when "variable"
-          content = content #: CustomMethods::Hover::variable_content
+          content = content #: InteractionProvider::Hover::variable_content
           local_variable(content[:name], content[:type])
 
         when "type"
-          content = content #: CustomMethods::Hover::type_content
+          content = content #: InteractionProvider::Hover::type_content
           <<~MD
             ```rbs
             #{content[:type]}
@@ -99,7 +99,7 @@ module Steep
           MD
 
         when "type_assertion"
-          content = content #: CustomMethods::Hover::type_assertion_content
+          content = content #: InteractionProvider::Hover::type_assertion_content
           <<~MD
             ```rbs
             #{content[:asserted_type]}
@@ -109,7 +109,7 @@ module Steep
           MD
 
         when "method_call"
-          content = content #: CustomMethods::Hover::method_call_content
+          content = content #: InteractionProvider::Hover::method_call_content
           io = StringIO.new
 
           unless content[:error]
@@ -150,7 +150,7 @@ module Steep
           io.string
 
         when "definition"
-          content = content #: CustomMethods::Hover::definition_content
+          content = content #: InteractionProvider::Hover::definition_content
           io = StringIO.new
 
           method_name = MethodName(content[:method])
@@ -193,7 +193,7 @@ module Steep
           io.string
 
         when "constant"
-          content = content #: CustomMethods::Hover::constant_content
+          content = content #: InteractionProvider::Hover::constant_content
           io = StringIO.new
 
           full_name = RBS::TypeName.parse(content[:name])
@@ -217,7 +217,7 @@ module Steep
           io.string
 
         when "type_name"
-          content = content #: CustomMethods::Hover::type_name_content
+          content = content #: InteractionProvider::Hover::type_name_content
           io = StringIO.new
 
           type_name = RBS::TypeName.parse(content[:name])
@@ -255,7 +255,7 @@ module Steep
 
         case kind
         when "local_variable"
-          item = item #: CustomMethods::Completion::local_variable_item
+          item = item #: InteractionProvider::Completion::local_variable_item
           name = item[:name]
 
           LSP::Interface::CompletionItem.new(
@@ -268,7 +268,7 @@ module Steep
           )
 
         when "instance_variable"
-          item = item #: CustomMethods::Completion::instance_variable_item
+          item = item #: InteractionProvider::Completion::instance_variable_item
           name = item[:name]
 
           LSP::Interface::CompletionItem.new(
@@ -280,7 +280,7 @@ module Steep
           )
 
         when "constant"
-          item = item #: CustomMethods::Completion::constant_item
+          item = item #: InteractionProvider::Completion::constant_item
           name = item[:name]
           full_name = RBS::TypeName.parse(item[:full_name])
           decl, _ = constant_decl(full_name, env: env)
@@ -307,7 +307,7 @@ module Steep
           )
 
         when "method"
-          item = item #: CustomMethods::Completion::method_item
+          item = item #: InteractionProvider::Completion::method_item
           name = item[:name]
           method_names = item[:methods].map {|method| MethodName(method) }.uniq
 
@@ -336,7 +336,7 @@ module Steep
           )
 
         when "keyword_argument"
-          item = item #: CustomMethods::Completion::keyword_argument_item
+          item = item #: InteractionProvider::Completion::keyword_argument_item
           name = item[:name]
 
           LSP::Interface::CompletionItem.new(
@@ -348,7 +348,7 @@ module Steep
           )
 
         when "type_name"
-          item = item #: CustomMethods::Completion::type_name_item
+          item = item #: InteractionProvider::Completion::type_name_item
           name = item[:name]
           type_name = RBS::TypeName.parse(item[:full_name])
           decl = type_name_decl(type_name, env: env)
@@ -378,7 +378,7 @@ module Steep
           )
 
         when "builtin_type"
-          item = item #: CustomMethods::Completion::builtin_type_item
+          item = item #: InteractionProvider::Completion::builtin_type_item
           name = item[:name]
 
           LSP::Interface::CompletionItem.new(
@@ -391,7 +391,7 @@ module Steep
           )
 
         when "text"
-          item = item #: CustomMethods::Completion::text_item
+          item = item #: InteractionProvider::Completion::text_item
           help_text = item[:help_text]
 
           LSP::Interface::CompletionItem.new(
@@ -410,15 +410,15 @@ module Steep
       def format_completion_docs(item, env:, builder:)
         case kind_of(item)
         when "local_variable"
-          item = item #: CustomMethods::Completion::local_variable_item
+          item = item #: InteractionProvider::Completion::local_variable_item
           local_variable(item[:name], item[:type])
 
         when "instance_variable"
-          item = item #: CustomMethods::Completion::instance_variable_item
+          item = item #: InteractionProvider::Completion::instance_variable_item
           instance_variable(item[:name], item[:type])
 
         when "constant"
-          item = item #: CustomMethods::Completion::constant_item
+          item = item #: InteractionProvider::Completion::constant_item
           io = StringIO.new
 
           full_name = RBS::TypeName.parse(item[:full_name])
@@ -442,7 +442,7 @@ module Steep
           io.string
 
         when "method"
-          item = item #: CustomMethods::Completion::method_item
+          item = item #: InteractionProvider::Completion::method_item
           method_names = item[:methods].map {|method| MethodName(method) }.uniq
           method_types = item[:method_types]
 
@@ -456,7 +456,7 @@ module Steep
           end
 
         when "type_name"
-          item = item #: CustomMethods::Completion::type_name_item
+          item = item #: InteractionProvider::Completion::type_name_item
           type_name = RBS::TypeName.parse(item[:full_name])
 
           if decl = type_name_decl(type_name, env: env)
@@ -470,7 +470,7 @@ module Steep
           end
 
         when "keyword_argument"
-          item = item #: CustomMethods::Completion::keyword_argument_item
+          item = item #: InteractionProvider::Completion::keyword_argument_item
           <<~MD
             **Keyword argument**: `#{item[:name]}`
           MD

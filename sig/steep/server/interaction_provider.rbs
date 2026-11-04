@@ -1,0 +1,218 @@
+use Steep::Services::*
+
+module Steep
+  module Server
+    # Answers the interaction requests -- hover, completion, signature help, and source symbol -- from the
+    # environments of a `TypeCheckService`
+    #
+    # The master runs it on the environment thread, with its own environments: the file is type checked on demand,
+    # and the result has what is at the position, with the types as strings and the declarations as names, which
+    # `LSPFormatter` renders with the documentation.
+    #
+    class InteractionProvider
+      # The results of the interactions, which `LSPFormatter` renders and `GotoResolver` resolves
+      #
+      # The types are strings and the declarations are names -- `::Foo`, `::Foo#bar`, or `::Foo.bar` -- which the
+      # formatter looks up in the environments when it renders the documentation.
+
+      # Position in a file and range of text, in the LSP convention -- zero-based lines and characters
+      type position = { line: Integer, character: Integer }
+
+      type range = { start: position, end: position }
+
+      # The hover content at a position, which the provider finds and `LSPFormatter` renders
+      #
+      # The content has the types as strings and the declarations as names -- `::Foo`, `::Foo#bar`, or `::Foo.bar`
+      # -- and the formatter resolves the names in the environment when it renders the documentation.
+      #
+      module Hover
+        # A local variable: its name and type
+        type variable_content = { kind: "variable", name: String, type: String }
+
+        # An expression: its type
+        type type_content = { kind: "type", type: String }
+
+        # A type assertion: the type of the expression and the asserted type
+        type type_assertion_content = { kind: "type_assertion", original_type: String, asserted_type: String }
+
+        # A method call
+        #
+        # `return_type` is the type of the call, `nil` when no method type is compatible with the call (`error`).
+        # `method_types` are the types of the definitions and `methods` their names, in the same order.
+        # `special` tells that a custom typing rule applies.
+        #
+        type method_call_content = {
+          kind: "method_call",
+          return_type: String?,
+          special: bool,
+          error: bool,
+          method_types: Array[String],
+          methods: Array[String]
+        }
+
+        # A method definition: the name of the definition, the method type being checked, and the ones declared
+        type definition_content = { kind: "definition", method: String, method_type: String, method_types: Array[String] }
+
+        # A constant: its name
+        type constant_content = { kind: "constant", name: String }
+
+        # A class, module, interface, or type alias written in a type: its name
+        type type_name_content = { kind: "type_name", name: String }
+
+        # What is at the position, told apart by `kind`
+        type content = variable_content
+                     | type_content
+                     | type_assertion_content
+                     | method_call_content
+                     | definition_content
+                     | constant_content
+                     | type_name_content
+
+        # `target` is the name of the target the file belongs to, and `range` is the text the content is about
+        type result = {
+          target: String,
+          range: range,
+          content: content
+        }
+      end
+
+      # The completion items at a position, which the provider finds and `LSPFormatter` renders with the
+      # documentation from the environment
+      #
+      module Completion
+        # A local variable: `name` is the text to insert, and `range` the text it replaces
+        type local_variable_item = { kind: "local_variable", range: range, name: String, type: String }
+
+        # An instance variable
+        type instance_variable_item = { kind: "instance_variable", range: range, name: String, type: String }
+
+        # A constant: `full_name` is the name of the constant
+        type constant_item = { kind: "constant", range: range, name: String, full_name: String }
+
+        # A method: `method_types` are the overloads, and `methods` the names of the definitions, empty for a
+        # method generated for the receiver type
+        type method_item = { kind: "method", range: range, name: String, method_types: Array[String], methods: Array[String] }
+
+        # A keyword argument: `name` has the trailing colon
+        type keyword_argument_item = { kind: "keyword_argument", range: range, name: String }
+
+        # A type name: `full_name` is the name of the type
+        type type_name_item = { kind: "type_name", range: range, name: String, full_name: String }
+
+        # A builtin type of RBS, like `untyped`
+        type builtin_type_item = { kind: "builtin_type", range: range, name: String }
+
+        # A snippet
+        type text_item = { kind: "text", range: range, label: String, text: String, help_text: String? }
+
+        # A completion candidate, told apart by `kind`
+        type item = local_variable_item
+                  | instance_variable_item
+                  | constant_item
+                  | method_item
+                  | keyword_argument_item
+                  | type_name_item
+                  | builtin_type_item
+                  | text_item
+
+        # `incomplete` tells that the environment has an error and the items may be incomplete
+        type result = {
+          target: String,
+          incomplete: bool,
+          items: Array[item]
+        }
+      end
+
+      # The signature help at a position, which the provider finds and `LSPFormatter` renders
+      #
+      module SignatureHelp
+        # `method_type` is an overload of the method being called, `parameters` are its parameters in the order of
+        # the signature, `active_parameter` is the index of the parameter at the position, and `method` is the
+        # name of the definition, absent for a method without definition
+        type signature = {
+          method_type: String,
+          parameters: Array[String],
+          active_parameter: Integer?,
+          method: String?
+        }
+
+        # `active_signature` is the index of the overload the call is resolved to
+        type help = { target: String, signatures: Array[signature], active_signature: Integer? }
+
+        # `signature_help` is `nil` when the position is not in the arguments of a method call, and `syntax_error`
+        # tells that the file cannot be parsed, so that the master keeps showing the last signature help while the
+        # user types
+        type result = { signature_help: help?, syntax_error: bool }
+      end
+
+      # What is at a cursor position, which the provider finds by type checking the file on demand, like hover
+      #
+      # The master looks the names up in its `TypeCheckDatabase` to answer goto requests -- `constant`,
+      # `type_name`, and `method_names` for definition and implementation, and the type names in `type` for
+      # typeDefinition.
+      #
+      module SourceSymbol
+        # What is at the position, each key present only when there is one
+        #
+        # * `constant` is the constant written at the position -- `::Foo`, referenced or defined in Ruby code, or
+        #   declared in an RBS file
+        # * `type_name` is the type name written in a type at the position -- `::Foo`, `::_Foo`, or `::foo`, in an
+        #   RBS file, a type annotation, or an inline RBS declaration
+        # * `method_names` are the methods written at the position -- `::Foo#bar` or `::Foo.bar`, resolved to the
+        #   names they are declared as, which may be several for a call on a union type
+        # * `type` is the type of the expression at the position in RBS syntax, absent in RBS files
+        #
+        type result = {
+          ?constant: String,
+          ?type_name: String,
+          ?method_names: Array[String],
+          ?type: String
+        }
+      end
+
+      attr_reader service: TypeCheckService
+
+      def initialize: (service: TypeCheckService) -> void
+
+      def project: () -> Project
+
+      # Returns what is at the position, type checking the file on demand like hover
+      #
+      # `path` is the absolute path of the file, and `line` is 1-origin.
+      #
+      def source_symbol: (path: Pathname, line: Integer, column: Integer) -> SourceSymbol::result
+
+      # Returns what is at the position, `nil` when nothing is there or the file is unknown
+      #
+      # The file may be a Ruby file or an RBS file of the project, or a library RBS file.
+      #
+      def hover: (path: Pathname, line: Integer, column: Integer) -> Hover::result?
+
+      # Translates a hover content to the wire, with the types as strings and the declarations as names
+      def hover_content: (HoverProvider::Ruby::content | HoverProvider::RBS::content) -> Hover::content
+
+      # The name a class or module declaration declares
+      def declared_type_name: (HoverProvider::ClassTypeContent::decl) -> RBS::TypeName
+
+      # Returns the completion candidates at the position, `nil` when the file is not in the project
+      def completion: (path: Pathname, line: Integer, column: Integer, trigger: String?) -> Completion::result?
+
+      def completion_item: (CompletionProvider::item item) -> Completion::item
+
+      # The builtin types of RBS, like `untyped`, as candidates replacing the `prefix_size` characters before the position
+      def builtin_type_items: (Integer prefix_size, Integer line, Integer column) -> Array[Completion::item]
+
+      # The range of the `prefix_size` characters before the position
+      def range_before: (Integer line, Integer column, Integer prefix_size) -> range
+
+      # Returns the signature help at the position, `nil` when the file is not in the project
+      def signature_help: (path: Pathname, line: Integer, column: Integer) -> SignatureHelp::result?
+
+      # The target of a Ruby or RBS file of the project, or the first target that loads a library RBS file
+      #
+      # `nil` for any other file.
+      #
+      def target_for: (Pathname absolute_path) -> Project::Target?
+    end
+  end
+end
