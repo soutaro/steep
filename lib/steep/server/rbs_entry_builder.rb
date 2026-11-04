@@ -3,21 +3,24 @@ module Steep
     class RBSEntryBuilder
       attr_reader :entries
 
-      def initialize
+      def initialize(paths: nil)
         @entries = {}
         @seen = Set[]
         @paths = {}
+        @only_paths = paths
       end
 
       def env(env)
         env.class_decls.each do |name, entry|
           entry.each_decl do |decl|
-            class_decl(name, decl)
+            class_decl(name, decl) if wanted?(decl.location)
           end
         end
 
         env.class_alias_decls.each do |name, entry|
           decl = entry.decl
+          next unless wanted?(decl.location)
+
           case decl
           when RBS::AST::Declarations::ClassAlias
             definition(name.to_s, :class, child_location(decl.location, :new_name))
@@ -36,6 +39,8 @@ module Steep
 
         env.interface_decls.each do |name, entry|
           decl = entry.decl
+          next unless wanted?(decl.location)
+
           definition(name.to_s, :interface, child_location(decl.location, :name))
           type_params(decl.type_params)
           members(name, decl.members)
@@ -43,6 +48,8 @@ module Steep
 
         env.type_alias_decls.each do |name, entry|
           decl = entry.decl
+          next unless wanted?(decl.location)
+
           definition(name.to_s, :type_alias, child_location(decl.location, :name))
           type_params(decl.type_params)
           type(decl.type)
@@ -50,6 +57,8 @@ module Steep
 
         env.constant_decls.each do |name, entry|
           decl = entry.decl
+          next unless wanted?(decl.location)
+
           case decl
           when RBS::AST::Declarations::Constant
             definition(name.to_s, :constant, child_location(decl.location, :name))
@@ -62,6 +71,8 @@ module Steep
 
         env.global_decls.each do |name, entry|
           decl = entry.decl
+          next unless wanted?(decl.location)
+
           definition(name.to_s, :global, child_location(decl.location, :name))
           type(decl.type)
         end
@@ -70,6 +81,11 @@ module Steep
       end
 
       private
+
+      def wanted?(location)
+        paths = @only_paths or return true
+        location ? paths.include?(Pathname(location.buffer.name)) : false
+      end
 
       def class_decl(name, decl)
         case decl

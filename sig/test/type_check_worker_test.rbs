@@ -37,13 +37,7 @@ class TypeCheckWorkerTest < Minitest::Test
 
   def test_handle_job_validate_app_signature: () -> untyped
 
-  def test_handle_job_validate_app_signature_entries: () -> untyped
-
-  def test_handle_job_validate_app_signature_entries_on_syntax_error: () -> untyped
-
   def test_handle_job_validate_lib_signature: () -> untyped
-
-  def test_handle_job_index_signature: () -> untyped
 
   def test_handle_job_typecheck_code: () -> untyped
 
