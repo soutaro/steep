@@ -2513,6 +2513,58 @@ a.gen(*b)
     end
   end
 
+  def test_splat_arg_tuple
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: () -> untyped
+  def gen: (String, Integer) -> String
+  def gen_rest: (*[String, Integer]) -> String
+end
+    EOF
+      source = parse_ruby(<<-'EOF')
+a = A.new
+pair = ["1", 2] #: [String, Integer]
+a.gen(*pair)
+a.gen(*["1", 2])
+pairs = [pair]
+a.gen_rest(*pairs)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_splat_arg_tuple_mismatch
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: () -> untyped
+  def gen: (String, Integer) -> String
+end
+    EOF
+      source = parse_ruby(<<-'EOF')
+a = A.new
+pair = [1, "2"] #: [Integer, String]
+a.gen(*pair)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
+            assert_equal parse_type("[::Integer, ::String]"), error.actual
+            assert_equal parse_type("[::String, ::Integer]"), error.expected
+          end
+        end
+      end
+    end
+  end
+
   def test_self
     with_checker <<-EOF do |checker|
 class Hoge

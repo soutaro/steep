@@ -26,6 +26,11 @@ module Steep
           def node_type: () -> AST::Types::t
         end
 
+        # A splatted tuple, whose `type` is the type of the whole tuple, not of its elements
+        class TupleSplatPair < NodeTypePair
+          def node_type: () -> AST::Types::t
+        end
+
         class SplatArg
           attr_reader node: Parser::AST::Node
 
