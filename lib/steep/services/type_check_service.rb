@@ -147,13 +147,15 @@ module Steep
       end
 
       def update(changes:)
-        Steep.measure "#update_signature" do
+        resolved_paths = Steep.measure "#update_signature" do
           update_signature(changes: changes)
         end
 
         Steep.measure "#update_sources" do
           update_sources(changes: changes)
         end
+
+        resolved_paths
       end
 
       def validate_signature(path:, target:, content: nil)
@@ -297,6 +299,7 @@ module Steep
 
       def update_signature(changes:)
         Steep.logger.tagged "#update_signature" do
+          resolved_paths = {} #: Hash[Symbol, Set[Pathname]]
           signature_targets = {} #: Hash[Pathname, Project::Target]
           changes.each do |path, changes|
             if target = project.target_for_signature_path(path) || project.target_for_inline_source_path(path)
@@ -313,10 +316,13 @@ module Steep
               end
 
               unless target_changes.empty?
-                signature_services.fetch(target.name).update(target_changes)
+                paths = signature_services.fetch(target.name).update(target_changes)
+                resolved_paths[target.name] = paths unless paths.empty?
               end
             end
           end
+
+          resolved_paths
         end
       end
 
