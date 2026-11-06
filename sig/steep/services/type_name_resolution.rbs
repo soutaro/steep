@@ -1,0 +1,98 @@
+module Steep
+  module Services
+    # Resolves the type names of the sources of an environment, and finds the sources to resolve again when type names
+    # are added to or removed from the environment
+    #
+    # The incremental update of an environment resolves the type names of the updated files only, and the other sources
+    # keep the names resolved with the previous environment. The resolution of a type name tests the existence of
+    # candidate names in order, from the innermost module to the root, and stops at the first one it finds. So the
+    # resolution of a source changes only if the existence of one of the names it tested changes: a name it didn't find
+    # is added, or the name it found is removed. The resolver records the names it tests for each source, and the
+    # sources whose records have a changed name are resolved again.
+    #
+    # Two dependencies are not tests of names. A wildcard `use` directive depends on the set of the children of its
+    # namespace, so the sources with the directive are resolved again when a name under the namespace changes. An alias
+    # declared in a changed file may refer to another module: the alias counts as a changed name, and the sources that
+    # tested the alias are resolved again. The references through an alias test the names of its module too, so a
+    # change of the module affects them without another pass.
+    #
+    class TypeNameResolution
+      # Records the names it tests while resolving the type names of a source
+      #
+      # The resolver caches the resolution of a name in a context, and the cache entries keep the names tested for them:
+      # a source that hits the cache depends on the names as the source that filled it does.
+      #
+      class Resolver < RBS::Resolver::TypeNameResolver
+        # The names tested while resolving each source
+        #
+        attr_reader probes: Hash[Pathname, Set[RBS::TypeName]]
+
+        # The cache of the resolutions, with the names tested for each entry
+        #
+        @entries: Hash[RBS::Resolver::context, Hash[RBS::TypeName, [RBS::TypeName?, Array[RBS::TypeName]]]]
+
+        # The names tested so far for the source, or the cache entry, being resolved
+        #
+        @current: Array[RBS::TypeName]?
+
+        def initialize: (Set[RBS::TypeName] all_names, Hash[RBS::TypeName, [RBS::TypeName, RBS::Resolver::context]] aliases) -> void
+
+        # Records the names tested in the block as the probes of the source at the path
+        #
+        def record: (Pathname path) { () -> void } -> void
+
+        private
+
+        def has_type_name?: (RBS::TypeName) -> RBS::TypeName?
+
+        def aliased_name?: (RBS::TypeName) -> RBS::TypeName?
+
+        def try_cache: (RBS::TypeName, RBS::Resolver::context) { () -> RBS::TypeName? } -> RBS::TypeName?
+      end
+
+      # The names tested while resolving each source of the environment
+      #
+      # The keys are the names of the buffers: the relative paths of the files of the project, and the absolute paths of
+      # the libraries. The sources whose type names are not resolved have no entry.
+      #
+      attr_reader probes: Hash[Pathname, Set[RBS::TypeName]]
+
+      # The namespaces of the wildcard `use` directives of each source
+      #
+      attr_reader wildcards: Hash[Pathname, Array[RBS::Namespace]]
+
+      def initialize: (?probes: Hash[Pathname, Set[RBS::TypeName]], ?wildcards: Hash[Pathname, Array[RBS::Namespace]]) -> void
+
+      # Resolves the type names of the sources of the environment, and returns the resolved environment with the
+      # resolution that records the sources
+      #
+      # `paths` are the sources to resolve, and the other sources are copied as they are. The records of `paths` are
+      # replaced, so that a path that is not in the environment anymore loses its records. All the sources are resolved
+      # if `paths` is `nil`, and the records start over.
+      #
+      # The type names are resolved as `RBS::Environment#resolve_type_names` does, with the resolver that records the
+      # names.
+      #
+      def resolve: (RBS::Environment env, ?paths: Set[Pathname]?) -> [RBS::Environment, TypeNameResolution]
+
+      # Returns the paths of the recorded sources whose type names may resolve to different names in `new_env`
+      #
+      # `old_env` is the environment the sources are resolved in, and `new_env` has the declarations after the update.
+      # The sources of `except` are skipped: they are resolved again anyway.
+      #
+      def affected_paths: (RBS::Environment old_env, RBS::Environment new_env, except: Set[Pathname]) -> Set[Pathname]
+
+      # Returns the names of classes, modules, interfaces, type aliases, and class/module aliases that exist in only one
+      # of the environments, with the aliases whose declarations are replaced
+      #
+      # A name that changes its kind, like a class replaced by an alias, exists in both environments but is a change of
+      # the tables.
+      #
+      def changed_names: (RBS::Environment old_env, RBS::Environment new_env) -> Set[RBS::TypeName]
+
+      # Adds the keys that exist in only one of the hashes to `names`
+      #
+      def add_key_changes: (Hash[RBS::TypeName, untyped] old_decls, Hash[RBS::TypeName, untyped] new_decls, Set[RBS::TypeName] names) -> void
+    end
+  end
+end

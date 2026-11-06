@@ -36,4 +36,34 @@ class SignatureServiceTest < Minitest::Test
   def test__inline__update_syntax_error2: () -> untyped
 
   def test__inline__update_empty_comment: () -> untyped
+
+  def update_files: (untyped service, untyped files) -> untyped
+
+  def method_types: (untyped service, untyped type_name, untyped method_name) -> untyped
+
+  def test_update__resolve_again__name_in_outer_module: () -> untyped
+
+  def test_update__resolve_again__unresolved_name: () -> untyped
+
+  def test_update__resolve_again__alias: () -> untyped
+
+  def test_update__resolve_again__alias_to_removed_class: () -> untyped
+
+  def test_update__resolve_again__alias_target_changed: () -> untyped
+
+  def test_update__resolve_again__class_replaced_by_alias: () -> untyped
+
+  def test_update__resolve_again__namespace_of_qualified_name: () -> untyped
+
+  def test_update__resolve_again__use_wildcard: () -> untyped
+
+  def test_update__resolve_again__same_name_in_same_context: () -> untyped
+
+  def test_update__resolve_again__inline: () -> untyped
+
+  def test_update__resolve_again__library: () -> untyped
+
+  def test_update__resolve_again__unaffected: () -> untyped
+
+  def test_update__resolve_again__after_syntax_error: () -> untyped
 end
