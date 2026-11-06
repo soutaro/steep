@@ -302,6 +302,10 @@ module Steep
         () -> Interface::Substitution
       } -> [Interface::MethodType, bool, Interface::Substitution]
 
+    # Returns `true` if the type variable occurs in the parameters of the method, or in the parameters or self type of the block
+    #
+    def param_variable?: (Interface::MethodType, Symbol var) -> bool
+
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 
     # Type check arguments

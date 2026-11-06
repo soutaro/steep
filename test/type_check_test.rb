@@ -2155,16 +2155,16 @@ class TypeCheckTest < Minitest::Test
           diagnostics:
           - range:
               start:
-                line: 4
-                character: 18
+                line: 3
+                character: 6
               end:
-                line: 6
-                character: 7
+                line: 3
+                character: 9
             severity: ERROR
             message: |-
-              Cannot allow block body have type `::Symbol` because declared as type `T`
+              Cannot allow method body have type `::Symbol` because declared as type `T`
                 ::Symbol <: T
-            code: Ruby::BlockBodyTypeMismatch
+            code: Ruby::MethodBodyTypeMismatch
         YAML
     )
   end
