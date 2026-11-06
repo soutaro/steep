@@ -334,9 +334,19 @@ module Steep
 
       # Updates the environments with the changes, and indexes the RBS files and inline RBS sources among them
       #
+      # The files whose type names are resolved to different names with the changes are indexed too, because the entries
+      # have the resolved names of the references.
+      #
       # Runs on the environment thread.
       #
       def update_environments: (Services::TypeCheckService service, ChangeBuffer::changes changes, Array[[Symbol, Pathname]] signature_files) -> void
+
+      # The files whose type names are resolved to different names, as the target name and the absolute path
+      #
+      # The files of the project are indexed with the targets they belong to, and the libraries with every target. A file of
+      # the project resolved in the environment of another target is skipped.
+      #
+      def resolved_signature_files: (Hash[Symbol, Set[Pathname]] resolved_paths) -> Array[[Symbol, Pathname]]
 
       # The RBS files and inline RBS sources among the changes, as the target name and the absolute path
       def signature_files_in: (ChangeBuffer::changes changes) -> Array[[Symbol, Pathname]]

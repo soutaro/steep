@@ -1293,10 +1293,20 @@ module Steep
       end
 
       def update_environments(service, changes, signature_files)
-        Steep.measure("Updating the environments with #{changes.size} files") do
+        resolved_paths = Steep.measure("Updating the environments with #{changes.size} files") do
           service.update(changes: changes)
         end
-        index_signatures(service, signature_files)
+        index_signatures(service, signature_files | resolved_signature_files(resolved_paths))
+      end
+
+      def resolved_signature_files(resolved_paths)
+        resolved_paths.flat_map do |target_name, paths|
+          paths.filter_map do |path|
+            path = project.absolute_path(path)
+            target = project.target_for_signature_path(path) || project.target_for_inline_source_path(path)
+            [target_name, path] if target.nil? || target.name == target_name
+          end
+        end
       end
 
       def signature_files_in(changes)

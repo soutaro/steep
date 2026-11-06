@@ -63,6 +63,46 @@ RBS
     end
   end
 
+  def test_update__resolved_paths
+    service = Services::TypeCheckService.new(project: project)
+
+    service.update(changes: reset_changes.merge(
+      Pathname("sig/core.rbs") => [ContentChange.string(<<~RBS)]
+        module M
+          class A
+            def foo: () -> B
+          end
+        end
+
+        class B
+        end
+      RBS
+    ))
+
+    # `test` is unreferenced, and only the target loads `sig/core_test.rbs`
+    paths = service.update(changes: {
+      Pathname("sig/core_test.rbs") => [ContentChange.string(<<~RBS)]
+        module M
+          class B
+          end
+        end
+      RBS
+    })
+    assert_equal({ test: Set[Pathname("sig/core.rbs")] }, paths)
+
+    # Every target loads `sig/main.rbs`
+    paths = service.update(changes: {
+      Pathname("sig/core_test.rbs") => [ContentChange.string("")],
+      Pathname("sig/main.rbs") => [ContentChange.string(<<~RBS)]
+        module M
+          class B
+          end
+        end
+      RBS
+    })
+    assert_equal({ core: Set[Pathname("sig/core.rbs")], main: Set[Pathname("sig/core.rbs")], inline: Set[Pathname("sig/core.rbs")] }, paths)
+  end
+
   def test_update_file__signature_unreferenced
     service = Services::TypeCheckService.new(project: project)
 
