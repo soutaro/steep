@@ -32,7 +32,8 @@ module Steep
           def node_type
             case node.type
             when :splat
-              AST::Builtin::Array.instance_type(type)
+              # `*nil` passes no arguments
+              AST::Types::Union.build(types: [AST::Builtin::Array.instance_type(type), AST::Builtin.nil_type])
             else
               type
             end
