@@ -13,6 +13,12 @@ class TypeCheckServiceTest < Minitest::Test
 
   def reset_changes: () -> untyped
 
+  def method_types: (untyped service, untyped type_name, untyped method_name) -> untyped
+
+  def test_initialize__derived_libraries: () -> untyped
+
+  def test_update__derived_files: () -> untyped
+
   def test_update_file__signature: () -> untyped
 
   def test_update__resolved_paths: () -> untyped
