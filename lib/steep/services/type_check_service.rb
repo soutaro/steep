@@ -107,9 +107,19 @@ module Steep
         @project = project
 
         @source_files = {}
-        @signature_services = project.targets.each.with_object({}) do |target, hash| #$ Hash[Symbol, SignatureService]
+        @signature_services = {}
+
+        base = nil #: SignatureService?
+        project.targets.each do |target|
           loader = Project::Target.construct_env_loader(options: target.options, project: project)
-          hash[target.name] = SignatureService.load_from(loader, implicitly_returns_nil: target.implicitly_returns_nil)
+          service = base&.derive(
+            library_paths: SignatureService.library_paths(loader),
+            changes: {},
+            implicitly_returns_nil: target.implicitly_returns_nil
+          )
+          service ||= SignatureService.load_from(loader, implicitly_returns_nil: target.implicitly_returns_nil)
+          base ||= service
+          @signature_services[target.name] = service
         end
         @signature_validation_diagnostics = project.targets.each.with_object({}) do |target, hash| #$ Hash[Symbol, Hash[Pathname, Array[Diagnostic::Signature::Base]]]
           hash[target.name] = {}
@@ -316,14 +326,32 @@ module Steep
               end
 
               unless target_changes.empty?
-                paths = signature_services.fetch(target.name).update(target_changes)
-                resolved_paths[target.name] = paths unless paths.empty?
+                service = signature_services.fetch(target.name)
+
+                if service.files.empty? && target != base_target
+                  derived = signature_services.fetch(base_target.name).derive(
+                    library_paths: service.env_rbs_paths,
+                    changes: target_changes,
+                    implicitly_returns_nil: target.implicitly_returns_nil
+                  )
+                end
+
+                if derived
+                  signature_services[target.name] = derived
+                else
+                  paths = service.update(target_changes)
+                  resolved_paths[target.name] = paths unless paths.empty?
+                end
               end
             end
           end
 
           resolved_paths
         end
+      end
+
+      def base_target
+        project.targets.first or raise "No targets"
       end
 
       def update_sources(changes:)
