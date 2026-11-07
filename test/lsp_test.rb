@@ -486,7 +486,12 @@ RUBY
         end
 
         # Jump to Ruby file works when the Ruby code is already type checked
+        #
+        # Opening the RBS file starts the type check of the `main` group, which may take a while
         client.open_file("sig/main/main.rbs")
+        finally_holds do
+          assert_operator client.diagnostics, :key?, Pathname("lib/main/main.rb")
+        end
         finally_holds(timeout: 3) do
           client.goto_definition("sig/main/main.rbs", line: 0, character: 8) do |result|
             assert_any!(result) do |location|
