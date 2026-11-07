@@ -1771,6 +1771,141 @@ a, @b = _ = nil
     end
   end
 
+  def test_masgn_block_call
+    with_checker(<<~RBS) do |checker|
+      class MasgnBlockCall
+        def self.measure: [A] () { () -> A } -> A
+        def self.pair: () -> [Integer, String]
+      end
+    RBS
+      source = parse_ruby(<<~RUBY)
+        a, b = MasgnBlockCall.measure { MasgnBlockCall.pair }
+        c, d = MasgnBlockCall.measure do
+          [1, "foo"]
+        end
+        e, f = [MasgnBlockCall.measure { 1 }, :foo]
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer"), context.type_env[:a]
+        assert_equal parse_type("::String"), context.type_env[:b]
+        assert_equal parse_type("::Integer"), context.type_env[:c]
+        assert_equal parse_type("::String"), context.type_env[:d]
+        assert_equal parse_type("::Integer"), context.type_env[:e]
+        assert_equal parse_type("::Symbol"), context.type_env[:f]
+      end
+    end
+  end
+
+  def test_masgn_block_call__declared_variable
+    with_checker(<<~RBS) do |checker|
+      class MasgnBlockCall
+        def self.measure: [A] () { () -> A } -> A
+        def self.pair: () -> [Integer, String]
+      end
+    RBS
+      source = parse_ruby(<<~RUBY)
+        # @type var a: Integer?
+        a, b = MasgnBlockCall.measure { MasgnBlockCall.pair }
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::Integer?"), context.type_env[:a]
+        assert_equal parse_type("::String"), context.type_env[:b]
+      end
+    end
+  end
+
+  def test_masgn_block_call__reassign
+    with_checker(<<~RBS) do |checker|
+      class MasgnBlockCall
+        def self.measure: [A] () { () -> A } -> A
+      end
+    RBS
+      source = parse_ruby(<<~RUBY)
+        a = 1
+        b = 2
+        a, b = MasgnBlockCall.measure { ["foo", 3] }
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        _, _, context = construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        assert_equal parse_type("::String"), context.type_env[:a]
+        assert_equal parse_type("::Integer"), context.type_env[:b]
+      end
+    end
+  end
+
+  def test_block_call_hint
+    with_checker(<<~RBS) do |checker|
+      class BlockCallHint
+        def self.measure: [A] () { () -> A } -> A
+        def self.wrap: [A] () { () -> A } -> BlockCallHint::Box[A]
+      end
+
+      class BlockCallHint::Box[A]
+      end
+    RBS
+      source = parse_ruby(<<~RUBY)
+        # @type var x: [:ok, untyped]
+        x = BlockCallHint.measure { [:ok, 1] }
+
+        # @type var y: BlockCallHint::Box[Integer?]
+        y = BlockCallHint.wrap { 1 }
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+
+        # The type variable is inferred from the block body, which is typed with the hint
+        assert_equal parse_type("[:ok, ::Integer]"), typing.type_of(node: dig(source.node, 0, 1))
+
+        # The type variable is `Integer?` from the hint, because `Box` is invariant
+        assert_equal parse_type("::BlockCallHint::Box[::Integer?]"), typing.type_of(node: dig(source.node, 1, 1))
+      end
+    end
+  end
+
+  def test_block_call_hint__unsatisfiable
+    with_checker(<<~RBS) do |checker|
+      class BlockCallHint
+        def self.measure: [A] () { () -> A } -> A
+      end
+    RBS
+      source = parse_ruby(<<~RUBY)
+        # @type var x: String
+        x = BlockCallHint.measure { 1 }
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        # The hint is ignored, and the mismatch is reported at the assignment
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::IncompatibleAssignment, error
+            assert_equal parse_type("::Integer"), error.rhs_type
+          end
+        end
+
+        assert_equal parse_type("::Integer"), typing.type_of(node: dig(source.node, 1))
+      end
+    end
+  end
+
   def test_union_send_error
     with_checker do |checker|
       source = parse_ruby(<<-RUBY)
