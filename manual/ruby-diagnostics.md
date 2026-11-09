@@ -1501,7 +1501,7 @@ Unexpected error is raised during type checking. Maybe a bug.
 
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
-| error | information | hint | hint | - |
+| error | error | error | hint | - |
 
 <a name='Ruby::UnexpectedJump'></a>
 ## Ruby::UnexpectedJump
