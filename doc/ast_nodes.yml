@@ -1,1411 +1,3506 @@
 # Steep AST ノード仕様(ドラフト)
 #
-# 目的:
-#   Parser::AST::Node(parser gem 形式)を、Steep 自身の型付きノードクラス群に置き換えるための仕様。
-#   生成器の入力を想定している(ノードクラス / Location クラス / RBS をここから生成する)。
+# このファイルは doc/generate_ast_nodes.rb が生成する。手で編集せず、スクリプト側の差分定義を変更して再生成する。
 #
-# 根拠:
-#   - prism 2.1.0 の Prism::Translation::Parser34 を Steep と同じ Builder 設定
-#     (emit_lambda / emit_procarg0 / emit_kwargs / emit_forward_arg = true、その他は既定値 false)で動かし、
-#     全ノード種を含むスニペット集をパースして children の形と Source::Map のフィールドの有無を実測した。
-#   - Steep 側の依存(TypeConstruction の分岐、NodeHelper#deconstruct_*、Source#construct_mapping、
-#     Source#insert_type_node、sig/shims/parser/nodes.rbs)を照合した。
+#   $ ruby doc/generate_ast_nodes.rb > doc/ast_nodes.yml
 #
-# 記法:
-#   name:        生成するクラス名(名前空間は未決。例: Steep::AST::Node::IfNode)
-#   parser:      対応する parser gem のノード種(互換プロトコルの `type` が返す Symbol)
-#   steep:       typed        = TypeConstruction#synthesize に分岐がある
-#                via_parent   = 親ノードの処理の中で扱われる(単独では synthesize されない)
-#                unsupported  = 現状 UnsupportedSyntax になる
-#                steep_only   = parser 由来ではなく Steep が導入するノード
-#   fields:      フィールド名 => 型。並び順は parser の children の順(互換プロトコルの `children` を生成するため)。
-#                型表記: node = 任意の式ノード、node? = nil 可、Array[...]、Symbol / String / Integer / Float / Rational / Complex、
-#                具体クラス名、`A | B` は和。別名は type_aliases を参照。
-#   annotations: ブロックアノテーションを保持するスロット(Array[annotation])。
-#   locations:   `<Name>::Location` の持つフィールド => required | optional。
-#                全ノードに expression(required)があるものとし、expression が optional の場合のみ明記する。
-#                各フィールドは flat な RBS::Location(RBS::Location[bot, bot])。
-#                フィールド名は parser gem の Source::Map に合わせている(機械的な移行のため)。
-#   notes:       補足。
+# 方針:
+#   - Steep の AST は Prism のノード構造に従う。nodes の各要素は Prism 2.1.0 の config.yml の定義を写し、
+#     Steep 向きの差分を適用したもの。フィールドの説明と例は Prism の config.yml を参照する。
+#   - 各ノードは Steep 自身のクラス(Prism のクラスではない)として生成する。`type: location` / `location?` のフィールドは
+#     `<Name>::Location` クラスに束ねられ(フィールド名は `_loc` を外したもの)、`expression`(ノード全体の範囲)が加わる。
+#     各位置は flat な RBS::Location(RBS::Location[bot, bot])。
+#   - ブロックアノテーションは木の一部にする。本体を表す StatementsNode は空でも常に存在し、`annotations` フィールドを持つ。
+#     型アサーション `#: T` と型適用 `#$ T` は TypeAssertionNode / TypeApplicationNode として木に入る。
+#   - `==` / `hash` は fields から構造的に計算し、location と annotations は含めない(TypeEnv の pure node キーのため)。
+#   - 木は Prism.parse の結果から Prism::Compiler のサブクラスで構築する想定(open_questions 参照)。
 #
-# 等価性:
-#   `==` / `hash` は fields(と annotations?)から構造的に計算し、location は含めない。
-#   TypeEnv の pure node キーが構造的等価を前提にしているため。annotations を含めるかは要検討(含めない方が自然)。
+# 各ノードのキー:
+#   name / prism:  Steep のクラス名と、対応する Prism のノード名(Steep 独自ノードは prism が null)
+#   steep:         typed = 現状の TypeConstruction で対応する構文を型検査している
+#                  unsupported = 現状 UnsupportedSyntax になる構文
+#                  steep_only = Steep が導入するノード
+#   flags:         Prism の flags 名(flags セクション)
+#   fields:        name / type / kind(Prism と同じ語彙。type_mapping に Ruby 型との対応)。steep キーは Steep での変更点
+#   comment:       Prism の説明(英語)。`^^^` は例の中でそのノードが表す範囲
+#   steep_notes:   Steep 向きの補足(日本語)
 
-version: draft-1
-
-type_aliases:
-  node: "任意の式ノード(Base)。nil を許す場合は node?"
-  body: "node?(文の並びは BeginNode、単文はそのノード、空は nil)"
-  call: "SendNode | CsendNode | SuperNode | ZsuperNode | LambdaNode(BlockNode 系の呼び出し側)"
-  argument: "node | SplatNode | BlockPassNode | KwargsNode | ForwardedArgsNode | ForwardedRestargNode | ForwardedKwrestargNode"
-  param: "ArgNode | OptargNode | RestargNode | KwargNode | KwoptargNode | KwrestargNode | KwnilargNode | BlockargNode | Procarg0Node | MlhsNode | ShadowargNode | ForwardArgNode"
-  asgn_target: "LvasgnNode | IvasgnNode | GvasgnNode | CvasgnNode | CasgnNode | SendNode | CsendNode(いずれも value を持たない形)"
-  mlhs_item: "asgn_target | SplatNode | MlhsNode | ArgNode(def/block のパラメータ内の分割代入では ArgNode)"
-  string_part: "StrNode | BeginNode(式展開 #{...}) | DstrNode"
-  pattern: "MatchVarNode | MatchAltNode | MatchAsNode | MatchRestNode | PinNode | ArrayPatternNode | ArrayPatternWithTailNode | FindPatternNode | HashPatternNode | ConstPatternNode | ConstNode | node(リテラル・範囲など値パターン)"
-  annotation: "VarTypeAnnotation | MethodTypeAnnotation | ConstTypeAnnotation | IvarTypeAnnotation | ReturnTypeAnnotation | BlockTypeAnnotation | SelfTypeAnnotation | InstanceTypeAnnotation | ModuleTypeAnnotation | BreakTypeAnnotation | ImplementsAnnotation | DynamicAnnotation"
-
-# ---------------------------------------------------------------------------
-# Steep が導入するノード
-# ---------------------------------------------------------------------------
-steep_nodes:
-  - name: ProgramNode
-    parser: null
-    steep: steep_only
-    fields:
-      statements: body
-    annotations: [annotations]
-    locations: {}
-    notes:
-      - "ルートノード。現状の `Source#node: Parser::AST::Node?` と `mapping[root]`(トップレベルおよびどこにも付かなかったアノテーション)を置き換える。"
-      - expression はバッファ全体。comments と steep:ignore は Source 側に残す(木には入れない)。
-
-  - name: TypeAssertionNode
-    parser: assertion
-    steep: typed
-    fields:
-      expression: node
-      assertion: TypeAssertion
-    annotations: []
-    locations: {}
-    notes:
-      - 現状 `(assertion expr <TypeAssertion>)` で第 2 子が Node でないオブジェクトになっている箇所の置き換え。
-      - expression の範囲は式の先頭からコメント末尾まで(現状の assertion_node と同じ)。
-      - TypeAssertion オブジェクトは annotations セクションを参照。RBS 型は Source.parse 時に 1 回だけパースして保持する。
-      - 付与規則は Source.insert_type_node のものを移植する。代入(lvasgn/ivasgn/gvasgn/cvasgn/casgn)は右辺に付ける、
-        return/break/next、def/defs、kwargs、when、pair のキーには付けない、masgn は右辺、括弧つき begin は全体、
-        attr_reader/writer/accessor は付けない(inline RBS が扱う)、Data.define / Struct.new の引数には付けない。
-
-  - name: TypeApplicationNode
-    parser: tapp
-    steep: typed
-    fields:
-      call: SendNode | CsendNode | BlockNode | NumblockNode | ItblockNode
-      application: TypeApplication
-    annotations: []
-    locations: {}
-    notes:
-      - 現状 `(tapp sendish <TypeApplication>)` の置き換え。TypeApplication#set_node の逆参照は不要になる。
-      - expression は呼び出し式の範囲。コメントが式の末尾より後ろにある場合はコメント末尾まで伸ばす(現状の type_application_node と同じ)。
-
-# ---------------------------------------------------------------------------
-# parser gem 由来のノード
-# ---------------------------------------------------------------------------
+version: draft-2
+prism_version: 2.1.0
+type_mapping:
+  node: Node(抽象基底。kind があればそのクラス)
+  node?: Node?
+  node[]: Array[Node]
+  constant: Symbol
+  constant?: Symbol?
+  constant[]: Array[Symbol]
+  string: String
+  integer: Integer
+  double: Float
+  uint8: Integer
+  uint32: Integer
+  location: RBS::Location(flat。<Name>::Location のフィールドになる)
+  location?: RBS::Location?(同上)
+  annotation[]: Array[annotation](Steep 独自。annotations セクションのクラスの和)
+  TypeAssertion: Steep::AST::TypeAssertion(Steep 独自。annotations セクション)
+  TypeApplication: Steep::AST::TypeApplication(Steep 独自。annotations セクション)
+dropped_nodes:
+  ErrorRecoveryNode: Steep は構文エラーのあるファイルを型検査しない(all_errors_are_fatal)。LSP で error tolerant にする場合に再検討。
+dropped_fields:
+  locals: all nodes
+  depth: all nodes
+flags:
+- name: ArgumentsNodeFlags
+  values:
+  - name: CONTAINS_FORWARDING
+    comment: if the arguments contain forwarding
+  - name: CONTAINS_KEYWORDS
+    comment: if the arguments contain keywords
+  - name: CONTAINS_KEYWORD_SPLAT
+    comment: if the arguments contain a keyword splat
+  - name: CONTAINS_SPLAT
+    comment: if the arguments contain a splat
+  - name: CONTAINS_MULTIPLE_SPLATS
+    comment: if the arguments contain multiple splats
+- name: ArrayNodeFlags
+  values:
+  - name: CONTAINS_SPLAT
+    comment: if array contains splat nodes
+- name: CallNodeFlags
+  values:
+  - name: SAFE_NAVIGATION
+    comment: "&. operator"
+  - name: VARIABLE_CALL
+    comment: a call that could have been a local variable
+  - name: ATTRIBUTE_WRITE
+    comment: a call that is an attribute write, so the value being written should be returned
+  - name: IGNORE_VISIBILITY
+    comment: a call that ignores method visibility
+- name: EncodingFlags
+  values:
+  - name: FORCED_UTF8_ENCODING
+    comment: internal bytes forced the encoding to UTF-8
+  - name: FORCED_BINARY_ENCODING
+    comment: internal bytes forced the encoding to binary
+- name: IntegerBaseFlags
+  values:
+  - name: BINARY
+    comment: 0b prefix
+  - name: DECIMAL
+    comment: 0d or no prefix
+  - name: OCTAL
+    comment: 0o or 0 prefix
+  - name: HEXADECIMAL
+    comment: 0x prefix
+- name: InterpolatedStringNodeFlags
+  values:
+  - name: FROZEN
+    comment: 'frozen by virtue of a `frozen_string_literal: true` comment or `--enable-frozen-string-literal`; only for adjacent string literals like `''a'' ''b''`'
+  - name: MUTABLE
+    comment: 'mutable by virtue of a `frozen_string_literal: false` comment or `--disable-frozen-string-literal`; only for adjacent string literals like `''a'' ''b''`'
+- name: KeywordHashNodeFlags
+  values:
+  - name: SYMBOL_KEYS
+    comment: a keyword hash which only has `AssocNode` elements all with symbol keys, which means the elements can be treated as keyword arguments
+- name: LoopFlags
+  values:
+  - name: BEGIN_MODIFIER
+    comment: a loop after a begin statement, so the body is executed first before the condition
+- name: ParameterFlags
+  values:
+  - name: REPEATED_PARAMETER
+    comment: a parameter name that has been repeated in the method signature
+- name: ParenthesesNodeFlags
+  values:
+  - name: MULTIPLE_STATEMENTS
+    comment: parentheses that contain multiple potentially void statements
+- name: RangeFlags
+  values:
+  - name: EXCLUDE_END
+    comment: "... operator"
+- name: RegularExpressionFlags
+  values:
+  - name: IGNORE_CASE
+    comment: i - ignores the case of characters when matching
+  - name: EXTENDED
+    comment: x - ignores whitespace and allows comments in regular expressions
+  - name: MULTI_LINE
+    comment: m - allows $ to match the end of lines within strings
+  - name: ONCE
+    comment: o - only interpolates values into the regular expression once
+  - name: EUC_JP
+    comment: e - forces the EUC-JP encoding
+  - name: ASCII_8BIT
+    comment: n - forces the ASCII-8BIT encoding
+  - name: WINDOWS_31J
+    comment: s - forces the Windows-31J encoding
+  - name: UTF_8
+    comment: u - forces the UTF-8 encoding
+  - name: FORCED_UTF8_ENCODING
+    comment: internal bytes forced the encoding to UTF-8
+  - name: FORCED_BINARY_ENCODING
+    comment: internal bytes forced the encoding to binary
+  - name: FORCED_US_ASCII_ENCODING
+    comment: internal bytes forced the encoding to US-ASCII
+- name: ShareableConstantNodeFlags
+  values:
+  - name: LITERAL
+    comment: constant writes that should be modified with shareable constant value literal
+  - name: EXPERIMENTAL_EVERYTHING
+    comment: constant writes that should be modified with shareable constant value experimental everything
+  - name: EXPERIMENTAL_COPY
+    comment: constant writes that should be modified with shareable constant value experimental copy
+- name: StringFlags
+  values:
+  - name: FORCED_UTF8_ENCODING
+    comment: internal bytes forced the encoding to UTF-8
+  - name: FORCED_BINARY_ENCODING
+    comment: internal bytes forced the encoding to binary
+  - name: FROZEN
+    comment: 'frozen by virtue of a `frozen_string_literal: true` comment or `--enable-frozen-string-literal`'
+  - name: MUTABLE
+    comment: 'mutable by virtue of a `frozen_string_literal: false` comment or `--disable-frozen-string-literal`'
+- name: SymbolFlags
+  values:
+  - name: FORCED_UTF8_ENCODING
+    comment: internal bytes forced the encoding to UTF-8
+  - name: FORCED_BINARY_ENCODING
+    comment: internal bytes forced the encoding to binary
+  - name: FORCED_US_ASCII_ENCODING
+    comment: internal bytes forced the encoding to US-ASCII
 nodes:
-  # ----- リテラル -----
-  - name: NilNode
-    parser: nil
-    steep: typed
-    fields: {}
-    locations: {}
-
-  - name: TrueNode
-    parser: true
-    steep: typed
-    fields: {}
-    locations: {}
-
-  - name: FalseNode
-    parser: false
-    steep: typed
-    fields: {}
-    locations: {}
-
-  - name: SelfNode
-    parser: self
-    steep: typed
-    fields: {}
-    locations: {}
-
-  - name: IntNode
-    parser: int
-    steep: typed
-    fields:
-      value: Integer
-    locations:
-      operator: optional   # 単項マイナス `-1`
-    notes:
-      - "`__LINE__` は IntNode になる(expression のみ)。"
-
-  - name: FloatNode
-    parser: float
-    steep: typed
-    fields:
-      value: Float
-    locations:
-      operator: optional   # `-1.0`
-
-  - name: RationalNode
-    parser: rational
-    steep: typed
-    fields:
-      value: Rational
-    locations:
-      operator: optional   # `-3r`
-
-  - name: ComplexNode
-    parser: complex
-    steep: typed
-    fields:
-      value: Complex
-    locations:
-      operator: optional   # `-2i`
-
-  - name: StrNode
-    parser: str
-    steep: typed
-    fields:
-      value: String
-    locations:
-      begin: optional          # 引用符。dstr の一部・ヒアドキュメント本文・`__FILE__` では nil
-      end: optional
-      heredoc_body: optional   # ヒアドキュメント形式のとき(begin/end は nil)
-      heredoc_end: optional
-    notes:
-      - "`__FILE__` は StrNode になる(expression のみ)。"
-      - ヒアドキュメントの位置は Source#each_heredoc_node / find_heredoc_nodes が利用する。
-
-  - name: DstrNode
-    parser: dstr
-    steep: typed
-    fields:
-      parts: Array[string_part]
-    locations:
-      begin: optional          # `"a" "b"`(隣接文字列)では nil、各 part が自分の引用符を持つ
-      end: optional
-      heredoc_body: optional
-      heredoc_end: optional
-
-  - name: XstrNode
-    parser: xstr
-    steep: typed
-    fields:
-      parts: Array[string_part]
-    locations:
-      begin: optional          # バッククォート。ヒアドキュメント形式(<<~`EOS`)では nil
-      end: optional
-      heredoc_body: optional
-      heredoc_end: optional
-
-  - name: SymNode
-    parser: sym
-    steep: typed
-    fields:
-      value: Symbol
-    locations:
-      begin: optional   # `:sym` の `:`、`:"..."` の `:"`。ハッシュのラベル `a:` や %i[] の要素では nil
-      end: optional
-
-  - name: DsymNode
-    parser: dsym
-    steep: typed
-    fields:
-      parts: Array[string_part]
-    locations:
-      begin: optional   # `:"a#{b}"`。%I[] の要素では nil
-      end: optional
-
-  - name: RegexpNode
-    parser: regexp
-    steep: typed
-    fields:
-      parts: Array[string_part]
-      options: RegoptNode
-    locations:
-      begin: required   # `/` または `%r{`
-      end: required
-    notes:
-      - parser の children は `[*parts, regopt]`。互換 `children` は options を末尾に置く。
-
-  - name: RegoptNode
-    parser: regopt
-    steep: typed
-    fields:
-      options: Array[Symbol]
-    locations: {}
-    notes:
-      - オプションが無いときは expression が空範囲になる。
-
-  - name: ArrayNode
-    parser: array
-    steep: typed
-    fields:
-      elements: Array[node | SplatNode]
-    locations:
-      begin: optional   # `[`、`%w[`。`x = 1, 2` や `a, b = *c` の右辺のように括弧が無い形では nil
-      end: optional
-
-  - name: HashNode
-    parser: hash
-    steep: typed
-    fields:
-      pairs: Array[PairNode | KwsplatNode]
-    locations:
-      begin: required   # `{`。括弧なしのキーワード引数は KwargsNode になる
-      end: required
-
-  - name: PairNode
-    parser: pair
-    steep: typed
-    fields:
-      key: node
-      value: node
-    locations:
-      operator: required   # `=>` または `:`
-    notes:
-      - パターンマッチの HashPatternNode の要素としても使われ、その場合 value は pattern(`{k:}` の省略形は MatchVarNode)。
-
-  - name: KwsplatNode
-    parser: kwsplat
-    steep: typed
-    fields:
-      value: node
-    locations:
-      operator: required   # `**`
-
-  - name: IrangeNode
-    parser: irange
-    steep: typed
-    fields:
-      begin: node?   # beginless range
-      end: node?     # endless range
-    locations:
-      operator: required   # `..`
-
-  - name: ErangeNode
-    parser: erange
-    steep: typed
-    fields:
-      begin: node?
-      end: node?
-    locations:
-      operator: required   # `...`
-
-  # ----- 変数・定数 -----
-  - name: LvarNode
-    parser: lvar
-    steep: typed
-    fields:
-      name: Symbol
-    locations:
-      name: required
-
-  - name: IvarNode
-    parser: ivar
-    steep: typed
-    fields:
-      name: Symbol
-    locations:
-      name: required
-
-  - name: GvarNode
-    parser: gvar
-    steep: typed
-    fields:
-      name: Symbol
-    locations:
-      name: required
-
-  - name: CvarNode
-    parser: cvar
-    steep: typed
-    fields:
-      name: Symbol
-    locations:
-      name: required
-
-  - name: NthRefNode
-    parser: nth_ref
-    steep: typed
-    fields:
-      index: Integer   # `$1` => 1
-    locations: {}
-
-  - name: BackRefNode
-    parser: back_ref
-    steep: typed
-    fields:
-      name: Symbol   # `:$&` など
-    locations: {}
-
-  - name: ConstNode
-    parser: const
-    steep: typed
-    fields:
-      scope: node?   # ConstNode | CbaseNode | 任意の式(`foo::Bar`)。nil のとき lexical scope
-      name: Symbol
-    locations:
-      double_colon: optional
-      name: required
-    notes:
-      - "`__ENCODING__` は現状の Builder 設定では `(const (const nil :Encoding) :UTF_8)` に変換され、内側の const の location が nil になる(Prism 変換の癖)。
-        変換器で特別扱いするか、emit_encoding を有効にして EncodingNode を追加する(TypeConstruction に小さな分岐が増える)。open_questions を参照。"
-
-  - name: CbaseNode
-    parser: cbase
-    steep: typed
-    fields: {}
-    locations: {}
-    notes:
-      - 先頭の `::`。
-
-  # ----- 代入 -----
-  - name: LvasgnNode
-    parser: lvasgn
-    steep: typed
-    fields:
-      name: Symbol
-      value: node?   # mlhs / op_asgn の対象、for の変数、resbody の変数では nil
-    locations:
-      name: required
-      operator: optional   # `=`。value が無い形では nil
-
-  - name: IvasgnNode
-    parser: ivasgn
-    steep: typed
-    fields:
-      name: Symbol
-      value: node?
-    locations:
-      name: required
-      operator: optional
-
-  - name: GvasgnNode
-    parser: gvasgn
-    steep: typed
-    fields:
-      name: Symbol
-      value: node?
-    locations:
-      name: required
-      operator: optional
-
-  - name: CvasgnNode
-    parser: cvasgn
-    steep: typed
-    fields:
-      name: Symbol
-      value: node?
-    locations:
-      name: required
-      operator: optional
-
-  - name: CasgnNode
-    parser: casgn
-    steep: typed
-    fields:
-      scope: node?
-      name: Symbol
-      value: node?
-    locations:
-      double_colon: optional
-      name: required
-      operator: optional
-
-  - name: MasgnNode
-    parser: masgn
-    steep: typed
-    fields:
-      lhs: MlhsNode
-      rhs: node   # 複数値は ArrayNode(括弧なし)、単一値はそのノード
-    locations:
-      operator: required   # `=`
-
-  - name: MlhsNode
-    parser: mlhs
-    steep: typed
-    fields:
-      items: Array[mlhs_item]
-    locations:
-      begin: optional   # 入れ子の `(a, b)` の括弧
-      end: optional
-
-  - name: SplatNode
-    parser: splat
-    steep: typed
-    fields:
-      value: node?   # 匿名 `*`(`*, a = x`)では nil
-    locations:
-      operator: required   # `*`
-
-  - name: OpAsgnNode
-    parser: op_asgn
-    steep: typed
-    fields:
-      target: asgn_target
-      operator_name: Symbol   # `:+` など
-      value: node
-    locations:
-      operator: required   # `+=` など
-    notes:
-      - parser は対象側の map(name / dot / selector / double_colon)を op_asgn 自身にも複製して持たせているが、新設計では expression と operator だけにし、残りは target.location を見る。
-
-  - name: OrAsgnNode
-    parser: or_asgn
-    steep: typed
-    fields:
-      target: asgn_target
-      value: node
-    locations:
-      operator: required   # `||=`
-
-  - name: AndAsgnNode
-    parser: and_asgn
-    steep: typed
-    fields:
-      target: asgn_target
-      value: node
-    locations:
-      operator: required   # `&&=`
-
-  - name: MatchWithLvasgnNode
-    parser: match_with_lvasgn
-    steep: typed
-    fields:
-      regexp: RegexpNode
-      value: node
-    locations:
-      selector: required   # `=~`(parser は Send map を使う)
-    notes:
-      - 名前付きキャプチャを持つ正規表現リテラルが左辺の `=~`。
-
-  # ----- メソッド呼び出し・ブロック -----
-  - name: SendNode
-    parser: send
-    steep: typed
-    fields:
-      receiver: node?
-      method_name: Symbol
-      arguments: Array[argument]
-    locations:
-      dot: optional        # `.` / `::`。レシーバ無しや演算子呼び出しでは nil
-      selector: optional   # メソッド名。`a.()` では nil。添字 `a[1]` では `[1]` 全体、`not a` では `not`
-      begin: optional      # 引数の括弧
-      end: optional
-      operator: optional   # 属性代入 `a.b = 1`、添字代入 `a[1] = 2` の `=`
-    notes:
-      - 単項・二項演算子、`!a` / `not a`(method_name は `:!`)、添字 `:[]` / `:[]=`、`a.()`(`:call`)もすべて SendNode。
-      - "括弧つきハッシュ引数 `foo({a: 1})` は HashNode、括弧なし `foo(a: 1)` は KwargsNode として arguments に入る。"
-
-  - name: CsendNode
-    parser: csend
-    steep: typed
-    fields:
-      receiver: node
-      method_name: Symbol
-      arguments: Array[argument]
-    locations:
-      dot: required        # `&.`
-      selector: optional
-      begin: optional
-      end: optional
-      operator: optional
-
-  - name: BlockNode
-    parser: block
-    steep: typed
-    fields:
-      call: call
-      params: ArgsNode   # 常にノードとして存在する(パラメータが無いときは ArgsNode の expression が nil)
-      body: body
-    annotations: [annotations]
-    locations:
-      begin: required   # `{` / `do`
-      end: required     # `}` / `end`
-    notes:
-      - "`-> {}` / `lambda {}` は call が LambdaNode の BlockNode。TypeConstruction#type_lambda がここで分岐する。"
-      - "`super { }` は call が ZsuperNode、`super(1) { }` は SuperNode。"
-
-  - name: NumblockNode
-    parser: numblock
-    steep: typed
-    fields:
-      call: call
-      max_numparam: Integer   # 使われた `_N` の最大値
-      body: node
-    annotations: [annotations]
-    locations:
-      begin: required
-      end: required
-
-  - name: ItblockNode
-    parser: itblock
-    steep: typed
-    fields:
-      call: call
-      it: Symbol   # 常に :it
-      body: node
-    annotations: [annotations]
-    locations:
-      begin: required
-      end: required
-
-  - name: LambdaNode
-    parser: lambda
-    steep: via_parent
-    fields: {}
-    locations: {}
-    notes:
-      - "`->` そのもの。常に BlockNode の call に現れる。"
-
-  - name: BlockPassNode
-    parser: block_pass
-    steep: typed
-    fields:
-      value: node?   # 匿名ブロック引数 `&` では nil
-    locations:
-      operator: required   # `&`
-
-  - name: KwargsNode
-    parser: kwargs
-    steep: typed
-    fields:
-      pairs: Array[PairNode | KwsplatNode | ForwardedKwrestargNode]
-    locations: {}
-    notes:
-      - emit_kwargs により、括弧なしキーワード引数を HashNode と区別するためのノード。begin/end は持たない。
-
-  - name: SuperNode
-    parser: super
-    steep: typed
-    fields:
-      arguments: Array[argument]
-    locations:
-      keyword: required
-      begin: optional
-      end: optional
-
-  - name: ZsuperNode
-    parser: zsuper
-    steep: typed
-    fields: {}
-    locations:
-      keyword: required
-
-  - name: YieldNode
-    parser: yield
-    steep: typed
-    fields:
-      arguments: Array[argument]
-    locations:
-      keyword: required
-      begin: optional
-      end: optional
-
-  - name: ForwardedArgsNode
-    parser: forwarded_args
-    steep: typed
-    fields: {}
-    locations: {}
-    notes:
-      - 呼び出し側の `...`。
-
-  - name: ForwardedRestargNode
-    parser: forwarded_restarg
-    steep: unsupported
-    fields: {}
-    locations: {}
-    notes:
-      - 呼び出し側の匿名 `*`(Ruby 3.2)。
-
-  - name: ForwardedKwrestargNode
-    parser: forwarded_kwrestarg
-    steep: unsupported
-    fields: {}
-    locations: {}
-    notes:
-      - 呼び出し側の匿名 `**`(Ruby 3.2)。KwargsNode の要素として現れる。
-
-  # ----- 定義 -----
-  - name: DefNode
-    parser: def
-    steep: typed
-    fields:
-      name: Symbol
-      params: ArgsNode   # 常に存在。パラメータ無しのとき expression は nil
-      body: body
-    annotations: [annotations]
-    locations:
-      keyword: required
-      name: required
-      end: optional          # endless def では nil
-      assignment: optional   # endless def の `=`
-
-  - name: DefsNode
-    parser: defs
-    steep: typed
-    fields:
-      singleton: node   # SelfNode | ConstNode | 任意の式
-      name: Symbol
-      params: ArgsNode
-      body: body
-    annotations: [annotations]
-    locations:
-      keyword: required
-      operator: required     # `.`
-      name: required
-      end: optional
-      assignment: optional
-
-  - name: ArgsNode
-    parser: args
-    steep: typed
-    fields:
-      params: Array[param]
-    locations:
-      expression: optional   # パラメータリストが無い `def foo; end` / `foo { }` では nil
-      begin: optional        # `(` / `|`
-      end: optional          # `)` / `|`
-    notes:
-      - 唯一 expression が nil になり得るノード。現状のコードも `args&.location&.expression` と書いている。
-
-  - name: ArgNode
-    parser: arg
-    steep: typed
-    fields:
-      name: Symbol
-    locations:
-      name: required
-
-  - name: OptargNode
-    parser: optarg
-    steep: typed
-    fields:
-      name: Symbol
-      default: node
-    locations:
-      name: required
-      operator: required   # `=`
-
-  - name: RestargNode
-    parser: restarg
-    steep: typed
-    fields:
-      name: Symbol?   # 匿名 `*` では nil
-    locations:
-      name: optional
-
-  - name: KwargNode
-    parser: kwarg
-    steep: typed
-    fields:
-      name: Symbol
-    locations:
-      name: required   # `d:`(コロン込み)
-
-  - name: KwoptargNode
-    parser: kwoptarg
-    steep: typed
-    fields:
-      name: Symbol
-      default: node
-    locations:
-      name: required
-
-  - name: KwrestargNode
-    parser: kwrestarg
-    steep: typed
-    fields:
-      name: Symbol?   # 匿名 `**` では nil
-    locations:
-      name: optional
-
-  - name: KwnilargNode
-    parser: kwnilarg
-    steep: unsupported
-    fields: {}
-    locations:
-      name: required   # `nil`
-    notes:
-      - "`**nil`。"
-
-  - name: BlockargNode
-    parser: blockarg
-    steep: typed
-    fields:
-      name: Symbol?   # 匿名 `&` では nil
-    locations:
-      name: optional
-
-  - name: Procarg0Node
-    parser: procarg0
-    steep: typed
-    fields:
-      name: Symbol?            # `|a|` の形。children は [Symbol]
-      items: Array[param]      # `|(a, b)|` の形。children は [ArgNode, ArgNode, ...](mlhs ではなく procarg0 直下に並ぶ)
-    locations:
-      name: optional    # `|a|` のとき
-      begin: optional   # `|(a, b)|` の括弧
-      end: optional
-    notes:
-      - 単一ブロックパラメータ(自動 splat の対象)。emit_arg_inside_procarg0 = false のため 2 つの形がある。
-      - 名前つきの形と分割代入の形で別クラスに分けるかは要検討。TypeInference::BlockParams.from_node が両方を扱っている。
-
-  - name: ShadowargNode
-    parser: shadowarg
-    steep: unsupported
-    fields:
-      name: Symbol
-    locations:
-      name: required
-    notes:
-      - "`|a; b|` の `b`。"
-
-  - name: ForwardArgNode
-    parser: forward_arg
-    steep: typed
-    fields: {}
-    locations: {}
-    notes:
-      - 定義側の `...`。ArgsNode の要素として現れる。
-
-  - name: ClassNode
-    parser: class
-    steep: typed
-    fields:
-      name: ConstNode
-      superclass: node?
-      body: body
-    annotations: [annotations]
-    locations:
-      keyword: required
-      name: required
-      operator: optional   # `<`
-      end: required
-
-  - name: ModuleNode
-    parser: module
-    steep: typed
-    fields:
-      name: ConstNode
-      body: body
-    annotations: [annotations]
-    locations:
-      keyword: required
-      name: required
-      end: required
-
-  - name: SclassNode
-    parser: sclass
-    steep: typed
-    fields:
-      target: node   # SelfNode | 任意の式
-      body: body
-    annotations: [annotations]
-    locations:
-      keyword: required
-      operator: required   # `<<`
-      end: required
-
-  - name: AliasNode
-    parser: alias
-    steep: typed
-    fields:
-      new_name: SymNode | DsymNode | GvarNode | BackRefNode
-      old_name: SymNode | DsymNode | GvarNode | BackRefNode
-    locations:
-      keyword: required
-
-  - name: UndefNode
-    parser: undef
-    steep: unsupported
-    fields:
-      names: Array[SymNode | DsymNode]
-    locations:
-      keyword: required
-
-  # ----- 制御構造 -----
-  - name: IfNode
-    parser: if
-    steep: typed
-    fields:
-      condition: node
-      then_body: body
-      else_body: body   # `elsif` は else_body に入れ子の IfNode(keyword が `elsif`、end は nil)
-    annotations: [then_annotations, else_annotations]
-    locations:
-      keyword: optional    # `if` / `unless` / `elsif`。三項演算子では nil
-      begin: optional      # `then`(または条件直後の `;`)
-      else: optional       # `else` / `elsif`
-      end: optional        # 修飾子形式・elsif・三項演算子では nil
-      question: optional   # 三項演算子の `?`
-      colon: optional      # 三項演算子の `:`
-    notes:
-      - "`unless` は then/else を入れ替えた IfNode(parser 互換)。keyword の文字列で判別する。"
-      - 修飾子形式 `b if a` では parser は Keyword map を使う(begin/else/end が nil)。現状は expression と keyword の開始位置の比較で前置か判定しているが、`modifier?` / `ternary?` / `unless?` / `elsif?` の述語を生成する。
-      - アノテーションの付与範囲は Source#construct_mapping のものを移植する(then は begin または条件の末尾行から else または end の行まで、など)。
-
-  - name: WhileNode
-    parser: while
-    steep: typed
-    fields:
-      condition: node
-      body: body
-    annotations: [body_annotations]
-    locations:
-      keyword: required
-      begin: optional   # `do`
-      end: optional     # 修飾子形式 `b while a` では nil
-    notes:
-      - "修飾子形式でも WhileNode(end が nil)。`begin ... end while a` は WhilePostNode。"
-
-  - name: UntilNode
-    parser: until
-    steep: typed
-    fields:
-      condition: node
-      body: body
-    annotations: [body_annotations]
-    locations:
-      keyword: required
-      begin: optional
-      end: optional
-
-  - name: WhilePostNode
-    parser: while_post
-    steep: typed
-    fields:
-      condition: node
-      body: KwbeginNode
-    annotations: [body_annotations]
-    locations:
-      keyword: required
-
-  - name: UntilPostNode
-    parser: until_post
-    steep: typed
-    fields:
-      condition: node
-      body: KwbeginNode
-    annotations: [body_annotations]
-    locations:
-      keyword: required
-
-  - name: ForNode
-    parser: for
-    steep: typed
-    fields:
-      variable: asgn_target | MlhsNode
-      iterable: node
-      body: body
-    annotations: []
-    locations:
-      keyword: required
-      in: required
-      begin: optional   # `do`
-      end: required
-    notes:
-      - 現状はアノテーションの付与対象外。body_annotations を持たせる候補。
-
-  - name: CaseNode
-    parser: case
-    steep: typed
-    fields:
-      subject: node?
-      whens: Array[WhenNode]
-      else_body: body
-    annotations: [else_annotations]
-    locations:
-      keyword: required
-      else: optional
-      end: required
-    notes:
-      - "`else` だけで本体が空のとき、Prism 変換は empty_else ノードを生成せず else_body は nil になる(実測)。"
-
-  - name: WhenNode
-    parser: when
-    steep: via_parent
-    fields:
-      conditions: Array[node | SplatNode]
-      body: body
-    annotations: [body_annotations]
-    locations:
-      keyword: required
-      begin: optional   # `then`
-
-  - name: BreakNode
-    parser: break
-    steep: typed
-    fields:
-      arguments: Array[node | SplatNode]   # `break 1, 2` は children が 2 つ(ArrayNode ではない)
-    locations:
-      keyword: required
-
-  - name: NextNode
-    parser: next
-    steep: typed
-    fields:
-      arguments: Array[node | SplatNode]
-    locations:
-      keyword: required
-
-  - name: ReturnNode
-    parser: return
-    steep: typed
-    fields:
-      arguments: Array[node | SplatNode]
-    locations:
-      keyword: required
-
-  - name: RedoNode
-    parser: redo
-    steep: unsupported
-    fields: {}
-    locations:
-      keyword: required
-
-  - name: RetryNode
-    parser: retry
-    steep: typed
-    fields: {}
-    locations:
-      keyword: required
-
-  - name: AndNode
-    parser: and
-    steep: typed
-    fields:
-      left: node
-      right: node
-    locations:
-      operator: required   # `and` / `&&`
-
-  - name: OrNode
-    parser: or
-    steep: typed
-    fields:
-      left: node
-      right: node
-    locations:
-      operator: required   # `or` / `||`
-
-  - name: DefinedNode
-    parser: "defined?"
-    steep: typed
-    fields:
-      value: node
-    locations:
-      keyword: required
-      begin: optional
-      end: optional
-
-  - name: BeginNode
-    parser: begin
-    steep: typed
-    fields:
-      statements: Array[node]
-    locations:
-      begin: optional   # 括弧 `(`。文の並び(def の本体など)や式展開以外では nil
-      end: optional
-    notes:
-      - 文の並び、括弧式 `(a; b)`、空の `()`(statements が空)、文字列の式展開 `#{...}`(begin が `#{`)に使われる。
-      - 現状 insert_type_node は括弧つきの BeginNode 全体に型アサーションを付ける。
-
-  - name: KwbeginNode
-    parser: kwbegin
-    steep: typed
-    fields:
-      statements: Array[node]
-    locations:
-      begin: required   # `begin`
-      end: required     # `end`
-    notes:
-      - "`begin; a; rescue; end` は KwbeginNode[RescueNode[...]]。"
-
-  - name: RescueNode
-    parser: rescue
-    steep: typed
-    fields:
-      body: body
-      resbodies: Array[ResbodyNode]
-      else_body: body
-    annotations: [else_annotations]
-    locations:
-      else: optional
-    notes:
-      - keyword は持たない(`rescue` キーワードは各 ResbodyNode、`begin`/`end` は KwbeginNode や DefNode のもの)。
-      - 修飾子形式 `a rescue b` も RescueNode(resbodies が 1 つ、exceptions / variable が nil)。
-
-  - name: ResbodyNode
-    parser: resbody
-    steep: typed
-    fields:
-      exceptions: ArrayNode?      # `rescue A, B`。省略時は nil
-      variable: asgn_target?      # `=> e`。value を持たない代入ノード
-      body: body
-    annotations: [annotations]
-    locations:
-      keyword: required   # `rescue`
-      assoc: optional     # `=>`
-      begin: optional     # `then`
-
-  - name: EnsureNode
-    parser: ensure
-    steep: typed
-    fields:
-      body: body          # 多くの場合 RescueNode
-      ensure_body: body
-    annotations: [annotations]
-    locations:
-      keyword: required   # `ensure`
-
-  - name: IflipflopNode
-    parser: iflipflop
-    steep: unsupported
-    fields:
-      left: node
-      right: node
-    locations:
-      operator: required   # `..`
-
-  - name: EflipflopNode
-    parser: eflipflop
-    steep: unsupported
-    fields:
-      left: node
-      right: node
-    locations:
-      operator: required   # `...`
-
-  - name: MatchCurrentLineNode
-    parser: match_current_line
-    steep: unsupported
-    fields:
-      regexp: RegexpNode
-    locations: {}
-    notes:
-      - 条件式に直接書かれた正規表現リテラル(`if /re/`)。
-
-  - name: PreexeNode
-    parser: preexe
-    steep: unsupported
-    fields:
-      body: body
-    locations:
-      keyword: required   # `BEGIN`
-      begin: required
-      end: required
-
-  - name: PostexeNode
-    parser: postexe
-    steep: unsupported
-    fields:
-      body: body
-    locations:
-      keyword: required   # `END`
-      begin: required
-      end: required
-
-  # ----- パターンマッチ(現状はすべて UnsupportedSyntax) -----
-  - name: CaseMatchNode
-    parser: case_match
-    steep: unsupported
-    fields:
-      subject: node
-      in_patterns: Array[InPatternNode]
-      else_body: body
-    annotations: []
-    locations:
-      keyword: required
-      else: optional
-      end: required
-    notes:
-      - 対応する際は CaseNode と同様に else_annotations を持たせる。
-
-  - name: InPatternNode
-    parser: in_pattern
-    steep: unsupported
-    fields:
-      pattern: pattern
-      guard: IfGuardNode | UnlessGuardNode | nil
-      body: body
-    annotations: []
-    locations:
-      keyword: required   # `in`
-      begin: optional     # `then`
-
-  - name: IfGuardNode
-    parser: if_guard
-    steep: unsupported
-    fields:
-      condition: node
-    locations:
-      keyword: required
-
-  - name: UnlessGuardNode
-    parser: unless_guard
-    steep: unsupported
-    fields:
-      condition: node
-    locations:
-      keyword: required
-
-  - name: MatchVarNode
-    parser: match_var
-    steep: unsupported
-    fields:
-      name: Symbol
-    locations:
-      name: required
-
-  - name: MatchAltNode
-    parser: match_alt
-    steep: unsupported
-    fields:
-      left: pattern
-      right: pattern
-    locations:
-      operator: required   # `|`
-
-  - name: MatchAsNode
-    parser: match_as
-    steep: unsupported
-    fields:
-      value: pattern
-      target: MatchVarNode
-    locations:
-      operator: required   # `=>`
-
-  - name: MatchRestNode
-    parser: match_rest
-    steep: unsupported
-    fields:
-      target: MatchVarNode?   # 匿名 `*` では nil
-    locations:
-      operator: required   # `*`
-
-  - name: MatchNilPatternNode
-    parser: match_nil_pattern
-    steep: unsupported
-    fields: {}
-    locations:
-      name: required   # `**nil` の `nil`
-
-  - name: PinNode
-    parser: pin
-    steep: unsupported
-    fields:
-      value: LvarNode | IvarNode | GvarNode | CvarNode | BeginNode   # `^(expr)` は BeginNode
-    locations:
-      selector: required   # `^`(parser は Send map を使う)
-
-  - name: ArrayPatternNode
-    parser: array_pattern
-    steep: unsupported
-    fields:
-      elements: Array[pattern]
-    locations:
-      begin: optional   # `[`。トップレベルの `in a, b` では nil
-      end: optional
-
-  - name: ArrayPatternWithTailNode
-    parser: array_pattern_with_tail
-    steep: unsupported
-    fields:
-      elements: Array[pattern]
-    locations:
-      begin: optional
-      end: optional
-    notes:
-      - 末尾カンマ `[a, b,]` の形(暗黙の rest)。
-
-  - name: FindPatternNode
-    parser: find_pattern
-    steep: unsupported
-    fields:
-      elements: Array[pattern]   # 先頭と末尾は MatchRestNode
-    locations:
-      begin: required
-      end: required
-
-  - name: HashPatternNode
-    parser: hash_pattern
-    steep: unsupported
-    fields:
-      elements: Array[PairNode | MatchVarNode | MatchRestNode | MatchNilPatternNode]
-    locations:
-      begin: optional   # `{`。`in {k:}` 以外のトップレベル(`in k:`)や `Foo(k:)` の中では nil
-      end: optional
-
-  - name: ConstPatternNode
-    parser: const_pattern
-    steep: unsupported
-    fields:
-      const: ConstNode
-      pattern: ArrayPatternNode | HashPatternNode | FindPatternNode
-    locations:
-      begin: required   # `(` / `[`
-      end: required
-
-  - name: MatchPatternNode
-    parser: match_pattern
-    steep: unsupported
-    fields:
-      value: node
-      pattern: pattern
-    locations:
-      operator: required   # `=>`
-
-  - name: MatchPatternPNode
-    parser: match_pattern_p
-    steep: unsupported
-    fields:
-      value: node
-      pattern: pattern
-    locations:
-      operator: required   # `in`
-
-# ---------------------------------------------------------------------------
-# アノテーション(式ノードではなく、annotations スロットや TypeAssertionNode に保持されるオブジェクト)
-# 現状の AST::Annotation::* / AST::Node::TypeAssertion / TypeApplication の置き換え。
-# 各クラスも <Name>::Location を持つ。keyword は `@type` などのコメント内キーワード。
-# ---------------------------------------------------------------------------
+- name: AliasGlobalVariableNode
+  prism: AliasGlobalVariableNode
+  steep: typed
+  fields:
+  - name: new_name
+    type: node
+    kind:
+    - GlobalVariableReadNode
+    - BackReferenceReadNode
+    - NumberedReferenceReadNode
+  - name: old_name
+    type: node
+    kind:
+    - GlobalVariableReadNode
+    - BackReferenceReadNode
+    - NumberedReferenceReadNode
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of the `alias` keyword to alias a global variable.
+
+        alias $foo $bar
+        ^^^^^^^^^^^^^^^
+- name: AliasMethodNode
+  prism: AliasMethodNode
+  steep: typed
+  fields:
+  - name: new_name
+    type: node
+    kind:
+    - SymbolNode
+    - InterpolatedSymbolNode
+  - name: old_name
+    type: node
+    kind:
+    - SymbolNode
+    - InterpolatedSymbolNode
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of the `alias` keyword to alias a method.
+
+        alias foo bar
+        ^^^^^^^^^^^^^
+- name: AlternationPatternNode
+  prism: AlternationPatternNode
+  steep: unsupported
+  fields:
+  - name: left
+    type: node
+    kind: pattern expression
+  - name: right
+    type: node
+    kind: pattern expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents an alternation pattern in pattern matching.
+
+        foo => bar | baz
+               ^^^^^^^^^
+- name: AndNode
+  prism: AndNode
+  steep: typed
+  fields:
+  - name: left
+    type: node
+    kind: non-void expression
+  - name: right
+    type: node
+    kind: Node
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents the use of the `&&` operator or the `and` keyword.
+
+        left and right
+        ^^^^^^^^^^^^^^
+- name: ArgumentsNode
+  prism: ArgumentsNode
+  steep: typed
+  flags: ArgumentsNodeFlags
+  fields:
+  - name: arguments
+    type: node[]
+    kind: non-void expression
+  comment: |
+    Represents a set of arguments to a method or a keyword.
+
+        return foo, bar, baz
+               ^^^^^^^^^^^^^
+- name: ArrayNode
+  prism: ArrayNode
+  steep: typed
+  flags: ArrayNodeFlags
+  fields:
+  - name: elements
+    type: node[]
+    kind: non-void expression
+  - name: opening_loc
+    type: location?
+  - name: closing_loc
+    type: location?
+  comment: |
+    Represents an array literal. This can be a regular array using brackets or a special array using % like %w or %i.
+
+        [1, 2, 3]
+        ^^^^^^^^^
+- name: ArrayPatternNode
+  prism: ArrayPatternNode
+  steep: unsupported
+  fields:
+  - name: constant
+    type: node?
+    kind:
+    - ConstantPathNode
+    - ConstantReadNode
+  - name: requireds
+    type: node[]
+    kind: pattern expression
+  - name: rest
+    type: node?
+    kind:
+    - ImplicitRestNode
+    - SplatNode
+  - name: posts
+    type: node[]
+    kind: pattern expression
+  - name: opening_loc
+    type: location?
+  - name: closing_loc
+    type: location?
+  comment: |
+    Represents an array pattern in pattern matching.
+
+        foo in 1, 2
+               ^^^^
+
+        foo in [1, 2]
+               ^^^^^^
+
+        foo in *bar
+               ^^^^
+
+        foo in Bar[]
+               ^^^^^
+
+        foo in Bar[1, 2, 3]
+               ^^^^^^^^^^^^
+  steep_notes:
+  - 同上。parser の array_pattern / array_pattern_with_tail / const_pattern(配列)に対応。
+- name: AssocNode
+  prism: AssocNode
+  steep: typed
+  fields:
+  - name: key
+    type: node
+    kind: non-void expression
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: operator_loc
+    type: location?
+  comment: |
+    Represents a hash key/value pair.
+
+        { a => b }
+          ^^^^^^
+- name: AssocSplatNode
+  prism: AssocSplatNode
+  steep: typed
+  fields:
+  - name: value
+    type: node?
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents a splat in a hash literal.
+
+        { **foo }
+          ^^^^^
+  steep_notes:
+  - value が nil のときは匿名 `**`(`foo(**)`)。現状の forwarded_kwrestarg はこれになる。
+- name: BackReferenceReadNode
+  prism: BackReferenceReadNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents reading a reference to a field in the previous match.
+
+        $'
+        ^^
+- name: BeginNode
+  prism: BeginNode
+  steep: typed
+  fields:
+  - name: begin_keyword_loc
+    type: location?
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: rescue_clause
+    type: node?
+    kind: RescueNode
+  - name: else_clause
+    type: node?
+    kind: ElseNode
+  - name: ensure_clause
+    type: node?
+    kind: EnsureNode
+  - name: end_keyword_loc
+    type: location?
+  comment: |
+    Represents a begin statement.
+
+        begin
+          foo
+        end
+        ^^^^^
+  steep_notes:
+  - parser の kwbegin / rescue / resbody / ensure の入れ子を、rescue_clause / else_clause / ensure_clause のフィールドで平坦に表す。def / class / module / block の本体に rescue や ensure があるときも BeginNode(begin_keyword_loc は nil)。
+- name: BlockArgumentNode
+  prism: BlockArgumentNode
+  steep: typed
+  fields:
+  - name: expression
+    type: node?
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents a block argument using `&`.
+
+        bar(&args)
+            ^^^^^
+  steep_notes:
+  - expression が nil のときは匿名 `&`。parser の block_pass。CallNode.block に入る。
+- name: BlockLocalVariableNode
+  prism: BlockLocalVariableNode
+  steep: unsupported
+  flags: ParameterFlags
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents a block local variable.
+
+        a { |; b| }
+               ^
+- name: BlockNode
+  prism: BlockNode
+  steep: typed
+  fields:
+  - name: parameters
+    type: node?
+    kind:
+    - BlockParametersNode
+    - NumberedParametersNode
+    - ItParametersNode
+  - name: body
+    type: node
+    kind:
+    - StatementsNode
+    - BeginNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: opening_loc
+    type: location
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents a block of ruby code.
+
+        [1, 2, 3].each { |i| puts x }
+                       ^^^^^^^^^^^^^^
+  steep_notes:
+  - parameters は BlockParametersNode | NumberedParametersNode | ItParametersNode | nil。numblock / itblock のノード種は無くなる。
+  - body は StatementsNode か、rescue / ensure を含むときは BeginNode。常に存在する(空でも StatementsNode)。ブロックのアノテーション(`@type block` など)は body(または body.statements)の annotations に入る。
+- name: BlockParameterNode
+  prism: BlockParameterNode
+  steep: typed
+  flags: ParameterFlags
+  fields:
+  - name: name
+    type: constant?
+  - name: name_loc
+    type: location?
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents a block parameter of a method, block, or lambda definition.
+
+        def a(&b)
+              ^^
+        end
+- name: BlockParametersNode
+  prism: BlockParametersNode
+  steep: typed
+  fields:
+  - name: parameters
+    type: node?
+    kind: ParametersNode
+  - name: opening_loc
+    type: location?
+  - name: closing_loc
+    type: location?
+  comment: |
+    Represents a block's parameters declaration.
+
+        -> (a, b = 1; local) { }
+           ^^^^^^^^^^^^^^^^^
+
+        foo do |a, b = 1; local|
+               ^^^^^^^^^^^^^^^^^
+        end
+  steep_notes:
+  - parser の procarg0(`|a|` の自動 splat)に対応するノードは無い。requireds が 1 つだけで他が空、かつ rest が ImplicitRestNode でないとき(`|a,|` ではない)に procarg0 相当と判定する。`|(a, b)|` は requireds に MultiTargetNode。
+- name: BreakNode
+  prism: BreakNode
+  steep: typed
+  fields:
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of the `break` keyword.
+
+        break foo
+        ^^^^^^^^^
+- name: CallAndWriteNode
+  prism: CallAndWriteNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node?
+    kind: non-void expression
+  - name: call_operator_loc
+    type: location?
+  - name: message_loc
+    type: location?
+  - name: read_name
+    type: constant
+  - name: write_name
+    type: constant
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `&&=` operator on a call.
+
+        foo.bar &&= value
+        ^^^^^^^^^^^^^^^^^
+- name: CallNode
+  prism: CallNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node?
+    kind: non-void expression
+  - name: call_operator_loc
+    type: location?
+  - name: name
+    type: constant
+  - name: message_loc
+    type: location?
+  - name: opening_loc
+    type: location?
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: closing_loc
+    type: location?
+  - name: equal_loc
+    type: location?
+  - name: block
+    type: node?
+    kind:
+    - BlockNode
+    - BlockArgumentNode
+  comment: |
+    Represents a method call, in all of the various forms that can take.
+
+        foo
+        ^^^
+
+        foo()
+        ^^^^^
+
+        +foo
+        ^^^^
+
+        foo + bar
+        ^^^^^^^^^
+
+        foo.bar
+        ^^^^^^^
+
+        foo&.bar
+        ^^^^^^^^
+  steep_notes:
+  - parser の send / csend / block / numblock / itblock を 1 クラスで表す。ブロックは block フィールド(BlockNode | BlockArgumentNode)、`&.` は CallNodeFlags::SAFE_NAVIGATION。
+  - "`a[1]` は name が `:[]` で opening_loc / closing_loc が括弧、message_loc は `[1]` 全体(parser の selector と同じ)。`a.()` は name が `:call` で message_loc が nil。`!a` / `not a` は name が `:!`。"
+  - TypeApplicationNode(`#$ Type`)はこのノードに付く。
+  - synthesize_sendish / deconstruct_sendish_and_block_nodes が不要になる。
+- name: CallOperatorWriteNode
+  prism: CallOperatorWriteNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node?
+    kind: non-void expression
+  - name: call_operator_loc
+    type: location?
+  - name: message_loc
+    type: location?
+  - name: read_name
+    type: constant
+  - name: write_name
+    type: constant
+  - name: binary_operator
+    type: constant
+  - name: binary_operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of an assignment operator on a call.
+
+        foo.bar += baz
+        ^^^^^^^^^^^^^^
+- name: CallOrWriteNode
+  prism: CallOrWriteNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node?
+    kind: non-void expression
+  - name: call_operator_loc
+    type: location?
+  - name: message_loc
+    type: location?
+  - name: read_name
+    type: constant
+  - name: write_name
+    type: constant
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `||=` operator on a call.
+
+        foo.bar ||= value
+        ^^^^^^^^^^^^^^^^^
+- name: CallTargetNode
+  prism: CallTargetNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node
+    kind: non-void expression
+  - name: call_operator_loc
+    type: location
+  - name: name
+    type: constant
+  - name: message_loc
+    type: location
+  comment: |
+    Represents assigning to a method call.
+
+        foo.bar, = 1
+        ^^^^^^^
+
+        begin
+        rescue => foo.bar
+                  ^^^^^^^
+        end
+
+        for foo.bar in baz do end
+            ^^^^^^^
+  steep_notes:
+  - "`a.b, c = x` の左辺(parser は value なしの send :b= だった)。"
+- name: CapturePatternNode
+  prism: CapturePatternNode
+  steep: unsupported
+  fields:
+  - name: value
+    type: node
+    kind: pattern expression
+  - name: target
+    type: node
+    kind: LocalVariableTargetNode
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents assigning to a local variable in pattern matching.
+
+        foo => [bar => baz]
+                ^^^^^^^^^^
+- name: CaseMatchNode
+  prism: CaseMatchNode
+  steep: unsupported
+  fields:
+  - name: predicate
+    type: node?
+    kind: non-void expression
+  - name: conditions
+    type: node[]
+    kind: InNode
+  - name: else_clause
+    type: node?
+    kind: ElseNode
+  - name: case_keyword_loc
+    type: location
+  - name: end_keyword_loc
+    type: location
+  comment: |
+    Represents the use of a case statement for pattern matching.
+
+        case true
+        in false
+        end
+        ^^^^^^^^^
+- name: CaseNode
+  prism: CaseNode
+  steep: typed
+  fields:
+  - name: predicate
+    type: node?
+    kind: non-void expression
+  - name: conditions
+    type: node[]
+    kind: WhenNode
+  - name: else_clause
+    type: node?
+    kind: ElseNode
+  - name: case_keyword_loc
+    type: location
+  - name: end_keyword_loc
+    type: location
+  comment: |
+    Represents the use of a case statement.
+
+        case true
+        when false
+        end
+        ^^^^^^^^^^
+- name: ClassNode
+  prism: ClassNode
+  steep: typed
+  fields:
+  - name: class_keyword_loc
+    type: location
+  - name: constant_path
+    type: node
+    kind:
+    - ConstantReadNode
+    - ConstantPathNode
+  - name: inheritance_operator_loc
+    type: location?
+  - name: superclass
+    type: node?
+    kind: non-void expression
+  - name: body
+    type: node
+    kind:
+    - StatementsNode
+    - BeginNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: end_keyword_loc
+    type: location
+  - name: name
+    type: constant
+  comment: |
+    Represents a class declaration involving the `class` keyword.
+
+        class Foo end
+        ^^^^^^^^^^^^^
+  steep_notes:
+  - body は常に存在する。`@implements` などは body の annotations に入る。
+- name: ClassVariableAndWriteNode
+  prism: ClassVariableAndWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `&&=` operator for assignment to a class variable.
+
+        @@target &&= value
+        ^^^^^^^^^^^^^^^^^^
+- name: ClassVariableOperatorWriteNode
+  prism: ClassVariableOperatorWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: binary_operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: binary_operator
+    type: constant
+  comment: |
+    Represents assigning to a class variable using an operator that isn't `=`.
+
+        @@target += value
+        ^^^^^^^^^^^^^^^^^
+- name: ClassVariableOrWriteNode
+  prism: ClassVariableOrWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `||=` operator for assignment to a class variable.
+
+        @@target ||= value
+        ^^^^^^^^^^^^^^^^^^
+- name: ClassVariableReadNode
+  prism: ClassVariableReadNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents referencing a class variable.
+
+        @@foo
+        ^^^^^
+- name: ClassVariableTargetNode
+  prism: ClassVariableTargetNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents writing to a class variable in a context that doesn't have an explicit value.
+
+        @@foo, @@bar = baz
+        ^^^^^  ^^^^^
+- name: ClassVariableWriteNode
+  prism: ClassVariableWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents writing to a class variable.
+
+        @@foo = 1
+        ^^^^^^^^^
+- name: ConstantAndWriteNode
+  prism: ConstantAndWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `&&=` operator for assignment to a constant.
+
+        Target &&= value
+        ^^^^^^^^^^^^^^^^
+- name: ConstantOperatorWriteNode
+  prism: ConstantOperatorWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: binary_operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: binary_operator
+    type: constant
+  comment: |
+    Represents assigning to a constant using an operator that isn't `=`.
+
+        Target += value
+        ^^^^^^^^^^^^^^^
+- name: ConstantOrWriteNode
+  prism: ConstantOrWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `||=` operator for assignment to a constant.
+
+        Target ||= value
+        ^^^^^^^^^^^^^^^^
+- name: ConstantPathAndWriteNode
+  prism: ConstantPathAndWriteNode
+  steep: typed
+  fields:
+  - name: target
+    type: node
+    kind: ConstantPathNode
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `&&=` operator for assignment to a constant path.
+
+        Parent::Child &&= value
+        ^^^^^^^^^^^^^^^^^^^^^^^
+- name: ConstantPathNode
+  prism: ConstantPathNode
+  steep: typed
+  fields:
+  - name: parent
+    type: node?
+    kind: non-void expression
+  - name: name
+    type: constant?
+  - name: delimiter_loc
+    type: location
+  - name: name_loc
+    type: location
+  comment: |
+    Represents accessing a constant through a path of `::` operators.
+
+        Foo::Bar
+        ^^^^^^^^
+  steep_notes:
+  - parser の const(scope あり)。parent が nil のとき `::Foo`(parser の cbase)。
+- name: ConstantPathOperatorWriteNode
+  prism: ConstantPathOperatorWriteNode
+  steep: typed
+  fields:
+  - name: target
+    type: node
+    kind: ConstantPathNode
+  - name: binary_operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: binary_operator
+    type: constant
+  comment: |
+    Represents assigning to a constant path using an operator that isn't `=`.
+
+        Parent::Child += value
+        ^^^^^^^^^^^^^^^^^^^^^^
+- name: ConstantPathOrWriteNode
+  prism: ConstantPathOrWriteNode
+  steep: typed
+  fields:
+  - name: target
+    type: node
+    kind: ConstantPathNode
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `||=` operator for assignment to a constant path.
+
+        Parent::Child ||= value
+        ^^^^^^^^^^^^^^^^^^^^^^^
+- name: ConstantPathTargetNode
+  prism: ConstantPathTargetNode
+  steep: typed
+  fields:
+  - name: parent
+    type: node?
+    kind: non-void expression
+  - name: name
+    type: constant?
+  - name: delimiter_loc
+    type: location
+  - name: name_loc
+    type: location
+  comment: |
+    Represents writing to a constant path in a context that doesn't have an explicit value.
+
+        Foo::Foo, Bar::Bar = baz
+        ^^^^^^^^  ^^^^^^^^
+- name: ConstantPathWriteNode
+  prism: ConstantPathWriteNode
+  steep: typed
+  fields:
+  - name: target
+    type: node
+    kind: ConstantPathNode
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents writing to a constant path.
+
+        ::Foo = 1
+        ^^^^^^^^^
+
+        Foo::Bar = 1
+        ^^^^^^^^^^^^
+
+        ::Foo::Bar = 1
+        ^^^^^^^^^^^^^^
+- name: ConstantReadNode
+  prism: ConstantReadNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents referencing a constant.
+
+        Foo
+        ^^^
+  steep_notes:
+  - parser の const(scope なし)。
+- name: ConstantTargetNode
+  prism: ConstantTargetNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents writing to a constant in a context that doesn't have an explicit value.
+
+        Foo, Bar = baz
+        ^^^  ^^^
+- name: ConstantWriteNode
+  prism: ConstantWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents writing to a constant.
+
+        Foo = 1
+        ^^^^^^^
+- name: DefNode
+  prism: DefNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: receiver
+    type: node?
+    kind: non-void expression
+  - name: parameters
+    type: node?
+    kind: ParametersNode
+  - name: body
+    type: node
+    kind:
+    - StatementsNode
+    - BeginNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: def_keyword_loc
+    type: location
+  - name: operator_loc
+    type: location?
+  - name: lparen_loc
+    type: location?
+  - name: rparen_loc
+    type: location?
+  - name: equal_loc
+    type: location?
+  - name: end_keyword_loc
+    type: location?
+  comment: |
+    Represents a method definition.
+
+        def method
+        end
+        ^^^^^^^^^^
+  steep_notes:
+  - body は StatementsNode か BeginNode で、常に存在する。メソッドのアノテーション(`@type return` など)は body(または body.statements)の annotations に入る。
+- name: DefinedNode
+  prism: DefinedNode
+  steep: typed
+  fields:
+  - name: lparen_loc
+    type: location?
+  - name: value
+    type: node
+    kind: Node
+  - name: rparen_loc
+    type: location?
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of the `defined?` keyword.
+
+        defined?(a)
+        ^^^^^^^^^^^
+- name: ElseNode
+  prism: ElseNode
+  steep: typed
+  fields:
+  - name: else_keyword_loc
+    type: location
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: end_keyword_loc
+    type: location?
+  comment: |
+    Represents an `else` clause in a `case`, `if`, or `unless` statement.
+
+        if a then b else c end
+                    ^^^^^^^^^^
+- name: EmbeddedStatementsNode
+  prism: EmbeddedStatementsNode
+  steep: typed
+  fields:
+  - name: opening_loc
+    type: location
+  - name: statements
+    type: node?
+    kind: StatementsNode
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents an interpolated set of statements.
+
+        "foo #{bar}"
+             ^^^^^^
+  steep_notes:
+  - 文字列内の式展開 ``。parser では dstr の中の begin。
+- name: EmbeddedVariableNode
+  prism: EmbeddedVariableNode
+  steep: typed
+  fields:
+  - name: operator_loc
+    type: location
+  - name: variable
+    type: node
+    kind:
+    - InstanceVariableReadNode
+    - ClassVariableReadNode
+    - GlobalVariableReadNode
+    - BackReferenceReadNode
+    - NumberedReferenceReadNode
+  comment: |
+    Represents an interpolated variable.
+
+        "foo #@bar"
+             ^^^^^
+  steep_notes:
+  - '`""` の短縮形。parser では begin(ivar) に展開されていた。'
+- name: EnsureNode
+  prism: EnsureNode
+  steep: typed
+  fields:
+  - name: ensure_keyword_loc
+    type: location
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: end_keyword_loc
+    type: location
+  comment: |
+    Represents an `ensure` clause in a `begin` statement.
+
+        begin
+          foo
+        ensure
+        ^^^^^^
+          bar
+        end
+- name: FalseNode
+  prism: FalseNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents the use of the literal `false` keyword.
+
+        false
+        ^^^^^
+- name: FindPatternNode
+  prism: FindPatternNode
+  steep: unsupported
+  fields:
+  - name: constant
+    type: node?
+    kind:
+    - ConstantPathNode
+    - ConstantReadNode
+  - name: left
+    type: node
+    kind: SplatNode
+  - name: requireds
+    type: node[]
+    kind: pattern expression
+  - name: right
+    type: node
+    kind: SplatNode
+  - name: opening_loc
+    type: location?
+  - name: closing_loc
+    type: location?
+  comment: |
+    Represents a find pattern in pattern matching.
+
+        foo in *bar, baz, *qux
+               ^^^^^^^^^^^^^^^
+
+        foo in [*bar, baz, *qux]
+               ^^^^^^^^^^^^^^^^^
+
+        foo in Foo(*bar, baz, *qux)
+               ^^^^^^^^^^^^^^^^^^^^
+
+        foo => *bar, baz, *qux
+               ^^^^^^^^^^^^^^^
+- name: FlipFlopNode
+  prism: FlipFlopNode
+  steep: unsupported
+  flags: RangeFlags
+  fields:
+  - name: left
+    type: node?
+    kind: non-void expression
+  - name: right
+    type: node?
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents the use of the `..` or `...` operators to create flip flops.
+
+        baz if foo .. bar
+               ^^^^^^^^^^
+- name: FloatNode
+  prism: FloatNode
+  steep: typed
+  fields:
+  - name: value
+    type: double
+  comment: |
+    Represents a floating point number literal.
+
+        1.0
+        ^^^
+- name: ForNode
+  prism: ForNode
+  steep: typed
+  fields:
+  - name: index
+    type: node
+    kind:
+    - LocalVariableTargetNode
+    - InstanceVariableTargetNode
+    - ClassVariableTargetNode
+    - GlobalVariableTargetNode
+    - ConstantTargetNode
+    - ConstantPathTargetNode
+    - CallTargetNode
+    - IndexTargetNode
+    - MultiTargetNode
+  - name: collection
+    type: node
+    kind: non-void expression
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: for_keyword_loc
+    type: location
+  - name: in_keyword_loc
+    type: location
+  - name: do_keyword_loc
+    type: location?
+  - name: end_keyword_loc
+    type: location
+  comment: |
+    Represents the use of the `for` keyword.
+
+        for i in a end
+        ^^^^^^^^^^^^^^
+- name: ForwardingArgumentsNode
+  prism: ForwardingArgumentsNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents forwarding all arguments to this method to another method.
+
+        def foo(...)
+          bar(...)
+              ^^^
+        end
+  steep_notes:
+  - 呼び出し側の `...`(parser の forwarded_args)。
+- name: ForwardingParameterNode
+  prism: ForwardingParameterNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents the use of the forwarding parameter in a method, block, or lambda declaration.
+
+        def foo(...)
+                ^^^
+        end
+  steep_notes:
+  - 定義側の `...`(parser の forward_arg)。
+- name: ForwardingSuperNode
+  prism: ForwardingSuperNode
+  steep: typed
+  fields:
+  - name: keyword_loc
+    type: location
+  - name: block
+    type: node?
+    kind: BlockNode
+  comment: |
+    Represents the use of the `super` keyword without parentheses or arguments, but which might have a block.
+
+        super
+        ^^^^^
+
+        super { 123 }
+        ^^^^^^^^^^^^^
+
+    If it has any other arguments, it would be a `SuperNode` instead.
+  steep_notes:
+  - parser の zsuper。
+- name: GlobalVariableAndWriteNode
+  prism: GlobalVariableAndWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `&&=` operator for assignment to a global variable.
+
+        $target &&= value
+        ^^^^^^^^^^^^^^^^^
+- name: GlobalVariableOperatorWriteNode
+  prism: GlobalVariableOperatorWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: binary_operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: binary_operator
+    type: constant
+  comment: |
+    Represents assigning to a global variable using an operator that isn't `=`.
+
+        $target += value
+        ^^^^^^^^^^^^^^^^
+- name: GlobalVariableOrWriteNode
+  prism: GlobalVariableOrWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `||=` operator for assignment to a global variable.
+
+        $target ||= value
+        ^^^^^^^^^^^^^^^^^
+- name: GlobalVariableReadNode
+  prism: GlobalVariableReadNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents referencing a global variable.
+
+        $foo
+        ^^^^
+- name: GlobalVariableTargetNode
+  prism: GlobalVariableTargetNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents writing to a global variable in a context that doesn't have an explicit value.
+
+        $foo, $bar = baz
+        ^^^^  ^^^^
+- name: GlobalVariableWriteNode
+  prism: GlobalVariableWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents writing to a global variable.
+
+        $foo = 1
+        ^^^^^^^^
+- name: HashNode
+  prism: HashNode
+  steep: typed
+  fields:
+  - name: opening_loc
+    type: location
+  - name: elements
+    type: node[]
+    kind:
+    - AssocNode
+    - AssocSplatNode
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents a hash literal.
+
+        { a => b }
+        ^^^^^^^^^^
+- name: HashPatternNode
+  prism: HashPatternNode
+  steep: unsupported
+  fields:
+  - name: constant
+    type: node?
+    kind:
+    - ConstantPathNode
+    - ConstantReadNode
+  - name: elements
+    type: node[]
+    kind: AssocNode
+  - name: rest
+    type: node?
+    kind:
+    - AssocSplatNode
+    - NoKeywordsParameterNode
+  - name: opening_loc
+    type: location?
+  - name: closing_loc
+    type: location?
+  comment: |
+    Represents a hash pattern in pattern matching.
+
+        foo => { a: 1, b: 2 }
+               ^^^^^^^^^^^^^^
+
+        foo => { a: 1, b: 2, **c }
+               ^^^^^^^^^^^^^^^^^^^
+
+        foo => Bar[a: 1, b: 2]
+               ^^^^^^^^^^^^^^^
+
+        foo in { a: 1, b: 2 }
+               ^^^^^^^^^^^^^^
+  steep_notes:
+  - "`Foo(a:, b:)` のような定数つきパターンは constant フィールドで表す(parser の const_pattern)。"
+- name: IfNode
+  prism: IfNode
+  steep: typed
+  fields:
+  - name: if_keyword_loc
+    type: location?
+  - name: predicate
+    type: node
+    kind: non-void expression
+  - name: then_keyword_loc
+    type: location?
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: subsequent
+    type: node?
+    kind:
+    - ElseNode
+    - IfNode
+  - name: end_keyword_loc
+    type: location?
+  comment: |
+    Represents the use of the `if` keyword, either in the block form or the modifier form, or a ternary expression.
+
+        bar if foo
+        ^^^^^^^^^^
+
+        if foo then bar end
+        ^^^^^^^^^^^^^^^^^^^
+
+        foo ? bar : baz
+        ^^^^^^^^^^^^^^^
+  steep_notes:
+  - parser の `(if cond then else)` と、修飾子形式、三項演算子を 1 クラスで表す。三項演算子は if_keyword_loc が nil、then_keyword_loc が `?`、subsequent が ElseNode(else_keyword_loc が `:`)。
+  - "`unless` は UnlessNode になる(parser は then/else を入れ替えた if にしていた)。`elsif` は subsequent の IfNode。"
+  - 現状の then_annotations / else_annotations は statements.annotations / subsequent.statements.annotations になる。
+- name: ImaginaryNode
+  prism: ImaginaryNode
+  steep: typed
+  fields:
+  - name: numeric
+    type: node
+    kind:
+    - FloatNode
+    - IntegerNode
+    - RationalNode
+  comment: |
+    Represents an imaginary number literal.
+
+        1.0i
+        ^^^^
+- name: ImplicitNode
+  prism: ImplicitNode
+  steep: typed
+  fields:
+  - name: value
+    type: node
+    kind:
+    - LocalVariableReadNode
+    - CallNode
+    - ConstantReadNode
+    - LocalVariableTargetNode
+  comment: |
+    Represents a node that is implicitly being added to the tree but doesn't correspond directly to a node in the source.
+
+        { foo: }
+          ^^^^
+
+        { Foo: }
+          ^^^^
+
+        foo in { bar: }
+                 ^^^^
+  steep_notes:
+  - ハッシュの省略記法 `{x:}` の値や、パターン `{x:}` の値を包む。中身は LocalVariableReadNode か CallNode。
+- name: ImplicitRestNode
+  prism: ImplicitRestNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents using a trailing comma to indicate an implicit rest parameter.
+
+        foo { |bar,| }
+                  ^
+
+        foo in [bar,]
+                   ^
+
+        for foo, in bar do end
+               ^
+
+        foo, = bar
+           ^
+  steep_notes:
+  - 末尾カンマ `a, = x` / `|a,|` / `in [a,]` の暗黙の rest。parser では情報が落ちていた。
+- name: InNode
+  prism: InNode
+  steep: unsupported
+  fields:
+  - name: pattern
+    type: node
+    kind: pattern expression
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: in_keyword_loc
+    type: location
+  - name: then_keyword_loc
+    type: location?
+  comment: |
+    Represents the use of the `in` keyword in a case statement.
+
+        case a; in b then c end
+                ^^^^^^^^^^^
+  steep_notes:
+  - ガード `in a if cond` は Prism では pattern が IfNode / UnlessNode(statements にパターン)になる。対応する際は要注意。
+- name: IndexAndWriteNode
+  prism: IndexAndWriteNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node?
+    kind: non-void expression
+  - name: call_operator_loc
+    type: location?
+  - name: opening_loc
+    type: location
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: closing_loc
+    type: location
+  - name: block
+    type: node?
+    kind: BlockArgumentNode
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `&&=` operator on a call to the `[]` method.
+
+        foo.bar[baz] &&= value
+        ^^^^^^^^^^^^^^^^^^^^^^
+- name: IndexOperatorWriteNode
+  prism: IndexOperatorWriteNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node?
+    kind: non-void expression
+  - name: call_operator_loc
+    type: location?
+  - name: opening_loc
+    type: location
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: closing_loc
+    type: location
+  - name: block
+    type: node?
+    kind: BlockArgumentNode
+  - name: binary_operator
+    type: constant
+  - name: binary_operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of an assignment operator on a call to `[]`.
+
+        foo.bar[baz] += value
+        ^^^^^^^^^^^^^^^^^^^^^
+- name: IndexOrWriteNode
+  prism: IndexOrWriteNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node?
+    kind: non-void expression
+  - name: call_operator_loc
+    type: location?
+  - name: opening_loc
+    type: location
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: closing_loc
+    type: location
+  - name: block
+    type: node?
+    kind: BlockArgumentNode
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `||=` operator on a call to `[]`.
+
+        foo.bar[baz] ||= value
+        ^^^^^^^^^^^^^^^^^^^^^^
+- name: IndexTargetNode
+  prism: IndexTargetNode
+  steep: typed
+  flags: CallNodeFlags
+  fields:
+  - name: receiver
+    type: node
+    kind: non-void expression
+  - name: opening_loc
+    type: location
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: closing_loc
+    type: location
+  - name: block
+    type: node?
+    kind: BlockArgumentNode
+  comment: |
+    Represents assigning to an index.
+
+        foo[bar], = 1
+        ^^^^^^^^
+
+        begin
+        rescue => foo[bar]
+                  ^^^^^^^^
+        end
+
+        for foo[bar] in baz do end
+            ^^^^^^^^
+  steep_notes:
+  - "`a[1], b = x` の左辺(parser は value なしの send :[]= だった)。"
+- name: InstanceVariableAndWriteNode
+  prism: InstanceVariableAndWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `&&=` operator for assignment to an instance variable.
+
+        @target &&= value
+        ^^^^^^^^^^^^^^^^^
+- name: InstanceVariableOperatorWriteNode
+  prism: InstanceVariableOperatorWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: binary_operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: binary_operator
+    type: constant
+  comment: |
+    Represents assigning to an instance variable using an operator that isn't `=`.
+
+        @target += value
+        ^^^^^^^^^^^^^^^^
+- name: InstanceVariableOrWriteNode
+  prism: InstanceVariableOrWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents the use of the `||=` operator for assignment to an instance variable.
+
+        @target ||= value
+        ^^^^^^^^^^^^^^^^^
+- name: InstanceVariableReadNode
+  prism: InstanceVariableReadNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents referencing an instance variable.
+
+        @foo
+        ^^^^
+- name: InstanceVariableTargetNode
+  prism: InstanceVariableTargetNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents writing to an instance variable in a context that doesn't have an explicit value.
+
+        @foo, @bar = baz
+        ^^^^  ^^^^
+- name: InstanceVariableWriteNode
+  prism: InstanceVariableWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents writing to an instance variable.
+
+        @foo = 1
+        ^^^^^^^^
+- name: IntegerNode
+  prism: IntegerNode
+  steep: typed
+  flags: IntegerBaseFlags
+  fields:
+  - name: value
+    type: integer
+  comment: |
+    Represents an integer number literal.
+
+        1
+        ^
+- name: InterpolatedMatchLastLineNode
+  prism: InterpolatedMatchLastLineNode
+  steep: unsupported
+  flags: RegularExpressionFlags
+  fields:
+  - name: opening_loc
+    type: location
+  - name: parts
+    type: node[]
+    kind:
+    - StringNode
+    - EmbeddedStatementsNode
+    - EmbeddedVariableNode
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents a regular expression literal that contains interpolation that is being used in the predicate of a conditional to implicitly match against the last line read by an IO object.
+
+        if /foo #{bar} baz/ then end
+           ^^^^^^^^^^^^^^^^
+- name: InterpolatedRegularExpressionNode
+  prism: InterpolatedRegularExpressionNode
+  steep: typed
+  flags: RegularExpressionFlags
+  fields:
+  - name: opening_loc
+    type: location
+  - name: parts
+    type: node[]
+    kind:
+    - StringNode
+    - EmbeddedStatementsNode
+    - EmbeddedVariableNode
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents a regular expression literal that contains interpolation.
+
+        /foo #{bar} baz/
+        ^^^^^^^^^^^^^^^^
+- name: InterpolatedStringNode
+  prism: InterpolatedStringNode
+  steep: typed
+  flags: InterpolatedStringNodeFlags
+  fields:
+  - name: opening_loc
+    type: location?
+  - name: parts
+    type: node[]
+    kind:
+    - StringNode
+    - EmbeddedStatementsNode
+    - EmbeddedVariableNode
+    - InterpolatedStringNode
+  - name: closing_loc
+    type: location?
+  comment: |
+    Represents a string literal that contains interpolation.
+
+        "foo #{bar} baz"
+        ^^^^^^^^^^^^^^^^
+- name: InterpolatedSymbolNode
+  prism: InterpolatedSymbolNode
+  steep: typed
+  fields:
+  - name: opening_loc
+    type: location?
+  - name: parts
+    type: node[]
+    kind:
+    - StringNode
+    - EmbeddedStatementsNode
+    - EmbeddedVariableNode
+  - name: closing_loc
+    type: location?
+  comment: |
+    Represents a symbol literal that contains interpolation.
+
+        :"foo #{bar} baz"
+        ^^^^^^^^^^^^^^^^^
+- name: InterpolatedXStringNode
+  prism: InterpolatedXStringNode
+  steep: typed
+  fields:
+  - name: opening_loc
+    type: location
+  - name: parts
+    type: node[]
+    kind:
+    - StringNode
+    - EmbeddedStatementsNode
+    - EmbeddedVariableNode
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents an xstring literal that contains interpolation.
+
+        `foo #{bar} baz`
+        ^^^^^^^^^^^^^^^^
+- name: ItLocalVariableReadNode
+  prism: ItLocalVariableReadNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents reading from the implicit `it` local variable.
+
+        -> { it }
+             ^^
+- name: ItParametersNode
+  prism: ItParametersNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents an implicit set of parameters through the use of the `it` keyword within a block or lambda.
+
+        -> { it + it }
+        ^^^^^^^^^^^^^^
+- name: KeywordHashNode
+  prism: KeywordHashNode
+  steep: typed
+  flags: KeywordHashNodeFlags
+  fields:
+  - name: elements
+    type: node[]
+    kind:
+    - AssocNode
+    - AssocSplatNode
+  comment: |
+    Represents a hash literal without opening and closing braces.
+
+        foo(a: b)
+            ^^^^
+  steep_notes:
+  - '括弧なしキーワード引数(parser の kwargs)。括弧つき `foo({a: 1})` は HashNode。'
+- name: KeywordRestParameterNode
+  prism: KeywordRestParameterNode
+  steep: typed
+  flags: ParameterFlags
+  fields:
+  - name: name
+    type: constant?
+  - name: name_loc
+    type: location?
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents a keyword rest parameter to a method, block, or lambda definition.
+
+        def a(**b)
+              ^^^
+        end
+- name: LambdaNode
+  prism: LambdaNode
+  steep: typed
+  fields:
+  - name: operator_loc
+    type: location
+  - name: opening_loc
+    type: location
+  - name: closing_loc
+    type: location
+  - name: parameters
+    type: node?
+    kind:
+    - BlockParametersNode
+    - NumberedParametersNode
+    - ItParametersNode
+  - name: body
+    type: node
+    kind:
+    - StatementsNode
+    - BeginNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  comment: |
+    Represents using a lambda literal (not the lambda method call).
+
+        ->(value) { value * 2 }
+        ^^^^^^^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - parser では `(block (lambda) args body)` だった。CallNode ではなく独立したノード。
+- name: LocalVariableAndWriteNode
+  prism: LocalVariableAndWriteNode
+  steep: typed
+  fields:
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: name
+    type: constant
+  comment: |
+    Represents the use of the `&&=` operator for assignment to a local variable.
+
+        target &&= value
+        ^^^^^^^^^^^^^^^^
+- name: LocalVariableOperatorWriteNode
+  prism: LocalVariableOperatorWriteNode
+  steep: typed
+  fields:
+  - name: name_loc
+    type: location
+  - name: binary_operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: name
+    type: constant
+  - name: binary_operator
+    type: constant
+  comment: |
+    Represents assigning to a local variable using an operator that isn't `=`.
+
+        target += value
+        ^^^^^^^^^^^^^^^
+- name: LocalVariableOrWriteNode
+  prism: LocalVariableOrWriteNode
+  steep: typed
+  fields:
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: name
+    type: constant
+  comment: |
+    Represents the use of the `||=` operator for assignment to a local variable.
+
+        target ||= value
+        ^^^^^^^^^^^^^^^^
+- name: LocalVariableReadNode
+  prism: LocalVariableReadNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents reading a local variable. Note that this requires that a local variable of the same name has already been written to in the same scope, otherwise it is parsed as a method call.
+
+        foo
+        ^^^
+- name: LocalVariableTargetNode
+  prism: LocalVariableTargetNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents writing to a local variable in a context that doesn't have an explicit value.
+
+        foo, bar = baz
+        ^^^  ^^^
+
+        foo => baz
+               ^^^
+- name: LocalVariableWriteNode
+  prism: LocalVariableWriteNode
+  steep: typed
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents writing to a local variable.
+
+        foo = 1
+        ^^^^^^^
+- name: MatchLastLineNode
+  prism: MatchLastLineNode
+  steep: unsupported
+  flags: RegularExpressionFlags
+  fields:
+  - name: opening_loc
+    type: location
+  - name: content_loc
+    type: location
+  - name: closing_loc
+    type: location
+  - name: unescaped
+    type: string
+  comment: |
+    Represents a regular expression literal used in the predicate of a conditional to implicitly match against the last line read by an IO object.
+
+        if /foo/i then end
+           ^^^^^^
+- name: MatchPredicateNode
+  prism: MatchPredicateNode
+  steep: unsupported
+  fields:
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: pattern
+    type: node
+    kind: pattern expression
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of the modifier `in` operator.
+
+        foo in bar
+        ^^^^^^^^^^
+- name: MatchRequiredNode
+  prism: MatchRequiredNode
+  steep: unsupported
+  fields:
+  - name: value
+    type: node
+    kind: non-void expression
+  - name: pattern
+    type: node
+    kind: pattern expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents the use of the `=>` operator.
+
+        foo => bar
+        ^^^^^^^^^^
+- name: MatchWriteNode
+  prism: MatchWriteNode
+  steep: typed
+  fields:
+  - name: call
+    type: node
+    kind: CallNode
+  - name: targets
+    type: node[]
+    kind: LocalVariableTargetNode
+  comment: |
+    Represents writing local variables using a regular expression match with named capture groups.
+
+        /(?<foo>bar)/ =~ baz
+        ^^^^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - 名前つきキャプチャつき正規表現の `=~`(parser の match_with_lvasgn)。targets に束縛されるローカル変数が明示される。
+- name: ModuleNode
+  prism: ModuleNode
+  steep: typed
+  fields:
+  - name: module_keyword_loc
+    type: location
+  - name: constant_path
+    type: node
+    kind:
+    - ConstantReadNode
+    - ConstantPathNode
+  - name: body
+    type: node
+    kind:
+    - StatementsNode
+    - BeginNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: end_keyword_loc
+    type: location
+  - name: name
+    type: constant
+  comment: |
+    Represents a module declaration involving the `module` keyword.
+
+        module Foo end
+        ^^^^^^^^^^^^^^
+  steep_notes:
+  - 同上。
+- name: MultiTargetNode
+  prism: MultiTargetNode
+  steep: typed
+  fields:
+  - name: lefts
+    type: node[]
+    kind:
+    - LocalVariableTargetNode
+    - InstanceVariableTargetNode
+    - ClassVariableTargetNode
+    - GlobalVariableTargetNode
+    - ConstantTargetNode
+    - ConstantPathTargetNode
+    - CallTargetNode
+    - IndexTargetNode
+    - MultiTargetNode
+    - RequiredParameterNode
+  - name: rest
+    type: node?
+    kind:
+    - ImplicitRestNode
+    - SplatNode
+  - name: rights
+    type: node[]
+    kind:
+    - LocalVariableTargetNode
+    - InstanceVariableTargetNode
+    - ClassVariableTargetNode
+    - GlobalVariableTargetNode
+    - ConstantTargetNode
+    - ConstantPathTargetNode
+    - CallTargetNode
+    - IndexTargetNode
+    - MultiTargetNode
+    - RequiredParameterNode
+  - name: lparen_loc
+    type: location?
+  - name: rparen_loc
+    type: location?
+  comment: |
+    Represents a multi-target expression.
+
+        a, (b, c) = 1, 2, 3
+           ^^^^^^
+
+    This can be a part of `MultiWriteNode` as above, or the target of a `for` loop
+
+        for a, b in [[1, 2], [3, 4]]
+            ^^^^
+  steep_notes:
+  - 入れ子の `(a, b)`、def / block のパラメータの分割代入(parser の mlhs / procarg0 の分割形)。
+- name: MultiWriteNode
+  prism: MultiWriteNode
+  steep: typed
+  fields:
+  - name: lefts
+    type: node[]
+    kind:
+    - LocalVariableTargetNode
+    - InstanceVariableTargetNode
+    - ClassVariableTargetNode
+    - GlobalVariableTargetNode
+    - ConstantTargetNode
+    - ConstantPathTargetNode
+    - CallTargetNode
+    - IndexTargetNode
+    - MultiTargetNode
+  - name: rest
+    type: node?
+    kind:
+    - ImplicitRestNode
+    - SplatNode
+  - name: rights
+    type: node[]
+    kind:
+    - LocalVariableTargetNode
+    - InstanceVariableTargetNode
+    - ClassVariableTargetNode
+    - GlobalVariableTargetNode
+    - ConstantTargetNode
+    - ConstantPathTargetNode
+    - CallTargetNode
+    - IndexTargetNode
+    - MultiTargetNode
+  - name: lparen_loc
+    type: location?
+  - name: rparen_loc
+    type: location?
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents a write to a multi-target expression.
+
+        a, b, c = 1, 2, 3
+        ^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - parser の masgn + mlhs。lefts / rest / rights の分割は TypeInference::MultipleAssignment が行っている処理そのもの。
+- name: NextNode
+  prism: NextNode
+  steep: typed
+  fields:
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of the `next` keyword.
+
+        next 1
+        ^^^^^^
+- name: NilNode
+  prism: NilNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents the use of the `nil` keyword.
+
+        nil
+        ^^^
+- name: NoBlockParameterNode
+  prism: NoBlockParameterNode
+  steep: unsupported
+  fields:
+  - name: operator_loc
+    type: location
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of `&nil` inside method arguments.
+
+        def a(&nil)
+              ^^^^
+        end
+- name: NoKeywordsParameterNode
+  prism: NoKeywordsParameterNode
+  steep: unsupported
+  fields:
+  - name: operator_loc
+    type: location
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of `**nil` inside method arguments.
+
+        def a(**nil)
+              ^^^^^
+        end
+- name: NumberedParametersNode
+  prism: NumberedParametersNode
+  steep: typed
+  fields:
+  - name: maximum
+    type: uint8
+  comment: |
+    Represents an implicit set of parameters through the use of numbered parameters within a block or lambda.
+
+        -> { _1 + _2 }
+        ^^^^^^^^^^^^^^
+- name: NumberedReferenceReadNode
+  prism: NumberedReferenceReadNode
+  steep: typed
+  fields:
+  - name: number
+    type: uint32
+  comment: |
+    Represents reading a numbered reference to a capture in the previous match.
+
+        $1
+        ^^
+- name: OptionalKeywordParameterNode
+  prism: OptionalKeywordParameterNode
+  steep: typed
+  flags: ParameterFlags
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents an optional keyword parameter to a method, block, or lambda definition.
+
+        def a(b: 1)
+              ^^^^
+        end
+- name: OptionalParameterNode
+  prism: OptionalParameterNode
+  steep: typed
+  flags: ParameterFlags
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: value
+    type: node
+    kind: non-void expression
+  comment: |
+    Represents an optional parameter to a method, block, or lambda definition.
+
+        def a(b = 1)
+              ^^^^^
+        end
+- name: OrNode
+  prism: OrNode
+  steep: typed
+  fields:
+  - name: left
+    type: node
+    kind: non-void expression
+  - name: right
+    type: node
+    kind: Node
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents the use of the `||` operator or the `or` keyword.
+
+        left or right
+        ^^^^^^^^^^^^^
+- name: ParametersNode
+  prism: ParametersNode
+  steep: typed
+  fields:
+  - name: requireds
+    type: node[]
+    kind:
+    - RequiredParameterNode
+    - MultiTargetNode
+  - name: optionals
+    type: node[]
+    kind: OptionalParameterNode
+  - name: rest
+    type: node?
+    kind:
+    - RestParameterNode
+    - ImplicitRestNode
+  - name: posts
+    type: node[]
+    kind:
+    - RequiredParameterNode
+    - MultiTargetNode
+  - name: keywords
+    type: node[]
+    kind:
+    - RequiredKeywordParameterNode
+    - OptionalKeywordParameterNode
+  - name: keyword_rest
+    type: node?
+    kind:
+    - KeywordRestParameterNode
+    - ForwardingParameterNode
+    - NoKeywordsParameterNode
+  - name: block
+    type: node?
+    kind:
+    - BlockParameterNode
+    - NoBlockParameterNode
+  comment: |
+    Represents the list of parameters on a method, block, or lambda definition.
+
+        def a(b, c, d)
+              ^^^^^^^
+        end
+  steep_notes:
+  - parser の平坦な args を requireds / optionals / rest / posts / keywords / keyword_rest / block に分けて持つ。TypeInference::BlockParams.from_node などの仕分け処理が不要になり、RBS のメソッド型の構造と揃う。
+- name: ParenthesesNode
+  prism: ParenthesesNode
+  steep: typed
+  flags: ParenthesesNodeFlags
+  fields:
+  - name: body
+    type: node?
+    kind: non-void expression
+  - name: opening_loc
+    type: location
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents a parenthesized expression
+
+        (10 + 34)
+        ^^^^^^^^^
+  steep_notes:
+  - parser の括弧つき begin。括弧なしの文の並びは StatementsNode。現状 insert_type_node が括弧つき begin 全体に型アサーションを付けている規則はここに対応する。
+- name: PinnedExpressionNode
+  prism: PinnedExpressionNode
+  steep: unsupported
+  fields:
+  - name: expression
+    type: node
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  - name: lparen_loc
+    type: location
+  - name: rparen_loc
+    type: location
+  comment: |
+    Represents the use of the `^` operator for pinning an expression in a pattern matching expression.
+
+        foo in ^(bar)
+               ^^^^^^
+- name: PinnedVariableNode
+  prism: PinnedVariableNode
+  steep: unsupported
+  fields:
+  - name: variable
+    type: node
+    kind:
+    - LocalVariableReadNode
+    - InstanceVariableReadNode
+    - ClassVariableReadNode
+    - GlobalVariableReadNode
+    - BackReferenceReadNode
+    - NumberedReferenceReadNode
+    - ItLocalVariableReadNode
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents the use of the `^` operator for pinning a variable in a pattern matching expression.
+
+        foo in ^bar
+               ^^^^
+- name: PostExecutionNode
+  prism: PostExecutionNode
+  steep: unsupported
+  fields:
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: keyword_loc
+    type: location
+  - name: opening_loc
+    type: location
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents the use of the `END` keyword.
+
+        END { foo }
+        ^^^^^^^^^^^
+- name: PreExecutionNode
+  prism: PreExecutionNode
+  steep: unsupported
+  fields:
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: keyword_loc
+    type: location
+  - name: opening_loc
+    type: location
+  - name: closing_loc
+    type: location
+  comment: |
+    Represents the use of the `BEGIN` keyword.
+
+        BEGIN { foo }
+        ^^^^^^^^^^^^^
+- name: ProgramNode
+  prism: ProgramNode
+  steep: typed
+  fields:
+  - name: statements
+    type: node
+    kind: StatementsNode
+  comment: The top level node of any parse tree.
+  steep_notes:
+  - statements は空でも StatementsNode として常に存在する。トップレベルのアノテーションと、どこにも付かなかったアノテーションは statements.annotations に入る(現状の mapping[root] 相当)。
+  - comments と steep:ignore は Source 側に残す(木には入れない)。
+- name: RangeNode
+  prism: RangeNode
+  steep: typed
+  flags: RangeFlags
+  fields:
+  - name: left
+    type: node?
+    kind: non-void expression
+  - name: right
+    type: node?
+    kind: non-void expression
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents the use of the `..` or `...` operators.
+
+        1..2
+        ^^^^
+
+        c if a =~ /left/ ... b =~ /right/
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - parser の irange / erange。排他は RangeFlags::EXCLUDE_END。
+- name: RationalNode
+  prism: RationalNode
+  steep: typed
+  flags: IntegerBaseFlags
+  fields:
+  - name: numerator
+    type: integer
+  - name: denominator
+    type: integer
+  comment: |
+    Represents a rational number literal.
+
+        1.0r
+        ^^^^
+- name: RedoNode
+  prism: RedoNode
+  steep: unsupported
+  fields: []
+  comment: |
+    Represents the use of the `redo` keyword.
+
+        redo
+        ^^^^
+- name: RegularExpressionNode
+  prism: RegularExpressionNode
+  steep: typed
+  flags: RegularExpressionFlags
+  fields:
+  - name: opening_loc
+    type: location
+  - name: content_loc
+    type: location
+  - name: closing_loc
+    type: location
+  - name: unescaped
+    type: string
+  comment: |
+    Represents a regular expression literal with no interpolation.
+
+        /foo/i
+        ^^^^^^
+- name: RequiredKeywordParameterNode
+  prism: RequiredKeywordParameterNode
+  steep: typed
+  flags: ParameterFlags
+  fields:
+  - name: name
+    type: constant
+  - name: name_loc
+    type: location
+  comment: |
+    Represents a required keyword parameter to a method, block, or lambda definition.
+
+        def a(b: )
+              ^^
+        end
+- name: RequiredParameterNode
+  prism: RequiredParameterNode
+  steep: typed
+  flags: ParameterFlags
+  fields:
+  - name: name
+    type: constant
+  comment: |
+    Represents a required parameter to a method, block, or lambda definition.
+
+        def a(b)
+              ^
+        end
+- name: RescueModifierNode
+  prism: RescueModifierNode
+  steep: typed
+  fields:
+  - name: expression
+    type: node
+    kind: Node
+  - name: keyword_loc
+    type: location
+  - name: rescue_expression
+    type: node
+    kind: Node
+  comment: |
+    Represents an expression modified with a rescue.
+
+        foo rescue nil
+        ^^^^^^^^^^^^^^
+  steep_notes:
+  - "`a rescue b`。parser では rescue ノードの一形態だった。"
+- name: RescueNode
+  prism: RescueNode
+  steep: typed
+  fields:
+  - name: keyword_loc
+    type: location
+  - name: exceptions
+    type: node[]
+    kind: non-void expression
+  - name: operator_loc
+    type: location?
+  - name: reference
+    type: node?
+    kind:
+    - LocalVariableTargetNode
+    - InstanceVariableTargetNode
+    - ClassVariableTargetNode
+    - GlobalVariableTargetNode
+    - ConstantTargetNode
+    - ConstantPathTargetNode
+    - CallTargetNode
+    - IndexTargetNode
+  - name: then_keyword_loc
+    type: location?
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: subsequent
+    type: node?
+    kind: RescueNode
+  comment: |
+    Represents a rescue statement.
+
+        begin
+        rescue Foo, *splat, Bar => ex
+          foo
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        end
+
+    `Foo, *splat, Bar` are in the `exceptions` field. `ex` is in the `reference` field.
+  steep_notes:
+  - 複数の rescue 節は subsequent による連鎖(parser は配列だった)。reference は *TargetNode(LocalVariableTargetNode など)。
+- name: RestParameterNode
+  prism: RestParameterNode
+  steep: typed
+  flags: ParameterFlags
+  fields:
+  - name: name
+    type: constant?
+  - name: name_loc
+    type: location?
+  - name: operator_loc
+    type: location
+  comment: |
+    Represents a rest parameter to a method, block, or lambda definition.
+
+        def a(*b)
+              ^^
+        end
+- name: RetryNode
+  prism: RetryNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents the use of the `retry` keyword.
+
+        retry
+        ^^^^^
+- name: ReturnNode
+  prism: ReturnNode
+  steep: typed
+  fields:
+  - name: keyword_loc
+    type: location
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  comment: |
+    Represents the use of the `return` keyword.
+
+        return 1
+        ^^^^^^^^
+- name: SelfNode
+  prism: SelfNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents the `self` keyword.
+
+        self
+        ^^^^
+- name: ShareableConstantNode
+  prism: ShareableConstantNode
+  steep: typed
+  flags: ShareableConstantNodeFlags
+  fields:
+  - name: write
+    type: node
+    kind:
+    - ConstantWriteNode
+    - ConstantAndWriteNode
+    - ConstantOrWriteNode
+    - ConstantOperatorWriteNode
+    - ConstantPathWriteNode
+    - ConstantPathAndWriteNode
+    - ConstantPathOrWriteNode
+    - ConstantPathOperatorWriteNode
+  comment: |
+    This node wraps a constant write to indicate that when the value is written, it should have its shareability state modified.
+
+        # shareable_constant_value: literal
+        C = { a: 1 }
+        ^^^^^^^^^^^^
+  steep_notes:
+  - "`# shareable_constant_value:` マジックコメント下の定数代入を包む。parser 変換は write をそのまま出していたので、TypeConstruction も write を素通しする。"
+- name: SingletonClassNode
+  prism: SingletonClassNode
+  steep: typed
+  fields:
+  - name: class_keyword_loc
+    type: location
+  - name: operator_loc
+    type: location
+  - name: expression
+    type: node
+    kind: non-void expression
+  - name: body
+    type: node
+    kind:
+    - StatementsNode
+    - BeginNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: end_keyword_loc
+    type: location
+  comment: |
+    Represents a singleton class declaration involving the `class` keyword.
+
+        class << self end
+        ^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - parser の sclass。body は常に存在する。
+- name: SourceEncodingNode
+  prism: SourceEncodingNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents the use of the `__ENCODING__` keyword.
+
+        __ENCODING__
+        ^^^^^^^^^^^^
+  steep_notes:
+  - "`__ENCODING__`。parser 変換では const Encoding::UTF_8 になり内側の const の location が nil になっていた癖が解消する。型は Encoding。"
+- name: SourceFileNode
+  prism: SourceFileNode
+  steep: typed
+  flags: StringFlags
+  fields:
+  - name: filepath
+    type: string
+  comment: |
+    Represents the use of the `__FILE__` keyword.
+
+        __FILE__
+        ^^^^^^^^
+  steep_notes:
+  - "`__FILE__`。parser 変換では str だった。型は String。"
+- name: SourceLineNode
+  prism: SourceLineNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents the use of the `__LINE__` keyword.
+
+        __LINE__
+        ^^^^^^^^
+  steep_notes:
+  - "`__LINE__`。parser 変換では int だった。型は Integer。"
+- name: SplatNode
+  prism: SplatNode
+  steep: typed
+  fields:
+  - name: operator_loc
+    type: location
+  - name: expression
+    type: node?
+    kind: non-void expression
+  comment: |
+    Represents the use of the splat operator.
+
+        [*a]
+         ^^
+  steep_notes:
+  - 'expression が nil のときは匿名 `*`(`*, a = x`、`foo(*)`)。現状の forwarded_restarg は SplatNode(expression: nil)になる。'
+- name: StatementsNode
+  prism: StatementsNode
+  steep: typed
+  fields:
+  - name: body
+    type: node[]
+    kind: Node
+  - name: annotations
+    type: annotation[]
+    comment: この文の並びの領域に書かれたブロックアノテーション(`@type var` など)。
+  comment: |
+    Represents a set of statements contained within some scope.
+
+        foo; bar; baz
+        ^^^^^^^^^^^^^
+  steep_notes:
+  - Steep の AST では本体を表すすべての位置に常に存在し(空の本体は body が空)、ブロックアノテーションの唯一の付与先になる。
+  - 現状の mapping / construct_mapping は、各構文のキーワード位置から領域(then から else まで、など)を求めて、その領域の StatementsNode に付ける処理に置き換わる。
+  - location.expression は Prism と同じく最初の文から最後の文までとし、領域全体ではない(空のときは領域の開始位置の空範囲)。
+- name: StringNode
+  prism: StringNode
+  steep: typed
+  flags: StringFlags
+  fields:
+  - name: opening_loc
+    type: location?
+  - name: content_loc
+    type: location
+  - name: closing_loc
+    type: location?
+  - name: unescaped
+    type: string
+  comment: |
+    Represents a string literal, a string contained within a `%w` list, or plain string content within an interpolated string.
+
+        "foo"
+        ^^^^^
+
+        %w[foo]
+           ^^^
+
+        "foo #{bar} baz"
+         ^^^^      ^^^^
+- name: SuperNode
+  prism: SuperNode
+  steep: typed
+  fields:
+  - name: keyword_loc
+    type: location
+  - name: lparen_loc
+    type: location?
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: rparen_loc
+    type: location?
+  - name: block
+    type: node?
+    kind:
+    - BlockNode
+    - BlockArgumentNode
+  comment: |
+    Represents the use of the `super` keyword with parentheses or arguments.
+
+        super()
+        ^^^^^^^
+
+        super foo, bar
+        ^^^^^^^^^^^^^^
+
+    If no arguments are provided (except for a block), it would be a `ForwardingSuperNode` instead.
+- name: SymbolNode
+  prism: SymbolNode
+  steep: typed
+  flags: SymbolFlags
+  fields:
+  - name: opening_loc
+    type: location?
+  - name: content_loc
+    type: location
+  - name: closing_loc
+    type: location?
+  - name: unescaped
+    type: string
+  comment: |
+    Represents a symbol literal or a symbol contained within a `%i` list.
+
+        :foo
+        ^^^^
+
+        %i[foo]
+           ^^^
+- name: TrueNode
+  prism: TrueNode
+  steep: typed
+  fields: []
+  comment: |
+    Represents the use of the literal `true` keyword.
+
+        true
+        ^^^^
+- name: UndefNode
+  prism: UndefNode
+  steep: unsupported
+  fields:
+  - name: names
+    type: node[]
+    kind:
+    - SymbolNode
+    - InterpolatedSymbolNode
+  - name: keyword_loc
+    type: location
+  comment: |
+    Represents the use of the `undef` keyword.
+
+        undef :foo, :bar, :baz
+        ^^^^^^^^^^^^^^^^^^^^^^
+- name: UnlessNode
+  prism: UnlessNode
+  steep: typed
+  fields:
+  - name: unless_keyword_loc
+    type: location
+  - name: predicate
+    type: node
+    kind: non-void expression
+  - name: then_keyword_loc
+    type: location?
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  - name: else_clause
+    type: node?
+    kind: ElseNode
+  - name: end_keyword_loc
+    type: location?
+  comment: |
+    Represents the use of the `unless` keyword, either in the block form or the modifier form.
+
+        bar unless foo
+        ^^^^^^^^^^^^^^
+
+        unless foo then bar end
+        ^^^^^^^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - parser では `if` ノードだった。TypeConstruction の if の分岐を共有するか、UnlessNode 用の分岐を持つか(真偽の反転)。
+- name: UntilNode
+  prism: UntilNode
+  steep: typed
+  flags: LoopFlags
+  fields:
+  - name: until_keyword_loc
+    type: location
+  - name: do_keyword_loc
+    type: location?
+  - name: end_keyword_loc
+    type: location?
+  - name: predicate
+    type: node
+    kind: non-void expression
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  comment: |
+    Represents the use of the `until` keyword, either in the block form or the modifier form.
+
+        bar until foo
+        ^^^^^^^^^^^^^
+
+        until foo do bar end
+        ^^^^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - WhileNode と同じ。
+- name: WhenNode
+  prism: WhenNode
+  steep: typed
+  fields:
+  - name: when_keyword_loc
+    type: location
+  - name: conditions
+    type: node[]
+    kind: non-void expression
+  - name: then_keyword_loc
+    type: location?
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  comment: |
+    Represents the use of the `when` keyword within a case statement.
+
+        case true
+        when true
+        ^^^^^^^^^
+        end
+- name: WhileNode
+  prism: WhileNode
+  steep: typed
+  flags: LoopFlags
+  fields:
+  - name: while_keyword_loc
+    type: location
+  - name: do_keyword_loc
+    type: location?
+  - name: end_keyword_loc
+    type: location?
+  - name: predicate
+    type: node
+    kind: non-void expression
+  - name: statements
+    type: node
+    kind: StatementsNode
+    steep: Prism では nil 可。Steep では空でも常に存在する(アノテーションの付与先)。
+  comment: |
+    Represents the use of the `while` keyword, either in the block form or the modifier form.
+
+        bar while foo
+        ^^^^^^^^^^^^^
+
+        while foo do bar end
+        ^^^^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - parser の while / while_post。`begin ... end while` は LoopFlags::BEGIN_MODIFIER。修飾子形式 `b while a` はフラグなしで end_keyword_loc が nil。
+- name: XStringNode
+  prism: XStringNode
+  steep: typed
+  flags: EncodingFlags
+  fields:
+  - name: opening_loc
+    type: location
+  - name: content_loc
+    type: location
+  - name: closing_loc
+    type: location
+  - name: unescaped
+    type: string
+  comment: |
+    Represents an xstring literal with no interpolation.
+
+        `foo`
+        ^^^^^
+- name: YieldNode
+  prism: YieldNode
+  steep: typed
+  fields:
+  - name: keyword_loc
+    type: location
+  - name: lparen_loc
+    type: location?
+  - name: arguments
+    type: node?
+    kind: ArgumentsNode
+  - name: rparen_loc
+    type: location?
+  comment: |
+    Represents the use of the `yield` keyword.
+
+        yield 1
+        ^^^^^^^
+- name: TypeAssertionNode
+  prism:
+  steep: steep_only
+  fields:
+  - name: expression
+    type: node
+    kind: non-void expression
+  - name: assertion
+    type: TypeAssertion
+  comment: |
+    Represents a type assertion comment attached to an expression.
+        foo #: Integer
+        ^^^^^^^^^^^^^^
+  steep_notes:
+  - "`expr #: Type`。現状の `(assertion expr <TypeAssertion>)` の置き換え。expression の範囲は式の先頭からコメント末尾まで。"
+  - '付与規則は Source.insert_type_node のものを移植する: 代入(*WriteNode)は value に付ける、return / break / next、def、KeywordHashNode、WhenNode、AssocNode のキーには付けない、MultiWriteNode は value、ParenthesesNode は全体、attr_* の呼び出しは付けない(inline RBS が扱う)、Data.define / Struct.new の引数には付けない。'
+- name: TypeApplicationNode
+  prism:
+  steep: steep_only
+  fields:
+  - name: call
+    type: node
+    kind: CallNode
+  - name: application
+    type: TypeApplication
+  comment: |
+    Represents a type application comment attached to a method call.
+        foo.bar(1) #$ Integer
+        ^^^^^^^^^^^^^^^^^^^^^
+  steep_notes:
+  - "`call #$ Type, Type`。現状の `(tapp sendish <TypeApplication>)` の置き換え。TypeApplication#set_node の逆参照は不要になる。"
+  - expression は call の範囲。コメントが call の末尾より後ろにあるときはコメント末尾まで伸ばす。
 annotations:
-  - name: TypeAssertion
-    source: "#: Type"
-    fields:
-      type: RBS::Types::t
-    locations:
-      prefix: required   # `:`
-      type: required
-    notes:
-      - 現状は type_syntax? と type() で 2 回パースし、Locator でさらにパースしている。Source.parse 時に 1 回だけパースして保持する。
-      - 型名の解決(nesting 依存)は従来通り利用側で行う。
-
-  - name: TypeApplication
-    source: "#$ Type, Type"
-    fields:
-      types: Array[RBS::Types::t]
-    locations:
-      prefix: required   # `$`
-      types: Array[required]   # 各型の範囲(RBS::Types::t#location と重複するので省略も可)
-
-  - name: VarTypeAnnotation
-    source: "@type var name: Type"
-    fields: { name: Symbol, type: RBS::Types::t }
-    locations: { keyword: required, kind: required, name: required, colon: required, type: required }
-
-  - name: MethodTypeAnnotation
-    source: "@type method name: MethodType"
-    fields: { name: Symbol, method_type: RBS::MethodType }
-    locations: { keyword: required, kind: required, name: required, colon: required, type: required }
-
-  - name: ConstTypeAnnotation
-    source: "@type const Name: Type"
-    fields: { name: RBS::TypeName, type: RBS::Types::t }
-    locations: { keyword: required, kind: required, name: required, colon: required, type: required }
-
-  - name: IvarTypeAnnotation
-    source: "@type ivar @name: Type"
-    fields: { name: Symbol, type: RBS::Types::t }
-    locations: { keyword: required, kind: required, name: required, colon: required, type: required }
-
-  - name: ReturnTypeAnnotation
-    source: "@type return: Type"
-    fields: { type: RBS::Types::t }
-    locations: { keyword: required, kind: required, colon: required, type: required }
-
-  - name: BlockTypeAnnotation
-    source: "@type block: Type"
-    fields: { type: RBS::Types::t }
-    locations: { keyword: required, kind: required, colon: required, type: required }
-
-  - name: SelfTypeAnnotation
-    source: "@type self: Type"
-    fields: { type: RBS::Types::t }
-    locations: { keyword: required, kind: required, colon: required, type: required }
-
-  - name: InstanceTypeAnnotation
-    source: "@type instance: Type"
-    fields: { type: RBS::Types::t }
-    locations: { keyword: required, kind: required, colon: required, type: required }
-
-  - name: ModuleTypeAnnotation
-    source: "@type module: Type"
-    fields: { type: RBS::Types::t }
-    locations: { keyword: required, kind: required, colon: required, type: required }
-
-  - name: BreakTypeAnnotation
-    source: "@type break: Type"
-    fields: { type: RBS::Types::t }
-    locations: { keyword: required, kind: required, colon: required, type: required }
-
-  - name: ImplementsAnnotation
-    source: "@implements Name[A, B]"
-    fields: { name: RBS::TypeName, type_params: "Array[Symbol]" }
-    locations: { keyword: required, name: required, type_params: optional }
-
-  - name: DynamicAnnotation
-    source: "@dynamic name, self.name, self?.name"
-    fields: { names: "Array[DynamicName]" }
-    locations: { keyword: required }
-    notes:
-      - "DynamicName は { name: Symbol, kind: :instance | :module | :module_instance, location: RBS::Location }。"
-
-
-# ---------------------------------------------------------------------------
-# アノテーション内の型の扱い
-# ---------------------------------------------------------------------------
-annotation_type_policy:
-  - 型は RBS::Types::t(未解決)で保持し、名前解決は Annotation::Collection が factory と context(nesting)を使って行う(現状の absolute_type 相当)。
-  - 現状の AnnotationParser は factory.type で Steep の AST::Types::t に即時変換している。どちらに揃えるかは open_questions。
-  - TypeAssertion / TypeApplication は現状 type_syntax? と type() で 2 回パースし、Locator でさらにパースしている。Source.parse 時に 1 回だけパースして保持する。
-
-# ---------------------------------------------------------------------------
-# アノテーションスロットの付与規則(Source#construct_mapping の移植)
-# ---------------------------------------------------------------------------
-annotation_attachment:
-  by_node_range:
-    description: ノード自身の行範囲(開始行以上、終了行未満)にあるアノテーションを `annotations` に付ける
-    nodes: [DefNode, DefsNode, ClassNode, ModuleNode, SclassNode, BlockNode, NumblockNode, ItblockNode, EnsureNode, ResbodyNode]
-  by_body_range:
-    description: 本体ノードが存在しない構文では、親ノードが本体ごとのスロットを持つ
-    rules:
-      - { node: IfNode, slot: then_annotations, range: "begin(then)または条件の末尾行 ... else または end の行(unless では else の末尾行 ... end)" }
-      - { node: IfNode, slot: else_annotations, range: "else の末尾行 ... end の行(unless では begin または条件の末尾行 ... else または end)" }
-      - { node: WhileNode, slot: body_annotations, range: "条件の末尾行 ... end の行(前置形式のみ。修飾子形式は付与なし)" }
-      - { node: UntilNode, slot: body_annotations, range: "同上" }
-      - { node: WhilePostNode, slot: body_annotations, range: "式の開始行 ... keyword の行" }
-      - { node: UntilPostNode, slot: body_annotations, range: "同上" }
-      - { node: CaseNode, slot: else_annotations, range: "else の末尾行 ... end の行" }
-      - { node: WhenNode, slot: body_annotations, range: "begin(then)の末尾行 または 最後の条件の次の行 ... 本体の末尾行" }
-      - { node: RescueNode, slot: else_annotations, range: "else の末尾行 ... rescue の末尾行" }
-  fallback:
-    description: どこにも付かなかったアノテーションは ProgramNode.annotations に入る(現状の mapping[root] と同じ)
+- name: TypeAssertion
+  source: "#: Type"
+  fields:
+  - name: type
+    type: RBS::Types::t
+  - name: prefix_loc
+    type: location
+  - name: type_loc
+    type: location
   notes:
-    - 三項演算子の IfNode には付与しない(現状と同じ)。
-    - 内側のノードから外側へ消費していく現状の走査順(子を先に処理し、残りを自分に付ける)を保つ。
-
-# ---------------------------------------------------------------------------
-# parser gem のノード種のうち、生成しないもの(理由つき)
-# ---------------------------------------------------------------------------
-not_emitted:
-  - { type: __ENCODING__, reason: "emit_encoding = false のため const に変換される。open_questions 参照" }
-  - { type: __FILE__, reason: "StrNode になる(emit_file_line_as_literals)" }
-  - { type: __LINE__, reason: "IntNode になる" }
-  - { type: index, reason: "emit_index = false のため SendNode(:[])になる" }
-  - { type: indexasgn, reason: "同上(:[]=)" }
-  - { type: forward_args, reason: "emit_forward_arg = true のため ArgsNode[ForwardArgNode] になる" }
-  - { type: in_match, reason: "Prism 変換は match_pattern / match_pattern_p を生成する" }
-  - { type: empty_else, reason: "Prism 変換では生成されない(else_body が nil になる)" }
-  - { type: not, reason: "SendNode(:!)になる" }
-  - { type: blocknilarg, reason: "`&nil` は有効な Ruby ではない" }
-  - { type: match_with_trailing_comma, reason: "Prism 変換では生成されない(array_pattern_with_tail になる)" }
-  - { type: "arg_expr / restarg_expr / blockarg_expr", reason: "Ruby 1.8 のみ" }
-  - { type: "ident / numargs / itarg", reason: "parser 内部用" }
-  - { type: "objc_kwarg / objc_restarg / objc_varargs", reason: "MacRuby 用" }
-
-# ---------------------------------------------------------------------------
-# 未決事項
-# ---------------------------------------------------------------------------
+  - 現状は type_syntax? と type() で 2 回パースし、Locator でさらにパースしている。Source.parse 時に 1 回だけパースして保持する。型名の解決(nesting 依存)は従来通り利用側で行う。
+- name: TypeApplication
+  source: "#$ Type, Type"
+  fields:
+  - name: types
+    type: Array[RBS::Types::t]
+  - name: prefix_loc
+    type: location
+- name: VarTypeAnnotation
+  source: "@type var name: Type"
+  fields:
+  - name: name
+    type: Symbol
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: name_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: MethodTypeAnnotation
+  source: "@type method name: MethodType"
+  fields:
+  - name: name
+    type: Symbol
+  - name: method_type
+    type: RBS::MethodType
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: name_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: ConstTypeAnnotation
+  source: "@type const Name: Type"
+  fields:
+  - name: name
+    type: RBS::TypeName
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: name_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: IvarTypeAnnotation
+  source: "@type ivar @name: Type"
+  fields:
+  - name: name
+    type: Symbol
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: name_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: ReturnTypeAnnotation
+  source: "@type return: Type"
+  fields:
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: BlockTypeAnnotation
+  source: "@type block: Type"
+  fields:
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: SelfTypeAnnotation
+  source: "@type self: Type"
+  fields:
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: InstanceTypeAnnotation
+  source: "@type instance: Type"
+  fields:
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: ModuleTypeAnnotation
+  source: "@type module: Type"
+  fields:
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: BreakTypeAnnotation
+  source: "@type break: Type"
+  fields:
+  - name: type
+    type: RBS::Types::t
+  - name: keyword_loc
+    type: location
+  - name: kind_loc
+    type: location
+  - name: colon_loc
+    type: location
+  - name: type_loc
+    type: location
+- name: ImplementsAnnotation
+  source: "@implements Name[A, B]"
+  fields:
+  - name: name
+    type: RBS::TypeName
+  - name: type_params
+    type: Array[Symbol]
+  - name: keyword_loc
+    type: location
+  - name: name_loc
+    type: location
+  - name: type_params_loc
+    type: location?
+- name: DynamicAnnotation
+  source: "@dynamic name, self.name, self?.name"
+  fields:
+  - name: names
+    type: Array[DynamicName]
+  - name: keyword_loc
+    type: location
+  notes:
+  - 'DynamicName は { name: Symbol, kind: :instance | :module | :module_instance, location: RBS::Location }。'
+annotation_attachment:
+  destination: 領域の StatementsNode の annotations。領域は親ノードのキーワード位置から求める。
+  regions:
+  - 'ProgramNode.statements: ファイル全体。どこにも付かなかったアノテーションもここ'
+  - 'DefNode / ClassNode / ModuleNode / SingletonClassNode / BlockNode / LambdaNode の body: キーワード(または opening)の行から end(closing)の行まで。body が BeginNode のときは body.statements'
+  - 'IfNode / UnlessNode の statements: then_keyword または predicate の末尾行から、subsequent または end_keyword の行まで'
+  - 'ElseNode の statements: else_keyword の末尾行から end_keyword(または親の end)の行まで'
+  - 'WhileNode / UntilNode の statements: predicate の末尾行から end_keyword の行まで(BEGIN_MODIFIER のときは式の開始行から keyword の行まで。修飾子形式は付与なし)'
+  - 'WhenNode / InNode の statements: then_keyword の末尾行または最後の条件の次の行から、本体の末尾行まで'
+  - 'RescueNode の statements: keyword(または then_keyword)の行から次の節の行まで'
+  - 'EnsureNode の statements: ensure_keyword の行から end_keyword の行まで'
+  - 'ForNode の statements: do_keyword または collection の末尾行から end_keyword の行まで(現状は付与対象外。新たに付与する)'
+  - 'PreExecutionNode / PostExecutionNode の statements: opening の行から closing の行まで(現状は付与対象外)'
+  - 'BeginNode の statements: begin_keyword の行から最初の節の行まで'
+  notes:
+  - 三項演算子の IfNode には付与しない(現状と同じ)。
+  - 内側の領域から外側へ消費していく現状の走査順(子を先に処理し、残りを自分に付ける)を保つ。
+parser_mapping:
+- parser: send / csend / block / numblock / itblock
+  prism: 'CallNode(block: BlockNode | BlockArgumentNode、`&.` は CallNodeFlags::SAFE_NAVIGATION)。ブロックの引数は BlockNode.parameters(BlockParametersNode | NumberedParametersNode | ItParametersNode)'
+- parser: lambda(block の呼び出し側)
+  prism: LambdaNode
+- parser: lvasgn / ivasgn / gvasgn / cvasgn / casgn(value あり)
+  prism: LocalVariableWriteNode / InstanceVariableWriteNode / GlobalVariableWriteNode / ClassVariableWriteNode / ConstantWriteNode / ConstantPathWriteNode
+- parser: '同(value なし: mlhs / for / resbody の対象)'
+  prism: LocalVariableTargetNode / InstanceVariableTargetNode / GlobalVariableTargetNode / ClassVariableTargetNode / ConstantTargetNode / ConstantPathTargetNode / CallTargetNode / IndexTargetNode
+- parser: op_asgn / or_asgn / and_asgn
+  prism: 対象の種類ごとの *OperatorWriteNode / *OrWriteNode / *AndWriteNode(LocalVariable / InstanceVariable / GlobalVariable / ClassVariable / Constant / ConstantPath / Call / Index)
+- parser: masgn / mlhs
+  prism: MultiWriteNode / MultiTargetNode(lefts / rest / rights)
+- parser: splat(mlhs 内の匿名 `*`)
+  prism: 'SplatNode(expression: nil)。末尾カンマ `a, = x` は ImplicitRestNode'
+- parser: begin(括弧なしの文の並び)
+  prism: StatementsNode
+- parser: begin(括弧あり)
+  prism: ParenthesesNode
+- parser: begin(式展開 ``)
+  prism: EmbeddedStatementsNode(`` は EmbeddedVariableNode)
+- parser: kwbegin / rescue / resbody / ensure
+  prism: 'BeginNode(rescue_clause: RescueNode が subsequent で連鎖、else_clause: ElseNode、ensure_clause: EnsureNode)。def / class / block の本体の rescue も BeginNode'
+- parser: rescue(修飾子 `a rescue b`)
+  prism: RescueModifierNode
+- parser: if(`unless` キーワード)
+  prism: UnlessNode
+- parser: if(三項演算子)
+  prism: 'IfNode(if_keyword_loc: nil、then_keyword_loc: `?`、subsequent: ElseNode(else_keyword_loc: `:`))'
+- parser: if(`elsif`)
+  prism: IfNode.subsequent に入れ子の IfNode
+- parser: while_post / until_post
+  prism: WhileNode / UntilNode + LoopFlags::BEGIN_MODIFIER
+- parser: case / when
+  prism: CaseNode / WhenNode / ElseNode
+- parser: irange / erange
+  prism: RangeNode(+ RangeFlags::EXCLUDE_END)
+- parser: iflipflop / eflipflop
+  prism: FlipFlopNode
+- parser: match_current_line
+  prism: MatchLastLineNode / InterpolatedMatchLastLineNode
+- parser: args / arg / optarg / restarg / kwarg / kwoptarg / kwrestarg / kwnilarg / blockarg / shadowarg / forward_arg
+  prism: 'ParametersNode(requireds / optionals / rest / posts / keywords / keyword_rest / block)+ RequiredParameterNode / OptionalParameterNode / RestParameterNode / RequiredKeywordParameterNode / OptionalKeywordParameterNode / KeywordRestParameterNode / NoKeywordsParameterNode / BlockParameterNode / ForwardingParameterNode。ブロックは BlockParametersNode(parameters、locals: BlockLocalVariableNode)'
+- parser: procarg0
+  prism: 対応ノード無し。BlockParametersNode の requireds が 1 つだけで他が空のときに自動 splat と判定する。`|(a, b)|` は MultiTargetNode
+- parser: kwargs / pair / kwsplat / block_pass / forwarded_args / forwarded_restarg / forwarded_kwrestarg
+  prism: 'ArgumentsNode の中の KeywordHashNode / AssocNode / AssocSplatNode / BlockArgumentNode(CallNode.block)/ ForwardingArgumentsNode / SplatNode(expression: nil)/ AssocSplatNode(value: nil)'
+- parser: zsuper / super / yield
+  prism: ForwardingSuperNode / SuperNode / YieldNode
+- parser: defined?
+  prism: DefinedNode
+- parser: str / dstr / xstr / sym / dsym / regexp / regopt
+  prism: StringNode / InterpolatedStringNode / XStringNode / InterpolatedXStringNode / SymbolNode / InterpolatedSymbolNode / RegularExpressionNode / InterpolatedRegularExpressionNode(regopt は RegularExpressionFlags)
+- parser: const / cbase
+  prism: ConstantReadNode / ConstantPathNode(parent が nil で `::Foo`)
+- parser: nth_ref / back_ref
+  prism: NumberedReferenceReadNode / BackReferenceReadNode
+- parser: match_with_lvasgn
+  prism: 'MatchWriteNode(call: CallNode、targets: LocalVariableTargetNode の配列)'
+- parser: alias / undef
+  prism: AliasMethodNode / AliasGlobalVariableNode / UndefNode
+- parser: preexe / postexe
+  prism: PreExecutionNode / PostExecutionNode
+- parser: __ENCODING__ / __FILE__ / __LINE__(const / str / int に変換されていた)
+  prism: SourceEncodingNode / SourceFileNode / SourceLineNode
+- parser: int / float / rational / complex
+  prism: IntegerNode / FloatNode / RationalNode(numerator、denominator)/ ImaginaryNode(numeric)
+- parser: case_match / in_pattern / match_var / match_alt / match_as / match_rest / match_nil_pattern / pin / array_pattern / array_pattern_with_tail / find_pattern / hash_pattern / const_pattern / match_pattern / match_pattern_p / if_guard / unless_guard
+  prism: 'CaseMatchNode / InNode / LocalVariableTargetNode / AlternationPatternNode / CapturePatternNode / SplatNode / NoKeywordsParameterNode / PinnedVariableNode / PinnedExpressionNode / ArrayPatternNode(constant: で定数つき)/ FindPatternNode / HashPatternNode(constant: で定数つき)/ MatchRequiredNode / MatchPredicateNode / ガードは InNode.pattern を包む IfNode / UnlessNode'
+- parser: assertion / tapp(Steep が合成していたノード)
+  prism: TypeAssertionNode / TypeApplicationNode
 open_questions:
-  - 名前空間とクラス名の接尾辞(`Steep::AST::Node::IfNode` か、`Steep::AST::Ruby::If` か)。
-  - 互換プロトコル(`type` / `children` / `location.expression`)を生成に含めるか。含めると TypeConstruction とテストの移行を段階化できる。
-  - "`__ENCODING__`: 変換器で特別扱いするか、emit_encoding = true にして EncodingNode(型は Encoding)を追加するか。"
-  - Procarg0Node を名前つき / 分割代入の 2 クラスに分けるか。
-  - IfNode を if / unless / elsif / 三項演算子 / 修飾子で分けるか、1 クラスに述語を持たせるか(ここでは 1 クラス案)。
-  - アノテーションの型を RBS::Types::t(未解決)で持つか、現状どおり Steep の AST::Types::t で持つか。
-  - ForNode / CaseMatchNode / InPatternNode にアノテーションスロットを持たせるか(現状は付与対象外)。
-  - "`==` / `hash` に annotations を含めるか(TypeEnv の pure node キーには影響しない想定)。"
-  - ArgsNode の expression が nil になり得る点を、Location 自体を nil 可にするか expression だけ nil 可にするかで表現する。
+- 名前空間とクラス名(`Steep::AST::Node::IfNode` か `Steep::AST::Ruby::IfNode` か。Prism と同名にして名前空間で区別する案)。
+- 'フロントエンド: Prism.parse の結果から直接構築する(推奨。Prism::Compiler のサブクラスで 1 パス)か、当面は parser gem 変換の木から構築するか。前者なら parser gem への依存は型検査から外れ、コメントも Prism::Comment になる。'
+- flags の表現(Integer のビット集合か、Set[Symbol] か、述語メソッドだけ生成するか)。
+- "`unescaped` などフィールド名を Prism のまま使うか、Steep 向きに `value` へ改名するか(ここでは Prism のまま)。"
+- StatementsNode の location.expression を Prism と同じ「最初の文から最後の文まで」にするか、アノテーションの付与領域(then から else まで、など)にするか(ここでは前者)。
+- ErrorRecoveryNode を落として良いか(LSP で error tolerant にするなら必要)。
+- アノテーションの型を RBS::Types::t(未解決)で持つか、現状どおり Steep の AST::Types::t で持つか。
+- "`==` / `hash`(TypeEnv の pure node キー)に annotations と location を含めない方針で良いか。"
+- 互換プロトコル(parser 風の `type` / `children`)は、木の形が parser と違うので提供しない。TypeConstruction と テストは新 AST に合わせて書き直す前提で良いか。
