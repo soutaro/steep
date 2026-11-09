@@ -26,6 +26,47 @@ DROPPED_FIELDS = {
   "depth" => :all,    # 同上
 }
 
+# Flag values of Prism that Steep's AST keeps (flags name => value name => category).
+#
+#   syntax  -- distinguishes syntax that the parser gem represented as separate node kinds or children
+#   derived -- a summary computable from the syntax
+#
+# The other values (forced encodings, frozen string literals, integer bases and shareable constant
+# modes) are for compilers and are dropped. A flags name with no value kept is dropped from its nodes.
+KEPT_FLAGS = {
+  "ArgumentsNodeFlags" => {
+    "CONTAINS_FORWARDING" => "derived",
+    "CONTAINS_KEYWORDS" => "derived",
+    "CONTAINS_KEYWORD_SPLAT" => "derived",
+    "CONTAINS_SPLAT" => "derived",
+    "CONTAINS_MULTIPLE_SPLATS" => "derived",
+  },
+  "ArrayNodeFlags" => { "CONTAINS_SPLAT" => "derived" },
+  "CallNodeFlags" => {
+    "SAFE_NAVIGATION" => "syntax",
+    "VARIABLE_CALL" => "derived",
+    "ATTRIBUTE_WRITE" => "syntax",
+    "IGNORE_VISIBILITY" => "derived",
+  },
+  "KeywordHashNodeFlags" => { "SYMBOL_KEYS" => "derived" },
+  "LoopFlags" => { "BEGIN_MODIFIER" => "syntax" },
+  "ParameterFlags" => { "REPEATED_PARAMETER" => "derived" },
+  "ParenthesesNodeFlags" => { "MULTIPLE_STATEMENTS" => "derived" },
+  "RangeFlags" => { "EXCLUDE_END" => "syntax" },
+  "RegularExpressionFlags" => %w[IGNORE_CASE EXTENDED MULTI_LINE ONCE EUC_JP ASCII_8BIT WINDOWS_31J UTF_8].to_h { [_1, "syntax"] },
+}
+
+FLAG_NOTES = {
+  "CallNodeFlags::SAFE_NAVIGATION" => "parser の csend。",
+  "CallNodeFlags::VARIABLE_CALL" => "レシーバも引数も括弧も無い `foo`。ローカル変数だったかもしれない呼び出しで、補完やホバーで使える。",
+  "CallNodeFlags::ATTRIBUTE_WRITE" => "`a.b = 1` / `a[1] = 2`。式の値はメソッドの戻り値ではなく右辺。",
+  "CallNodeFlags::IGNORE_VISIBILITY" => "レシーバが無いか `self` の呼び出し。NodeHelper#private_send? を置き換える。",
+  "RangeFlags::EXCLUDE_END" => "parser の erange / eflipflop。",
+  "LoopFlags::BEGIN_MODIFIER" => "parser の while_post / until_post(`begin ... end while cond`)。",
+  "RegularExpressionFlags::IGNORE_CASE" => "parser の regopt の子(`:i`)。他の正規表現オプション(x m o e n s u)も同様。",
+  "ParameterFlags::REPEATED_PARAMETER" => "`_` のように同じ名前が繰り返されたパラメータ。",
+}
+
 # Prism's `type` => Ruby type in Steep.
 TYPE_MAPPING = {
   "node" => "Node(抽象基底。kind があればそのクラス)",
@@ -253,8 +294,7 @@ PARSER_MAPPING = [
 OPEN_QUESTIONS = [
   "名前空間とクラス名(`Steep::AST::Node::IfNode` か `Steep::AST::Ruby::IfNode` か。Prism と同名にして名前空間で区別する案)。",
   "フロントエンド: Prism.parse の結果から直接構築する(推奨。Prism::Compiler のサブクラスで 1 パス)か、当面は parser gem 変換の木から構築するか。前者なら parser gem への依存は型検査から外れ、コメントも Prism::Comment になる。",
-  "flags の表現(Integer のビット集合か、Set[Symbol] か、述語メソッドだけ生成するか)。",
-  "`unescaped` などフィールド名を Prism のまま使うか、Steep 向きに `value` へ改名するか(ここでは Prism のまま)。",
+    "`unescaped` などフィールド名を Prism のまま使うか、Steep 向きに `value` へ改名するか(ここでは Prism のまま)。",
   "StatementsNode の location.expression を Prism と同じ「最初の文から最後の文まで」にするか、アノテーションの付与領域(then から else まで、など)にするか(ここでは前者)。",
   "ErrorRecoveryNode を落として良いか(LSP で error tolerant にするなら必要)。",
   "アノテーションの型を RBS::Types::t(未解決)で持つか、現状どおり Steep の AST::Types::t で持つか。",
@@ -283,7 +323,7 @@ nodes = CONFIG["nodes"].filter_map do |node|
 
   out = { "name" => node["name"], "prism" => node["name"] }
   out["steep"] = UNSUPPORTED.include?(node["name"]) ? "unsupported" : "typed"
-  out["flags"] = node["flags"] if node["flags"]
+  out["flags"] = node["flags"] if node["flags"] && KEPT_FLAGS.key?(node["flags"])
   fields = (node["fields"] || []).filter_map { transform_field(node["name"], _1) }
   fields.concat(ADDED_FIELDS.fetch(node["name"], []))
   out["fields"] = fields
@@ -298,8 +338,23 @@ STEEP_NODES.each do |node|
   nodes << out
 end
 
-flags = CONFIG["flags"].map do |flag|
-  { "name" => flag["name"], "values" => flag["values"].map { { "name" => _1["name"], "comment" => _1["comment"].to_s.strip } } }
+flags = CONFIG["flags"].filter_map do |flag|
+  kept = KEPT_FLAGS[flag["name"]] or next
+  values = flag["values"].filter_map do |value|
+    category = kept[value["name"]] or next
+    out = { "name" => value["name"], "category" => category, "comment" => value["comment"].to_s.strip }
+    if note = FLAG_NOTES["#{flag["name"]}::#{value["name"]}"]
+      out["steep_note"] = note
+    end
+    out
+  end
+  { "name" => flag["name"], "values" => values }
+end
+
+dropped_flags = CONFIG["flags"].flat_map do |flag|
+  flag["values"].filter_map do |value|
+    "#{flag["name"]}::#{value["name"]}" unless KEPT_FLAGS.dig(flag["name"], value["name"])
+  end
 end
 
 header = <<~HEADER
@@ -317,7 +372,10 @@ header = <<~HEADER
   #     各位置は flat な RBS::Location(RBS::Location[bot, bot])。
   #   - ブロックアノテーションは木の一部にする。本体を表す StatementsNode は空でも常に存在し、`annotations` フィールドを持つ。
   #     型アサーション `#: T` と型適用 `#$ T` は TypeAssertionNode / TypeApplicationNode として木に入る。
-  #   - `==` / `hash` は fields から構造的に計算し、location と annotations は含めない(TypeEnv の pure node キーのため)。
+  #   - flags は述語メソッド(`safe_navigation?` など)だけを公開し、内部は Integer のビット集合で持つ。Prism の flags のうち、
+#     構文の区別(category: syntax)と構文から導ける要約(category: derived)だけを残し、コンパイラ向けのものは落とす。
+#   - `==` / `hash` は fields と flags から構造的に計算し、location と annotations は含めない(TypeEnv の pure node キーのため)。
+#     flags を含めるのは、`a.b` と `a&.b` のようにフラグだけが違うノードを区別するため。
   #   - 木は Prism.parse の結果から Prism::Compiler のサブクラスで構築する想定(open_questions 参照)。
   #
   # 各ノードのキー:
@@ -325,7 +383,7 @@ header = <<~HEADER
   #   steep:         typed = 現状の TypeConstruction で対応する構文を型検査している
   #                  unsupported = 現状 UnsupportedSyntax になる構文
   #                  steep_only = Steep が導入するノード
-  #   flags:         Prism の flags 名(flags セクション)
+  #   flags:         Prism の flags 名(flags セクション)。残す値が無いフラグ群(文字列のエンコーディングなど)は付かない
   #   fields:        name / type / kind(Prism と同じ語彙。type_mapping に Ruby 型との対応)。steep キーは Steep での変更点
   #   comment:       Prism の説明(英語)。`^^^` は例の中でそのノードが表す範囲
   #   steep_notes:   Steep 向きの補足(日本語)
@@ -338,6 +396,10 @@ doc = {
   "dropped_nodes" => DROPPED_NODES,
   "dropped_fields" => DROPPED_FIELDS.transform_values { _1 == :all ? "all nodes" : _1 },
   "flags" => flags,
+"dropped_flags" => {
+  "reason" => "コンパイラ向けの情報(エンコーディングの強制、frozen_string_literal、整数リテラルの基数、shareable_constant_value のモード)で、型検査には使わない。必要になった時点で KEPT_FLAGS に足す。",
+  "values" => dropped_flags,
+},
   "nodes" => nodes,
   "annotations" => ANNOTATIONS,
   "annotation_attachment" => {

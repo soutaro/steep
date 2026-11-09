@@ -1,29 +1,32 @@
-# Steep AST ノード仕様(ドラフト)
-#
-# このファイルは doc/generate_ast_nodes.rb が生成する。手で編集せず、スクリプト側の差分定義を変更して再生成する。
-#
-#   $ ruby doc/generate_ast_nodes.rb > doc/ast_nodes.yml
-#
-# 方針:
-#   - Steep の AST は Prism のノード構造に従う。nodes の各要素は Prism 2.1.0 の config.yml の定義を写し、
-#     Steep 向きの差分を適用したもの。フィールドの説明と例は Prism の config.yml を参照する。
-#   - 各ノードは Steep 自身のクラス(Prism のクラスではない)として生成する。`type: location` / `location?` のフィールドは
-#     `<Name>::Location` クラスに束ねられ(フィールド名は `_loc` を外したもの)、`expression`(ノード全体の範囲)が加わる。
-#     各位置は flat な RBS::Location(RBS::Location[bot, bot])。
-#   - ブロックアノテーションは木の一部にする。本体を表す StatementsNode は空でも常に存在し、`annotations` フィールドを持つ。
-#     型アサーション `#: T` と型適用 `#$ T` は TypeAssertionNode / TypeApplicationNode として木に入る。
-#   - `==` / `hash` は fields から構造的に計算し、location と annotations は含めない(TypeEnv の pure node キーのため)。
-#   - 木は Prism.parse の結果から Prism::Compiler のサブクラスで構築する想定(open_questions 参照)。
-#
-# 各ノードのキー:
-#   name / prism:  Steep のクラス名と、対応する Prism のノード名(Steep 独自ノードは prism が null)
-#   steep:         typed = 現状の TypeConstruction で対応する構文を型検査している
-#                  unsupported = 現状 UnsupportedSyntax になる構文
-#                  steep_only = Steep が導入するノード
-#   flags:         Prism の flags 名(flags セクション)
-#   fields:        name / type / kind(Prism と同じ語彙。type_mapping に Ruby 型との対応)。steep キーは Steep での変更点
-#   comment:       Prism の説明(英語)。`^^^` は例の中でそのノードが表す範囲
-#   steep_notes:   Steep 向きの補足(日本語)
+  # Steep AST ノード仕様(ドラフト)
+  #
+  # このファイルは doc/generate_ast_nodes.rb が生成する。手で編集せず、スクリプト側の差分定義を変更して再生成する。
+  #
+  #   $ ruby doc/generate_ast_nodes.rb > doc/ast_nodes.yml
+  #
+  # 方針:
+  #   - Steep の AST は Prism のノード構造に従う。nodes の各要素は Prism 2.1.0 の config.yml の定義を写し、
+  #     Steep 向きの差分を適用したもの。フィールドの説明と例は Prism の config.yml を参照する。
+  #   - 各ノードは Steep 自身のクラス(Prism のクラスではない)として生成する。`type: location` / `location?` のフィールドは
+  #     `<Name>::Location` クラスに束ねられ(フィールド名は `_loc` を外したもの)、`expression`(ノード全体の範囲)が加わる。
+  #     各位置は flat な RBS::Location(RBS::Location[bot, bot])。
+  #   - ブロックアノテーションは木の一部にする。本体を表す StatementsNode は空でも常に存在し、`annotations` フィールドを持つ。
+  #     型アサーション `#: T` と型適用 `#$ T` は TypeAssertionNode / TypeApplicationNode として木に入る。
+  #   - flags は述語メソッド(`safe_navigation?` など)だけを公開し、内部は Integer のビット集合で持つ。Prism の flags のうち、
+#     構文の区別(category: syntax)と構文から導ける要約(category: derived)だけを残し、コンパイラ向けのものは落とす。
+#   - `==` / `hash` は fields と flags から構造的に計算し、location と annotations は含めない(TypeEnv の pure node キーのため)。
+#     flags を含めるのは、`a.b` と `a&.b` のようにフラグだけが違うノードを区別するため。
+  #   - 木は Prism.parse の結果から Prism::Compiler のサブクラスで構築する想定(open_questions 参照)。
+  #
+  # 各ノードのキー:
+  #   name / prism:  Steep のクラス名と、対応する Prism のノード名(Steep 独自ノードは prism が null)
+  #   steep:         typed = 現状の TypeConstruction で対応する構文を型検査している
+  #                  unsupported = 現状 UnsupportedSyntax になる構文
+  #                  steep_only = Steep が導入するノード
+  #   flags:         Prism の flags 名(flags セクション)。残す値が無いフラグ群(文字列のエンコーディングなど)は付かない
+  #   fields:        name / type / kind(Prism と同じ語彙。type_mapping に Ruby 型との対応)。steep キーは Steep での変更点
+  #   comment:       Prism の説明(英語)。`^^^` は例の中でそのノードが表す範囲
+  #   steep_notes:   Steep 向きの補足(日本語)
 
 version: draft-2
 prism_version: 2.1.0
@@ -53,121 +56,122 @@ flags:
 - name: ArgumentsNodeFlags
   values:
   - name: CONTAINS_FORWARDING
+    category: derived
     comment: if the arguments contain forwarding
   - name: CONTAINS_KEYWORDS
+    category: derived
     comment: if the arguments contain keywords
   - name: CONTAINS_KEYWORD_SPLAT
+    category: derived
     comment: if the arguments contain a keyword splat
   - name: CONTAINS_SPLAT
+    category: derived
     comment: if the arguments contain a splat
   - name: CONTAINS_MULTIPLE_SPLATS
+    category: derived
     comment: if the arguments contain multiple splats
 - name: ArrayNodeFlags
   values:
   - name: CONTAINS_SPLAT
+    category: derived
     comment: if array contains splat nodes
 - name: CallNodeFlags
   values:
   - name: SAFE_NAVIGATION
+    category: syntax
     comment: "&. operator"
+    steep_note: parser の csend。
   - name: VARIABLE_CALL
+    category: derived
     comment: a call that could have been a local variable
+    steep_note: レシーバも引数も括弧も無い `foo`。ローカル変数だったかもしれない呼び出しで、補完やホバーで使える。
   - name: ATTRIBUTE_WRITE
+    category: syntax
     comment: a call that is an attribute write, so the value being written should be returned
+    steep_note: "`a.b = 1` / `a[1] = 2`。式の値はメソッドの戻り値ではなく右辺。"
   - name: IGNORE_VISIBILITY
+    category: derived
     comment: a call that ignores method visibility
-- name: EncodingFlags
-  values:
-  - name: FORCED_UTF8_ENCODING
-    comment: internal bytes forced the encoding to UTF-8
-  - name: FORCED_BINARY_ENCODING
-    comment: internal bytes forced the encoding to binary
-- name: IntegerBaseFlags
-  values:
-  - name: BINARY
-    comment: 0b prefix
-  - name: DECIMAL
-    comment: 0d or no prefix
-  - name: OCTAL
-    comment: 0o or 0 prefix
-  - name: HEXADECIMAL
-    comment: 0x prefix
-- name: InterpolatedStringNodeFlags
-  values:
-  - name: FROZEN
-    comment: 'frozen by virtue of a `frozen_string_literal: true` comment or `--enable-frozen-string-literal`; only for adjacent string literals like `''a'' ''b''`'
-  - name: MUTABLE
-    comment: 'mutable by virtue of a `frozen_string_literal: false` comment or `--disable-frozen-string-literal`; only for adjacent string literals like `''a'' ''b''`'
+    steep_note: レシーバが無いか `self` の呼び出し。NodeHelper#private_send? を置き換える。
 - name: KeywordHashNodeFlags
   values:
   - name: SYMBOL_KEYS
+    category: derived
     comment: a keyword hash which only has `AssocNode` elements all with symbol keys, which means the elements can be treated as keyword arguments
 - name: LoopFlags
   values:
   - name: BEGIN_MODIFIER
+    category: syntax
     comment: a loop after a begin statement, so the body is executed first before the condition
+    steep_note: parser の while_post / until_post(`begin ... end while cond`)。
 - name: ParameterFlags
   values:
   - name: REPEATED_PARAMETER
+    category: derived
     comment: a parameter name that has been repeated in the method signature
+    steep_note: "`_` のように同じ名前が繰り返されたパラメータ。"
 - name: ParenthesesNodeFlags
   values:
   - name: MULTIPLE_STATEMENTS
+    category: derived
     comment: parentheses that contain multiple potentially void statements
 - name: RangeFlags
   values:
   - name: EXCLUDE_END
+    category: syntax
     comment: "... operator"
+    steep_note: parser の erange / eflipflop。
 - name: RegularExpressionFlags
   values:
   - name: IGNORE_CASE
+    category: syntax
     comment: i - ignores the case of characters when matching
+    steep_note: parser の regopt の子(`:i`)。他の正規表現オプション(x m o e n s u)も同様。
   - name: EXTENDED
+    category: syntax
     comment: x - ignores whitespace and allows comments in regular expressions
   - name: MULTI_LINE
+    category: syntax
     comment: m - allows $ to match the end of lines within strings
   - name: ONCE
+    category: syntax
     comment: o - only interpolates values into the regular expression once
   - name: EUC_JP
+    category: syntax
     comment: e - forces the EUC-JP encoding
   - name: ASCII_8BIT
+    category: syntax
     comment: n - forces the ASCII-8BIT encoding
   - name: WINDOWS_31J
+    category: syntax
     comment: s - forces the Windows-31J encoding
   - name: UTF_8
+    category: syntax
     comment: u - forces the UTF-8 encoding
-  - name: FORCED_UTF8_ENCODING
-    comment: internal bytes forced the encoding to UTF-8
-  - name: FORCED_BINARY_ENCODING
-    comment: internal bytes forced the encoding to binary
-  - name: FORCED_US_ASCII_ENCODING
-    comment: internal bytes forced the encoding to US-ASCII
-- name: ShareableConstantNodeFlags
+dropped_flags:
+  reason: コンパイラ向けの情報(エンコーディングの強制、frozen_string_literal、整数リテラルの基数、shareable_constant_value のモード)で、型検査には使わない。必要になった時点で KEPT_FLAGS に足す。
   values:
-  - name: LITERAL
-    comment: constant writes that should be modified with shareable constant value literal
-  - name: EXPERIMENTAL_EVERYTHING
-    comment: constant writes that should be modified with shareable constant value experimental everything
-  - name: EXPERIMENTAL_COPY
-    comment: constant writes that should be modified with shareable constant value experimental copy
-- name: StringFlags
-  values:
-  - name: FORCED_UTF8_ENCODING
-    comment: internal bytes forced the encoding to UTF-8
-  - name: FORCED_BINARY_ENCODING
-    comment: internal bytes forced the encoding to binary
-  - name: FROZEN
-    comment: 'frozen by virtue of a `frozen_string_literal: true` comment or `--enable-frozen-string-literal`'
-  - name: MUTABLE
-    comment: 'mutable by virtue of a `frozen_string_literal: false` comment or `--disable-frozen-string-literal`'
-- name: SymbolFlags
-  values:
-  - name: FORCED_UTF8_ENCODING
-    comment: internal bytes forced the encoding to UTF-8
-  - name: FORCED_BINARY_ENCODING
-    comment: internal bytes forced the encoding to binary
-  - name: FORCED_US_ASCII_ENCODING
-    comment: internal bytes forced the encoding to US-ASCII
+  - EncodingFlags::FORCED_UTF8_ENCODING
+  - EncodingFlags::FORCED_BINARY_ENCODING
+  - IntegerBaseFlags::BINARY
+  - IntegerBaseFlags::DECIMAL
+  - IntegerBaseFlags::OCTAL
+  - IntegerBaseFlags::HEXADECIMAL
+  - InterpolatedStringNodeFlags::FROZEN
+  - InterpolatedStringNodeFlags::MUTABLE
+  - RegularExpressionFlags::FORCED_UTF8_ENCODING
+  - RegularExpressionFlags::FORCED_BINARY_ENCODING
+  - RegularExpressionFlags::FORCED_US_ASCII_ENCODING
+  - ShareableConstantNodeFlags::LITERAL
+  - ShareableConstantNodeFlags::EXPERIMENTAL_EVERYTHING
+  - ShareableConstantNodeFlags::EXPERIMENTAL_COPY
+  - StringFlags::FORCED_UTF8_ENCODING
+  - StringFlags::FORCED_BINARY_ENCODING
+  - StringFlags::FROZEN
+  - StringFlags::MUTABLE
+  - SymbolFlags::FORCED_UTF8_ENCODING
+  - SymbolFlags::FORCED_BINARY_ENCODING
+  - SymbolFlags::FORCED_US_ASCII_ENCODING
 nodes:
 - name: AliasGlobalVariableNode
   prism: AliasGlobalVariableNode
@@ -1855,7 +1859,6 @@ nodes:
 - name: IntegerNode
   prism: IntegerNode
   steep: typed
-  flags: IntegerBaseFlags
   fields:
   - name: value
     type: integer
@@ -1907,7 +1910,6 @@ nodes:
 - name: InterpolatedStringNode
   prism: InterpolatedStringNode
   steep: typed
-  flags: InterpolatedStringNodeFlags
   fields:
   - name: opening_loc
     type: location?
@@ -2647,7 +2649,6 @@ nodes:
 - name: RationalNode
   prism: RationalNode
   steep: typed
-  flags: IntegerBaseFlags
   fields:
   - name: numerator
     type: integer
@@ -2827,7 +2828,6 @@ nodes:
 - name: ShareableConstantNode
   prism: ShareableConstantNode
   steep: typed
-  flags: ShareableConstantNodeFlags
   fields:
   - name: write
     type: node
@@ -2888,7 +2888,6 @@ nodes:
 - name: SourceFileNode
   prism: SourceFileNode
   steep: typed
-  flags: StringFlags
   fields:
   - name: filepath
     type: string
@@ -2948,7 +2947,6 @@ nodes:
 - name: StringNode
   prism: StringNode
   steep: typed
-  flags: StringFlags
   fields:
   - name: opening_loc
     type: location?
@@ -3000,7 +2998,6 @@ nodes:
 - name: SymbolNode
   prism: SymbolNode
   steep: typed
-  flags: SymbolFlags
   fields:
   - name: opening_loc
     type: location?
@@ -3154,7 +3151,6 @@ nodes:
 - name: XStringNode
   prism: XStringNode
   steep: typed
-  flags: EncodingFlags
   fields:
   - name: opening_loc
     type: location
@@ -3497,7 +3493,6 @@ parser_mapping:
 open_questions:
 - 名前空間とクラス名(`Steep::AST::Node::IfNode` か `Steep::AST::Ruby::IfNode` か。Prism と同名にして名前空間で区別する案)。
 - 'フロントエンド: Prism.parse の結果から直接構築する(推奨。Prism::Compiler のサブクラスで 1 パス)か、当面は parser gem 変換の木から構築するか。前者なら parser gem への依存は型検査から外れ、コメントも Prism::Comment になる。'
-- flags の表現(Integer のビット集合か、Set[Symbol] か、述語メソッドだけ生成するか)。
 - "`unescaped` などフィールド名を Prism のまま使うか、Steep 向きに `value` へ改名するか(ここでは Prism のまま)。"
 - StatementsNode の location.expression を Prism と同じ「最初の文から最後の文まで」にするか、アノテーションの付与領域(then から else まで、など)にするか(ここでは前者)。
 - ErrorRecoveryNode を落として良いか(LSP で error tolerant にするなら必要)。
