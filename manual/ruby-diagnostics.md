@@ -170,26 +170,32 @@ test.rb:2:14: [error] Cannot pass a value of type `^(::Integer, ::Integer) -> ::
 <a name='Ruby::BreakTypeMismatch'></a>
 ## Ruby::BreakTypeMismatch
 
-A `break` statement has a value that has an incompatible type to the type of the destination.
+A `break` statement has a value that is incompatible with the type given by the `@type break` annotation,
+or a `next` statement has a value that is incompatible with the return type of the block.
+
+A `break` without a value is checked as `nil`.
 
 ### Ruby code
 
 ```ruby
-123.tap { break "" }
+123.tap do
+  # @type break: Integer
+  break ""
+end
 ```
 
 ### Diagnostic
 
 ```
-test.rb:1:10: [error] Cannot break with a value of type `::String` because type `::Integer` is assumed
+test.rb:3:2: [error] Cannot break with a value of type `::String` because type `::Integer` is assumed
 │   ::String <: ::Integer
 │     ::Object <: ::Integer
 │       ::BasicObject <: ::Integer
 │
 │ Diagnostic ID: Ruby::BreakTypeMismatch
 │
-└ 123.tap { break "" }
-            ~~~~~~~~
+└   break ""
+    ~~~~~~~~
 ```
 
 
@@ -378,36 +384,6 @@ test.rb:2:7: [error] Assertion cannot hold: no relationship between inferred typ
 | all_error | strict | default | lenient | silent |
 | - | - | - | - | - |
 | error | error | hint | - | - |
-
-<a name='Ruby::ImplicitBreakValueMismatch'></a>
-## Ruby::ImplicitBreakValueMismatch
-
-A `break` statement without a value is used to leave from a block that requires non-nil type.
-
-### Ruby code
-
-```ruby
-123.tap { break }
-```
-
-### Diagnostic
-
-```
-test.rb:1:10: [error] Breaking without a value may result an error because a value of type `::Integer` is expected
-│   nil <: ::Integer
-│
-│ Diagnostic ID: Ruby::ImplicitBreakValueMismatch
-│
-└ 123.tap { break }
-            ~~~~~
-```
-
-
-### Severity
-
-| all_error | strict | default | lenient | silent |
-| - | - | - | - | - |
-| error | information | hint | - | - |
 
 <a name='Ruby::IncompatibleAnnotation'></a>
 ## Ruby::IncompatibleAnnotation
@@ -1534,7 +1510,7 @@ test.rb:1:0: [error] Cannot jump from here
 <a name='Ruby::UnexpectedJumpValue'></a>
 ## Ruby::UnexpectedJumpValue
 
-A `break` or `next` statement has a value, but the value will be ignored.
+A `next` statement has a value, but the value will be ignored.
 
 ### Ruby code
 

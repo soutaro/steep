@@ -733,6 +733,8 @@ class TypeConstructionTest < Minitest::Test
 
   def test_type_check_def_without_decl: () -> untyped
 
+  def test_break_without_value_with_annotation: () -> untyped
+
   def test_break_without_value_to_block: () -> untyped
 
   def test_issue_389: () -> untyped
