@@ -8452,6 +8452,31 @@ RUBY
     end
   end
 
+  def test_break_without_value_with_annotation
+    with_checker(<<RBS) do |checker|
+class NextTest
+  def foo: () { (String) -> Integer } -> String
+end
+RBS
+      source = parse_ruby(<<RUBY)
+NextTest.new.foo do |x|
+  # @type break: Symbol
+  break
+end
+RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_break_type_mismatch error, expected: parse_type("::Symbol"), actual: parse_type("nil")
+          end
+        end
+      end
+    end
+  end
+
   def test_break_without_value_to_block
     with_checker(<<RBS) do |checker|
 class NextTest

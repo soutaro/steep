@@ -1218,9 +1218,10 @@ module Steep
               else
                 check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
                   typing.add_error(
-                    Diagnostic::Ruby::ImplicitBreakValueMismatch.new(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
                       node: node,
-                      jump_type: break_type,
+                      expected: break_type,
+                      actual: AST::Builtin.nil_type,
                       result: result
                     )
                   )
