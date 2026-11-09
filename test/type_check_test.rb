@@ -2155,17 +2155,246 @@ class TypeCheckTest < Minitest::Test
           diagnostics:
           - range:
               start:
-                line: 4
-                character: 18
+                line: 3
+                character: 6
               end:
-                line: 6
-                character: 7
+                line: 3
+                character: 9
             severity: ERROR
             message: |-
-              Cannot allow block body have type `::Symbol` because declared as type `T`
+              Cannot allow method body have type `::Symbol` because declared as type `T`
                 ::Symbol <: T
-            code: Ruby::BlockBodyTypeMismatch
+            code: Ruby::MethodBodyTypeMismatch
         YAML
+    )
+  end
+
+  def test_type_inference__block_call_masgn
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.pair: () -> [Integer, String]
+            def self.ints: () -> Array[Integer]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a, b = BlockCall.measure { BlockCall.pair }
+          a.foo
+          b.foo
+
+          c, d = BlockCall.measure do
+            [1, "foo"]
+          end
+          c.foo
+          d.foo
+
+          e, f = [BlockCall.measure { 1 }, :foo]
+          e.foo
+
+          g, h = BlockCall.measure { BlockCall.ints }
+          g.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 2
+              end:
+                line: 2
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 3
+                character: 2
+              end:
+                line: 3
+                character: 5
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 2
+              end:
+                line: 8
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 5
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 12
+                character: 2
+              end:
+                line: 12
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 15
+                character: 2
+              end:
+                line: 15
+                character: 5
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_masgn_variables
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.pair: () -> [Integer, String]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var a: Integer?
+          a, b = BlockCall.measure { BlockCall.pair }
+          b.foo
+
+          c = 1
+          d = 2
+          c, d = BlockCall.measure { ["foo", 3] }
+          c.foo
+          d.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 2
+              end:
+                line: 3
+                character: 5
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 2
+              end:
+                line: 8
+                character: 5
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_hint
+    # The block body is typed with the hint, and `Box` gets `Integer?` from the hint because it's invariant
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.wrap: [A] () { () -> A } -> BlockCall::Box[A]
+          end
+
+          class BlockCall::Box[A]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var x: [:ok, untyped]
+          x = BlockCall.measure { [:ok, 1] }
+
+          # @type var y: BlockCall::Box[Integer?]
+          y = BlockCall.wrap { 1 }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_hint_unsatisfiable
+    # The hint is ignored, and the mismatch is reported at the assignment
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var x: String
+          x = BlockCall.measure { 1 }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 27
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `::Integer` to a variable of type `::String`
+                ::Integer <: ::String
+                  ::Numeric <: ::String
+                    ::Object <: ::String
+                      ::BasicObject <: ::String
+            code: Ruby::IncompatibleAssignment
+      YAML
     )
   end
 
