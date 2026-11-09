@@ -151,6 +151,8 @@ class TypeCheckTest < Minitest::Test
 
   def test_type_inference__block_call_hint_unsatisfiable: () -> untyped
 
+  def test_type_inference__block_call_hint_jump: () -> untyped
+
   def test_type_narrowing__local_variable_safe_navigation_operator: () -> untyped
 
   def test_type_narrowing__union_send: () -> untyped

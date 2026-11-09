@@ -2398,6 +2398,41 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_type_inference__block_call_hint_jump
+    # The type variable is solved with the hint before the block body, because the values of `next` and `break` are not given to it
+    # `a` and `c` are `untyped`
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a, b = BlockCall.measure do
+            next [nil, nil] if BlockCall.cond
+            [1, "foo"]
+          end
+          a.foo
+
+          c, d = BlockCall.measure do
+            break [nil, nil] if BlockCall.cond
+            [1, "foo"]
+          end
+          c.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
   def test_type_narrowing__local_variable_safe_navigation_operator
     run_type_check_test(
       signatures: {

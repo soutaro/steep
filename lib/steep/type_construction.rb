@@ -3838,6 +3838,13 @@ module Steep
       false
     end
 
+    def jump_in_block_body?(block_body)
+      return false unless block_body
+      return true if block_body.type == :next || block_body.type == :break
+
+      each_descendant_node(block_body).any? { _1.type == :next || _1.type == :break }
+    end
+
     def eliminate_vars(type, variables, to: AST::Builtin.any_type)
       if variables.empty?
         type
@@ -4135,12 +4142,12 @@ module Steep
             # The solution of the type variables from the hint, when they occur only in the return types
             #
             # The type variables are solved after the block body, and the hint is applied then.
-            # This tentative solution types the block body, and the `next` and `break` in it.
+            # This tentative solution types the block body.
             hint_subst = nil #: Interface::Substitution?
 
             if hint && !fvs.empty?
               if hint.free_variables.subset?(self_type.free_variables)
-                if fvs.none? { param_variable?(method_type, _1) }
+                if fvs.none? { param_variable?(method_type, _1) } && !jump_in_block_body?(block_body)
                   hint_constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
                   upper_bounds.each do |name, upper_bound|
                     hint_constraints.add(name, super_type: upper_bound, skip: true)
@@ -4154,7 +4161,8 @@ module Steep
                     end
                   end
                 else
-                  # The type variables occur in the parameters, which are typed before the block body
+                  # The type variables occur in the parameters, which are typed before the block body.
+                  # Or the block body has `next` or `break`, whose values are not given to the type variables.
                   if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
                     method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) do
                       constraints.solution(checker, variables: fvs, context: ccontext)

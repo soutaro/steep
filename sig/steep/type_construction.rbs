@@ -306,6 +306,12 @@ module Steep
     #
     def param_variable?: (Interface::MethodType, Symbol var) -> bool
 
+    # Returns `true` if `next` or `break` occurs in the block body
+    #
+    # The ones in the nested blocks and loops are included.
+    #
+    def jump_in_block_body?: (Parser::AST::Node? block_body) -> bool
+
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 
     # Type check arguments
