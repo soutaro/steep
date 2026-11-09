@@ -1,3 +1,3 @@
 while true
-  break 10
+  next 10
 end

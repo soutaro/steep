@@ -705,8 +705,10 @@ end
         #       ^
         assert_equal parse_type("::_A"), typing.type_of(node: dig(source.node, 1, 2, 0, 0))
 
-        assert_equal 1, typing.errors.size
-        assert_break_type_mismatch typing.errors[0], expected: parse_type("::_C"), actual: parse_type("::_A")
+        # The block call evaluates to the return type of the method or the value of `break`
+        assert_equal parse_type("::_C | ::_A"), typing.type_of(node: dig(source.node, 1))
+
+        assert_no_error typing
       end
     end
   end
@@ -7665,20 +7667,11 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        type, _ = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 2) do |errors|
-          assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::BreakTypeMismatch, error
-            assert_equal parse_type("::Integer"), error.actual
-            assert_equal parse_type("::String"), error.expected
-          end
-
-          assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::ImplicitBreakValueMismatch, error
-            assert_equal parse_type("::String"), error.jump_type
-          end
-        end
+        # The values of `break` are not checked against the return type of the method, but given to the block call
+        assert_no_error typing
+        assert_equal parse_type("::String | ::Integer | nil"), type
       end
     end
   end
@@ -8472,14 +8465,11 @@ end
 RUBY
 
       with_standard_construction(checker, source) do |construction, typing|
-        construction.synthesize(source.node)
+        type, _ = construction.synthesize(source.node)
 
-        assert_typing_error(typing, size: 1) do |errors|
-          assert_any!(errors) do |error|
-            assert_instance_of Diagnostic::Ruby::ImplicitBreakValueMismatch, error
-            assert_equal parse_type("::String"), error.jump_type
-          end
-        end
+        # The block call evaluates to `nil` when the block breaks without a value
+        assert_no_error typing
+        assert_equal parse_type("::String | nil"), type
       end
     end
   end

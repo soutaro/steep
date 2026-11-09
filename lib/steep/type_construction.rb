@@ -72,6 +72,10 @@ module Steep
       block_context or raise
     end
 
+    def break_context!
+      break_context or raise
+    end
+
     def break_context
       context.break_context
     end
@@ -1201,21 +1205,27 @@ module Steep
           value = node.children[0]
 
           if break_context
-            break_type = break_context.break_type
-
+            # The type of the value is given to the block call or the loop, which evaluates to it
+            # The value is checked only against the type given by `@type break` annotation
             if value
-              check(value, break_type) do |break_type, actual_type, result|
-                typing.add_error(
-                  Diagnostic::Ruby::BreakTypeMismatch.new(
-                    node: node,
-                    expected: break_type,
-                    actual: actual_type,
-                    result: result
+              if break_type = break_context.break_type
+                pair = check(value, break_type) do |break_type, actual_type, result|
+                  typing.add_error(
+                    Diagnostic::Ruby::BreakTypeMismatch.new(
+                      node: node,
+                      expected: break_type,
+                      actual: actual_type,
+                      result: result
+                    )
                   )
-                )
+                end
+              else
+                pair = synthesize(value, hint: break_context.break_hint)
               end
+
+              break_context.break_types << pair.type
             else
-              unless break_type.is_a?(AST::Types::Bot)
+              if break_type = break_context.break_type
                 check_relation(sub_type: AST::Builtin.nil_type, super_type: break_type).else do |result|
                   typing.add_error(
                     Diagnostic::Ruby::ImplicitBreakValueMismatch.new(
@@ -1226,6 +1236,8 @@ module Steep
                   )
                 end
               end
+
+              break_context.break_types << AST::Builtin.nil_type
             end
           else
             synthesize(value) if value
@@ -1241,19 +1253,27 @@ module Steep
             if next_type = break_context.next_type
               next_type = deep_expand_alias(next_type) || next_type
 
+              # The type of the value is given to the block, which evaluates to it
+              # The type variables in `next_type` are solved with the constraints
+              constraints = break_context.constraints
+
               if value
-                _, constr = check(value, next_type) do |break_type, actual_type, result|
+                pair = check(value, next_type, constraints: constraints) do |next_type, actual_type, result|
                   typing.add_error(
                     Diagnostic::Ruby::BreakTypeMismatch.new(
                       node: node,
-                      expected: break_type,
+                      expected: next_type,
                       actual: actual_type,
                       result: result
                     )
                   )
                 end
+
+                break_context.next_types << pair.type
               else
-                check_relation(sub_type: AST::Builtin.nil_type, super_type: next_type).else do |result|
+                result = check_relation(sub_type: AST::Builtin.nil_type, super_type: next_type, constraints: constraints)
+
+                if result.failure?
                   typing.add_error(
                     Diagnostic::Ruby::BreakTypeMismatch.new(
                       node: node,
@@ -1262,6 +1282,9 @@ module Steep
                       result: result
                     )
                   )
+                  break_context.next_types << next_type
+                else
+                  break_context.next_types << AST::Builtin.nil_type
                 end
               end
             else
@@ -2320,6 +2343,8 @@ module Steep
             exit_env or raise
 
 
+            loop_break_context = TypeInference::Context::BreakContext.new(break_type: nil, break_hint: hint, next_type: nil)
+
             if body
               pins = body_env.pin_local_variables(nil)
               body_env = body_env.merge(local_variable_types: pins)
@@ -2327,7 +2352,7 @@ module Steep
               _, body_constr =
                 constr
                   .update_type_env { body_env }
-                  .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: hint || AST::Builtin.nil_type, next_type: nil))
+                  .for_branch(body, break_context: loop_break_context)
                   .tap {|constr| typing.cursor_context.set_node_context(body, constr.context) }
                   .synthesize(body).to_ary
 
@@ -2336,7 +2361,7 @@ module Steep
               constr = constr.update_type_env { exit_env }
             end
 
-            add_typing(node, type: AST::Builtin.nil_type, constr: constr)
+            add_typing(node, type: loop_type(loop_break_context), constr: constr)
           end
 
         when :while_post, :until_post
@@ -2346,17 +2371,19 @@ module Steep
             _, cond_constr, = synthesize(cond)
 
             if body
+              loop_break_context = TypeInference::Context::BreakContext.new(break_type: nil, break_hint: hint, next_type: nil)
+
               for_loop =
                 cond_constr
                   .update_type_env {|env| env.merge(local_variable_types: env.pin_local_variables(nil)) }
-                  .for_branch(body, break_context: TypeInference::Context::BreakContext.new(break_type: hint || AST::Builtin.nil_type, next_type: nil))
+                  .for_branch(body, break_context: loop_break_context)
 
               typing.cursor_context.set_node_context(body, for_loop.context)
               _, _, body_context = for_loop.synthesize(body)
 
               constr = cond_constr.update_type_env {|env| env.join(env, body_context.type_env) }
 
-              add_typing(node, type: AST::Builtin.nil_type, constr: constr)
+              add_typing(node, type: loop_type(loop_break_context), constr: constr)
             else
               add_typing(node, type: AST::Builtin.nil_type, constr: cond_constr)
             end
@@ -3838,11 +3865,22 @@ module Steep
       false
     end
 
-    def jump_in_block_body?(block_body)
-      return false unless block_body
-      return true if block_body.type == :next || block_body.type == :break
+    # Returns the type of a block call: the return type of the method, or the values of `break` in the block
+    #
+    # The `@type break` annotation declares the type of the `break` values.
+    #
+    def block_call_type(return_type, block_annotations:, break_context:)
+      if break_type = block_annotations.break_type
+        union_type(return_type, break_type)
+      else
+        union_type(return_type, *break_context.break_types)
+      end
+    end
 
-      each_descendant_node(block_body).any? { _1.type == :next || _1.type == :break }
+    # Returns the type of a `while` or `until` loop: `nil`, or the values of `break` in the body
+    #
+    def loop_type(break_context)
+      union_type(AST::Builtin.nil_type, *break_context.break_types)
     end
 
     def eliminate_vars(type, variables, to: AST::Builtin.any_type)
@@ -4147,7 +4185,7 @@ module Steep
 
             if hint && !fvs.empty?
               if hint.free_variables.subset?(self_type.free_variables)
-                if fvs.none? { param_variable?(method_type, _1) } && !jump_in_block_body?(block_body)
+                if fvs.none? { param_variable?(method_type, _1) }
                   hint_constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
                   upper_bounds.each do |name, upper_bound|
                     hint_constraints.add(name, super_type: upper_bound, skip: true)
@@ -4161,8 +4199,7 @@ module Steep
                     end
                   end
                 else
-                  # The type variables occur in the parameters, which are typed before the block body.
-                  # Or the block body has `next` or `break`, whose values are not given to the type variables.
+                  # The type variables occur in the parameters, which are typed before the block body
                   if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
                     method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) do
                       constraints.solution(checker, variables: fvs, context: ccontext)
@@ -4187,7 +4224,8 @@ module Steep
                 block_block_hint: nil,
                 block_annotations: block_annotations,
                 block_self_hint: method_type.block.self_type,
-                node_type_hint: method_type.type.return_type
+                node_type_hint: hint || method_type.type.return_type,
+                constraints: constraints
               )
 
               block_constr = block_constr.with_new_typing(
@@ -4313,11 +4351,6 @@ module Steep
                     solution
                   end
                   method_type = eliminate_vars(method_type, type_param_names) unless solved
-
-                  return_type = method_type.type.return_type
-                  if break_type = block_annotations.break_type
-                    return_type = union_type(break_type, return_type)
-                  end
                 else
                   # The block body has incompatible type
                   errors << Diagnostic::Ruby::BlockBodyTypeMismatch.new(
@@ -4328,8 +4361,13 @@ module Steep
                   )
 
                   method_type = eliminate_vars(method_type, type_param_names)
-                  return_type = method_type.type.return_type
                 end
+
+                return_type = block_call_type(
+                  method_type.type.return_type,
+                  block_annotations: block_annotations,
+                  break_context: block_constr.break_context!
+                )
 
                 block_constr.typing.save!
               else
@@ -4629,7 +4667,7 @@ module Steep
       end
     end
 
-    def for_block(body_node, block_params:, block_param_hint:, block_next_type:, block_block_hint:, block_annotations:, node_type_hint:, block_self_hint:)
+    def for_block(body_node, block_params:, block_param_hint:, block_next_type:, block_block_hint:, block_annotations:, node_type_hint:, block_self_hint:, constraints: Subtyping::Constraints.empty)
       block_param_pairs = block_param_hint && block_params.zip(block_param_hint, block_block_hint, factory: checker.factory)
 
       # @type var param_types_hash: Hash[Symbol?, AST::Types::t]
@@ -4711,18 +4749,15 @@ module Steep
         end
       ).build(type_env)
 
-      break_type = if block_annotations.break_type
-                     union_type(node_type_hint, block_annotations.break_type)
-                   else
-                     node_type_hint
-                   end
-
       block_context = TypeInference::Context::BlockContext.new(
         body_type: block_annotations.block_type
       )
+      break_type = block_annotations.break_type
       break_context = TypeInference::Context::BreakContext.new(
-        break_type: break_type || AST::Builtin.any_type,
-        next_type: block_next_type || AST::Builtin.any_type
+        break_type: break_type,
+        break_hint: break_type || node_type_hint,
+        next_type: block_next_type || AST::Builtin.any_type,
+        constraints: constraints
       )
 
       self_type = block_self_hint || self.self_type
@@ -4763,6 +4798,9 @@ module Steep
     def synthesize_block(node:, block_type_hint:, block_body:)
       if block_body
         body_type, _, context = synthesize(block_body, hint: block_context&.body_type || block_type_hint)
+
+        # The block evaluates to the values of `next` too
+        body_type = union_type(body_type, *break_context!.next_types)
 
         if annotated_body_type = block_context&.body_type
           if result = no_subtyping?(sub_type: body_type, super_type: annotated_body_type)

@@ -65,11 +65,21 @@ module Steep
         def subst: (Interface::Substitution) -> BlockContext
       end
 
-      # Context about the `break` syntax
+      # Context about the `break` and `next` syntax
+      #
+      # The types of the values given to `break` and `next` are collected while the body is type checked,
+      # and the block call and the block evaluate to them.
+      #
       class BreakContext
-        # Type of arguments to `break` statement
+        # Type of arguments to `break` statement, declared by `@type break` annotation
         #
-        attr_reader break_type: AST::Types::t
+        # `nil` means the type is not declared, and the arguments are not checked.
+        #
+        attr_reader break_type: AST::Types::t?
+
+        # Type hint of arguments to `break` statement
+        #
+        attr_reader break_hint: AST::Types::t?
 
         # Type of arguments to `next` statement
         #
@@ -77,7 +87,30 @@ module Steep
         #
         attr_reader next_type: AST::Types::t?
 
-        def initialize: (break_type: AST::Types::t, next_type: AST::Types::t?) -> void
+        # Constraints of the type variables in `next_type`
+        #
+        attr_reader constraints: Subtyping::Constraints
+
+        # Types of the arguments to `break` statements in the body
+        #
+        # Shared by the contexts made by `#subst`.
+        #
+        attr_reader break_types: Array[AST::Types::t]
+
+        # Types of the arguments to `next` statements in the body
+        #
+        # Shared by the contexts made by `#subst`.
+        #
+        attr_reader next_types: Array[AST::Types::t]
+
+        def initialize: (
+          break_type: AST::Types::t?,
+          break_hint: AST::Types::t?,
+          next_type: AST::Types::t?,
+          ?constraints: Subtyping::Constraints,
+          ?break_types: Array[AST::Types::t],
+          ?next_types: Array[AST::Types::t]
+        ) -> void
 
         def subst: (Interface::Substitution) -> BreakContext
       end

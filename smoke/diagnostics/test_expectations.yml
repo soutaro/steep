@@ -64,11 +64,11 @@
   diagnostics:
   - range:
       start:
-        line: 1
-        character: 10
+        line: 3
+        character: 2
       end:
-        line: 1
-        character: 18
+        line: 3
+        character: 10
     severity: ERROR
     message: |-
       Cannot break with a value of type `::String` because type `::Integer` is assumed
@@ -488,12 +488,10 @@
         character: 2
       end:
         line: 2
-        character: 10
+        character: 9
     severity: ERROR
-    message: |-
-      Cannot break with a value of type `::Integer` because type `nil` is assumed
-        ::Integer <: nil
-    code: Ruby::BreakTypeMismatch
+    message: The value given to next will be ignored
+    code: Ruby::UnexpectedJumpValue
 - file: unexpected_keyword.rb
   diagnostics:
   - range:
