@@ -3827,6 +3827,24 @@ module Steep
       [method_type, false, Interface::Substitution.empty]
     end
 
+    def param_variable?(method_type, var)
+      return true if method_type.type.params&.free_variables&.include?(var)
+
+      if block = method_type.block
+        return true if block.type.params&.free_variables&.include?(var)
+        return true if block.self_type&.free_variables&.include?(var)
+      end
+
+      false
+    end
+
+    def jump_in_block_body?(block_body)
+      return false unless block_body
+      return true if block_body.type == :next || block_body.type == :break
+
+      each_descendant_node(block_body).any? { _1.type == :next || _1.type == :break }
+    end
+
     def eliminate_vars(type, variables, to: AST::Builtin.any_type)
       if variables.empty?
         type
@@ -4121,11 +4139,34 @@ module Steep
               end
             end
 
+            # The solution of the type variables from the hint, when they occur only in the return types
+            #
+            # The type variables are solved after the block body, and the hint is applied then.
+            # This tentative solution types the block body.
+            hint_subst = nil #: Interface::Substitution?
+
             if hint && !fvs.empty?
               if hint.free_variables.subset?(self_type.free_variables)
-                if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
-                  method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) do
-                    constraints.solution(checker, variables: fvs, context: ccontext)
+                if fvs.none? { param_variable?(method_type, _1) } && !jump_in_block_body?(block_body)
+                  hint_constraints = Subtyping::Constraints.new(unknowns: type_params.map(&:name))
+                  upper_bounds.each do |name, upper_bound|
+                    hint_constraints.add(name, super_type: upper_bound, skip: true)
+                  end
+
+                  if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: hint_constraints).success?
+                    begin
+                      hint_subst = hint_constraints.solution(checker, variables: fvs, context: ccontext)
+                    rescue Subtyping::Constraints::UnsatisfiableConstraint
+                      # The hint is ignored
+                    end
+                  end
+                else
+                  # The type variables occur in the parameters, which are typed before the block body.
+                  # Or the block body has `next` or `break`, whose values are not given to the type variables.
+                  if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
+                    method_type, solved, s = apply_solution(errors, node: node, method_type: method_type) do
+                      constraints.solution(checker, variables: fvs, context: ccontext)
+                    end
                   end
                 end
 
@@ -4214,20 +4255,24 @@ module Steep
 
               if solved
                 # Ready for type check the body of the block
-                block_constr = block_constr.update_type_env {|env| env.subst(s) }
+                block_subst = hint_subst ? s.merge(hint_subst) : s
+                block_constr = block_constr.update_type_env {|env| env.subst(block_subst) }
                 block_constr = block_constr.update_context {|context|
                   context.with(
-                    self_type: context.self_type.subst(s),
-                    type_env: context.type_env.subst(s),
-                    block_context: context.block_context&.subst(s),
-                    break_context: context.break_context&.subst(s)
+                    self_type: context.self_type.subst(block_subst),
+                    type_env: context.type_env.subst(block_subst),
+                    block_context: context.block_context&.subst(block_subst),
+                    break_context: context.break_context&.subst(block_subst)
                   )
                 }
+
+                block_type_hint = method_type.block.type.return_type
+                block_type_hint = block_type_hint.subst(hint_subst) if hint_subst
 
                 block_body_type = block_constr.synthesize_block(
                   node: node,
                   block_body: block_body,
-                  block_type_hint: method_type.block.type.return_type
+                  block_type_hint: block_type_hint
                 )
 
                 if method_type.block && method_type.block.self_type
@@ -4249,7 +4294,23 @@ module Steep
                 if result.success?
                   # Successfully type checked the body
                   method_type, solved, _ = apply_solution(errors, node: node, method_type: method_type) do
-                    constraints.solution(checker, variables: type_param_names, context: ccontext)
+                    # Solving without the hint first, because the hint is added to `constraints` destructively.
+                    # The constraints without the hint have a solution if the ones with the hint have.
+                    solution = constraints.solution(checker, variables: type_param_names, context: ccontext)
+
+                    if hint_subst
+                      # The hint is applied when the type variables have a solution with it, and ignored otherwise
+                      hint or raise
+                      if check_relation(sub_type: method_type.type.return_type, super_type: hint, constraints: constraints).success?
+                        begin
+                          solution = constraints.solution(checker, variables: type_param_names, context: ccontext)
+                        rescue Subtyping::Constraints::UnsatisfiableConstraint
+                          # The hint is ignored
+                        end
+                      end
+                    end
+
+                    solution
                   end
                   method_type = eliminate_vars(method_type, type_param_names) unless solved
 

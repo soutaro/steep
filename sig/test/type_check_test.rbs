@@ -143,6 +143,16 @@ class TypeCheckTest < Minitest::Test
 
   def test_type_inference__nested_block_free_variable: () -> untyped
 
+  def test_type_inference__block_call_masgn: () -> untyped
+
+  def test_type_inference__block_call_masgn_variables: () -> untyped
+
+  def test_type_inference__block_call_hint: () -> untyped
+
+  def test_type_inference__block_call_hint_unsatisfiable: () -> untyped
+
+  def test_type_inference__block_call_hint_jump: () -> untyped
+
   def test_type_narrowing__local_variable_safe_navigation_operator: () -> untyped
 
   def test_type_narrowing__union_send: () -> untyped
