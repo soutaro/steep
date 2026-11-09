@@ -1,0 +1,1411 @@
+# Steep AST ノード仕様(ドラフト)
+#
+# 目的:
+#   Parser::AST::Node(parser gem 形式)を、Steep 自身の型付きノードクラス群に置き換えるための仕様。
+#   生成器の入力を想定している(ノードクラス / Location クラス / RBS をここから生成する)。
+#
+# 根拠:
+#   - prism 2.1.0 の Prism::Translation::Parser34 を Steep と同じ Builder 設定
+#     (emit_lambda / emit_procarg0 / emit_kwargs / emit_forward_arg = true、その他は既定値 false)で動かし、
+#     全ノード種を含むスニペット集をパースして children の形と Source::Map のフィールドの有無を実測した。
+#   - Steep 側の依存(TypeConstruction の分岐、NodeHelper#deconstruct_*、Source#construct_mapping、
+#     Source#insert_type_node、sig/shims/parser/nodes.rbs)を照合した。
+#
+# 記法:
+#   name:        生成するクラス名(名前空間は未決。例: Steep::AST::Node::IfNode)
+#   parser:      対応する parser gem のノード種(互換プロトコルの `type` が返す Symbol)
+#   steep:       typed        = TypeConstruction#synthesize に分岐がある
+#                via_parent   = 親ノードの処理の中で扱われる(単独では synthesize されない)
+#                unsupported  = 現状 UnsupportedSyntax になる
+#                steep_only   = parser 由来ではなく Steep が導入するノード
+#   fields:      フィールド名 => 型。並び順は parser の children の順(互換プロトコルの `children` を生成するため)。
+#                型表記: node = 任意の式ノード、node? = nil 可、Array[...]、Symbol / String / Integer / Float / Rational / Complex、
+#                具体クラス名、`A | B` は和。別名は type_aliases を参照。
+#   annotations: ブロックアノテーションを保持するスロット(Array[annotation])。
+#   locations:   `<Name>::Location` の持つフィールド => required | optional。
+#                全ノードに expression(required)があるものとし、expression が optional の場合のみ明記する。
+#                各フィールドは flat な RBS::Location(RBS::Location[bot, bot])。
+#                フィールド名は parser gem の Source::Map に合わせている(機械的な移行のため)。
+#   notes:       補足。
+#
+# 等価性:
+#   `==` / `hash` は fields(と annotations?)から構造的に計算し、location は含めない。
+#   TypeEnv の pure node キーが構造的等価を前提にしているため。annotations を含めるかは要検討(含めない方が自然)。
+
+version: draft-1
+
+type_aliases:
+  node: "任意の式ノード(Base)。nil を許す場合は node?"
+  body: "node?(文の並びは BeginNode、単文はそのノード、空は nil)"
+  call: "SendNode | CsendNode | SuperNode | ZsuperNode | LambdaNode(BlockNode 系の呼び出し側)"
+  argument: "node | SplatNode | BlockPassNode | KwargsNode | ForwardedArgsNode | ForwardedRestargNode | ForwardedKwrestargNode"
+  param: "ArgNode | OptargNode | RestargNode | KwargNode | KwoptargNode | KwrestargNode | KwnilargNode | BlockargNode | Procarg0Node | MlhsNode | ShadowargNode | ForwardArgNode"
+  asgn_target: "LvasgnNode | IvasgnNode | GvasgnNode | CvasgnNode | CasgnNode | SendNode | CsendNode(いずれも value を持たない形)"
+  mlhs_item: "asgn_target | SplatNode | MlhsNode | ArgNode(def/block のパラメータ内の分割代入では ArgNode)"
+  string_part: "StrNode | BeginNode(式展開 #{...}) | DstrNode"
+  pattern: "MatchVarNode | MatchAltNode | MatchAsNode | MatchRestNode | PinNode | ArrayPatternNode | ArrayPatternWithTailNode | FindPatternNode | HashPatternNode | ConstPatternNode | ConstNode | node(リテラル・範囲など値パターン)"
+  annotation: "VarTypeAnnotation | MethodTypeAnnotation | ConstTypeAnnotation | IvarTypeAnnotation | ReturnTypeAnnotation | BlockTypeAnnotation | SelfTypeAnnotation | InstanceTypeAnnotation | ModuleTypeAnnotation | BreakTypeAnnotation | ImplementsAnnotation | DynamicAnnotation"
+
+# ---------------------------------------------------------------------------
+# Steep が導入するノード
+# ---------------------------------------------------------------------------
+steep_nodes:
+  - name: ProgramNode
+    parser: null
+    steep: steep_only
+    fields:
+      statements: body
+    annotations: [annotations]
+    locations: {}
+    notes:
+      - "ルートノード。現状の `Source#node: Parser::AST::Node?` と `mapping[root]`(トップレベルおよびどこにも付かなかったアノテーション)を置き換える。"
+      - expression はバッファ全体。comments と steep:ignore は Source 側に残す(木には入れない)。
+
+  - name: TypeAssertionNode
+    parser: assertion
+    steep: typed
+    fields:
+      expression: node
+      assertion: TypeAssertion
+    annotations: []
+    locations: {}
+    notes:
+      - 現状 `(assertion expr <TypeAssertion>)` で第 2 子が Node でないオブジェクトになっている箇所の置き換え。
+      - expression の範囲は式の先頭からコメント末尾まで(現状の assertion_node と同じ)。
+      - TypeAssertion オブジェクトは annotations セクションを参照。RBS 型は Source.parse 時に 1 回だけパースして保持する。
+      - 付与規則は Source.insert_type_node のものを移植する。代入(lvasgn/ivasgn/gvasgn/cvasgn/casgn)は右辺に付ける、
+        return/break/next、def/defs、kwargs、when、pair のキーには付けない、masgn は右辺、括弧つき begin は全体、
+        attr_reader/writer/accessor は付けない(inline RBS が扱う)、Data.define / Struct.new の引数には付けない。
+
+  - name: TypeApplicationNode
+    parser: tapp
+    steep: typed
+    fields:
+      call: SendNode | CsendNode | BlockNode | NumblockNode | ItblockNode
+      application: TypeApplication
+    annotations: []
+    locations: {}
+    notes:
+      - 現状 `(tapp sendish <TypeApplication>)` の置き換え。TypeApplication#set_node の逆参照は不要になる。
+      - expression は呼び出し式の範囲。コメントが式の末尾より後ろにある場合はコメント末尾まで伸ばす(現状の type_application_node と同じ)。
+
+# ---------------------------------------------------------------------------
+# parser gem 由来のノード
+# ---------------------------------------------------------------------------
+nodes:
+  # ----- リテラル -----
+  - name: NilNode
+    parser: nil
+    steep: typed
+    fields: {}
+    locations: {}
+
+  - name: TrueNode
+    parser: true
+    steep: typed
+    fields: {}
+    locations: {}
+
+  - name: FalseNode
+    parser: false
+    steep: typed
+    fields: {}
+    locations: {}
+
+  - name: SelfNode
+    parser: self
+    steep: typed
+    fields: {}
+    locations: {}
+
+  - name: IntNode
+    parser: int
+    steep: typed
+    fields:
+      value: Integer
+    locations:
+      operator: optional   # 単項マイナス `-1`
+    notes:
+      - "`__LINE__` は IntNode になる(expression のみ)。"
+
+  - name: FloatNode
+    parser: float
+    steep: typed
+    fields:
+      value: Float
+    locations:
+      operator: optional   # `-1.0`
+
+  - name: RationalNode
+    parser: rational
+    steep: typed
+    fields:
+      value: Rational
+    locations:
+      operator: optional   # `-3r`
+
+  - name: ComplexNode
+    parser: complex
+    steep: typed
+    fields:
+      value: Complex
+    locations:
+      operator: optional   # `-2i`
+
+  - name: StrNode
+    parser: str
+    steep: typed
+    fields:
+      value: String
+    locations:
+      begin: optional          # 引用符。dstr の一部・ヒアドキュメント本文・`__FILE__` では nil
+      end: optional
+      heredoc_body: optional   # ヒアドキュメント形式のとき(begin/end は nil)
+      heredoc_end: optional
+    notes:
+      - "`__FILE__` は StrNode になる(expression のみ)。"
+      - ヒアドキュメントの位置は Source#each_heredoc_node / find_heredoc_nodes が利用する。
+
+  - name: DstrNode
+    parser: dstr
+    steep: typed
+    fields:
+      parts: Array[string_part]
+    locations:
+      begin: optional          # `"a" "b"`(隣接文字列)では nil、各 part が自分の引用符を持つ
+      end: optional
+      heredoc_body: optional
+      heredoc_end: optional
+
+  - name: XstrNode
+    parser: xstr
+    steep: typed
+    fields:
+      parts: Array[string_part]
+    locations:
+      begin: optional          # バッククォート。ヒアドキュメント形式(<<~`EOS`)では nil
+      end: optional
+      heredoc_body: optional
+      heredoc_end: optional
+
+  - name: SymNode
+    parser: sym
+    steep: typed
+    fields:
+      value: Symbol
+    locations:
+      begin: optional   # `:sym` の `:`、`:"..."` の `:"`。ハッシュのラベル `a:` や %i[] の要素では nil
+      end: optional
+
+  - name: DsymNode
+    parser: dsym
+    steep: typed
+    fields:
+      parts: Array[string_part]
+    locations:
+      begin: optional   # `:"a#{b}"`。%I[] の要素では nil
+      end: optional
+
+  - name: RegexpNode
+    parser: regexp
+    steep: typed
+    fields:
+      parts: Array[string_part]
+      options: RegoptNode
+    locations:
+      begin: required   # `/` または `%r{`
+      end: required
+    notes:
+      - parser の children は `[*parts, regopt]`。互換 `children` は options を末尾に置く。
+
+  - name: RegoptNode
+    parser: regopt
+    steep: typed
+    fields:
+      options: Array[Symbol]
+    locations: {}
+    notes:
+      - オプションが無いときは expression が空範囲になる。
+
+  - name: ArrayNode
+    parser: array
+    steep: typed
+    fields:
+      elements: Array[node | SplatNode]
+    locations:
+      begin: optional   # `[`、`%w[`。`x = 1, 2` や `a, b = *c` の右辺のように括弧が無い形では nil
+      end: optional
+
+  - name: HashNode
+    parser: hash
+    steep: typed
+    fields:
+      pairs: Array[PairNode | KwsplatNode]
+    locations:
+      begin: required   # `{`。括弧なしのキーワード引数は KwargsNode になる
+      end: required
+
+  - name: PairNode
+    parser: pair
+    steep: typed
+    fields:
+      key: node
+      value: node
+    locations:
+      operator: required   # `=>` または `:`
+    notes:
+      - パターンマッチの HashPatternNode の要素としても使われ、その場合 value は pattern(`{k:}` の省略形は MatchVarNode)。
+
+  - name: KwsplatNode
+    parser: kwsplat
+    steep: typed
+    fields:
+      value: node
+    locations:
+      operator: required   # `**`
+
+  - name: IrangeNode
+    parser: irange
+    steep: typed
+    fields:
+      begin: node?   # beginless range
+      end: node?     # endless range
+    locations:
+      operator: required   # `..`
+
+  - name: ErangeNode
+    parser: erange
+    steep: typed
+    fields:
+      begin: node?
+      end: node?
+    locations:
+      operator: required   # `...`
+
+  # ----- 変数・定数 -----
+  - name: LvarNode
+    parser: lvar
+    steep: typed
+    fields:
+      name: Symbol
+    locations:
+      name: required
+
+  - name: IvarNode
+    parser: ivar
+    steep: typed
+    fields:
+      name: Symbol
+    locations:
+      name: required
+
+  - name: GvarNode
+    parser: gvar
+    steep: typed
+    fields:
+      name: Symbol
+    locations:
+      name: required
+
+  - name: CvarNode
+    parser: cvar
+    steep: typed
+    fields:
+      name: Symbol
+    locations:
+      name: required
+
+  - name: NthRefNode
+    parser: nth_ref
+    steep: typed
+    fields:
+      index: Integer   # `$1` => 1
+    locations: {}
+
+  - name: BackRefNode
+    parser: back_ref
+    steep: typed
+    fields:
+      name: Symbol   # `:$&` など
+    locations: {}
+
+  - name: ConstNode
+    parser: const
+    steep: typed
+    fields:
+      scope: node?   # ConstNode | CbaseNode | 任意の式(`foo::Bar`)。nil のとき lexical scope
+      name: Symbol
+    locations:
+      double_colon: optional
+      name: required
+    notes:
+      - "`__ENCODING__` は現状の Builder 設定では `(const (const nil :Encoding) :UTF_8)` に変換され、内側の const の location が nil になる(Prism 変換の癖)。
+        変換器で特別扱いするか、emit_encoding を有効にして EncodingNode を追加する(TypeConstruction に小さな分岐が増える)。open_questions を参照。"
+
+  - name: CbaseNode
+    parser: cbase
+    steep: typed
+    fields: {}
+    locations: {}
+    notes:
+      - 先頭の `::`。
+
+  # ----- 代入 -----
+  - name: LvasgnNode
+    parser: lvasgn
+    steep: typed
+    fields:
+      name: Symbol
+      value: node?   # mlhs / op_asgn の対象、for の変数、resbody の変数では nil
+    locations:
+      name: required
+      operator: optional   # `=`。value が無い形では nil
+
+  - name: IvasgnNode
+    parser: ivasgn
+    steep: typed
+    fields:
+      name: Symbol
+      value: node?
+    locations:
+      name: required
+      operator: optional
+
+  - name: GvasgnNode
+    parser: gvasgn
+    steep: typed
+    fields:
+      name: Symbol
+      value: node?
+    locations:
+      name: required
+      operator: optional
+
+  - name: CvasgnNode
+    parser: cvasgn
+    steep: typed
+    fields:
+      name: Symbol
+      value: node?
+    locations:
+      name: required
+      operator: optional
+
+  - name: CasgnNode
+    parser: casgn
+    steep: typed
+    fields:
+      scope: node?
+      name: Symbol
+      value: node?
+    locations:
+      double_colon: optional
+      name: required
+      operator: optional
+
+  - name: MasgnNode
+    parser: masgn
+    steep: typed
+    fields:
+      lhs: MlhsNode
+      rhs: node   # 複数値は ArrayNode(括弧なし)、単一値はそのノード
+    locations:
+      operator: required   # `=`
+
+  - name: MlhsNode
+    parser: mlhs
+    steep: typed
+    fields:
+      items: Array[mlhs_item]
+    locations:
+      begin: optional   # 入れ子の `(a, b)` の括弧
+      end: optional
+
+  - name: SplatNode
+    parser: splat
+    steep: typed
+    fields:
+      value: node?   # 匿名 `*`(`*, a = x`)では nil
+    locations:
+      operator: required   # `*`
+
+  - name: OpAsgnNode
+    parser: op_asgn
+    steep: typed
+    fields:
+      target: asgn_target
+      operator_name: Symbol   # `:+` など
+      value: node
+    locations:
+      operator: required   # `+=` など
+    notes:
+      - parser は対象側の map(name / dot / selector / double_colon)を op_asgn 自身にも複製して持たせているが、新設計では expression と operator だけにし、残りは target.location を見る。
+
+  - name: OrAsgnNode
+    parser: or_asgn
+    steep: typed
+    fields:
+      target: asgn_target
+      value: node
+    locations:
+      operator: required   # `||=`
+
+  - name: AndAsgnNode
+    parser: and_asgn
+    steep: typed
+    fields:
+      target: asgn_target
+      value: node
+    locations:
+      operator: required   # `&&=`
+
+  - name: MatchWithLvasgnNode
+    parser: match_with_lvasgn
+    steep: typed
+    fields:
+      regexp: RegexpNode
+      value: node
+    locations:
+      selector: required   # `=~`(parser は Send map を使う)
+    notes:
+      - 名前付きキャプチャを持つ正規表現リテラルが左辺の `=~`。
+
+  # ----- メソッド呼び出し・ブロック -----
+  - name: SendNode
+    parser: send
+    steep: typed
+    fields:
+      receiver: node?
+      method_name: Symbol
+      arguments: Array[argument]
+    locations:
+      dot: optional        # `.` / `::`。レシーバ無しや演算子呼び出しでは nil
+      selector: optional   # メソッド名。`a.()` では nil。添字 `a[1]` では `[1]` 全体、`not a` では `not`
+      begin: optional      # 引数の括弧
+      end: optional
+      operator: optional   # 属性代入 `a.b = 1`、添字代入 `a[1] = 2` の `=`
+    notes:
+      - 単項・二項演算子、`!a` / `not a`(method_name は `:!`)、添字 `:[]` / `:[]=`、`a.()`(`:call`)もすべて SendNode。
+      - "括弧つきハッシュ引数 `foo({a: 1})` は HashNode、括弧なし `foo(a: 1)` は KwargsNode として arguments に入る。"
+
+  - name: CsendNode
+    parser: csend
+    steep: typed
+    fields:
+      receiver: node
+      method_name: Symbol
+      arguments: Array[argument]
+    locations:
+      dot: required        # `&.`
+      selector: optional
+      begin: optional
+      end: optional
+      operator: optional
+
+  - name: BlockNode
+    parser: block
+    steep: typed
+    fields:
+      call: call
+      params: ArgsNode   # 常にノードとして存在する(パラメータが無いときは ArgsNode の expression が nil)
+      body: body
+    annotations: [annotations]
+    locations:
+      begin: required   # `{` / `do`
+      end: required     # `}` / `end`
+    notes:
+      - "`-> {}` / `lambda {}` は call が LambdaNode の BlockNode。TypeConstruction#type_lambda がここで分岐する。"
+      - "`super { }` は call が ZsuperNode、`super(1) { }` は SuperNode。"
+
+  - name: NumblockNode
+    parser: numblock
+    steep: typed
+    fields:
+      call: call
+      max_numparam: Integer   # 使われた `_N` の最大値
+      body: node
+    annotations: [annotations]
+    locations:
+      begin: required
+      end: required
+
+  - name: ItblockNode
+    parser: itblock
+    steep: typed
+    fields:
+      call: call
+      it: Symbol   # 常に :it
+      body: node
+    annotations: [annotations]
+    locations:
+      begin: required
+      end: required
+
+  - name: LambdaNode
+    parser: lambda
+    steep: via_parent
+    fields: {}
+    locations: {}
+    notes:
+      - "`->` そのもの。常に BlockNode の call に現れる。"
+
+  - name: BlockPassNode
+    parser: block_pass
+    steep: typed
+    fields:
+      value: node?   # 匿名ブロック引数 `&` では nil
+    locations:
+      operator: required   # `&`
+
+  - name: KwargsNode
+    parser: kwargs
+    steep: typed
+    fields:
+      pairs: Array[PairNode | KwsplatNode | ForwardedKwrestargNode]
+    locations: {}
+    notes:
+      - emit_kwargs により、括弧なしキーワード引数を HashNode と区別するためのノード。begin/end は持たない。
+
+  - name: SuperNode
+    parser: super
+    steep: typed
+    fields:
+      arguments: Array[argument]
+    locations:
+      keyword: required
+      begin: optional
+      end: optional
+
+  - name: ZsuperNode
+    parser: zsuper
+    steep: typed
+    fields: {}
+    locations:
+      keyword: required
+
+  - name: YieldNode
+    parser: yield
+    steep: typed
+    fields:
+      arguments: Array[argument]
+    locations:
+      keyword: required
+      begin: optional
+      end: optional
+
+  - name: ForwardedArgsNode
+    parser: forwarded_args
+    steep: typed
+    fields: {}
+    locations: {}
+    notes:
+      - 呼び出し側の `...`。
+
+  - name: ForwardedRestargNode
+    parser: forwarded_restarg
+    steep: unsupported
+    fields: {}
+    locations: {}
+    notes:
+      - 呼び出し側の匿名 `*`(Ruby 3.2)。
+
+  - name: ForwardedKwrestargNode
+    parser: forwarded_kwrestarg
+    steep: unsupported
+    fields: {}
+    locations: {}
+    notes:
+      - 呼び出し側の匿名 `**`(Ruby 3.2)。KwargsNode の要素として現れる。
+
+  # ----- 定義 -----
+  - name: DefNode
+    parser: def
+    steep: typed
+    fields:
+      name: Symbol
+      params: ArgsNode   # 常に存在。パラメータ無しのとき expression は nil
+      body: body
+    annotations: [annotations]
+    locations:
+      keyword: required
+      name: required
+      end: optional          # endless def では nil
+      assignment: optional   # endless def の `=`
+
+  - name: DefsNode
+    parser: defs
+    steep: typed
+    fields:
+      singleton: node   # SelfNode | ConstNode | 任意の式
+      name: Symbol
+      params: ArgsNode
+      body: body
+    annotations: [annotations]
+    locations:
+      keyword: required
+      operator: required     # `.`
+      name: required
+      end: optional
+      assignment: optional
+
+  - name: ArgsNode
+    parser: args
+    steep: typed
+    fields:
+      params: Array[param]
+    locations:
+      expression: optional   # パラメータリストが無い `def foo; end` / `foo { }` では nil
+      begin: optional        # `(` / `|`
+      end: optional          # `)` / `|`
+    notes:
+      - 唯一 expression が nil になり得るノード。現状のコードも `args&.location&.expression` と書いている。
+
+  - name: ArgNode
+    parser: arg
+    steep: typed
+    fields:
+      name: Symbol
+    locations:
+      name: required
+
+  - name: OptargNode
+    parser: optarg
+    steep: typed
+    fields:
+      name: Symbol
+      default: node
+    locations:
+      name: required
+      operator: required   # `=`
+
+  - name: RestargNode
+    parser: restarg
+    steep: typed
+    fields:
+      name: Symbol?   # 匿名 `*` では nil
+    locations:
+      name: optional
+
+  - name: KwargNode
+    parser: kwarg
+    steep: typed
+    fields:
+      name: Symbol
+    locations:
+      name: required   # `d:`(コロン込み)
+
+  - name: KwoptargNode
+    parser: kwoptarg
+    steep: typed
+    fields:
+      name: Symbol
+      default: node
+    locations:
+      name: required
+
+  - name: KwrestargNode
+    parser: kwrestarg
+    steep: typed
+    fields:
+      name: Symbol?   # 匿名 `**` では nil
+    locations:
+      name: optional
+
+  - name: KwnilargNode
+    parser: kwnilarg
+    steep: unsupported
+    fields: {}
+    locations:
+      name: required   # `nil`
+    notes:
+      - "`**nil`。"
+
+  - name: BlockargNode
+    parser: blockarg
+    steep: typed
+    fields:
+      name: Symbol?   # 匿名 `&` では nil
+    locations:
+      name: optional
+
+  - name: Procarg0Node
+    parser: procarg0
+    steep: typed
+    fields:
+      name: Symbol?            # `|a|` の形。children は [Symbol]
+      items: Array[param]      # `|(a, b)|` の形。children は [ArgNode, ArgNode, ...](mlhs ではなく procarg0 直下に並ぶ)
+    locations:
+      name: optional    # `|a|` のとき
+      begin: optional   # `|(a, b)|` の括弧
+      end: optional
+    notes:
+      - 単一ブロックパラメータ(自動 splat の対象)。emit_arg_inside_procarg0 = false のため 2 つの形がある。
+      - 名前つきの形と分割代入の形で別クラスに分けるかは要検討。TypeInference::BlockParams.from_node が両方を扱っている。
+
+  - name: ShadowargNode
+    parser: shadowarg
+    steep: unsupported
+    fields:
+      name: Symbol
+    locations:
+      name: required
+    notes:
+      - "`|a; b|` の `b`。"
+
+  - name: ForwardArgNode
+    parser: forward_arg
+    steep: typed
+    fields: {}
+    locations: {}
+    notes:
+      - 定義側の `...`。ArgsNode の要素として現れる。
+
+  - name: ClassNode
+    parser: class
+    steep: typed
+    fields:
+      name: ConstNode
+      superclass: node?
+      body: body
+    annotations: [annotations]
+    locations:
+      keyword: required
+      name: required
+      operator: optional   # `<`
+      end: required
+
+  - name: ModuleNode
+    parser: module
+    steep: typed
+    fields:
+      name: ConstNode
+      body: body
+    annotations: [annotations]
+    locations:
+      keyword: required
+      name: required
+      end: required
+
+  - name: SclassNode
+    parser: sclass
+    steep: typed
+    fields:
+      target: node   # SelfNode | 任意の式
+      body: body
+    annotations: [annotations]
+    locations:
+      keyword: required
+      operator: required   # `<<`
+      end: required
+
+  - name: AliasNode
+    parser: alias
+    steep: typed
+    fields:
+      new_name: SymNode | DsymNode | GvarNode | BackRefNode
+      old_name: SymNode | DsymNode | GvarNode | BackRefNode
+    locations:
+      keyword: required
+
+  - name: UndefNode
+    parser: undef
+    steep: unsupported
+    fields:
+      names: Array[SymNode | DsymNode]
+    locations:
+      keyword: required
+
+  # ----- 制御構造 -----
+  - name: IfNode
+    parser: if
+    steep: typed
+    fields:
+      condition: node
+      then_body: body
+      else_body: body   # `elsif` は else_body に入れ子の IfNode(keyword が `elsif`、end は nil)
+    annotations: [then_annotations, else_annotations]
+    locations:
+      keyword: optional    # `if` / `unless` / `elsif`。三項演算子では nil
+      begin: optional      # `then`(または条件直後の `;`)
+      else: optional       # `else` / `elsif`
+      end: optional        # 修飾子形式・elsif・三項演算子では nil
+      question: optional   # 三項演算子の `?`
+      colon: optional      # 三項演算子の `:`
+    notes:
+      - "`unless` は then/else を入れ替えた IfNode(parser 互換)。keyword の文字列で判別する。"
+      - 修飾子形式 `b if a` では parser は Keyword map を使う(begin/else/end が nil)。現状は expression と keyword の開始位置の比較で前置か判定しているが、`modifier?` / `ternary?` / `unless?` / `elsif?` の述語を生成する。
+      - アノテーションの付与範囲は Source#construct_mapping のものを移植する(then は begin または条件の末尾行から else または end の行まで、など)。
+
+  - name: WhileNode
+    parser: while
+    steep: typed
+    fields:
+      condition: node
+      body: body
+    annotations: [body_annotations]
+    locations:
+      keyword: required
+      begin: optional   # `do`
+      end: optional     # 修飾子形式 `b while a` では nil
+    notes:
+      - "修飾子形式でも WhileNode(end が nil)。`begin ... end while a` は WhilePostNode。"
+
+  - name: UntilNode
+    parser: until
+    steep: typed
+    fields:
+      condition: node
+      body: body
+    annotations: [body_annotations]
+    locations:
+      keyword: required
+      begin: optional
+      end: optional
+
+  - name: WhilePostNode
+    parser: while_post
+    steep: typed
+    fields:
+      condition: node
+      body: KwbeginNode
+    annotations: [body_annotations]
+    locations:
+      keyword: required
+
+  - name: UntilPostNode
+    parser: until_post
+    steep: typed
+    fields:
+      condition: node
+      body: KwbeginNode
+    annotations: [body_annotations]
+    locations:
+      keyword: required
+
+  - name: ForNode
+    parser: for
+    steep: typed
+    fields:
+      variable: asgn_target | MlhsNode
+      iterable: node
+      body: body
+    annotations: []
+    locations:
+      keyword: required
+      in: required
+      begin: optional   # `do`
+      end: required
+    notes:
+      - 現状はアノテーションの付与対象外。body_annotations を持たせる候補。
+
+  - name: CaseNode
+    parser: case
+    steep: typed
+    fields:
+      subject: node?
+      whens: Array[WhenNode]
+      else_body: body
+    annotations: [else_annotations]
+    locations:
+      keyword: required
+      else: optional
+      end: required
+    notes:
+      - "`else` だけで本体が空のとき、Prism 変換は empty_else ノードを生成せず else_body は nil になる(実測)。"
+
+  - name: WhenNode
+    parser: when
+    steep: via_parent
+    fields:
+      conditions: Array[node | SplatNode]
+      body: body
+    annotations: [body_annotations]
+    locations:
+      keyword: required
+      begin: optional   # `then`
+
+  - name: BreakNode
+    parser: break
+    steep: typed
+    fields:
+      arguments: Array[node | SplatNode]   # `break 1, 2` は children が 2 つ(ArrayNode ではない)
+    locations:
+      keyword: required
+
+  - name: NextNode
+    parser: next
+    steep: typed
+    fields:
+      arguments: Array[node | SplatNode]
+    locations:
+      keyword: required
+
+  - name: ReturnNode
+    parser: return
+    steep: typed
+    fields:
+      arguments: Array[node | SplatNode]
+    locations:
+      keyword: required
+
+  - name: RedoNode
+    parser: redo
+    steep: unsupported
+    fields: {}
+    locations:
+      keyword: required
+
+  - name: RetryNode
+    parser: retry
+    steep: typed
+    fields: {}
+    locations:
+      keyword: required
+
+  - name: AndNode
+    parser: and
+    steep: typed
+    fields:
+      left: node
+      right: node
+    locations:
+      operator: required   # `and` / `&&`
+
+  - name: OrNode
+    parser: or
+    steep: typed
+    fields:
+      left: node
+      right: node
+    locations:
+      operator: required   # `or` / `||`
+
+  - name: DefinedNode
+    parser: "defined?"
+    steep: typed
+    fields:
+      value: node
+    locations:
+      keyword: required
+      begin: optional
+      end: optional
+
+  - name: BeginNode
+    parser: begin
+    steep: typed
+    fields:
+      statements: Array[node]
+    locations:
+      begin: optional   # 括弧 `(`。文の並び(def の本体など)や式展開以外では nil
+      end: optional
+    notes:
+      - 文の並び、括弧式 `(a; b)`、空の `()`(statements が空)、文字列の式展開 `#{...}`(begin が `#{`)に使われる。
+      - 現状 insert_type_node は括弧つきの BeginNode 全体に型アサーションを付ける。
+
+  - name: KwbeginNode
+    parser: kwbegin
+    steep: typed
+    fields:
+      statements: Array[node]
+    locations:
+      begin: required   # `begin`
+      end: required     # `end`
+    notes:
+      - "`begin; a; rescue; end` は KwbeginNode[RescueNode[...]]。"
+
+  - name: RescueNode
+    parser: rescue
+    steep: typed
+    fields:
+      body: body
+      resbodies: Array[ResbodyNode]
+      else_body: body
+    annotations: [else_annotations]
+    locations:
+      else: optional
+    notes:
+      - keyword は持たない(`rescue` キーワードは各 ResbodyNode、`begin`/`end` は KwbeginNode や DefNode のもの)。
+      - 修飾子形式 `a rescue b` も RescueNode(resbodies が 1 つ、exceptions / variable が nil)。
+
+  - name: ResbodyNode
+    parser: resbody
+    steep: typed
+    fields:
+      exceptions: ArrayNode?      # `rescue A, B`。省略時は nil
+      variable: asgn_target?      # `=> e`。value を持たない代入ノード
+      body: body
+    annotations: [annotations]
+    locations:
+      keyword: required   # `rescue`
+      assoc: optional     # `=>`
+      begin: optional     # `then`
+
+  - name: EnsureNode
+    parser: ensure
+    steep: typed
+    fields:
+      body: body          # 多くの場合 RescueNode
+      ensure_body: body
+    annotations: [annotations]
+    locations:
+      keyword: required   # `ensure`
+
+  - name: IflipflopNode
+    parser: iflipflop
+    steep: unsupported
+    fields:
+      left: node
+      right: node
+    locations:
+      operator: required   # `..`
+
+  - name: EflipflopNode
+    parser: eflipflop
+    steep: unsupported
+    fields:
+      left: node
+      right: node
+    locations:
+      operator: required   # `...`
+
+  - name: MatchCurrentLineNode
+    parser: match_current_line
+    steep: unsupported
+    fields:
+      regexp: RegexpNode
+    locations: {}
+    notes:
+      - 条件式に直接書かれた正規表現リテラル(`if /re/`)。
+
+  - name: PreexeNode
+    parser: preexe
+    steep: unsupported
+    fields:
+      body: body
+    locations:
+      keyword: required   # `BEGIN`
+      begin: required
+      end: required
+
+  - name: PostexeNode
+    parser: postexe
+    steep: unsupported
+    fields:
+      body: body
+    locations:
+      keyword: required   # `END`
+      begin: required
+      end: required
+
+  # ----- パターンマッチ(現状はすべて UnsupportedSyntax) -----
+  - name: CaseMatchNode
+    parser: case_match
+    steep: unsupported
+    fields:
+      subject: node
+      in_patterns: Array[InPatternNode]
+      else_body: body
+    annotations: []
+    locations:
+      keyword: required
+      else: optional
+      end: required
+    notes:
+      - 対応する際は CaseNode と同様に else_annotations を持たせる。
+
+  - name: InPatternNode
+    parser: in_pattern
+    steep: unsupported
+    fields:
+      pattern: pattern
+      guard: IfGuardNode | UnlessGuardNode | nil
+      body: body
+    annotations: []
+    locations:
+      keyword: required   # `in`
+      begin: optional     # `then`
+
+  - name: IfGuardNode
+    parser: if_guard
+    steep: unsupported
+    fields:
+      condition: node
+    locations:
+      keyword: required
+
+  - name: UnlessGuardNode
+    parser: unless_guard
+    steep: unsupported
+    fields:
+      condition: node
+    locations:
+      keyword: required
+
+  - name: MatchVarNode
+    parser: match_var
+    steep: unsupported
+    fields:
+      name: Symbol
+    locations:
+      name: required
+
+  - name: MatchAltNode
+    parser: match_alt
+    steep: unsupported
+    fields:
+      left: pattern
+      right: pattern
+    locations:
+      operator: required   # `|`
+
+  - name: MatchAsNode
+    parser: match_as
+    steep: unsupported
+    fields:
+      value: pattern
+      target: MatchVarNode
+    locations:
+      operator: required   # `=>`
+
+  - name: MatchRestNode
+    parser: match_rest
+    steep: unsupported
+    fields:
+      target: MatchVarNode?   # 匿名 `*` では nil
+    locations:
+      operator: required   # `*`
+
+  - name: MatchNilPatternNode
+    parser: match_nil_pattern
+    steep: unsupported
+    fields: {}
+    locations:
+      name: required   # `**nil` の `nil`
+
+  - name: PinNode
+    parser: pin
+    steep: unsupported
+    fields:
+      value: LvarNode | IvarNode | GvarNode | CvarNode | BeginNode   # `^(expr)` は BeginNode
+    locations:
+      selector: required   # `^`(parser は Send map を使う)
+
+  - name: ArrayPatternNode
+    parser: array_pattern
+    steep: unsupported
+    fields:
+      elements: Array[pattern]
+    locations:
+      begin: optional   # `[`。トップレベルの `in a, b` では nil
+      end: optional
+
+  - name: ArrayPatternWithTailNode
+    parser: array_pattern_with_tail
+    steep: unsupported
+    fields:
+      elements: Array[pattern]
+    locations:
+      begin: optional
+      end: optional
+    notes:
+      - 末尾カンマ `[a, b,]` の形(暗黙の rest)。
+
+  - name: FindPatternNode
+    parser: find_pattern
+    steep: unsupported
+    fields:
+      elements: Array[pattern]   # 先頭と末尾は MatchRestNode
+    locations:
+      begin: required
+      end: required
+
+  - name: HashPatternNode
+    parser: hash_pattern
+    steep: unsupported
+    fields:
+      elements: Array[PairNode | MatchVarNode | MatchRestNode | MatchNilPatternNode]
+    locations:
+      begin: optional   # `{`。`in {k:}` 以外のトップレベル(`in k:`)や `Foo(k:)` の中では nil
+      end: optional
+
+  - name: ConstPatternNode
+    parser: const_pattern
+    steep: unsupported
+    fields:
+      const: ConstNode
+      pattern: ArrayPatternNode | HashPatternNode | FindPatternNode
+    locations:
+      begin: required   # `(` / `[`
+      end: required
+
+  - name: MatchPatternNode
+    parser: match_pattern
+    steep: unsupported
+    fields:
+      value: node
+      pattern: pattern
+    locations:
+      operator: required   # `=>`
+
+  - name: MatchPatternPNode
+    parser: match_pattern_p
+    steep: unsupported
+    fields:
+      value: node
+      pattern: pattern
+    locations:
+      operator: required   # `in`
+
+# ---------------------------------------------------------------------------
+# アノテーション(式ノードではなく、annotations スロットや TypeAssertionNode に保持されるオブジェクト)
+# 現状の AST::Annotation::* / AST::Node::TypeAssertion / TypeApplication の置き換え。
+# 各クラスも <Name>::Location を持つ。keyword は `@type` などのコメント内キーワード。
+# ---------------------------------------------------------------------------
+annotations:
+  - name: TypeAssertion
+    source: "#: Type"
+    fields:
+      type: RBS::Types::t
+    locations:
+      prefix: required   # `:`
+      type: required
+    notes:
+      - 現状は type_syntax? と type() で 2 回パースし、Locator でさらにパースしている。Source.parse 時に 1 回だけパースして保持する。
+      - 型名の解決(nesting 依存)は従来通り利用側で行う。
+
+  - name: TypeApplication
+    source: "#$ Type, Type"
+    fields:
+      types: Array[RBS::Types::t]
+    locations:
+      prefix: required   # `$`
+      types: Array[required]   # 各型の範囲(RBS::Types::t#location と重複するので省略も可)
+
+  - name: VarTypeAnnotation
+    source: "@type var name: Type"
+    fields: { name: Symbol, type: RBS::Types::t }
+    locations: { keyword: required, kind: required, name: required, colon: required, type: required }
+
+  - name: MethodTypeAnnotation
+    source: "@type method name: MethodType"
+    fields: { name: Symbol, method_type: RBS::MethodType }
+    locations: { keyword: required, kind: required, name: required, colon: required, type: required }
+
+  - name: ConstTypeAnnotation
+    source: "@type const Name: Type"
+    fields: { name: RBS::TypeName, type: RBS::Types::t }
+    locations: { keyword: required, kind: required, name: required, colon: required, type: required }
+
+  - name: IvarTypeAnnotation
+    source: "@type ivar @name: Type"
+    fields: { name: Symbol, type: RBS::Types::t }
+    locations: { keyword: required, kind: required, name: required, colon: required, type: required }
+
+  - name: ReturnTypeAnnotation
+    source: "@type return: Type"
+    fields: { type: RBS::Types::t }
+    locations: { keyword: required, kind: required, colon: required, type: required }
+
+  - name: BlockTypeAnnotation
+    source: "@type block: Type"
+    fields: { type: RBS::Types::t }
+    locations: { keyword: required, kind: required, colon: required, type: required }
+
+  - name: SelfTypeAnnotation
+    source: "@type self: Type"
+    fields: { type: RBS::Types::t }
+    locations: { keyword: required, kind: required, colon: required, type: required }
+
+  - name: InstanceTypeAnnotation
+    source: "@type instance: Type"
+    fields: { type: RBS::Types::t }
+    locations: { keyword: required, kind: required, colon: required, type: required }
+
+  - name: ModuleTypeAnnotation
+    source: "@type module: Type"
+    fields: { type: RBS::Types::t }
+    locations: { keyword: required, kind: required, colon: required, type: required }
+
+  - name: BreakTypeAnnotation
+    source: "@type break: Type"
+    fields: { type: RBS::Types::t }
+    locations: { keyword: required, kind: required, colon: required, type: required }
+
+  - name: ImplementsAnnotation
+    source: "@implements Name[A, B]"
+    fields: { name: RBS::TypeName, type_params: "Array[Symbol]" }
+    locations: { keyword: required, name: required, type_params: optional }
+
+  - name: DynamicAnnotation
+    source: "@dynamic name, self.name, self?.name"
+    fields: { names: "Array[DynamicName]" }
+    locations: { keyword: required }
+    notes:
+      - "DynamicName は { name: Symbol, kind: :instance | :module | :module_instance, location: RBS::Location }。"
+
+
+# ---------------------------------------------------------------------------
+# アノテーション内の型の扱い
+# ---------------------------------------------------------------------------
+annotation_type_policy:
+  - 型は RBS::Types::t(未解決)で保持し、名前解決は Annotation::Collection が factory と context(nesting)を使って行う(現状の absolute_type 相当)。
+  - 現状の AnnotationParser は factory.type で Steep の AST::Types::t に即時変換している。どちらに揃えるかは open_questions。
+  - TypeAssertion / TypeApplication は現状 type_syntax? と type() で 2 回パースし、Locator でさらにパースしている。Source.parse 時に 1 回だけパースして保持する。
+
+# ---------------------------------------------------------------------------
+# アノテーションスロットの付与規則(Source#construct_mapping の移植)
+# ---------------------------------------------------------------------------
+annotation_attachment:
+  by_node_range:
+    description: ノード自身の行範囲(開始行以上、終了行未満)にあるアノテーションを `annotations` に付ける
+    nodes: [DefNode, DefsNode, ClassNode, ModuleNode, SclassNode, BlockNode, NumblockNode, ItblockNode, EnsureNode, ResbodyNode]
+  by_body_range:
+    description: 本体ノードが存在しない構文では、親ノードが本体ごとのスロットを持つ
+    rules:
+      - { node: IfNode, slot: then_annotations, range: "begin(then)または条件の末尾行 ... else または end の行(unless では else の末尾行 ... end)" }
+      - { node: IfNode, slot: else_annotations, range: "else の末尾行 ... end の行(unless では begin または条件の末尾行 ... else または end)" }
+      - { node: WhileNode, slot: body_annotations, range: "条件の末尾行 ... end の行(前置形式のみ。修飾子形式は付与なし)" }
+      - { node: UntilNode, slot: body_annotations, range: "同上" }
+      - { node: WhilePostNode, slot: body_annotations, range: "式の開始行 ... keyword の行" }
+      - { node: UntilPostNode, slot: body_annotations, range: "同上" }
+      - { node: CaseNode, slot: else_annotations, range: "else の末尾行 ... end の行" }
+      - { node: WhenNode, slot: body_annotations, range: "begin(then)の末尾行 または 最後の条件の次の行 ... 本体の末尾行" }
+      - { node: RescueNode, slot: else_annotations, range: "else の末尾行 ... rescue の末尾行" }
+  fallback:
+    description: どこにも付かなかったアノテーションは ProgramNode.annotations に入る(現状の mapping[root] と同じ)
+  notes:
+    - 三項演算子の IfNode には付与しない(現状と同じ)。
+    - 内側のノードから外側へ消費していく現状の走査順(子を先に処理し、残りを自分に付ける)を保つ。
+
+# ---------------------------------------------------------------------------
+# parser gem のノード種のうち、生成しないもの(理由つき)
+# ---------------------------------------------------------------------------
+not_emitted:
+  - { type: __ENCODING__, reason: "emit_encoding = false のため const に変換される。open_questions 参照" }
+  - { type: __FILE__, reason: "StrNode になる(emit_file_line_as_literals)" }
+  - { type: __LINE__, reason: "IntNode になる" }
+  - { type: index, reason: "emit_index = false のため SendNode(:[])になる" }
+  - { type: indexasgn, reason: "同上(:[]=)" }
+  - { type: forward_args, reason: "emit_forward_arg = true のため ArgsNode[ForwardArgNode] になる" }
+  - { type: in_match, reason: "Prism 変換は match_pattern / match_pattern_p を生成する" }
+  - { type: empty_else, reason: "Prism 変換では生成されない(else_body が nil になる)" }
+  - { type: not, reason: "SendNode(:!)になる" }
+  - { type: blocknilarg, reason: "`&nil` は有効な Ruby ではない" }
+  - { type: match_with_trailing_comma, reason: "Prism 変換では生成されない(array_pattern_with_tail になる)" }
+  - { type: "arg_expr / restarg_expr / blockarg_expr", reason: "Ruby 1.8 のみ" }
+  - { type: "ident / numargs / itarg", reason: "parser 内部用" }
+  - { type: "objc_kwarg / objc_restarg / objc_varargs", reason: "MacRuby 用" }
+
+# ---------------------------------------------------------------------------
+# 未決事項
+# ---------------------------------------------------------------------------
+open_questions:
+  - 名前空間とクラス名の接尾辞(`Steep::AST::Node::IfNode` か、`Steep::AST::Ruby::If` か)。
+  - 互換プロトコル(`type` / `children` / `location.expression`)を生成に含めるか。含めると TypeConstruction とテストの移行を段階化できる。
+  - "`__ENCODING__`: 変換器で特別扱いするか、emit_encoding = true にして EncodingNode(型は Encoding)を追加するか。"
+  - Procarg0Node を名前つき / 分割代入の 2 クラスに分けるか。
+  - IfNode を if / unless / elsif / 三項演算子 / 修飾子で分けるか、1 クラスに述語を持たせるか(ここでは 1 クラス案)。
+  - アノテーションの型を RBS::Types::t(未解決)で持つか、現状どおり Steep の AST::Types::t で持つか。
+  - ForNode / CaseMatchNode / InPatternNode にアノテーションスロットを持たせるか(現状は付与対象外)。
+  - "`==` / `hash` に annotations を含めるか(TypeEnv の pure node キーには影響しない想定)。"
+  - ArgsNode の expression が nil になり得る点を、Location 自体を nil 可にするか expression だけ nil 可にするかで表現する。
