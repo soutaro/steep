@@ -37,6 +37,9 @@ module Steep
         end
 
         def normalize_args(type_name, args)
+          # Relative names (from annotations) are normalized after being resolved in their context
+          return args unless type_name.absolute?
+
           case
           when type_name.class?
             if entry = env.module_class_entry(type_name, normalized: true)
