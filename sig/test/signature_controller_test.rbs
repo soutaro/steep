@@ -66,4 +66,14 @@ class SignatureServiceTest < Minitest::Test
   def test_update__resolve_again__unaffected: () -> untyped
 
   def test_update__resolve_again__after_syntax_error: () -> untyped
+
+  def test_library_paths: () -> untyped
+
+  def test_derive__libraries: () -> untyped
+
+  def test_derive__files: () -> untyped
+
+  def test_derive__replaced_content: () -> untyped
+
+  def test_derive__errors: () -> untyped
 end

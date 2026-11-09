@@ -93,15 +93,44 @@ module Steep
       #
       attr_reader resolution: TypeNameResolution
 
-      def initialize: (status: status, implicitly_returns_nil: bool, resolution: TypeNameResolution) -> void
+      # The paths of the library RBS files of the environment
+      #
+      # The libraries are the core, the stdlib and gem RBS files, and the signature directories given to the loader.
+      # The files of the target are not included.
+      #
+      attr_reader env_rbs_paths: Set[Pathname]
 
+      def initialize: (status: status, implicitly_returns_nil: bool, resolution: TypeNameResolution, env_rbs_paths: Set[Pathname]) -> void
+
+      # Loads the libraries of the loader to a new environment
+      #
+      # If a library file has a syntax error, the environment has the core libraries only, and the status is
+      # `SyntaxErrorStatus` with the error.
+      #
       def self.load_from: (RBS::EnvironmentLoader loader, implicitly_returns_nil: bool) -> SignatureService
 
-      @env_rbs_paths: Set[Pathname]?
-
-      # All RBS paths in environment, both dependency RBS and target RBS
+      # Returns the paths of the library RBS files the loader loads, without parsing them
       #
-      def env_rbs_paths: () -> Set[Pathname]
+      # The paths are the ones `#load_from` finds in the environment.
+      #
+      def self.library_paths: (RBS::EnvironmentLoader loader) -> Set[Pathname]
+
+      # Returns a new service whose environment has the libraries of `library_paths` and the files of `changes`, built
+      # from the environment of this service
+      #
+      # The environment of a target is mostly the environment of another target: the libraries are the same except a few,
+      # and the files of the targets are shared unless the target is unreferenced. Deriving the environment loads the
+      # library files that this environment doesn't have, and the files whose contents are different, and resolves the
+      # type names of them and of the files affected by the changes. The other sources are shared with this environment.
+      #
+      # Returns `nil` if the environment cannot be derived: this service is not loaded, a file has a syntax error, or
+      # the environment has an error. The service is built from the libraries then.
+      #
+      def derive: (library_paths: Set[Pathname], changes: Server::ChangeBuffer::changes, implicitly_returns_nil: bool) -> SignatureService?
+
+      # Returns `true` if the file has the content
+      #
+      def same_content?: (file_status file, String content) -> bool
 
       # Yield all RBS paths in the environment, both dependency RBS and target RBS
       #
@@ -139,7 +168,15 @@ module Steep
 
       def load_rbs_file: (Pathname path, String old_content, Array[ContentChange]) -> RBSFileStatus
 
+      def parse_rbs_file: (Pathname path, String content) -> RBSFileStatus
+
       def load_ruby_file: (Pathname path, String old_content, Array[ContentChange]) -> RBS::Source::Ruby
+
+      def parse_ruby_file: (Pathname path, String content) -> RBS::Source::Ruby
+
+      # Returns the source of a loaded file
+      #
+      def file_source: (file_status file) -> RBS::Source::t
 
       # Returns `true` if `file_status` represents an error status
       #
@@ -155,17 +192,19 @@ module Steep
       #
       def update: (Server::ChangeBuffer::changes changes) -> Set[Pathname]
 
-      # Updates the environment with the files, and returns the ancestor builder of the updated environment, the paths
-      # of the other files whose type names are resolved to different names, and the resolution of the environment
+      # Replaces the sources of `paths` in the latest environment with `sources`, and returns the ancestor builder of the
+      # updated environment, the paths of the other files whose type names are resolved to different names, and the
+      # resolution of the environment
       #
-      # Returns the errors, no paths, and `nil` if the environment cannot be updated.
+      # `paths` are the paths of the sources removed from the environment, and of `sources`. Returns the errors, no
+      # paths, and `nil` if the environment cannot be updated.
       #
       # The files whose type names may resolve to different names with the changes are resolved again, from the sources
       # of the project files, and the library files parsed again.
       #
       def update_env: (
-        Hash[Pathname, file_status] updated_files,
-        paths: Set[Pathname]
+        Set[Pathname] paths,
+        Array[RBS::Source::t] sources
       ) -> [RBS::DefinitionBuilder::AncestorBuilder | Array[Diagnostic::Signature::Base], Set[Pathname], TypeNameResolution?]
 
       # Returns the sources of the paths in the latest environment, before the type name resolution
