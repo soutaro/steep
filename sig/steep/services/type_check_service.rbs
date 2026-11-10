@@ -61,7 +61,11 @@ module Steep
       #
       # Note that the diagnostics are not updated by this method.
       #
-      def update: (changes: Server::ChangeBuffer::changes) -> void
+      # Returns the paths of the RBS files and inline RBS sources of each target, whose type names are resolved to different
+      # names with the changes of the other files. The paths are the names of the buffers: the relative paths of the files of the
+      # project, and the absolute paths of the libraries.
+      #
+      def update: (changes: Server::ChangeBuffer::changes) -> Hash[Symbol, Set[Pathname]]
 
       # Validates the RBS declarations of the file
       #
@@ -87,7 +91,9 @@ module Steep
       #
       def typecheck_source: (path: Pathname, target: Project::Target?) -> SourceFile?
 
-      def update_signature: (changes: Server::ChangeBuffer::changes) -> void
+      # Updates the signature services of the targets, and returns the paths whose type names are resolved to different names
+      #
+      def update_signature: (changes: Server::ChangeBuffer::changes) -> Hash[Symbol, Set[Pathname]]
 
       def update_sources: (changes: Server::ChangeBuffer::changes) -> void
 

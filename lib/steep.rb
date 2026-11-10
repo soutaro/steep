@@ -103,6 +103,7 @@ require "steep/locator.rb"
 require "steep/index/source_index"
 
 require "steep/services/content_change"
+require "steep/services/type_name_resolution"
 require "steep/services/signature_service"
 require "steep/services/type_check_service"
 require "steep/services/hover_provider/content"

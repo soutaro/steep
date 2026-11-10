@@ -86,7 +86,14 @@ module Steep
 
       attr_reader implicitly_returns_nil: bool
 
-      def initialize: (status: status, implicitly_returns_nil: bool) -> void
+      # The resolution of the type names of the sources of `latest_env`
+      #
+      # The records tell the files to resolve again when type names are added or removed. The resolution is replaced
+      # with the environment, so that the error statuses keep the one of the last loaded environment.
+      #
+      attr_reader resolution: TypeNameResolution
+
+      def initialize: (status: status, implicitly_returns_nil: bool, resolution: TypeNameResolution) -> void
 
       def self.load_from: (RBS::EnvironmentLoader loader, implicitly_returns_nil: bool) -> SignatureService
 
@@ -140,12 +147,36 @@ module Steep
 
       # The entry point to apply the edit to the signatures
       #
-      def update: (Server::ChangeBuffer::changes changes) -> void
+      # Returns the paths of the other files whose type names are resolved to different names with the edit. The paths
+      # are empty if the environment is not updated because of errors: the next update resolves them.
+      #
+      # The paths are the names of the buffers: the relative paths of the files of the project, and the absolute paths
+      # of the libraries.
+      #
+      def update: (Server::ChangeBuffer::changes changes) -> Set[Pathname]
 
+      # Updates the environment with the files, and returns the ancestor builder of the updated environment, the paths
+      # of the other files whose type names are resolved to different names, and the resolution of the environment
+      #
+      # Returns the errors, no paths, and `nil` if the environment cannot be updated.
+      #
+      # The files whose type names may resolve to different names with the changes are resolved again, from the sources
+      # of the project files, and the library files parsed again.
+      #
       def update_env: (
         Hash[Pathname, file_status] updated_files,
         paths: Set[Pathname]
-      ) -> (RBS::DefinitionBuilder::AncestorBuilder | Array[Diagnostic::Signature::Base])
+      ) -> [RBS::DefinitionBuilder::AncestorBuilder | Array[Diagnostic::Signature::Base], Set[Pathname], TypeNameResolution?]
+
+      # Returns the sources of the paths in the latest environment, before the type name resolution
+      #
+      # The project files keep the parsed sources, and the library files are parsed again.
+      #
+      def unresolved_sources: (Set[Pathname] paths) -> Array[RBS::Source::t]
+
+      # Returns the paths whose declarations in `env` are different from the ones in the latest environment
+      #
+      def changed_paths: (Set[Pathname] paths, env: RBS::Environment) -> Set[Pathname]
 
       def rescue_rbs_error: (Array[RBS::BaseError] errors) { () -> void } -> void
 
