@@ -98,6 +98,66 @@ class InterfaceBuilderTest < Minitest::Test
     end
   end
 
+  def test_shape__definition_entries
+    with_factory({ "a.rbs" => <<~RBS }) do
+        class Foo[T]
+          def foo: () -> T
+
+          def bar: () -> Integer
+
+          private
+
+          def baz: () -> String
+        end
+      RBS
+      builder = Interface::Builder.new(factory, implicitly_returns_nil: true)
+
+      # The entries of the methods of a definition are built when they are requested
+      entries = builder.object_shape(RBS::TypeName.parse("::Foo")).methods.methods
+      assert_instance_of Interface::Shape::DefinitionEntries, entries
+      built_entries = entries.instance_variable_get(:@entries)
+      assert_empty built_entries
+
+      shape = builder.shape(parse_type("::Foo[::String]"), config)
+
+      assert_operator shape.methods, :key?, :foo
+      assert_operator shape.methods, :key?, :baz
+      assert_operator shape.methods, :key?, :__id__
+      refute_operator shape.methods, :key?, :no_such_method
+      assert_includes shape.methods.each_name.to_a, :bar
+      assert_empty built_entries
+
+      assert_equal [parse_method_type("() -> ::String")], shape.methods[:foo].method_types
+      assert_nil shape.methods[:no_such_method]
+      assert_equal [:foo], built_entries.keys
+
+      # The public shape has the entries of the public methods, sharing them with the shape
+      public_shape = shape.public_shape
+
+      assert_operator public_shape.methods, :key?, :foo
+      refute_operator public_shape.methods, :key?, :baz
+      assert_nil public_shape.methods[:baz]
+      refute_includes public_shape.methods.each_name.to_a, :baz
+      assert_includes public_shape.methods.each_name.to_a, :bar
+      assert_equal [parse_method_type("() -> ::Integer")], public_shape.methods[:bar].method_types
+      assert_equal [:foo, :bar], built_entries.keys
+
+      assert_equal [parse_method_type("() -> ::String")], shape.methods[:baz].method_types
+      assert_predicate shape.methods[:baz], :private_method?
+      assert_nil public_shape.methods[:baz]
+
+      # All of the entries are built when the methods are enumerated
+      names = shape.methods.map {|name, _| name }
+      assert_equal shape.methods.each_name.to_a, names
+      assert_equal names.sort, built_entries.keys.sort
+
+      # The shapes of the same class share the entries
+      builder.shape(parse_type("::Foo[::Integer]"), config).tap do |shape|
+        assert_equal [parse_method_type("() -> ::Integer")], shape.methods[:foo].method_types
+      end
+    end
+  end
+
   def test_shape__alias
     with_factory({ "a.rbs" => <<~RBS }) do
         interface _Foo
