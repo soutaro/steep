@@ -1,10 +1,23 @@
 require_relative "../test_helper"
+require "minitest/mock"
 
 class Steep::Server::SignatureChangeDetectorTest < Minitest::Test
   Source = Steep::Server::SignatureChangeDetector::Source
 
   def path #: Pathname
     Pathname("test.rbs")
+  end
+
+  # Yields the contents `Source.fingerprint` is called with, which it parses, while the block runs
+  #
+  # @rbs () { (Array[String]) -> void } -> void
+  def with_fingerprinted_contents
+    contents = [] #: Array[String]
+    fingerprint = Source.method(:fingerprint)
+
+    Source.stub(:fingerprint, -> (kind, content) { contents << content; fingerprint.call(kind, content) }) do
+      yield contents
+    end
   end
 
   def test_source_inline_type_update
@@ -86,6 +99,45 @@ class Steep::Server::SignatureChangeDetectorTest < Minitest::Test
     refute source.updated?
   end
 
+  def test_source_fingerprint_on_first_change
+    with_fingerprinted_contents do |contents|
+      # Nothing is parsed while the content stays what the source started with
+      source = Source.new(:rbs, "class Foo\nend\n")
+      refute source.updated?
+
+      source.push("class Foo\nend\n")
+      refute source.updated?
+      assert_empty contents
+
+      # The first change parses the content the source started with, to compare the new one with
+      source.push("class Foo\n\nend\n")
+      refute source.updated?
+      assert_equal ["class Foo\nend\n", "class Foo\n\nend\n"], contents
+
+      # The changes after that parse the new content only
+      contents.clear
+      source.push("class Bar\nend\n")
+      assert source.updated?
+      assert_equal ["class Bar\nend\n"], contents
+
+      contents.clear
+      source.fingerprint
+      assert_empty contents
+    end
+  end
+
+  def test_source_fingerprint_on_first_change_from_syntax_error
+    with_fingerprinted_contents do |contents|
+      # The source starts with a content that cannot be parsed, which has no declaration
+      source = Source.new(:rbs, "class Foo\n  def bar: () -> \nend\n")
+      assert_empty contents
+
+      source.push("class Foo\n  def bar: () -> void\nend\n")
+      assert source.updated?
+      assert_equal ["class Foo\n  def bar: () -> \nend\n", "class Foo\n  def bar: () -> void\nend\n"], contents
+    end
+  end
+
   def test_detector
     detector = Steep::Server::SignatureChangeDetector.new
 
@@ -96,6 +148,26 @@ class Steep::Server::SignatureChangeDetectorTest < Minitest::Test
     detector.push(path, "class Bar\nend\n", kind: :rbs)
     assert_equal Set[path], detector.updated_paths
     assert_equal Set[], detector.updated_paths
+  end
+
+  def test_detector_parses_changed_files_only
+    with_fingerprinted_contents do |contents|
+      detector = Steep::Server::SignatureChangeDetector.new
+      other_path = Pathname("other.rbs")
+
+      # The files are loaded with the content the environments have, and the same content is pushed
+      detector.add_source(path, "class Foo\nend\n", kind: :rbs)
+      detector.push(path, "class Foo\nend\n", kind: :rbs)
+      detector.add_source(other_path, "class Other\nend\n", kind: :rbs)
+      detector.push(other_path, "class Other\nend\n", kind: :rbs)
+
+      assert_equal Set[], detector.updated_paths
+      assert_empty contents
+
+      detector.push(path, "class Bar\nend\n", kind: :rbs)
+      assert_equal Set[path], detector.updated_paths
+      assert_equal ["class Foo\nend\n", "class Bar\nend\n"], contents
+    end
   end
 
   def test_detector_new_file

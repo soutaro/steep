@@ -5,6 +5,11 @@ class Steep::Server::SignatureChangeDetectorTest < Minitest::Test
 
   def path: () -> Pathname
 
+  # Yields the contents `Source.fingerprint` is called with, which it parses, while the block runs
+  #
+  # @rbs () { (Array[String]) -> void } -> void
+  def with_fingerprinted_contents: () { (Array[String]) -> void } -> void
+
   def test_source_inline_type_update: () -> untyped
 
   def test_source_rbs_formatting_and_comments: () -> untyped
@@ -19,7 +24,13 @@ class Steep::Server::SignatureChangeDetectorTest < Minitest::Test
 
   def test_source_same_content: () -> untyped
 
+  def test_source_fingerprint_on_first_change: () -> untyped
+
+  def test_source_fingerprint_on_first_change_from_syntax_error: () -> untyped
+
   def test_detector: () -> untyped
+
+  def test_detector_parses_changed_files_only: () -> untyped
 
   def test_detector_new_file: () -> untyped
 end

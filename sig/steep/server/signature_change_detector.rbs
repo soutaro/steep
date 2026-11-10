@@ -11,6 +11,9 @@ module Steep
     # which compare without their locations and comments, and the annotations, which the declarations compare without.
     # The fingerprint of an inline RBS source is the one of `RBS::InlineParser`.
     #
+    # A fingerprint takes parsing the content, and keeps the declarations. The detector computes it when the content of
+    # the file changes for the first time, from the content it keeps, so that loading the project parses nothing here.
+    #
     class SignatureChangeDetector
       # `:rbs` for an RBS file, and `:inline` for a Ruby file with inline RBS declarations
       type kind = :rbs | :inline
@@ -18,17 +21,29 @@ module Steep
       class Source
         attr_reader kind: kind
 
-        # The content the fingerprint is of
+        # The content given to `#initialize`, or the last one `#updated?` took
         attr_reader content: String
-
-        # The fingerprint of the declarations in `content`, `nil` when the RBS file cannot be parsed
-        attr_reader fingerprint: untyped
 
         # The content pushed since the last `#updated?`, `nil` when there is none
         attr_reader pending_content: String?
 
+        @fingerprint: untyped
+
+        # `true` once `@fingerprint` is computed
+        @fingerprinted: bool
+
         # Initializes the source with the content the environments have
+        #
+        # The content is not parsed until `#fingerprint` is called.
+        #
         def initialize: (kind, String content) -> void
+
+        # The fingerprint of the declarations in the last content that can be parsed, `nil` when the source has no such
+        # content yet
+        #
+        # The first call computes it from `#content`, and `#updated?` keeps it up to date afterwards.
+        #
+        def fingerprint: () -> untyped
 
         # Records the latest content of the file
         def push: (String content) -> void
@@ -37,6 +52,7 @@ module Steep
         #
         # Takes the pending content, and updates `#content` and `#fingerprint`. A pending content that cannot be parsed is
         # not an update: the declarations stay what they were, and the next content is compared with the same fingerprint.
+        # A pending content equal to `#content` is not an update either, and nothing is parsed for it.
         #
         def updated?: () -> bool
 

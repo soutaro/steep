@@ -4,14 +4,24 @@ module Steep
       class Source
         attr_reader :kind
         attr_reader :content
-        attr_reader :fingerprint
         attr_reader :pending_content
 
         def initialize(kind, content)
           @kind = kind
           @content = content
-          @fingerprint = Source.fingerprint(kind, content)
+          @fingerprint = nil
+          @fingerprinted = false
           @pending_content = nil
+        end
+
+        def fingerprint
+          # Parsing the content is put off until the fingerprint is compared: most of the files never change
+          unless @fingerprinted
+            @fingerprint = Source.fingerprint(kind, content)
+            @fingerprinted = true
+          end
+
+          @fingerprint
         end
 
         def push(content)
@@ -23,15 +33,17 @@ module Steep
           @pending_content = nil
           return false if content == self.content
 
+          # The fingerprint of the last content is taken before the content is replaced
+          last_fingerprint = fingerprint
+
           @content = content
           new_fingerprint = Source.fingerprint(kind, content)
 
           # The declarations stay what they were while the RBS file cannot be parsed
           return false unless new_fingerprint
 
-          (new_fingerprint != fingerprint).tap do
-            @fingerprint = new_fingerprint
-          end
+          @fingerprint = new_fingerprint
+          new_fingerprint != last_fingerprint
         end
 
         def self.fingerprint(kind, content)
