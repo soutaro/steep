@@ -122,10 +122,21 @@ ALWAYS_PRESENT_BODIES = {
 }
 
 # Fields added by Steep (node name => fields).
+HEREDOC_BODY_FIELD = {
+  "name" => "heredoc_body_loc",
+  "type" => "location?",
+  "comment" => "ヒアドキュメントの本文(開始記号の次の行から終端記号の直前まで)。ヒアドキュメントでなければ nil。expression は開始記号 `<<~EOS` だけを指すので、本文の中の位置はこれで判定する。",
+}
+
 ADDED_FIELDS = {
   "StatementsNode" => [
-    { "name" => "annotations", "type" => "annotation[]", "comment" => "この文の並びの領域に書かれたブロックアノテーション(`@type var` など)。" },
+    { "name" => "annotations", "type" => "annotation[]", "comment" => "この文の並びの region に書かれたブロックアノテーション(`@type var` など)。" },
+    { "name" => "region_loc", "type" => "location", "comment" => "この文の並びが書かれるテキスト上の領域(region)。`if foo` の then 節なら、条件の直後から `else` / `elsif` / `end` の直前まで。文の範囲(expression)とは一致しない。定義は regions セクション。" },
   ],
+  "StringNode" => [HEREDOC_BODY_FIELD.dup],
+  "InterpolatedStringNode" => [HEREDOC_BODY_FIELD.dup],
+  "XStringNode" => [HEREDOC_BODY_FIELD.dup],
+  "InterpolatedXStringNode" => [HEREDOC_BODY_FIELD.dup],
 }
 
 STEEP_NOTES = {
@@ -135,10 +146,15 @@ STEEP_NOTES = {
   ],
   "StatementsNode" => [
     "Steep の AST では本体を表すすべての位置に常に存在し(空の本体は body が空)、ブロックアノテーションの唯一の付与先になる。",
-    "現状の mapping / construct_mapping は、各構文のキーワード位置から領域(then から else まで、など)を求めて、その領域の StatementsNode に付ける処理に置き換わる。",
-    "location.expression は Prism と同じく最初の文から最後の文までとし、領域全体ではない(空のときは領域の開始位置の空範囲)。",
+    "位置を 2 つ持つ。location.expression は Prism と同じく最初の文から最後の文まで(空のときは region の開始位置の空範囲)。location.region は本体が書かれるテキスト上の領域で、空行やコメントを含む。",
+    "例: `if foo\\n  something()\\nend` の then 節は、expression が `something()`、region が `foo` の直後から `end` の直前まで。",
+    "現状の mapping / construct_mapping は、コメントを含む最も内側の region の StatementsNode に付ける処理に置き換わる(annotation_attachment)。",
   ],
+  "ElseNode" => ["Prism の ElseNode の expression は、else 節を閉じるキーワード(if / case の `end`、begin の中では次の `ensure` または `end`)まで含む。本体の領域は statements.region を見る。"],
+  "EnsureNode" => ["expression は親の `end` まで含む(Prism の規約)。"],
+  "WhenNode" => ["expression は最後の文で終わり、その後ろの空行やコメントは含まない。statements.region は次の `when` / `else` / `end` の直前まで伸びるので、位置からノードを探すときは region も見る(regions セクションの locator)。"],
   "IfNode" => [
+  "`elsif` の IfNode の expression は外側の `end` まで含む(Prism の規約)。",
     "parser の `(if cond then else)` と、修飾子形式、三項演算子を 1 クラスで表す。三項演算子は if_keyword_loc が nil、then_keyword_loc が `?`、subsequent が ElseNode(else_keyword_loc が `:`)。",
     "`unless` は UnlessNode になる(parser は then/else を入れ替えた if にしていた)。`elsif` は subsequent の IfNode。",
     "現状の then_annotations / else_annotations は statements.annotations / subsequent.statements.annotations になる。",
@@ -160,8 +176,12 @@ STEEP_NOTES = {
   "LambdaNode" => ["parser では `(block (lambda) args body)` だった。CallNode ではなく独立したノード。"],
   "BeginNode" => [
     "parser の kwbegin / rescue / resbody / ensure の入れ子を、rescue_clause / else_clause / ensure_clause のフィールドで平坦に表す。def / class / module / block の本体に rescue や ensure があるときも BeginNode(begin_keyword_loc は nil)。",
+    "暗黙の BeginNode(begin_keyword_loc が nil)の expression は、Prism では親と同じで `def` / `class` / `do` から始まり、ヘッダ(名前やパラメータ)まで含んでしまう。Steep の変換では、親の本体の region の開始位置から親の終わりまでにする。",
   ],
-  "RescueNode" => ["複数の rescue 節は subsequent による連鎖(parser は配列だった)。reference は *TargetNode(LocalVariableTargetNode など)。"],
+  "RescueNode" => [
+    "複数の rescue 節は subsequent による連鎖(parser は配列だった)。reference は *TargetNode(LocalVariableTargetNode など)。",
+    "expression は最後の文で終わる(WhenNode と同じ)。statements.region は次の節のキーワードの直前まで。",
+  ],
   "RescueModifierNode" => ["`a rescue b`。parser では rescue ノードの一形態だった。"],
   "ParenthesesNode" => ["parser の括弧つき begin。括弧なしの文の並びは StatementsNode。現状 insert_type_node が括弧つき begin 全体に型アサーションを付けている規則はここに対応する。"],
   "EmbeddedStatementsNode" => ["文字列内の式展開 `#{}`。parser では dstr の中の begin。"],
@@ -190,7 +210,12 @@ STEEP_NOTES = {
   "RangeNode" => ["parser の irange / erange。排他は RangeFlags::EXCLUDE_END。"],
   "WhileNode" => ["parser の while / while_post。`begin ... end while` は LoopFlags::BEGIN_MODIFIER。修飾子形式 `b while a` はフラグなしで end_keyword_loc が nil。"],
   "UntilNode" => ["WhileNode と同じ。"],
-  "InNode" => ["ガード `in a if cond` は Prism では pattern が IfNode / UnlessNode(statements にパターン)になる。対応する際は要注意。"],
+  "InNode" => [
+  "ガード `in a if cond` は Prism では pattern が IfNode / UnlessNode(statements にパターン)になる。対応する際は要注意。",
+  "expression は最後の文で終わる(WhenNode と同じ)。",
+],
+"StringNode" => ["ヒアドキュメントの expression は開始記号 `<<~EOS` だけ。本文は content_loc(= heredoc_body_loc)、終端記号は closing_loc。"],
+"InterpolatedStringNode" => ["ヒアドキュメントの expression は開始記号だけ。本文は parts と heredoc_body_loc、終端記号は closing_loc。現状の Source#find_heredoc_nodes は heredoc_body_loc で書ける。"],
   "HashPatternNode" => ["`Foo(a:, b:)` のような定数つきパターンは constant フィールドで表す(parser の const_pattern)。"],
   "ArrayPatternNode" => ["同上。parser の array_pattern / array_pattern_with_tail / const_pattern(配列)に対応。"],
   "IndexTargetNode" => ["`a[1], b = x` の左辺(parser は value なしの send :[]= だった)。"],
@@ -295,7 +320,7 @@ OPEN_QUESTIONS = [
   "名前空間とクラス名(`Steep::AST::Node::IfNode` か `Steep::AST::Ruby::IfNode` か。Prism と同名にして名前空間で区別する案)。",
   "フロントエンド: Prism.parse の結果から直接構築する(推奨。Prism::Compiler のサブクラスで 1 パス)か、当面は parser gem 変換の木から構築するか。前者なら parser gem への依存は型検査から外れ、コメントも Prism::Comment になる。",
     "`unescaped` などフィールド名を Prism のまま使うか、Steep 向きに `value` へ改名するか(ここでは Prism のまま)。",
-  "StatementsNode の location.expression を Prism と同じ「最初の文から最後の文まで」にするか、アノテーションの付与領域(then から else まで、など)にするか(ここでは前者)。",
+  "WhenNode / InNode / RescueNode の expression を、本体の region の終わりまで伸ばすか(伸ばすと位置の探索が単純になるが、Prism の範囲と変わる。ここでは伸ばさず、探索側で region を見る)。",
   "ErrorRecoveryNode を落として良いか(LSP で error tolerant にするなら必要)。",
   "アノテーションの型を RBS::Types::t(未解決)で持つか、現状どおり Steep の AST::Types::t で持つか。",
   "`==` / `hash`(TypeEnv の pure node キー)に annotations と location を含めない方針で良いか。",
@@ -370,7 +395,10 @@ header = <<~HEADER
   #   - 各ノードは Steep 自身のクラス(Prism のクラスではない)として生成する。`type: location` / `location?` のフィールドは
   #     `<Name>::Location` クラスに束ねられ(フィールド名は `_loc` を外したもの)、`expression`(ノード全体の範囲)が加わる。
   #     各位置は flat な RBS::Location(RBS::Location[bot, bot])。
-  #   - ブロックアノテーションは木の一部にする。本体を表す StatementsNode は空でも常に存在し、`annotations` フィールドを持つ。
+  #   - 範囲は 2 種類ある。location.expression はノードの範囲で、Prism の範囲をそのまま使う(暗黙の BeginNode だけ調整する)。
+#     StatementsNode の location.region と、文字列の heredoc_body は、テキストとして意味のある範囲(本体の領域、ヒアドキュメントの本文)で、
+#     expression とは一致しない。アノテーションの付与と、位置からノードを探す処理は region を使う(regions セクション)。
+#   - ブロックアノテーションは木の一部にする。本体を表す StatementsNode は空でも常に存在し、`annotations` フィールドを持つ。
   #     型アサーション `#: T` と型適用 `#$ T` は TypeAssertionNode / TypeApplicationNode として木に入る。
   #   - flags は述語メソッド(`safe_navigation?` など)だけを公開し、内部は Integer のビット集合で持つ。Prism の flags のうち、
 #     構文の区別(category: syntax)と構文から導ける要約(category: derived)だけを残し、コンパイラ向けのものは落とす。
@@ -402,25 +430,52 @@ doc = {
 },
   "nodes" => nodes,
   "annotations" => ANNOTATIONS,
+  "regions" => {
+    "description" => "StatementsNode の location.region の定義。開始は「直前のトークンの終わり」、終了は「直後のトークンの始まり」で、文字単位の範囲。空行とコメントを含む。",
+    "definitions" => [
+      { "node" => "ProgramNode.statements", "start" => "ファイルの先頭", "end" => "ファイルの終わり" },
+      { "node" => "DefNode.body", "start" => "rparen_loc、なければ parameters、なければ name_loc の終わり(endless def は equal_loc の終わり)", "end" => "end_keyword_loc の始まり(endless def は本体の終わり)" },
+      { "node" => "ClassNode.body", "start" => "superclass、なければ constant_path の終わり", "end" => "end_keyword_loc の始まり" },
+      { "node" => "ModuleNode.body", "start" => "constant_path の終わり", "end" => "end_keyword_loc の始まり" },
+      { "node" => "SingletonClassNode.body", "start" => "expression の終わり", "end" => "end_keyword_loc の始まり" },
+      { "node" => "BlockNode.body", "start" => "BlockParametersNode があればその終わり(`|` を含む)、なければ opening_loc の終わり", "end" => "closing_loc の始まり" },
+      { "node" => "LambdaNode.body", "start" => "opening_loc の終わり", "end" => "closing_loc の始まり" },
+      { "node" => "(上の body が暗黙の BeginNode のとき)BeginNode.statements", "start" => "上と同じ", "end" => "最初の節(rescue_clause / else_clause / ensure_clause)のキーワードの始まり" },
+      { "node" => "BeginNode.statements(`begin` あり)", "start" => "begin_keyword_loc の終わり", "end" => "最初の節のキーワード、なければ end_keyword_loc の始まり" },
+      { "node" => "RescueNode.statements", "start" => "then_keyword_loc、なければ reference、なければ最後の exceptions、なければ keyword_loc の終わり", "end" => "次の節(subsequent の rescue / else / ensure)のキーワード、なければ親の end_keyword_loc の始まり" },
+      { "node" => "ElseNode.statements", "start" => "else_keyword_loc の終わり", "end" => "end_keyword_loc(`end` / `ensure`)の始まり。三項演算子では ElseNode の終わり" },
+      { "node" => "EnsureNode.statements", "start" => "ensure_keyword_loc の終わり", "end" => "end_keyword_loc の始まり" },
+      { "node" => "IfNode / UnlessNode.statements", "start" => "then_keyword_loc(三項演算子では `?`)、なければ predicate の終わり。修飾子形式はノードの始まり", "end" => "subsequent / else_clause のキーワード、なければ end_keyword_loc の始まり。修飾子形式は if_keyword_loc の始まり" },
+      { "node" => "WhileNode / UntilNode.statements", "start" => "do_keyword_loc、なければ predicate の終わり。修飾子形式と BEGIN_MODIFIER はノードの始まり", "end" => "end_keyword_loc の始まり。修飾子形式と BEGIN_MODIFIER は keyword の始まり" },
+      { "node" => "ForNode.statements", "start" => "do_keyword_loc、なければ collection の終わり", "end" => "end_keyword_loc の始まり" },
+      { "node" => "WhenNode / InNode.statements", "start" => "then_keyword_loc、なければ最後の条件(InNode は pattern)の終わり", "end" => "次の WhenNode / InNode、else_clause、end_keyword_loc のうち最初のものの始まり" },
+      { "node" => "ParenthesesNode / EmbeddedStatementsNode / PreExecutionNode / PostExecutionNode の StatementsNode", "start" => "opening_loc の終わり", "end" => "closing_loc の始まり" },
+    ],
+    "locator" => [
+      "位置からノードを探す処理(Locator、Source#find_nodes)は、子の expression に加えて StatementsNode の region も見る。空行やコメントの上のカーソルでも、どの本体(then 節か else 節か、など)にいるかが分かる。",
+      "WhenNode / InNode / RescueNode は expression が最後の文で終わるので、その後ろの空行は親の中で子の expression に入らない。これらの節は statements.region に入っていれば降りる。",
+      "ヒアドキュメントの本文の中の位置は、文字列ノードの heredoc_body_loc で判定する(expression は開始記号だけのため)。",
+    ],
+  },
   "annotation_attachment" => {
-    "destination" => "領域の StatementsNode の annotations。領域は親ノードのキーワード位置から求める。",
-    "regions" => [
-      "ProgramNode.statements: ファイル全体。どこにも付かなかったアノテーションもここ",
-      "DefNode / ClassNode / ModuleNode / SingletonClassNode / BlockNode / LambdaNode の body: キーワード(または opening)の行から end(closing)の行まで。body が BeginNode のときは body.statements",
-      "IfNode / UnlessNode の statements: then_keyword または predicate の末尾行から、subsequent または end_keyword の行まで",
-      "ElseNode の statements: else_keyword の末尾行から end_keyword(または親の end)の行まで",
-      "WhileNode / UntilNode の statements: predicate の末尾行から end_keyword の行まで(BEGIN_MODIFIER のときは式の開始行から keyword の行まで。修飾子形式は付与なし)",
-      "WhenNode / InNode の statements: then_keyword の末尾行または最後の条件の次の行から、本体の末尾行まで",
-      "RescueNode の statements: keyword(または then_keyword)の行から次の節の行まで",
-      "EnsureNode の statements: ensure_keyword の行から end_keyword の行まで",
-      "ForNode の statements: do_keyword または collection の末尾行から end_keyword の行まで(現状は付与対象外。新たに付与する)",
-      "PreExecutionNode / PostExecutionNode の statements: opening の行から closing の行まで(現状は付与対象外)",
-      "BeginNode の statements: begin_keyword の行から最初の節の行まで",
-    ],
+    "rule" => "アノテーションのコメントの開始位置を含む region のうち、最も内側のものの StatementsNode.annotations に付ける。",
+    "header_rule" => "DefNode / ClassNode / ModuleNode / SingletonClassNode / BlockNode / LambdaNode のヘッダ(キーワードから本体の region の開始まで)にあるコメントは、その本体の StatementsNode に付ける。現状 def のパラメータリストの中に書いたアノテーションは def に付いているため。",
     "notes" => [
-      "三項演算子の IfNode には付与しない(現状と同じ)。",
-      "内側の領域から外側へ消費していく現状の走査順(子を先に処理し、残りを自分に付ける)を保つ。",
+      "三項演算子と修飾子形式の本体は、region が文そのものなので、実際にアノテーションが付くことはない。",
+      "TypeConstruction は StatementsNode に入るときに annotations を適用する。def / class / block では、そのコンテキスト(メソッドの戻り値型、self の型など)を作るときに使う。",
     ],
+    "behavior_changes" => {
+      "description" => "現状の行単位の規則(Source#construct_mapping)との違い。Steep 2.1.0 の Source.parse で確認した。いずれも、現状では本来の本体から漏れて外側に付いている。",
+      "cases" => [
+        { "code" => "case x\nwhen 1 # @type var a: Integer\n  a\nend", "now" => "トップレベル", "new" => "when 節の本体" },
+        { "code" => "case x\nwhen 1\n  b\n  a # @type var a: Integer\nend", "now" => "トップレベル(本体の最終行が範囲に入らない)", "new" => "when 節の本体" },
+        { "code" => "case x\nwhen 1\n  b\n  # @type var a: Integer\nwhen 2\nend", "now" => "トップレベル", "new" => "when 1 の本体" },
+        { "code" => "if x\n  # @type var a: Integer\nend", "now" => "トップレベル(then 節が空だと付与先が無い)", "new" => "then 節の本体" },
+        { "code" => "for x in y\n  # @type var a: Integer\n  a\nend", "now" => "トップレベル(for は付与対象外)", "new" => "for の本体" },
+        { "code" => "begin\n  a\nrescue\n  b\n  # @type var a: Integer\nensure\n  c\nend", "now" => "begin 全体(parser の ensure ノード)", "new" => "rescue 節の本体" },
+        { "code" => "def foo(a, # @type var a: Integer\n        b)\nend", "now" => "def", "new" => "def の本体(header_rule により同じ)" },
+      ],
+    },
   },
   "parser_mapping" => PARSER_MAPPING.map { |from, to| { "parser" => from, "prism" => to } },
   "open_questions" => OPEN_QUESTIONS,
