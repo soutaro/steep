@@ -184,6 +184,7 @@ module Steep
 
       attr_reader :initialize_params
       attr_accessor :typecheck_automatically
+      attr_accessor :signature_index
       attr_reader :start_type_checking_queue
 
       attr_reader :type_check_database
@@ -222,6 +223,7 @@ module Steep
         @running = false
         @current_type_check_request = nil
         @typecheck_automatically = true
+        @signature_index = true
         @commandline_args = []
         @job_queue = queue
         @write_queue = SizedQueue.new(100)
@@ -958,6 +960,7 @@ module Steep
       end
 
       def index_library_signatures
+        return unless signature_index
         service = controller.type_check_service or return
 
         library_files = [] #: Array[[Symbol, Pathname]]
@@ -971,6 +974,7 @@ module Steep
       end
 
       def index_signatures(service, target_files)
+        return unless signature_index
         return if target_files.empty?
 
         updates = [] #: Array[[Symbol, Pathname, Array[TypeCheckDatabase::Entry]]]

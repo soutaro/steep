@@ -169,6 +169,14 @@ module Steep
       #
       attr_accessor typecheck_automatically: bool
 
+      # `true` to index the declarations in the RBS files and inline RBS sources in `type_check_database`
+      #
+      # The goto requests, `workspace/symbol`, and `$/steep/query/definition` are answered from the index. Indexing reads
+      # every RBS file of the project and the libraries on the environment thread, which takes seconds on a large project,
+      # so a master that receives none of the requests, like the one of `steep check`, sets `false`.
+      #
+      attr_accessor signature_index: bool
+
       attr_reader start_type_checking_queue: DelayQueue
 
       # The type check results reported by the typecheck workers
@@ -276,7 +284,7 @@ module Steep
       # and the environment thread updates the environments with the files. `ForkLauncher` forks the workers once the
       # environments have the files of the project and the definitions of its classes, which the main thread builds by
       # itself before the environment thread has any job, and the workers start with them. The RBS files of the project
-      # are indexed on the environment thread afterwards.
+      # are indexed on the environment thread afterwards, if `signature_index` is set.
       #
       def start_workers: () -> void
 
@@ -320,7 +328,7 @@ module Steep
       # Indexes every library RBS file in every target that loads it, on the environment thread
       #
       # Called on `initialize`, after the RBS files of the project: the libraries take longer, and the interactions run
-      # in between.
+      # in between. Does nothing unless `signature_index` is set.
       #
       def index_library_signatures: () -> void
 
@@ -328,7 +336,7 @@ module Steep
       # environments, and hands them to the main loop to store in the database
       #
       # Runs on the environment thread. The files of a target whose signatures failed to load are skipped: the index
-      # of the last loaded signatures would have stale locations.
+      # of the last loaded signatures would have stale locations. Does nothing unless `signature_index` is set.
       #
       def index_signatures: (Services::TypeCheckService service, Array[[Symbol, Pathname]] target_files) -> void
 

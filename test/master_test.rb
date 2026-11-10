@@ -2454,6 +2454,63 @@ end
     end
   end
 
+  def test_no_index_without_signature_index
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      workers = 2.times.map { Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test@#{_1}") }
+      launcher = ForkedWorkersLauncher.new(*workers, typecheck_count: 1)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+      master.typecheck_automatically = false
+      master.signature_index = false
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+      assert_equal [workers[0]], master.typecheck_workers
+
+      # The environment thread indexes nothing, neither the RBS files of the project nor the libraries
+      run_environment_jobs(master)
+
+      database = master.type_check_database
+      assert_empty database.definitions("::Customer")
+      assert_empty database.definitions("::String")
+      assert_equal 0, database.entry_count
+
+      # A change of the declarations updates the environments and forks the next generation, without indexing the file
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+      flush_queue(master.environment_queue).each { run_environment_job(master, _1) }
+
+      assert_equal 2, launcher.start_count
+      customer = (launcher.started_environments || raise).fetch(:lib).class_decls.fetch(RBS::TypeName.parse("::Customer"))
+      assert customer.primary_decl.members.any? { _1.is_a?(RBS::AST::Members::MethodDefinition) && _1.name == :name }
+      assert_equal [workers[1]], master.typecheck_workers
+
+      assert_empty database.definitions("::Customer#name")
+      assert_equal 0, database.entry_count
+    end
+  end
+
   def test_broadcast_file_contents
     in_tmpdir do
       steepfile = current_dir + "Steepfile"

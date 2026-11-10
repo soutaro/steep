@@ -114,6 +114,8 @@ module Steep
           launcher: launcher
         )
         master.typecheck_automatically = false
+        # No request that reads the index is sent
+        master.signature_index = false
 
         main_thread = Thread.start do
           Thread.current.abort_on_exception = true

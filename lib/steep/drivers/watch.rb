@@ -55,6 +55,8 @@ module Steep
           launcher: launcher
         )
         master.typecheck_automatically = false
+        # No request that reads the index is sent
+        master.signature_index = false
         master.commandline_args.push(*dirs.map(&:to_s))
 
         main_thread = Thread.start do

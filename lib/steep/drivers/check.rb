@@ -367,6 +367,8 @@ module Steep
           launcher: launcher
         )
         master.typecheck_automatically = false
+        # No request that reads the index is sent
+        master.signature_index = false
         master.commandline_args.push(*command_line_patterns)
 
         main_thread = Thread.start do
