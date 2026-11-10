@@ -578,6 +578,21 @@ module Steep
       end
     end
 
+    def synthesize_data_struct_class_body(block_node, constant_name, constant_type)
+      send_node, _, body_node = block_node.children
+
+      type, constr = synthesize(send_node, hint: constant_type)
+
+      constr.with_class_constr(block_node, constant_name, nil) do |constructor|
+        constructor.typing.cursor_context.set_node_context(block_node, constructor.context)
+        constructor.typing.cursor_context.set_body_context(block_node, constructor.context)
+
+        constructor.synthesize(body_node) if body_node
+      end
+
+      constr.add_typing(block_node, type: type)
+    end
+
     def with_sclass_constr(node, type)
       if constr = for_sclass(node, type)
         constr.checker.push_variable_bounds(constr.variable_context.upper_bounds) do
@@ -1664,7 +1679,17 @@ module Steep
               constr.check_deprecation_constant(constant_name, node, location.name)
             end
 
-            value_type, constr = constr.synthesize(node.children.last, hint: constant_type)
+            value_node = node.children.last #: Parser::AST::Node
+
+            if constant_name && value_node.type == :block &&
+                value_node.children[1].children.empty? &&
+                Source.data_struct_definition_send?(value_node.children[0])
+              # Class definition using `C = Data.define(...) do ... end` or `C = Struct.new(...) do ... end`
+              # The block body is type checked as a class definition body of `C`.
+              value_type, constr = constr.synthesize_data_struct_class_body(value_node, constant_name, constant_type)
+            else
+              value_type, constr = constr.synthesize(value_node, hint: constant_type)
+            end
 
             result = check_relation(sub_type: value_type, super_type: constant_type)
             if result.failure?
