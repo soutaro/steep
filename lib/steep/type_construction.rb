@@ -4863,18 +4863,21 @@ module Steep
 
       return unless member_decl_count == 1
 
-      expected_instance_method_names = (module_context.instance_definition&.methods || {}).each.with_object(Set[]) do |(name, method), set|
-        if method.implemented_in
-          if method.implemented_in == module_context.instance_definition&.type_name
-            set << name
+      expected_instance_method_names = Set[] #: Set[Symbol]
+      if instance_definition = module_context.instance_definition
+        instance_definition.methods.each do |name, method|
+          if method.implemented_in == instance_definition.type_name
+            expected_instance_method_names << name
           end
         end
       end
-      expected_module_method_names = (module_context.module_definition&.methods || {}).each.with_object(Set[]) do |(name, method), set|
-        if name != :new
-          if method.implemented_in
-            if method.implemented_in == module_context.module_definition&.type_name
-              set << name
+
+      expected_module_method_names = Set[] #: Set[Symbol]
+      if module_definition = module_context.module_definition
+        module_definition.methods.each do |name, method|
+          if name != :new
+            if method.implemented_in == module_definition.type_name
+              expected_module_method_names << name
             end
           end
         end
