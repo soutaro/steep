@@ -108,6 +108,80 @@ module Steep
         end
       end
 
+      # The entries of the methods of a RBS definition
+      #
+      # It works like `Hash[Symbol, Entry]`, but builds each entry when it is requested --
+      # the method of the definition is resolved and its method types are converted then.
+      #
+      class DefinitionEntries
+        attr_reader :methods
+
+        def initialize(methods, entries: {}, public_only: false, &block)
+          @methods = methods
+          @entries = entries
+          @public_only = public_only
+          @block = block
+        end
+
+        def key?(name)
+          if @public_only
+            if method = methods[name]
+              method.public?
+            else
+              false
+            end
+          else
+            methods.key?(name)
+          end
+        end
+
+        def [](name)
+          if entry = @entries[name]
+            entry if !@public_only || entry.public_method?
+          elsif method = methods[name]
+            if !@public_only || method.public?
+              @entries[name] = @block.call(name, method)
+            end
+          end
+        end
+
+        def fetch(name)
+          self[name] or raise KeyError, "key not found: #{name.inspect}"
+        end
+
+        def private_method?(name)
+          if method = methods[name]
+            method.private?
+          else
+            false
+          end
+        end
+
+        def each_key(&block)
+          if block
+            if @public_only
+              methods.each do |name, method|
+                yield name if method.public?
+              end
+            else
+              methods.each_key(&block)
+            end
+          else
+            enum_for :each_key
+          end
+        end
+
+        # Returns the entries of the public methods, that share the entries with `self`
+        #
+        def public_entries
+          if @public_only
+            self
+          else
+            DefinitionEntries.new(methods, entries: @entries, public_only: true, &@block)
+          end
+        end
+      end
+
       class Methods
         attr_reader :substs, :methods, :resolved_methods
 
@@ -120,16 +194,34 @@ module Steep
         end
 
         def key?(name)
-          if entry = methods.fetch(name, nil)
-            entry.has_method_type?
+          case methods = self.methods
+          when DefinitionEntries
+            # The methods of a definition always have method types
+            methods.key?(name)
           else
-            false
+            if entry = methods[name]
+              entry.has_method_type?
+            else
+              false
+            end
           end
         end
 
         def []=(name, entry)
+          methods = self.methods
+          methods.is_a?(Hash) or raise "The methods of a definition cannot be updated"
+
           resolved_methods[name] = nil
           methods[name] = entry
+        end
+
+        def private_method?(name)
+          case methods = self.methods
+          when DefinitionEntries
+            methods.private_method?(name)
+          else
+            methods.fetch(name).private_method?
+          end
         end
 
         def [](name)
@@ -183,13 +275,16 @@ module Steep
         end
 
         def merge!(other, &block)
+          methods = self.methods
+          methods.is_a?(Hash) or raise "The methods of a definition cannot be updated"
+
           other.methods.each_key do |name|
             # `key?` skips the entries without method types, like `each` did, but doesn't
             # resolve the others -- applying the substitutions of `other` is deferred to a
             # lazy entry, and the visibility is copied from the unresolved entry
             next unless other.key?(name)
 
-            entry = Entry.new(method_name: name, private_method: other.methods.fetch(name).private_method?) do
+            entry = Entry.new(method_name: name, private_method: other.private_method?(name)) do
               other[name]&.overloads
             end
 
@@ -202,10 +297,15 @@ module Steep
         end
 
         def public_methods
-          Methods.new(
-            substs: substs,
-            methods: methods.reject {|_, entry| entry.private_method? }
-          )
+          case methods = self.methods
+          when DefinitionEntries
+            Methods.new(substs: substs, methods: methods.public_entries)
+          else
+            Methods.new(
+              substs: substs,
+              methods: methods.reject {|_, entry| entry.private_method? }
+            )
+          end
         end
       end
 

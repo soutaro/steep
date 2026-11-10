@@ -324,31 +324,33 @@ module Steep
 
       def singleton_shape(type_name)
         singleton_shape_cache[type_name] ||= begin
-          shape = Interface::Shape.new(type: AST::Types::Name::Singleton.new(name: type_name), private: true)
           definition = factory.definition_builder.build_singleton(type_name)
 
-          definition.methods.each do |name, method|
+          # The entries are built when they are requested, not to resolve and convert all of the methods of the definition
+          entries = Interface::Shape::DefinitionEntries.new(definition.methods) do |name, method|
             if name == :class
               Steep.logger.tagged(-> { "method = #{type_name}.#{name}" }) do
                 overloads = method.defs.map do |type_def|
                   build_method_overload(name, type_def, AST::Builtin::Class.instance_type)
                 end
 
-                shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
+                Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
               end
             else
-              shape.methods[name] = shared_method_entry(name, method)
+              shared_method_entry(name, method)
             end
           end
 
-          shape
+          Interface::Shape.new(
+            type: AST::Types::Name::Singleton.new(name: type_name),
+            private: true,
+            methods: Interface::Shape::Methods.new(substs: [], methods: entries)
+          )
         end
       end
 
       def object_shape(type_name)
         object_shape_cache[type_name] ||= begin
-          shape = Interface::Shape.new(type: AST::Builtin.bottom_type, private: true)
-
           case
           when type_name.class?
             definition = factory.definition_builder.build_instance(type_name)
@@ -358,7 +360,8 @@ module Steep
 
           definition or raise
 
-          definition.methods.each do |name, method|
+          # The entries are built when they are requested, not to resolve and convert all of the methods of the definition
+          entries = Interface::Shape::DefinitionEntries.new(definition.methods) do |name, method|
             if name == :class && type_name.class?
               Steep.logger.tagged(-> { "method = #{type_name}##{name}" }) do
                 singleton_type = AST::Types::Name::Singleton.new(name: type_name)
@@ -366,14 +369,18 @@ module Steep
                   build_method_overload(name, type_def, singleton_type)
                 end
 
-                shape.methods[name] = Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
+                Interface::Shape::Entry.new(method_name: name, private_method: method.private?, overloads: overloads)
               end
             else
-              shape.methods[name] = shared_method_entry(name, method)
+              shared_method_entry(name, method)
             end
           end
 
-          shape
+          Interface::Shape.new(
+            type: AST::Builtin.bottom_type,
+            private: true,
+            methods: Interface::Shape::Methods.new(substs: [], methods: entries)
+          )
         end
       end
 

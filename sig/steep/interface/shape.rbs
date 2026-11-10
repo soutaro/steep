@@ -46,6 +46,59 @@ module Steep
         def force: () -> void
       end
 
+      # The entries of the methods of a RBS definition
+      #
+      # It works like `Hash[Symbol, Entry]`, but builds each entry when it is requested --
+      # the method of the definition is resolved and its method types are converted then.
+      #
+      class DefinitionEntries
+        # The methods of a RBS definition
+        #
+        # It is the table that resolves a method when it is requested, or a hash of the methods.
+        #
+        interface _DefinitionMethods
+          def []: (Symbol) -> RBS::Definition::Method?
+
+          def key?: (Symbol) -> bool
+
+          def each_key: () { (Symbol) -> void } -> untyped
+
+          def each: () { ([Symbol, RBS::Definition::Method]) -> void } -> untyped
+        end
+
+        attr_reader methods: _DefinitionMethods
+
+        # The entries built so far, that are shared with the entries of the public methods
+        @entries: Hash[Symbol, Entry]
+
+        @public_only: bool
+
+        @block: ^(Symbol, RBS::Definition::Method) -> Entry
+
+        def initialize: (_DefinitionMethods methods, ?entries: Hash[Symbol, Entry], ?public_only: bool) { (Symbol, RBS::Definition::Method) -> Entry } -> void
+
+        # Returns `true` if the method is defined, without building the entry
+        #
+        def key?: (Symbol) -> bool
+
+        # Returns the entry of the method, building it if it is not built yet
+        #
+        def []: (Symbol) -> Entry?
+
+        def fetch: (Symbol) -> Entry
+
+        # Returns `true` if the method is private, without building the entry
+        #
+        def private_method?: (Symbol) -> bool
+
+        def each_key: () { (Symbol) -> void } -> void
+                    | () -> Enumerator[Symbol, void]
+
+        # Returns the entries of the public methods, that share the entries with `self`
+        #
+        def public_entries: () -> DefinitionEntries
+      end
+
       class Methods
         def []=: (Symbol, Entry) -> Entry
 
@@ -65,10 +118,18 @@ module Steep
 
         attr_reader substs: Array[Substitution]
 
-        attr_reader methods: Hash[Symbol, Entry]
+        # The entries without the substitutions applied
+        #
+        # The entries of the methods of a RBS definition are built when they are requested.
+        #
+        attr_reader methods: Hash[Symbol, Entry] | DefinitionEntries
         attr_reader resolved_methods: Hash[Symbol, Entry?]
 
-        def initialize: (substs: Array[Substitution], methods: Hash[Symbol, Entry]) -> void
+        def initialize: (substs: Array[Substitution], methods: Hash[Symbol, Entry] | DefinitionEntries) -> void
+
+        # Returns `true` if the method is private, without resolving the entry
+        #
+        def private_method?: (Symbol) -> bool
 
         @subst: Substitution?
         def subst: () -> Substitution
