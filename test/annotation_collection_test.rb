@@ -11,18 +11,21 @@ class AnnotationCollectionTest < Minitest::Test
   AST = Steep::AST
 
   def new_collection(current_module:, factory:)
+    # The type names in annotations are resolved by the collection
+    unresolved = factory.for_unresolved_type_names
+
     Annotation::Collection.new(
       annotations: [
-        Annotation::VarType.new(name: :x, type: parse_type("Object")),
-        Annotation::IvarType.new(name: :@y, type: parse_type("Object")),
-        Annotation::ConstType.new(name: RBS::TypeName.parse("Object"), type: parse_type("singleton(Object)")),
-        Annotation::MethodType.new(name: :foo, type: parse_method_type("() -> Object")),
-        Annotation::BlockType.new(type: parse_type("Object")),
-        Annotation::ReturnType.new(type: parse_type("Object")),
-        Annotation::SelfType.new(type: parse_type("String")),
-        Annotation::InstanceType.new(type: parse_type("String")),
-        Annotation::ModuleType.new(type: parse_type("String")),
-        Annotation::BreakType.new(type: parse_type("::Object")),
+        Annotation::VarType.new(name: :x, type: parse_type("Object", factory: unresolved)),
+        Annotation::IvarType.new(name: :@y, type: parse_type("Object", factory: unresolved)),
+        Annotation::ConstType.new(name: RBS::TypeName.parse("Object"), type: parse_type("singleton(Object)", factory: unresolved)),
+        Annotation::MethodType.new(name: :foo, type: parse_method_type("() -> Object", factory: unresolved)),
+        Annotation::BlockType.new(type: parse_type("Object", factory: unresolved)),
+        Annotation::ReturnType.new(type: parse_type("Object", factory: unresolved)),
+        Annotation::SelfType.new(type: parse_type("String", factory: unresolved)),
+        Annotation::InstanceType.new(type: parse_type("String", factory: unresolved)),
+        Annotation::ModuleType.new(type: parse_type("String", factory: unresolved)),
+        Annotation::BreakType.new(type: parse_type("::Object", factory: unresolved)),
         Annotation::Implements.new(name: Annotation::Implements::Module.new(name: RBS::TypeName.parse("Object"), args: [])),
         Annotation::Dynamic.new(names: [
           Annotation::Dynamic::Name.new(name: :foo, kind: :instance),
@@ -84,8 +87,8 @@ EOF
 
       block_annotations = Annotation::Collection.new(
         annotations: [
-          Annotation::VarType.new(name: :x, type: parse_type("Integer")),
-          Annotation::BreakType.new(type: parse_type("String"))
+          Annotation::VarType.new(name: :x, type: parse_type("Integer", factory: factory.for_unresolved_type_names)),
+          Annotation::BreakType.new(type: parse_type("String", factory: factory.for_unresolved_type_names))
         ],
         factory: factory,
         context: [nil, namespace]

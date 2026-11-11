@@ -35,6 +35,9 @@ class TypeFactoryTest < Minitest::Test
 
   def test_type
     with_factory() do |factory|
+      # The types use the type names that are not defined in the environment
+      factory = factory.for_unresolved_type_names
+
       factory.type(parse_type("void")).yield_self do |type|
         assert_instance_of Types::Void, type
       end
@@ -150,8 +153,46 @@ class TypeFactoryTest < Minitest::Test
     end
   end
 
+  def test_type__undefined_type_names
+    with_factory({ "foo.rbs" => <<~RBS }) do |factory|
+      class Foo
+      end
+
+      interface _Foo
+      end
+
+      type foo = Integer
+    RBS
+      assert_equal "::Foo", factory.type(parse_type("::Foo")).to_s
+      assert_equal "::_Foo", factory.type(parse_type("::_Foo")).to_s
+      assert_equal "::foo", factory.type(parse_type("::foo")).to_s
+
+      # The type names that cannot be resolved are kept as they are written
+      assert_instance_of Types::Any, factory.type(parse_type("Foo"))
+      assert_instance_of Types::Any, factory.type(parse_type("Bar"))
+
+      assert_instance_of Types::Any, factory.type(parse_type("::Bar"))
+      assert_instance_of Types::Any, factory.type(parse_type("::Bar[::Foo]"))
+      assert_instance_of Types::Any, factory.type(parse_type("singleton(::Bar)"))
+      assert_instance_of Types::Any, factory.type(parse_type("::_Bar"))
+      assert_instance_of Types::Any, factory.type(parse_type("::bar"))
+
+      assert_equal "::Array[untyped]", factory.type(parse_type("::Array[::Bar]")).to_s
+      assert_equal "^(untyped) -> ::Foo", factory.type(parse_type("^(::Bar) -> ::Foo")).to_s
+      assert_equal "(untyped) { (::Foo) -> untyped } -> ::Foo", factory.method_type(parse_method_type("(::Bar) { (::Foo) -> ::Bar } -> ::Foo")).to_s
+
+      factory.for_unresolved_type_names.type(parse_type("Bar")).tap do |type|
+        assert_instance_of Types::Name::Instance, type
+        assert_equal RBS::TypeName.parse("Bar"), type.name
+      end
+    end
+  end
+
   def test_alias_type
     with_factory() do |factory|
+      # The types use the type names that are not defined in the environment
+      factory = factory.for_unresolved_type_names
+
       factory.type(parse_type("foo")).yield_self do |type|
         assert_instance_of Types::Name::Alias, type
         assert_equal RBS::TypeName.parse("foo"), type.name
@@ -176,6 +217,9 @@ class TypeFactoryTest < Minitest::Test
 
   def test_type_1
     with_factory() do |factory|
+      # The types use the type names that are not defined in the environment
+      factory = factory.for_unresolved_type_names
+
       parse_type("void").yield_self do |type|
         assert_equal type, factory.type_1(factory.type(type))
       end
@@ -256,6 +300,9 @@ class TypeFactoryTest < Minitest::Test
 
   def test_method_type
     with_factory() do |factory|
+      # The types use the type names that are not defined in the environment
+      factory = factory.for_unresolved_type_names
+
       factory.method_type(parse_method_type("[A] (A) { (A, B) -> nil } -> void")).yield_self do |type|
         assert_equal "[A] (A) { (A, B) -> nil } -> void", type.to_s
       end
@@ -279,6 +326,9 @@ class TypeFactoryTest < Minitest::Test
 
   def test_bounded_method_type
     with_factory() do |factory|
+      # The types use the type names that are not defined in the environment
+      factory = factory.for_unresolved_type_names
+
       factory.method_type(parse_method_type("[A < Integer] (A) -> void")).yield_self do |type|
         assert_equal "[A < Integer] (A) -> void", type.to_s
       end
@@ -301,6 +351,9 @@ class TypeFactoryTest < Minitest::Test
 
   def test_method_type_1
     with_factory() do |factory|
+      # The types use the type names that are not defined in the environment
+      factory = factory.for_unresolved_type_names
+
       parse_method_type("[A] (A) { (A, B) -> nil } -> void").tap do |original|
         type = factory.method_type_1(factory.method_type(original))
         assert_equal original, type

@@ -35,7 +35,7 @@ A: ::No::Such::Type
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
         error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
-          error.name == parse_type("::No::Such::Type").name
+          error.name == RBS::TypeName.parse("::No::Such::Type")
       end
     end
   end
@@ -67,7 +67,7 @@ $A: ::No::Such::Type
       assert_operator validator, :has_error?
       assert_any validator.each_error do |error|
         error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
-          error.name == parse_type("::No::Such::Type").name
+          error.name == RBS::TypeName.parse("::No::Such::Type")
       end
     end
   end
@@ -250,7 +250,7 @@ end
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal parse_type("Bar").name, error.name
+        assert_equal RBS::TypeName.parse("Bar"), error.name
       end
     end
   end
@@ -268,7 +268,7 @@ end
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal parse_type("Bar").name, error.name
+        assert_equal RBS::TypeName.parse("Bar"), error.name
       end
     end
   end
@@ -285,7 +285,7 @@ end
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal parse_type("::Foo").name, error.name
+        assert_equal RBS::TypeName.parse("::Foo"), error.name
       end
     end
 
@@ -299,7 +299,7 @@ type Foo::bar = Integer
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal parse_type("::Foo").name, error.name
+        assert_equal RBS::TypeName.parse("::Foo"), error.name
       end
     end
 
@@ -313,7 +313,7 @@ Foo::Bar: Integer
       assert_operator validator, :has_error?
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal parse_type("::Foo").name, error.name
+        assert_equal RBS::TypeName.parse("::Foo"), error.name
       end
     end
   end
