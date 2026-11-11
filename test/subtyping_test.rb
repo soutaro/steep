@@ -75,14 +75,15 @@ end
   Constraints = Subtyping::Constraints
   Failure = Subtyping::Result::Failure
 
+  # The type names are kept as they are written, like `String` for `::String`
   def parse_type(string, checker:, variables: [])
     type = RBS::Parser.parse_type(string, variables: variables)
-    checker.factory.type(type)
+    checker.factory.for_unresolved_type_names.type(type)
   end
 
   def parse_method_type(string, checker:, variables: [])
     type = RBS::Parser.parse_method_type(string, variables: variables)
-    checker.factory.method_type type
+    checker.factory.for_unresolved_type_names.method_type type
   end
 
   def parse_relation(sub_type, super_type, checker:)

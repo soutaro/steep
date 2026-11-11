@@ -129,11 +129,15 @@ module FactoryHelper
 
   def factory: () -> Steep::AST::Types::Factory
 
+  # Parses a type, keeping the type names as they are written
+  #
+  # The tests write the type names that are not defined in the environment, like `Integer` for `::Integer`.
   def parse_type: (untyped string, ?factory: untyped, ?variables: untyped) -> untyped
 
   # @rbs (String, ?factory: AST::Types::Factory) -> Steep::Source
   def parse_ruby: (String, ?factory: AST::Types::Factory) -> Steep::Source
 
+  # Parses a method type, keeping the type names as they are written
   def parse_method_type: (untyped string, ?factory: untyped, ?variables: untyped) -> untyped
 end
 

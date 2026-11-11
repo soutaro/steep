@@ -595,9 +595,13 @@ module FactoryHelper
     @factory or raise "#factory should be called from inside with_factory"
   end
 
+  # Parses a type, keeping the type names as they are written
+  #
+  # The tests write the type names that are not defined in the environment, like `Integer` for `::Integer`.
+  #
   def parse_type(string, factory: self.factory, variables: [])
     type = RBS::Parser.parse_type(string, variables: variables)
-    factory.type(type)
+    factory.for_unresolved_type_names.type(type)
   end
 
   # @rbs (String, ?factory: AST::Types::Factory) -> Steep::Source
@@ -605,9 +609,11 @@ module FactoryHelper
     Steep::Source.parse(string, path: Pathname("test.rb"), factory: factory)
   end
 
+  # Parses a method type, keeping the type names as they are written
+  #
   def parse_method_type(string, factory: self.factory, variables: [])
     type = RBS::Parser.parse_method_type(string, variables: variables)
-    factory.method_type(type)
+    factory.for_unresolved_type_names.method_type(type)
   end
 end
 

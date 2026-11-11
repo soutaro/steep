@@ -11025,12 +11025,7 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
 
   def test_rational_and_complex_literal
     with_checker(<<~RBS) do |checker|
-      class Rational < Numeric
-      end
-
-      class Complex < Numeric
-      end
-    RBS
+      RBS
       source = parse_ruby(<<~RUBY)
         r = 1r
         c = 1i
