@@ -21,6 +21,8 @@ class TypeFactoryTest < Minitest::Test
 
   def test_type__untyped_function: () -> untyped
 
+  def test_type__undefined_type_names: () -> untyped
+
   def test_alias_type: () -> untyped
 
   def test_type_1: () -> untyped

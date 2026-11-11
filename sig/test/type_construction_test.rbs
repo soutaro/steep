@@ -623,6 +623,8 @@ class TypeConstructionTest < Minitest::Test
 
   def test_send_rbs_error: () -> untyped
 
+  def test_undefined_type_name: () -> untyped
+
   def test_const: () -> untyped
 
   def test_const_class_module: () -> untyped

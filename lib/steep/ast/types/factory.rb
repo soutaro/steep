@@ -12,12 +12,44 @@ module Steep
           s + ">"
         end
 
-        def initialize(builder:)
+        def initialize(builder:, resolved_type_names: true)
           @definition_builder = builder
+          @resolved_type_names = resolved_type_names
 
           @type_cache = {}
           @method_type_cache = {}
           @method_type_cache.compare_by_identity
+        end
+
+        # Returns a factory that translates the types of which type names are not resolved yet
+        #
+        # The factory keeps the type names as they are, and the types are made absolute later with `#absolute_type`.
+        # The types in the annotations are translated with the factory, because the context to resolve the type names is
+        # not known when the annotations are parsed.
+        #
+        def for_unresolved_type_names
+          if @resolved_type_names
+            @for_unresolved_type_names ||= Factory.new(builder: definition_builder, resolved_type_names: false)
+          else
+            self
+          end
+        end
+
+        # Returns `true` if the type refers to a type name that is not defined in the environment
+        #
+        # The RBS environment keeps the type names that cannot be resolved as they are written, and `DefinitionBuilder`
+        # doesn't report them when it builds the definitions using them. The undefined type names are reported by the
+        # signature validation instead.
+        #
+        def undefined_type_name?(type)
+          return false unless @resolved_type_names
+
+          case type
+          when RBS::Types::ClassInstance, RBS::Types::ClassSingleton, RBS::Types::Interface, RBS::Types::Alias
+            !env.type_name?(type.name)
+          else
+            false
+          end
         end
 
         def type_name_resolver
@@ -59,9 +91,19 @@ module Steep
           end
         end
 
+        # Translates an RBS type to a Steep type
+        #
+        # The type names in the given type should be resolved. The type names that are not defined in the environment
+        # are translated to `untyped`, because the type checker cannot build the definitions or the ancestors of them.
+        # Use `#for_unresolved_type_names` to translate the types of which type names are resolved later.
+        #
         def type(type)
           if ty = type_cache[type]
             return ty
+          end
+
+          if undefined_type_name?(type)
+            return type_cache[type] = Any.instance
           end
 
           type_cache[type] =

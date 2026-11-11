@@ -7062,8 +7062,8 @@ end
 
   def test_send_rbs_error
     with_checker(<<RBS) do |checker|
-class SendTest
-  def foo: () -> String123
+class SendTest < Array[String123]
+  def foo: () -> String
 end
 RBS
       source = parse_ruby(<<-RUBY)
@@ -7082,6 +7082,39 @@ test.foo
         end
 
         assert_equal parse_type("untyped"), type
+      end
+    end
+  end
+
+  def test_undefined_type_name
+    with_checker(<<~RBS) do |checker|
+      class UndefinedTypeNameTest
+        def self.foo: (String123) -> String123
+      end
+
+      UNDEFINED_TYPE_NAME_TEST: Array[_String123]
+
+      $undefined_type_name_test: string123
+    RBS
+      source = parse_ruby(<<~RUBY)
+        x = UndefinedTypeNameTest.foo(1)
+        x.foo
+
+        y = UNDEFINED_TYPE_NAME_TEST.first #: String
+        y.size
+
+        z = $undefined_type_name_test
+        z.foo
+      RUBY
+
+      with_standard_construction(checker, source) do |construction, typing|
+        pair = construction.synthesize(source.node)
+
+        # The undefined type names are reported in the signature validation, and the type checker treats them as `untyped`
+        assert_no_error typing
+        assert_equal parse_type("untyped"), pair.context.type_env[:x]
+        assert_equal parse_type("::String"), pair.context.type_env[:y]
+        assert_equal parse_type("untyped"), pair.context.type_env[:z]
       end
     end
   end
@@ -10992,7 +11025,12 @@ z = AppTest.new.foo(1, 2) #$ Integer, Integer, String
 
   def test_rational_and_complex_literal
     with_checker(<<~RBS) do |checker|
-      RBS
+      class Rational < Numeric
+      end
+
+      class Complex < Numeric
+      end
+    RBS
       source = parse_ruby(<<~RUBY)
         r = 1r
         c = 1i

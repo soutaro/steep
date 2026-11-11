@@ -66,7 +66,7 @@ module Steep
         raise SyntaxError.new(source: string, location: loc, message: "Failed to parse a type in annotation")
       end
 
-      factory.type(type)
+      factory.for_unresolved_type_names.type(type)
     end
 
     def keyword_subject_type(keyword, name)
@@ -95,7 +95,7 @@ module Steep
           name = match[:name] or raise
           type = match[:type] or raise
 
-          method_type = factory.method_type(RBS::Parser.parse_method_type(type) || raise)
+          method_type = factory.for_unresolved_type_names.method_type(RBS::Parser.parse_method_type(type) || raise)
 
           AST::Annotation::MethodType.new(name: name.to_sym,
                                           type: method_type,

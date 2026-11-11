@@ -13,6 +13,7 @@ class AnnotationParsingTest < Minitest::Test
 
   Types: untyped
 
+  # The type names in annotations are resolved later, and the parser keeps them as they are
   def parse_type: (untyped src, factory: untyped) -> untyped
 
   def parse_annotation: (untyped source, factory: untyped) -> untyped

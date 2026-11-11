@@ -9,8 +9,9 @@ class AnnotationParsingTest < Minitest::Test
   Annotation = Steep::AST::Annotation
   Types = Steep::AST::Types
 
+  # The type names in annotations are resolved later, and the parser keeps them as they are
   def parse_type(src, factory:)
-    factory.type(RBS::Parser.parse_type(src))
+    factory.for_unresolved_type_names.type(RBS::Parser.parse_type(src))
   end
 
   def parse_annotation(source, factory:)
@@ -41,7 +42,7 @@ class AnnotationParsingTest < Minitest::Test
 
       assert_instance_of Annotation::MethodType, annot
       assert_equal :foo, annot.name
-      assert_equal factory.method_type(RBS::Parser.parse_method_type("(Bar) -> Baz")),
+      assert_equal factory.for_unresolved_type_names.method_type(RBS::Parser.parse_method_type("(Bar) -> Baz")),
                    annot.type
     end
   end
