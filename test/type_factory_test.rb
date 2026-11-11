@@ -431,22 +431,19 @@ class Bar
 end
     EOF
 
-      factory.type(parse_type("Bar")).tap do |type|
-        factory.absolute_type(type, context: [nil, RBS::TypeName.parse("::Foo")]) do |absolute_type|
-          assert_equal factory.type(parse_type("::Foo::Bar")), absolute_type
-        end
+      unresolved = factory.for_unresolved_type_names
+
+      unresolved.type(parse_type("Bar")).tap do |type|
+        assert_equal factory.type(parse_type("::Foo::Bar")), factory.absolute_type(type, context: [nil, RBS::TypeName.parse("::Foo")])
       end
 
-      factory.type(parse_type("Bar")).tap do |type|
-        factory.absolute_type(type, context: nil) do |absolute_type|
-          assert_equal factory.type(parse_type("::Bar")), absolute_type
-        end
+      unresolved.type(parse_type("Bar")).tap do |type|
+        assert_equal factory.type(parse_type("::Bar")), factory.absolute_type(type, context: nil)
       end
 
-      factory.type(parse_type("Baz")).tap do |type|
-        factory.absolute_type(type, context: [nil, ("::Foo")]) do |absolute_type|
-          assert_equal factory.type(parse_type("::Baz")), absolute_type
-        end
+      unresolved.type(parse_type("Baz")).tap do |type|
+        # Undefined type names are translated to `untyped`
+        assert_instance_of Types::Any, factory.absolute_type(type, context: [nil, RBS::TypeName.parse("::Foo")])
       end
     end
   end
