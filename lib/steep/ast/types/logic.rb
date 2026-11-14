@@ -53,6 +53,9 @@ module Steep
         class ArgIsAncestor < Base
         end
 
+        class ReceiverRespondsTo < Base
+        end
+
         class Env < Base
           attr_reader :truthy, :falsy, :type
 

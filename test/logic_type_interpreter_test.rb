@@ -241,6 +241,36 @@ end
     end
   end
 
+  def test_call_receiver_responds_to
+    with_checker(<<~RBS) do |checker|
+        class RespondToA
+          def foo: () -> void
+        end
+        class RespondToB
+        end
+      RBS
+      source = parse_ruby("x = foo; x.respond_to?(:foo)")
+
+      node = source.node.children[1]
+
+      typing = Typing.new(source: source, root_context: nil, cursor: nil)
+      typing.add_typing(dig(node), AST::Types::Logic::ReceiverRespondsTo.new(), nil)
+      typing.add_typing(dig(node, 0), parse_type("::RespondToA | ::RespondToB | nil"), nil)
+      typing.add_typing(dig(node, 2), parse_type("::Symbol"), nil)
+
+      env = type_env
+        .assign_local_variable(:x, parse_type("::RespondToA | ::RespondToB | nil"), nil)
+
+      interpreter = LogicTypeInterpreter.new(subtyping: checker, typing: typing, config: config)
+      truthy_result, falsy_result = interpreter.eval(env: env, node: node)
+
+      assert_equal parse_type("true"), truthy_result.type
+      assert_equal parse_type("false"), falsy_result.type
+      assert_equal parse_type("::RespondToA"), truthy_result.env[:x]
+      assert_equal parse_type("::RespondToB | nil"), falsy_result.env[:x]
+    end
+  end
+
   def test_call_not
     with_checker(<<-RBS) do |checker|
       RBS
