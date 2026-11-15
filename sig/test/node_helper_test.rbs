@@ -1,0 +1,31 @@
+# Generated from test/node_helper_test.rb with RBS::Inline
+
+class NodeHelperTest < Minitest::Test
+  include Steep
+
+  include TestHelper
+
+  include FactoryHelper
+
+  # `NodeHelper` has `test_*` methods, which are run as tests if the module is included in the test class
+  class Helper
+    include Steep::NodeHelper
+  end
+
+  # Returns the sources of the `break` and `next` nodes that jump from the block of the first line
+  def jump_sources: (untyped ruby) -> untyped
+
+  def test_each_jump_node: () -> untyped
+
+  def test_each_jump_node__single: () -> untyped
+
+  def test_each_jump_node__nested_block: () -> untyped
+
+  def test_each_jump_node__loop: () -> untyped
+
+  def test_each_jump_node__for: () -> untyped
+
+  def test_each_jump_node__definition: () -> untyped
+
+  def test_each_jump_node__value: () -> untyped
+end

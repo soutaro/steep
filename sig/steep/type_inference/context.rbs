@@ -65,19 +65,30 @@ module Steep
         def subst: (Interface::Substitution) -> BlockContext
       end
 
-      # Context about the `break` syntax
+      # Context about the `break` and `next` syntax
+      #
+      # The context gives the type hints of the values of `break` and `next`.
+      # The types of the values are given to the block call, the block, or the loop after its body is type checked:
+      # see `TypeConstruction#jump_values`.
+      #
       class BreakContext
-        # Type of arguments to `break` statement
+        # Type of arguments to `break` statement, declared by `@type break` annotation
         #
-        attr_reader break_type: AST::Types::t
+        # `nil` means the type is not declared, and the arguments are not checked.
+        #
+        attr_reader break_type: AST::Types::t?
 
-        # Type of arguments to `next` statement
+        # Type hint of arguments to `break` statement
+        #
+        attr_reader break_hint: AST::Types::t?
+
+        # Type hint of arguments to `next` statement
         #
         # `nil` means the passed value will be ignored.
         #
         attr_reader next_type: AST::Types::t?
 
-        def initialize: (break_type: AST::Types::t, next_type: AST::Types::t?) -> void
+        def initialize: (break_type: AST::Types::t?, break_hint: AST::Types::t?, next_type: AST::Types::t?) -> void
 
         def subst: (Interface::Substitution) -> BreakContext
       end

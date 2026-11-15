@@ -1,1 +1,4 @@
-123.tap { break "" }
+123.tap do
+  # @type break: Integer
+  break ""
+end

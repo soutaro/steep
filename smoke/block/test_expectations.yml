@@ -34,21 +34,6 @@
   diagnostics:
   - range:
       start:
-        line: 5
-        character: 2
-      end:
-        line: 5
-        character: 9
-    severity: ERROR
-    message: |-
-      Cannot break with a value of type `::Integer` because type `::Symbol` is assumed
-        ::Integer <: ::Symbol
-          ::Numeric <: ::Symbol
-            ::Object <: ::Symbol
-              ::BasicObject <: ::Symbol
-    code: Ruby::BreakTypeMismatch
-  - range:
-      start:
         line: 10
         character: 0
       end:
@@ -56,12 +41,11 @@
         character: 3
     severity: ERROR
     message: |-
-      Cannot assign a value of type `(::Integer | ::Symbol)` to a variable of type `::String`
-        (::Integer | ::Symbol) <: ::String
-          ::Integer <: ::String
-            ::Numeric <: ::String
-              ::Object <: ::String
-                ::BasicObject <: ::String
+      Cannot assign a value of type `(::Symbol | ::Integer)` to a variable of type `::String`
+        (::Symbol | ::Integer) <: ::String
+          ::Symbol <: ::String
+            ::Object <: ::String
+              ::BasicObject <: ::String
     code: Ruby::IncompatibleAssignment
 - file: d.rb
   diagnostics:
