@@ -167,6 +167,8 @@ class TypeCheckTest < Minitest::Test
 
   def test_type_inference__loop_break: () -> untyped
 
+  def test_type_inference__for_break: () -> untyped
+
   def test_type_narrowing__local_variable_safe_navigation_operator: () -> untyped
 
   def test_type_narrowing__union_send: () -> untyped

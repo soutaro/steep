@@ -14,9 +14,8 @@ module Steep
     #
     # The given node itself is yielded if it is a `break` or `next`.
     #
-    # The jumps in the nested blocks, `while` and `until` loops, and definitions are skipped,
+    # The jumps in the nested blocks, loops, and definitions are skipped,
     # because `TypeConstruction` type checks them with the `BreakContext` of their own.
-    # The ones in a `for` loop are yielded, because it type checks the body of the loop with the outer context.
     #
     def each_jump_node: (Parser::AST::Node) -> Enumerator[Parser::AST::Node, void]
                       | (Parser::AST::Node) { (Parser::AST::Node) -> void } -> void
