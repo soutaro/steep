@@ -59,27 +59,32 @@ module Steep
 
       attr_reader :implicitly_returns_nil
 
-      def initialize(status:, implicitly_returns_nil:)
+      attr_reader :type_name_dependencies
+
+      def initialize(status:, implicitly_returns_nil:, type_name_dependencies:)
         @status = status
         @implicitly_returns_nil = implicitly_returns_nil
+        @type_name_dependencies = type_name_dependencies
       end
 
       def self.load_from(loader, implicitly_returns_nil:)
-        env = RBS::Environment.from_loader(loader).resolve_type_names
+        dependencies = RBS::Environment::TypeNameDependencies.new
+        env = RBS::Environment.from_loader(loader).resolve_type_names(dependencies: dependencies)
         builder = RBS::DefinitionBuilder.new(env: env)
         status = LoadedStatus.new(builder: builder, files: {}, implicitly_returns_nil: implicitly_returns_nil)
-        new(status: status, implicitly_returns_nil: implicitly_returns_nil)
+        new(status: status, implicitly_returns_nil: implicitly_returns_nil, type_name_dependencies: dependencies)
       rescue RBS::ParsingError => exn
         # When library RBS contains syntax error, load only *core* libraries and set `SyntaxErrorStatus`.
         core_loader = RBS::EnvironmentLoader.new(core_root: loader.core_root)
-        core_env = RBS::Environment.from_loader(core_loader).resolve_type_names
+        dependencies = RBS::Environment::TypeNameDependencies.new
+        core_env = RBS::Environment.from_loader(core_loader).resolve_type_names(dependencies: dependencies)
         status = SyntaxErrorStatus.new(
           files: {},
           changed_paths: Set[],
           diagnostics: [Diagnostic::Signature.from_rbs_error(exn, factory: _ = nil)],
           last_builder: RBS::DefinitionBuilder.new(env: core_env)
         )
-        service = new(status: status, implicitly_returns_nil: implicitly_returns_nil)
+        service = new(status: status, implicitly_returns_nil: implicitly_returns_nil, type_name_dependencies: dependencies)
         # Add the failed library path to env_rbs_paths so it's recognized as a library path by TypeCheckService
         if exn.location
           service.env_rbs_paths << Pathname(exn.location.buffer.name)
@@ -282,26 +287,31 @@ module Steep
               last_builder: latest_builder,
               changed_paths: paths
             )
+            Set[]
           else
             files = self.files.merge(updates)
             updated_files = files.slice(*paths.to_a)
-            result =
+            env_update =
               Steep.measure "#update_env with updated #{paths.size} files" do
                 update_env(updated_files, paths: paths)
               end
+            result, resolved_paths, dependencies = env_update
 
-            @status = case result
-                      when Array
-                        AncestorErrorStatus.new(
-                          changed_paths: paths,
-                          last_builder: latest_builder,
-                          diagnostics: result,
-                          files: files
-                        )
-                      when RBS::DefinitionBuilder::AncestorBuilder
-                        builder2 = update_builder(ancestor_builder: result, paths: paths)
-                        LoadedStatus.new(builder: builder2, files: files, implicitly_returns_nil: implicitly_returns_nil)
-                      end
+            case result
+            when Array
+              @status = AncestorErrorStatus.new(
+                changed_paths: paths,
+                last_builder: latest_builder,
+                diagnostics: result,
+                files: files
+              )
+              Set[]
+            when RBS::DefinitionBuilder::AncestorBuilder
+              builder2 = update_builder(ancestor_builder: result, paths: paths + resolved_paths)
+              @status = LoadedStatus.new(builder: builder2, files: files, implicitly_returns_nil: implicitly_returns_nil)
+              @type_name_dependencies = (dependencies or raise)
+              resolved_paths
+            end
           end
         end
       end
@@ -351,15 +361,32 @@ module Steep
           end
 
           unless errors.empty?
-            return errors.map {|error|
+            diagnostics = errors.map {|error|
               # Factory will not be used because of the possible error types.
               Diagnostic::Signature.from_rbs_error(error, factory: _ = nil)
             }
+            return [diagnostics, Set[], nil]
           end
 
-          Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
-            env = env.resolve_type_names(only: new_decls)
+          affected_paths =
+            Steep.measure "Finding the files to resolve again" do
+              type_name_dependencies.affected_paths(latest_env, env, except: paths)
+            end
+
+          unless affected_paths.empty?
+            Steep.logger.info { "Resolving the type names of #{affected_paths.size} files again: #{affected_paths.take(10).join(", ")}#{affected_paths.size > 10 ? ", ..." : ""}" }
+            unresolved = unresolved_sources(affected_paths)
+            unresolved.each_value { new_decls.merge(_1.declarations) }
+            env = replace_sources(env, affected_paths, unresolved)
           end
+
+          # The dependencies are dropped with the environment if it has errors
+          dependencies = type_name_dependencies.dup
+          env =
+            Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
+              env.resolve_type_names(only: new_decls, dependencies: dependencies)
+            end
+          resolved_paths = changed_paths(affected_paths, env: env)
 
           builder = RBS::DefinitionBuilder::AncestorBuilder.new(env: env)
 
@@ -376,10 +403,39 @@ module Steep
           unless errors.empty?
             errors.uniq! { |e| [e.class, e.message] }
             factory = AST::Types::Factory.new(builder: RBS::DefinitionBuilder.new(env: env, ancestor_builder: builder))
-            return errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
+            diagnostics = errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
+            return [diagnostics, Set[], nil]
           end
 
-          builder
+          [builder, resolved_paths, dependencies]
+        end
+      end
+
+      def unresolved_sources(paths)
+        sources = latest_env.sources.each.with_object({}) do |source, hash| #$ Hash[Pathname, RBS::Source::t]
+          hash[source.buffer.name] = source if paths.include?(source.buffer.name)
+        end
+
+        paths.to_h do |path|
+          source = sources.fetch(path)
+
+          case file = files.fetch(path, nil)
+          when RBSFileStatus
+            if (file_source = file.source).is_a?(RBS::Source::RBS)
+              next [path, file_source]
+            end
+          when RBS::Source::Ruby
+            next [path, file]
+          end
+
+          case source
+          when RBS::Source::RBS
+            _, dirs, decls = RBS::Parser.parse_signature(source.buffer)
+            [path, RBS::Source::RBS.new(source.buffer, dirs, decls)]
+          when RBS::Source::Ruby
+            result = RBS::InlineParser.parse(source.buffer, source.prism_result)
+            [path, RBS::Source::Ruby.new(source.buffer, source.prism_result, result.declarations, result.diagnostics)]
+          end
         end
       end
 
@@ -404,6 +460,21 @@ module Steep
         end
 
         new_env
+      end
+
+      def changed_paths(paths, env:)
+        return Set[] if paths.empty?
+
+        new_sources = env.sources.each.with_object({}) do |source, hash| #$ Hash[Pathname, RBS::Source::t]
+          hash[source.buffer.name] = source if paths.include?(source.buffer.name)
+        end
+
+        latest_env.sources.each.with_object(Set[]) do |source, set| #$ Set[Pathname]
+          path = source.buffer.name
+          if new_source = new_sources.fetch(path, nil)
+            set << path unless new_source.declarations == source.declarations
+          end
+        end
       end
 
       def rescue_rbs_error(errors)
