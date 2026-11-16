@@ -36,4 +36,14 @@ class SignatureServiceTest < Minitest::Test
   def test__inline__update_syntax_error2: () -> untyped
 
   def test__inline__update_empty_comment: () -> untyped
+
+  def update_files: (untyped service, untyped files) -> untyped
+
+  def method_types: (untyped service, untyped type_name, untyped method_name) -> untyped
+
+  def decl_paths: (untyped service, untyped type_name) -> untyped
+
+  def test_update__keep_order: () -> untyped
+
+  def test_update__keep_order__error_at_updated_file: () -> untyped
 end

@@ -401,4 +401,80 @@ RUBY
 
     assert_instance_of SignatureService::LoadedStatus, service.status
   end
+
+  def update_files(service, files)
+    changes = files.to_h {|path, content| [Pathname(path), [ContentChange.string(content)]] }
+    service.update(changes).tap do
+      assert_instance_of SignatureService::LoadedStatus, service.status
+    end
+  end
+
+  def method_types(service, type_name, method_name)
+    definition = service.latest_builder.build_instance(RBS::TypeName.parse(type_name))
+    definition.methods.fetch(method_name).defs.map { _1.type.to_s }
+  end
+
+  def decl_paths(service, type_name)
+    entry = service.latest_env.class_decls.fetch(RBS::TypeName.parse(type_name))
+    entry.each_decl.map { _1.location&.buffer&.name }
+  end
+
+  def test_update__keep_order
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/mods.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS)
+      module MA
+        def m: () -> Integer
+      end
+
+      module MB
+        def m: () -> String
+      end
+    RBS
+      class Foo
+        include MA
+      end
+    RBS
+      class Foo
+        include MB
+      end
+    RBS
+    assert_equal [Pathname("sig/a.rbs"), Pathname("sig/b.rbs")], decl_paths(service, "::Foo")
+    assert_equal ["() -> ::String"], method_types(service, "::Foo", :m)
+
+    update_files(service, "sig/a.rbs" => <<~RBS)
+      class Foo
+        include MA
+
+        def foo: () -> void
+      end
+    RBS
+    assert_equal [Pathname("sig/a.rbs"), Pathname("sig/b.rbs")], decl_paths(service, "::Foo")
+    assert_equal ["() -> ::String"], method_types(service, "::Foo", :m)
+  end
+
+  def test_update__keep_order__error_at_updated_file
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/a.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS)
+      class A
+      end
+    RBS
+      type t = Integer
+    RBS
+
+    # `sig/a.rbs` is before `sig/b.rbs`, but the error is reported at the updated file
+    service.update({ Pathname("sig/a.rbs") => [ContentChange.string(<<~RBS)] })
+      class A
+      end
+
+      type t = String
+    RBS
+    assert_instance_of SignatureService::AncestorErrorStatus, service.status
+    assert_equal 1, service.status.diagnostics.size
+    service.status.diagnostics[0].tap do |diagnostic|
+      assert_instance_of Diagnostic::Signature::DuplicatedDeclaration, diagnostic
+      assert_equal Pathname("sig/a.rbs"), diagnostic.location&.buffer&.name
+    end
+  end
 end

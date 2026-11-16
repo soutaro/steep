@@ -311,32 +311,42 @@ module Steep
           errors = [] #: Array[RBS::BaseError]
           new_decls = Set[].compare_by_identity #: Set[RBS::AST::Declarations::t | RBS::AST::Ruby::Declarations::t]
 
-          env =
-            Steep.measure "Deleting out of date decls" do
-              latest_env.unload(paths)
-            end
-
-          Steep.measure "Loading new decls" do
-            updated_files.each_value do |content|
-              case content
-              when RBSFileStatus
-                (source = content.source).is_a?(RBS::Source::RBS) or raise "Cannot be an error"
-                env.add_source(source)
-                new_decls.merge(source.declarations)
-              when RBS::Source::Ruby
-                env.add_source(content)
-                new_decls.merge(content.declarations)
-              end
-            rescue RBS::LoadingError => exn
-              errors << exn
+          sources = {} #: Hash[Pathname, RBS::Source::t]
+          updated_files.each do |path, content|
+            case content
+            when RBSFileStatus
+              (source = content.source).is_a?(RBS::Source::RBS) or raise "Cannot be an error"
+              sources[path] = source
+            when RBS::Source::Ruby
+              sources[path] = content
             end
           end
+          sources.each_value { new_decls.merge(_1.declarations) }
 
-          Steep.measure "validate type params" do
-            begin
-              env.validate_type_params
-            rescue RBS::LoadingError => exn
-              errors << exn
+          env =
+            Steep.measure "Replacing out of date decls" do
+              replace_sources(latest_env, paths, sources).tap(&:validate_type_params)
+            rescue RBS::LoadingError
+              nil
+            end
+
+          unless env
+            env = latest_env.unload(paths)
+
+            Steep.measure "Loading new decls" do
+              sources.each_value do |source|
+                env.add_source(source)
+              rescue RBS::LoadingError => exn
+                errors << exn
+              end
+            end
+
+            Steep.measure "validate type params" do
+              begin
+                env.validate_type_params
+              rescue RBS::LoadingError => exn
+                errors << exn
+              end
             end
           end
 
@@ -371,6 +381,29 @@ module Steep
 
           builder
         end
+      end
+
+      def replace_sources(env, paths, sources)
+        new_env = RBS::Environment.new
+        replaced = Set[] #: Set[Pathname]
+
+        env.sources.each do |source|
+          path = source.buffer.name
+          if paths.include?(path)
+            if new_source = sources.fetch(path, nil)
+              new_env.add_source(new_source)
+              replaced << path
+            end
+          else
+            new_env.add_source(source)
+          end
+        end
+
+        sources.each do |path, source|
+          new_env.add_source(source) unless replaced.include?(path)
+        end
+
+        new_env
       end
 
       def rescue_rbs_error(errors)

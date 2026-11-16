@@ -142,10 +142,23 @@ module Steep
       #
       def update: (Server::ChangeBuffer::changes changes) -> void
 
+      # Updates the environment with the files, and returns the ancestor builder of the updated environment, or the errors
+      #
+      # The updated files keep their positions in the environment, because the order of the declarations of a class in
+      # several files decides its ancestors. If the files cannot be loaded, they are loaded after the other files again,
+      # so that the errors are reported at the updated files.
+      #
       def update_env: (
         Hash[Pathname, file_status] updated_files,
         paths: Set[Pathname]
       ) -> (RBS::DefinitionBuilder::AncestorBuilder | Array[Diagnostic::Signature::Base])
+
+      # Returns a new environment with the sources of `paths` replaced with `sources`, keeping the order of the sources
+      #
+      # The sources of `paths` that `sources` doesn't have are removed, and the sources of the paths `env` doesn't have
+      # are added at the end. The keys of `sources` must be included in `paths`.
+      #
+      def replace_sources: (RBS::Environment env, Set[Pathname] paths, Hash[Pathname, RBS::Source::t] sources) -> RBS::Environment
 
       def rescue_rbs_error: (Array[RBS::BaseError] errors) { () -> void } -> void
 
