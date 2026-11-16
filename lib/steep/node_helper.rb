@@ -35,6 +35,9 @@ module Steep
         when :while, :until, :while_post, :until_post
           # The body is type checked with the context of the loop
           each_jump_node(node.children[0], &block)
+        when :for
+          # The body is type checked with the context of the loop
+          each_jump_node(node.children[1], &block)
         when :def, :defs, :class, :module, :sclass
           # No jump goes out of the definitions
         else

@@ -2852,6 +2852,107 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_type_inference__for_break
+    # The `for` loop evaluates to the collection or the values of `break`
+    # The `break` and `next` in the loop are not of the outer block or loop
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class ForTest
+            def self.ints: () -> Array[Integer]
+            def self.measure: [A] () { () -> A } -> A
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = ForTest.ints.each do |i|
+            f = for j in [1, 2]
+              break :sym if ForTest.cond
+            end
+            f.foo
+          end
+          a.foo
+
+          b = ForTest.measure do
+            for j in [1, 2]
+              next "str" if ForTest.cond
+            end
+            1
+          end
+          b.foo
+
+          c = while ForTest.cond
+            for j in [1, 2]
+              break 1.0 if ForTest.cond
+            end
+          end
+          c.foo
+
+          for j in [1, 2]
+            break if ForTest.cond
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 4
+              end:
+                line: 5
+                character: 7
+            severity: ERROR
+            message: Type `(::Array[::Integer] | ::Symbol)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 7
+                character: 2
+              end:
+                line: 7
+                character: 5
+            severity: ERROR
+            message: Type `::Array[::Integer]` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 11
+                character: 4
+              end:
+                line: 11
+                character: 14
+            severity: ERROR
+            message: The value given to next will be ignored
+            code: Ruby::UnexpectedJumpValue
+          - range:
+              start:
+                line: 15
+                character: 2
+              end:
+                line: 15
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 22
+                character: 2
+              end:
+                line: 22
+                character: 5
+            severity: ERROR
+            message: Type `nil` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_type_narrowing__local_variable_safe_navigation_operator
     run_type_check_test(
       signatures: {

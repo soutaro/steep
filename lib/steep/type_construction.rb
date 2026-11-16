@@ -2246,6 +2246,9 @@ module Steep
             end
             var_name = asgn.children[0] #: Symbol
 
+            # `break` in the body jumps from the loop, and the value of `next` is ignored
+            loop_break_context = TypeInference::Context::BreakContext.new(break_type: nil, break_hint: hint, next_type: nil)
+
             if var_type
               if body
                 body_constr = constr.update_type_env do |type_env|
@@ -2253,6 +2256,7 @@ module Steep
                   pins = type_env.pin_local_variables(nil)
                   type_env.merge(local_variable_types: pins)
                 end
+                body_constr = body_constr.update_context {|context| context.with(break_context: loop_break_context) }
 
                 typing.cursor_context.set_body_context(node, body_constr.context)
                 _, _, body_context = body_constr.synthesize(body).to_ary
@@ -2264,9 +2268,13 @@ module Steep
                 constr = self
               end
 
-              add_typing(node, type: collection_type, constr: constr)
+              add_typing(node, type: loop_type(collection_type, body), constr: constr)
             else
-              constr = synthesize_children(node, skips: [collection])
+              constr =
+                constr
+                  .update_context {|context| context.with(break_context: loop_break_context) }
+                  .synthesize_children(node, skips: [collection])
+                  .update_context {|context| context.with(break_context: break_context) }
 
               constr.fallback_to_any(node) do
                 Diagnostic::Ruby::NoMethod.new(
@@ -2316,7 +2324,7 @@ module Steep
               constr = constr.update_type_env { exit_env }
             end
 
-            add_typing(node, type: loop_type(body), constr: constr)
+            add_typing(node, type: loop_type(AST::Builtin.nil_type, body), constr: constr)
           end
 
         when :while_post, :until_post
@@ -2336,7 +2344,7 @@ module Steep
 
               constr = cond_constr.update_type_env {|env| env.join(env, body_context.type_env) }
 
-              add_typing(node, type: loop_type(body), constr: constr)
+              add_typing(node, type: loop_type(AST::Builtin.nil_type, body), constr: constr)
             else
               add_typing(node, type: AST::Builtin.nil_type, constr: cond_constr)
             end
@@ -3834,8 +3842,8 @@ module Steep
       values
     end
 
-    def loop_type(body)
-      union_type(AST::Builtin.nil_type, *jump_values(body, :break).map {|_, type| type })
+    def loop_type(result_type, body)
+      union_type(result_type, *jump_values(body, :break).map {|_, type| type })
     end
 
     def eliminate_vars(type, variables, to: AST::Builtin.any_type)

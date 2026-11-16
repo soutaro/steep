@@ -318,9 +318,11 @@ module Steep
     #
     def jump_values: (Parser::AST::Node? body, :break | :next `type`) -> Array[[Parser::AST::Node, AST::Types::t]]
 
-    # Returns the type of a `while` or `until` loop of given body: `nil`, or the values of `break` in the body
+    # Returns the type of a loop of given body: `result_type`, or the values of `break` in the body
     #
-    def loop_type: (Parser::AST::Node? body) -> AST::Types::t
+    # `result_type` is the type the loop evaluates to without `break`: `nil` for `while` and `until`, and the collection for `for`.
+    #
+    def loop_type: (AST::Types::t result_type, Parser::AST::Node? body) -> AST::Types::t
 
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 

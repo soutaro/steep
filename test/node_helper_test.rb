@@ -74,12 +74,13 @@ class NodeHelperTest < Minitest::Test
   end
 
   def test_each_jump_node__for
-    # The body of `for` loop is type checked with the outer block
-    assert_equal ["break 1"], jump_sources(<<~RUBY)
+    # The collection of the loop is type checked with the outer block
+    assert_equal ["break 1", "next 2"], jump_sources(<<~RUBY)
       foo do
-        for x in bar
-          break 1
+        for x in (break 1 if bar; baz)
+          break :inner
         end
+        next 2
       end
     RUBY
   end
