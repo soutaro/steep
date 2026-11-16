@@ -245,10 +245,6 @@ class TypeConstructionTest < Minitest::Test
 
   def test_splat_arg2: () -> untyped
 
-  def test_splat_arg_nil: () -> untyped
-
-  def test_splat_arg_nil_mismatch: () -> untyped
-
   def test_self: () -> untyped
 
   def test_self_send: () -> untyped
@@ -746,6 +742,10 @@ class TypeConstructionTest < Minitest::Test
   def test_missing_args_with_csend: () -> untyped
 
   def test_splat_arg_no_param: () -> untyped
+
+  def test_splat_arg_nil: () -> untyped
+
+  def test_splat_arg_nil_mismatch: () -> untyped
 
   def test_generic_alias_error: () -> untyped
 
