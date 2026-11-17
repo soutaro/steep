@@ -68,17 +68,17 @@ module Steep
 
         def module?: () -> bool
 
-        def comments: () -> Array[RBS::AST::Comment?]
+        def comments: () -> Array[::RBS::AST::Comment?]
 
-        type const_decl = RBS::AST::Declarations::Constant
-                        | RBS::AST::Declarations::Class
-                        | RBS::AST::Declarations::Module
-                        | RBS::AST::Declarations::ClassAlias
-                        | RBS::AST::Declarations::ModuleAlias
-                        | RBS::AST::Ruby::Declarations::ClassDecl
-                        | RBS::AST::Ruby::Declarations::ModuleDecl
-                        | RBS::AST::Ruby::Declarations::ConstantDecl
-                        | RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
+        type const_decl = ::RBS::AST::Declarations::Constant
+                        | ::RBS::AST::Declarations::Class
+                        | ::RBS::AST::Declarations::Module
+                        | ::RBS::AST::Declarations::ClassAlias
+                        | ::RBS::AST::Declarations::ModuleAlias
+                        | ::RBS::AST::Ruby::Declarations::ClassDecl
+                        | ::RBS::AST::Ruby::Declarations::ModuleDecl
+                        | ::RBS::AST::Ruby::Declarations::ConstantDecl
+                        | ::RBS::AST::Ruby::Declarations::ClassModuleAliasDecl
 
         def decl: () -> const_decl
 
@@ -97,11 +97,11 @@ module Steep
 
         attr_reader receiver_type: AST::Types::Name::Instance | AST::Types::Name::Interface | AST::Types::Name::Singleton
 
-        attr_reader method_types: Array[RBS::MethodType]
+        attr_reader method_types: Array[::RBS::MethodType]
 
         attr_reader method_name: method_name
 
-        attr_reader method_member: RBS::Definition::Method::method_member
+        attr_reader method_member: ::RBS::Definition::Method::method_member
 
         attr_reader deprecated: bool
 
@@ -110,12 +110,12 @@ module Steep
           range: Range,
           receiver_type: AST::Types::Name::Instance | AST::Types::Name::Interface | AST::Types::Name::Singleton,
           method_name: method_name,
-          method_types: Array[RBS::MethodType],
-          method_member: RBS::Definition::Method::method_member,
+          method_types: Array[::RBS::MethodType],
+          method_member: ::RBS::Definition::Method::method_member,
           deprecated: bool
         ) -> void
 
-        %a{pure} def comment: () -> RBS::AST::Comment?
+        %a{pure} def comment: () -> ::RBS::AST::Comment?
       end
 
       # Method name completion item with *complex* receiver type
@@ -129,23 +129,23 @@ module Steep
 
         attr_reader receiver_type: AST::Types::t
 
-        attr_reader method_types: Array[RBS::MethodType]
+        attr_reader method_types: Array[::RBS::MethodType]
 
         attr_reader method_decls: Array[MethodCall::MethodDecl]
 
         def initialize: (
           identifier: Symbol,
           range: Range,
-          method_types: Array[RBS::MethodType],
+          method_types: Array[::RBS::MethodType],
           method_decls: Array[MethodCall::MethodDecl],
           receiver_type: AST::Types::t
         ) -> void
 
         def method_names: () -> Array[method_name]
 
-        def method_definitions: () -> Hash[method_name, RBS::Definition::Method::method_member]
+        def method_definitions: () -> Hash[method_name, ::RBS::Definition::Method::method_member]
 
-        def defining_method_name: (TypeName, Symbol name, RBS::Definition::Method::method_member) -> method_name
+        def defining_method_name: (TypeName, Symbol name, ::RBS::Definition::Method::method_member) -> method_name
       end
 
       # Method name completion item for generated methods, like `#first` in tuple types
@@ -159,13 +159,13 @@ module Steep
 
         attr_reader receiver_type: AST::Types::t
 
-        attr_reader method_types: Array[RBS::MethodType]
+        attr_reader method_types: Array[::RBS::MethodType]
 
         def initialize: (
           identifier: Symbol,
           range: Range,
           receiver_type: AST::Types::t,
-          method_types: Array[RBS::MethodType]
+          method_types: Array[::RBS::MethodType]
         ) -> void
       end
 
@@ -182,7 +182,7 @@ module Steep
 
         def decl: () -> Server::LSPFormatter::summarizable_decl
 
-        def comments: () -> Array[RBS::AST::Comment]
+        def comments: () -> Array[::RBS::AST::Comment]
       end
 
       class TextItem
