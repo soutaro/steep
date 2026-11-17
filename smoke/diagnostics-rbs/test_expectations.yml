@@ -311,7 +311,7 @@
         line: 2
         character: 16
     severity: ERROR
-    message: Cannot find type `::bar`
+    message: Cannot find type `bar`
     code: RBS::UnknownTypeName
   - range:
       start:
@@ -321,7 +321,7 @@
         line: 4
         character: 14
     severity: ERROR
-    message: Cannot find type `::World`
+    message: Cannot find type `World`
     code: RBS::UnknownTypeName
 - file: unknown-type-name.rbs
   diagnostics:
