@@ -1,6 +1,16 @@
 GIT
+  remote: https://github.com/ruby/rbs.git
+  revision: bbdfbf56890cb409bde55c42e5c2ae0979edc4e8
+  branch: master
+  specs:
+    rbs (4.3.0.dev)
+      logger
+      prism (>= 1.6.0)
+      tsort
+
+GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 2fb6e649902f21e093f90378737dc38acde642c8
+  revision: 7991b4633a38005cb0cddb4944965a38598e14e3
   branch: master
   specs:
     steep (2.1.0)
@@ -62,10 +72,6 @@ GEM
     rb-fsevent (0.11.2)
     rb-inotify (0.11.1)
       ffi (~> 1.0)
-    rbs (4.2.0)
-      logger
-      prism (>= 1.6.0)
-      tsort
     rbs-inline (0.14.0)
       prism (>= 0.29)
       rbs (~> 4.0)
@@ -97,6 +103,7 @@ DEPENDENCIES
   debug
   minitest
   mutex_m
+  rbs!
   rbs-inline
   ruby-lsp
   steep!
