@@ -6,3 +6,4 @@ gem "rbs-inline", require: false
 gem "ruby-lsp", require: false
 gem "debug", require: false, platform: :mri
 gem "minitest"
+gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"
