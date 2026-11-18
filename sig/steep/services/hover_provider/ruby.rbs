@@ -22,7 +22,7 @@ module Steep
 
         def content_for_inline: (target: Project::Target, path: Pathname, line: Integer, column: Integer) -> Ruby::content?
 
-        def type_name_content: (RBS::Environment environment, RBS::TypeName type_name, RBS::Location location) -> (ClassTypeContent | InterfaceTypeContent | TypeAliasContent | nil)
+        def type_name_content: (::RBS::Environment environment, ::RBS::TypeName type_name, ::RBS::Location location) -> (ClassTypeContent | InterfaceTypeContent | TypeAliasContent | nil)
       end
     end
   end

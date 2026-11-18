@@ -372,11 +372,11 @@ module Steep
 
           type = rest_types.empty? ? nil : AST::Types::Union.build(types: rest_types)
 
-          method_param = PositionalRestParameter.new(name: name, type: type, node: arg)
-          instance.params[name] = method_param
+          rest_param = PositionalRestParameter.new(name: name, type: type, node: arg)
+          instance.params[name] = rest_param
           if has_error
             instance.errors << Diagnostic::Ruby::DifferentMethodParameterKind.new(
-              method_param: method_param,
+              method_param: rest_param,
               method_type: method_type
             )
           end

@@ -102,12 +102,12 @@ type b = no_such_type
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::X::Y::Z"), error.name
+        assert_equal RBS::TypeName.parse("X::Y::Z"), error.name
       end
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::no_such_type"), error.name
+        assert_equal RBS::TypeName.parse("no_such_type"), error.name
       end
     end
   end
@@ -185,7 +185,7 @@ end
       assert_predicate validator, :has_error?
       assert_any! validator.each_error.to_a, size: 1 do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Arraay"), error.name
+        assert_equal RBS::TypeName.parse("Arraay"), error.name
       end
     end
   end
@@ -222,7 +222,7 @@ end
 
       assert_any validator.each_error do |error|
         error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
-          error.name == RBS::TypeName.parse("::Arryay")
+          error.name == RBS::TypeName.parse("Arryay")
       end
     end
   end
@@ -1494,7 +1494,7 @@ $baz: Hash[Integer]
       # The types in the method types are validated with the declarations
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Strin"), error.name
+        assert_equal RBS::TypeName.parse("Strin"), error.name
         assert_equal 2, error.location&.start_line
       end
 
@@ -1508,7 +1508,7 @@ $baz: Hash[Integer]
       # The nested declarations are validated
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Unknown"), error.name
+        assert_equal RBS::TypeName.parse("Unknown"), error.name
         assert_equal 7, error.location&.start_line
       end
 
@@ -1586,12 +1586,12 @@ end
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Strin"), error.name
+        assert_equal RBS::TypeName.parse("Strin"), error.name
         assert_equal 2, error.location&.start_line
       end
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Integr"), error.name
+        assert_equal RBS::TypeName.parse("Integr"), error.name
         assert_equal 8, error.location&.start_line
       end
       assert_any! validator.each_error do |error|
@@ -1639,6 +1639,46 @@ end
       end
 
       assert_equal 5, validator.each_error.count
+    end
+  end
+
+  def test_validate_source__shadowed_type_name
+    with_checker <<-EOF do |checker|
+module Lib
+  class Thing
+  end
+end
+
+module App
+  class Lib
+  end
+
+  class Foo
+    type t = Lib::Thing
+
+    attr_reader thing: Lib::Thing
+
+    def things: () -> Array[Lib::Thing]
+
+    def thing_class: () -> singleton(::Lib::Thing)
+  end
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      source = checker.factory.env.sources.find { Pathname(_1.buffer.name).basename.to_s == "0.rbs" } or raise
+      validator.validate_source(source)
+
+      # `Lib` in `App` is `App::Lib`, which doesn't have `Thing`
+      [11, 13, 15].each do |line|
+        assert_any! validator.each_error do |error|
+          assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+          assert_equal RBS::TypeName.parse("Lib::Thing"), error.name
+          assert_equal line, error.location&.start_line
+        end
+      end
+
+      assert_equal 3, validator.each_error.count
     end
   end
 end

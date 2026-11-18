@@ -113,7 +113,15 @@ module Steep
       #
       private def validate_type_name_deprecation: (RBS::TypeName, RBS::Location[untyped, untyped]) -> void
 
+      # Returns the type and its descendants of which type names are not resolved
+      #
+      # The RBS environment keeps the type names that cannot be resolved as they are written, which are not absolute.
+      #
+      private def unresolved_types: (RBS::Types::t) -> Array[RBS::Types::ClassInstance | RBS::Types::ClassSingleton | RBS::Types::Interface | RBS::Types::Alias]
+
       # Validate a type and its descendants
+      #
+      # The type names that are not resolved are reported as `UnknownTypeName`, and the type is not validated further.
       #
       def validate_type: (RBS::Types::t `type`) -> void
 
