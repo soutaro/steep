@@ -59,37 +59,118 @@ module Steep
 
       attr_reader :implicitly_returns_nil
 
-      def initialize(status:, implicitly_returns_nil:)
+      attr_reader :type_name_dependencies
+
+      attr_reader :env_rbs_paths
+
+      def initialize(status:, implicitly_returns_nil:, type_name_dependencies:, env_rbs_paths:)
         @status = status
         @implicitly_returns_nil = implicitly_returns_nil
+        @type_name_dependencies = type_name_dependencies
+        @env_rbs_paths = env_rbs_paths
       end
 
       def self.load_from(loader, implicitly_returns_nil:)
-        env = RBS::Environment.from_loader(loader).resolve_type_names
+        dependencies = RBS::Environment::TypeNameDependencies.new
+        env = RBS::Environment.from_loader(loader).resolve_type_names(dependencies: dependencies)
         builder = RBS::DefinitionBuilder.new(env: env)
         status = LoadedStatus.new(builder: builder, files: {}, implicitly_returns_nil: implicitly_returns_nil)
-        new(status: status, implicitly_returns_nil: implicitly_returns_nil)
+        new(status: status, implicitly_returns_nil: implicitly_returns_nil, type_name_dependencies: dependencies, env_rbs_paths: Set.new(env.buffers.map(&:name)))
       rescue RBS::ParsingError => exn
         # When library RBS contains syntax error, load only *core* libraries and set `SyntaxErrorStatus`.
         core_loader = RBS::EnvironmentLoader.new(core_root: loader.core_root)
-        core_env = RBS::Environment.from_loader(core_loader).resolve_type_names
+        dependencies = RBS::Environment::TypeNameDependencies.new
+        core_env = RBS::Environment.from_loader(core_loader).resolve_type_names(dependencies: dependencies)
         status = SyntaxErrorStatus.new(
           files: {},
           changed_paths: Set[],
           diagnostics: [Diagnostic::Signature.from_rbs_error(exn, factory: _ = nil)],
           last_builder: RBS::DefinitionBuilder.new(env: core_env)
         )
-        service = new(status: status, implicitly_returns_nil: implicitly_returns_nil)
-        # Add the failed library path to env_rbs_paths so it's recognized as a library path by TypeCheckService
+        env_rbs_paths = Set.new(core_env.buffers.map(&:name))
+        # The failed library path is a library path for TypeCheckService
         if exn.location
-          service.env_rbs_paths << Pathname(exn.location.buffer.name)
+          env_rbs_paths << Pathname(exn.location.buffer.name)
         end
-        service
+        new(status: status, implicitly_returns_nil: implicitly_returns_nil, type_name_dependencies: dependencies, env_rbs_paths: env_rbs_paths)
       end
 
-      def env_rbs_paths
-        @env_rbs_paths ||= latest_env.buffers.each.with_object(Set[]) do |buffer, set|
-          set << Pathname(buffer.name)
+      def self.library_paths(loader)
+        # `EnvironmentLoader#load` adds `stringio` to the libraries, for migrating it to the stdlib
+        if loader.core_root && loader.libs.none? { _1.name == "stringio" }
+          loader.add(library: "stringio", version: nil)
+        end
+
+        paths = Set[] #: Set[Pathname]
+        loader.each_dir do |source, dir|
+          RBS::FileFinder.each_file(dir, skip_hidden: !source.is_a?(Pathname)) do |path|
+            paths << path
+          end
+        end
+        paths
+      end
+
+      def derive(library_paths:, changes:, implicitly_returns_nil:)
+        return unless status.is_a?(LoadedStatus)
+
+        new_files = {} #: Hash[Pathname, file_status]
+        replaced = {} #: Hash[Pathname, file_status]
+        changes.each do |path, cs|
+          content = cs.reduce("") {|text, change| change.apply_to(text) } # $ String
+
+          if (file = files.fetch(path, nil)) && same_content?(file, content)
+            new_files[path] = file
+          else
+            file = path.extname == ".rbs" ? parse_rbs_file(path, content) : parse_ruby_file(path, content)
+            return if error_file?(file)
+            new_files[path] = file
+            replaced[path] = file
+          end
+        end
+
+        base_sources = latest_env.sources.to_h { [_1.buffer.name, _1] } #: Hash[Pathname, RBS::Source::t]
+        sources = {} #: Hash[Pathname, RBS::Source::t]
+        env = RBS::Environment.new
+
+        library_paths.each do |path|
+          unless source = base_sources.fetch(path, nil)
+            buffer = RBS::Buffer.new(name: path, content: path.read(encoding: "UTF-8"))
+            _, dirs, decls = RBS::Parser.parse_signature(buffer)
+            source = sources[path] = RBS::Source::RBS.new(buffer, dirs, decls)
+          end
+          env.add_source(source)
+        end
+
+        new_files.each do |path, file|
+          if replaced.key?(path)
+            source = sources[path] = file_source(file)
+          else
+            source = base_sources.fetch(path)
+          end
+          env.add_source(source)
+        end
+
+        env.validate_type_params
+
+        removed = (env_rbs_paths - library_paths) | Set.new(files.each_key.reject { new_files.key?(_1) })
+        paths = removed | Set.new(sources.each_key)
+
+        result, _, dependencies = resolve_env(env, paths, sources)
+        return unless result.is_a?(RBS::DefinitionBuilder::AncestorBuilder)
+
+        builder = RBS::DefinitionBuilder.new(env: result.env, ancestor_builder: result)
+        status = LoadedStatus.new(builder: builder, files: new_files, implicitly_returns_nil: implicitly_returns_nil)
+        SignatureService.new(status: status, implicitly_returns_nil: implicitly_returns_nil, type_name_dependencies: (dependencies or raise), env_rbs_paths: library_paths)
+      rescue RBS::ParsingError, RBS::LoadingError
+        nil
+      end
+
+      def same_content?(file, content)
+        case file
+        when RBSFileStatus
+          file.content == content
+        when RBS::Source::Ruby
+          file.buffer.content == content
         end
       end
 
@@ -212,6 +293,10 @@ module Steep
           change.apply_to(text)
         end
 
+        parse_rbs_file(path, content)
+      end
+
+      def parse_rbs_file(path, content)
         buffer = RBS::Buffer.new(name: path, content: content)
         source =
           begin
@@ -234,6 +319,10 @@ module Steep
           change.apply_to(text)
         end
 
+        parse_ruby_file(path, content)
+      end
+
+      def parse_ruby_file(path, content)
         buffer = RBS::Buffer.new(name: path, content: content)
         prism = Prism.parse(buffer.content, filepath: path.to_s)
         result = RBS::InlineParser.parse(buffer, prism)
@@ -282,74 +371,112 @@ module Steep
               last_builder: latest_builder,
               changed_paths: paths
             )
+            Set[]
           else
             files = self.files.merge(updates)
-            updated_files = files.slice(*paths.to_a)
-            result =
+            sources = files.slice(*paths.to_a).transform_values { file_source(_1) }
+            env_update =
               Steep.measure "#update_env with updated #{paths.size} files" do
-                update_env(updated_files, paths: paths)
+                update_env(paths, sources)
               end
+            result, resolved_paths, dependencies = env_update
 
-            @status = case result
-                      when Array
-                        AncestorErrorStatus.new(
-                          changed_paths: paths,
-                          last_builder: latest_builder,
-                          diagnostics: result,
-                          files: files
-                        )
-                      when RBS::DefinitionBuilder::AncestorBuilder
-                        builder2 = update_builder(ancestor_builder: result, paths: paths)
-                        LoadedStatus.new(builder: builder2, files: files, implicitly_returns_nil: implicitly_returns_nil)
-                      end
+            case result
+            when Array
+              @status = AncestorErrorStatus.new(
+                changed_paths: paths,
+                last_builder: latest_builder,
+                diagnostics: result,
+                files: files
+              )
+              Set[]
+            when RBS::DefinitionBuilder::AncestorBuilder
+              builder2 = update_builder(ancestor_builder: result, paths: paths + resolved_paths)
+              @status = LoadedStatus.new(builder: builder2, files: files, implicitly_returns_nil: implicitly_returns_nil)
+              @type_name_dependencies = (dependencies or raise)
+              resolved_paths
+            end
           end
         end
       end
 
-      def update_env(updated_files, paths:)
+      def file_source(file)
+        case file
+        when RBSFileStatus
+          (source = file.source).is_a?(RBS::Source::RBS) or raise "Cannot be an error"
+          source
+        when RBS::Source::Ruby
+          file
+        end
+      end
+
+      def update_env(paths, sources)
         Steep.logger.tagged "#update_env" do
+          env =
+            Steep.measure "Replacing out of date decls" do
+              replace_sources(latest_env, paths, sources).tap(&:validate_type_params)
+            rescue RBS::LoadingError
+              nil
+            end
+
+          unless env
+            errors = [] #: Array[RBS::BaseError]
+            env = latest_env.unload(paths)
+
+            Steep.measure "Loading new decls" do
+              sources.each_value do |source|
+                env.add_source(source)
+              rescue RBS::LoadingError => exn
+                errors << exn
+              end
+            end
+
+            Steep.measure "validate type params" do
+              begin
+                env.validate_type_params
+              rescue RBS::LoadingError => exn
+                errors << exn
+              end
+            end
+
+            unless errors.empty?
+              diagnostics = errors.map {|error|
+                # Factory will not be used because of the possible error types.
+                Diagnostic::Signature.from_rbs_error(error, factory: _ = nil)
+              }
+              return [diagnostics, Set[], nil]
+            end
+          end
+
+          resolve_env(env, paths, sources)
+        end
+      end
+
+      def resolve_env(env, paths, sources)
+        Steep.logger.tagged "#resolve_env" do
           errors = [] #: Array[RBS::BaseError]
           new_decls = Set[].compare_by_identity #: Set[RBS::AST::Declarations::t | RBS::AST::Ruby::Declarations::t]
+          sources.each_value { new_decls.merge(_1.declarations) }
 
+          affected_paths =
+            Steep.measure "Finding the files to resolve again" do
+              type_name_dependencies.affected_paths(latest_env, env, except: paths)
+            end
+
+          unless affected_paths.empty?
+            Steep.logger.info { "Resolving the type names of #{affected_paths.size} files again: #{affected_paths.take(10).join(", ")}#{affected_paths.size > 10 ? ", ..." : ""}" }
+            unresolved = unresolved_sources(affected_paths)
+            unresolved.each_value { new_decls.merge(_1.declarations) }
+            env = replace_sources(env, affected_paths, unresolved)
+          end
+
+          # The dependencies are dropped with the environment if it has errors
+          dependencies = type_name_dependencies.dup
           env =
-            Steep.measure "Deleting out of date decls" do
-              latest_env.unload(paths)
+            Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
+              env.resolve_type_names(only: new_decls, dependencies: dependencies)
             end
-
-          Steep.measure "Loading new decls" do
-            updated_files.each_value do |content|
-              case content
-              when RBSFileStatus
-                (source = content.source).is_a?(RBS::Source::RBS) or raise "Cannot be an error"
-                env.add_source(source)
-                new_decls.merge(source.declarations)
-              when RBS::Source::Ruby
-                env.add_source(content)
-                new_decls.merge(content.declarations)
-              end
-            rescue RBS::LoadingError => exn
-              errors << exn
-            end
-          end
-
-          Steep.measure "validate type params" do
-            begin
-              env.validate_type_params
-            rescue RBS::LoadingError => exn
-              errors << exn
-            end
-          end
-
-          unless errors.empty?
-            return errors.map {|error|
-              # Factory will not be used because of the possible error types.
-              Diagnostic::Signature.from_rbs_error(error, factory: _ = nil)
-            }
-          end
-
-          Steep.measure "resolve type names with #{new_decls.size} top-level decls" do
-            env = env.resolve_type_names(only: new_decls)
-          end
+          resolved_paths = changed_paths(affected_paths, env: env)
 
           builder = RBS::DefinitionBuilder::AncestorBuilder.new(env: env)
 
@@ -366,10 +493,77 @@ module Steep
           unless errors.empty?
             errors.uniq! { |e| [e.class, e.message] }
             factory = AST::Types::Factory.new(builder: RBS::DefinitionBuilder.new(env: env, ancestor_builder: builder))
-            return errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
+            diagnostics = errors.map {|error| Diagnostic::Signature.from_rbs_error(error, factory: factory) }
+            return [diagnostics, Set[], nil]
           end
 
-          builder
+          [builder, resolved_paths, dependencies]
+        end
+      end
+
+      def unresolved_sources(paths)
+        sources = latest_env.sources.each.with_object({}) do |source, hash| #$ Hash[Pathname, RBS::Source::t]
+          hash[source.buffer.name] = source if paths.include?(source.buffer.name)
+        end
+
+        paths.to_h do |path|
+          source = sources.fetch(path)
+
+          case file = files.fetch(path, nil)
+          when RBSFileStatus
+            if (file_source = file.source).is_a?(RBS::Source::RBS)
+              next [path, file_source]
+            end
+          when RBS::Source::Ruby
+            next [path, file]
+          end
+
+          case source
+          when RBS::Source::RBS
+            _, dirs, decls = RBS::Parser.parse_signature(source.buffer)
+            [path, RBS::Source::RBS.new(source.buffer, dirs, decls)]
+          when RBS::Source::Ruby
+            result = RBS::InlineParser.parse(source.buffer, source.prism_result)
+            [path, RBS::Source::Ruby.new(source.buffer, source.prism_result, result.declarations, result.diagnostics)]
+          end
+        end
+      end
+
+      def replace_sources(env, paths, sources)
+        new_env = RBS::Environment.new
+        replaced = Set[] #: Set[Pathname]
+
+        env.sources.each do |source|
+          path = source.buffer.name
+          if paths.include?(path)
+            if new_source = sources.fetch(path, nil)
+              new_env.add_source(new_source)
+              replaced << path
+            end
+          else
+            new_env.add_source(source)
+          end
+        end
+
+        sources.each do |path, source|
+          new_env.add_source(source) unless replaced.include?(path)
+        end
+
+        new_env
+      end
+
+      def changed_paths(paths, env:)
+        return Set[] if paths.empty?
+
+        new_sources = env.sources.each.with_object({}) do |source, hash| #$ Hash[Pathname, RBS::Source::t]
+          hash[source.buffer.name] = source if paths.include?(source.buffer.name)
+        end
+
+        latest_env.sources.each.with_object(Set[]) do |source, set| #$ Set[Pathname]
+          path = source.buffer.name
+          if new_source = new_sources.fetch(path, nil)
+            set << path unless new_source.declarations == source.declarations
+          end
         end
       end
 

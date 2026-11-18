@@ -127,5 +127,7 @@ class MasterTest < Minitest::Test
 
   def test_index_changed_signatures_after_type_check: () -> untyped
 
+  def test_index_signatures_resolved_again: () -> untyped
+
   def test_broadcast_file_contents: () -> untyped
 end
