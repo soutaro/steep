@@ -76,7 +76,7 @@ module Steep
 
           def size: () -> Integer
 
-          def self.build: (required: Array[AST::Types::t], optional: Array[AST::Types::t], rest: AST::Types::t?) -> PositionalParams?
+          def self.build: (required: Array[AST::Types::t], optional: Array[AST::Types::t], rest: AST::Types::t?, trailing: Array[AST::Types::t]) -> PositionalParams?
 
           extend Utils
 
@@ -145,11 +145,13 @@ module Steep
 
         %a{pure} def rest: () -> AST::Types::t?
 
+        def trailing: () -> Array[AST::Types::t]
+
         attr_reader positional_params: PositionalParams?
 
         attr_reader keyword_params: KeywordParams
 
-        def self.build: (?required: Array[AST::Types::t], ?optional: Array[AST::Types::t], ?rest: AST::Types::t?, ?required_keywords: ::Hash[Symbol, AST::Types::t], ?optional_keywords: ::Hash[Symbol, AST::Types::t], ?rest_keywords: AST::Types::t?) -> Params
+        def self.build: (?required: Array[AST::Types::t], ?optional: Array[AST::Types::t], ?rest: AST::Types::t?, ?trailing: Array[AST::Types::t], ?required_keywords: ::Hash[Symbol, AST::Types::t], ?optional_keywords: ::Hash[Symbol, AST::Types::t], ?rest_keywords: AST::Types::t?) -> Params
 
         def initialize: (positional_params: PositionalParams?, keyword_params: KeywordParams) -> void
 
