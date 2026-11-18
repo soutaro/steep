@@ -7,6 +7,11 @@ module Steep
         @base_dir = base_dir
       end
 
+      # Yields the paths of the files of the target
+      #
+      # `command_line_patterns` narrows down the Ruby code files only. Every signature file and every inline source file
+      # is yielded, because they make the environment, and narrowing the files to check must not change the types.
+      #
       def each_path_in_target(target, command_line_patterns = [], &block)
         if block
           done = Set[] #: Set[Pathname]
@@ -20,12 +25,12 @@ module Steep
 
           target.groups.each do |group|
             each_path_in_patterns(group.source_pattern, command_line_patterns, &handler)
-            each_path_in_patterns(group.inline_source_pattern, command_line_patterns, &handler)
+            each_path_in_patterns(group.inline_source_pattern, &handler)
             each_path_in_patterns(group.signature_pattern, &handler)
           end
 
           each_path_in_patterns(target.source_pattern, command_line_patterns, &handler)
-          each_path_in_patterns(target.inline_source_pattern, command_line_patterns, &handler)
+          each_path_in_patterns(target.inline_source_pattern, &handler)
           each_path_in_patterns(target.signature_pattern, &handler)
         else
           enum_for :each_path_in_target, target, command_line_patterns
