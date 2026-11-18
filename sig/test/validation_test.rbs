@@ -96,4 +96,6 @@ class ValidationTest < Minitest::Test
   def test_validate_source__inline: () -> untyped
 
   def test_validate_source__ancestor_application: () -> untyped
+
+  def test_validate_source__shadowed_type_name: () -> untyped
 end

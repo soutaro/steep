@@ -194,8 +194,36 @@ module Steep
         end
       end
 
+      # Returns the type and its descendants of which type names are not resolved
+      #
+      # The RBS environment keeps the type names that cannot be resolved as they are written, which are not absolute.
+      #
+      def unresolved_types(type)
+        types = [] #: Array[RBS::Types::ClassInstance | RBS::Types::ClassSingleton | RBS::Types::Interface | RBS::Types::Alias]
+
+        case type
+        when RBS::Types::ClassInstance, RBS::Types::ClassSingleton, RBS::Types::Interface, RBS::Types::Alias
+          types << type unless type.name.absolute?
+        end
+
+        type.each_type do |child|
+          types.concat(unresolved_types(child))
+        end
+
+        types
+      end
+
       def validate_type(type)
         Steep.logger.debug { "#{Location.to_string type.location}: Validating #{type}..." }
+
+        # The type names that are not resolved are reported here, and the type is not validated further.
+        # `RBS::Validator` resolves them again at the top level, where `RBS::AST::Comment` written in a namespace that has
+        # its own `RBS` constant is found as `::RBS::AST::Comment`, while the type checker translates them to `untyped`.
+        unresolved = unresolved_types(type)
+        unresolved.each do |unresolved_type|
+          push_error Diagnostic::Signature::UnknownTypeName.new(name: unresolved_type.name, location: unresolved_type.location)
+        end
+        return unless unresolved.empty?
 
         validator.validate_type(type, context: nil)
         validate_type_0(type)
