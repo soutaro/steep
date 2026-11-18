@@ -911,6 +911,40 @@ end
     end
   end
 
+  def test_check_with_directory_command_line_pattern
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib/foo").mkpath
+      (current_dir + "lib/foo/bar.rb").write(<<-EOF)
+1 + "2"
+      EOF
+      (current_dir + "lib/baz.rb").write(<<-EOF)
+1 + "2"
+      EOF
+
+      (current_dir + "sig").mkdir
+      (current_dir + "sig/foo.rbs").write(<<-EOF)
+class Foo
+  def foo: () -> UnknownType
+end
+      EOF
+
+      stdout, status = sh(*steep, "check", "lib/foo/", "sig")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/lib\/foo\/bar\.rb:1:0: \[error\]/, stdout)
+      assert_match(/sig\/foo\.rbs:2:17: \[error\] Cannot find type `::UnknownType`/, stdout)
+      refute_match(/lib\/baz\.rb/, stdout)
+      assert_match(/Detected 2 problems from 2 files/, stdout)
+    end
+  end
+
   def test_check_expression_success
     stdout, status = sh(*steep, "check", "-e", "1 + 2")
 
