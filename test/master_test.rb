@@ -2454,6 +2454,75 @@ end
     end
   end
 
+  def test_index_signatures_resolved_again
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+
+target :test do
+  unreferenced!
+  signature "sig_test"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "sig_test").mkpath
+      (current_dir + "lib/a.rb").write("")
+      (current_dir + "sig/a.rbs").write("module M\n  class A\n    def foo: () -> B\n  end\nend\n")
+      (current_dir + "sig/b.rbs").write("class B\nend\n")
+      (current_dir + "sig/m_b.rbs").write("")
+      (current_dir + "sig_test/m_b.rbs").write("")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(worker)
+      )
+      master.typecheck_automatically = false
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+      run_environment_jobs(master)
+
+      database = master.type_check_database
+      references = -> (name) { database.references(name).map { [_1.path, _1.start_line] } }
+      check = -> (path) do
+        master.process_message_from_client({
+          id: "check",
+          method: TypeCheck::METHOD,
+          params: { library_paths: [], signature_paths: [["lib", path.to_s]], code_paths: [], inline_paths: [] }
+        })
+        flush_queue(master.write_queue)
+        run_environment_jobs(master)
+      end
+
+      assert_equal [[current_dir + "sig/a.rbs", 2]], references.("::B")
+
+      # `sig/a.rbs` is resolved again in the environment of `test`, but it's indexed with `lib`
+      master.controller.push_file_change(current_dir + "sig_test/m_b.rbs", "module M\n  class B\n  end\nend\n")
+      check.(current_dir + "sig_test/m_b.rbs")
+      assert_equal [[current_dir + "sig/a.rbs", 2]], references.("::B")
+      assert_empty references.("::M::B")
+
+      # `sig/a.rbs` is resolved again in the environment of `lib`, and indexed again
+      master.controller.push_file_change(current_dir + "sig/m_b.rbs", "module M\n  class B\n  end\nend\n")
+      check.(current_dir + "sig/m_b.rbs")
+      assert_empty references.("::B")
+      assert_equal [[current_dir + "sig/a.rbs", 2]], references.("::M::B")
+    end
+  end
+
   def test_broadcast_file_contents
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
