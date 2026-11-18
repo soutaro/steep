@@ -46,6 +46,113 @@ class TypeCheckServiceTest < Minitest::Test
     }
   end
 
+  def method_types(service, type_name, method_name)
+    definition = service.latest_builder.build_instance(RBS::TypeName.parse(type_name))
+    definition.methods.fetch(method_name).defs.map { _1.type.to_s }
+  end
+
+  def test_initialize__derived_libraries
+    project = Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
+      Project::DSL.eval(project) do
+        target :core do
+          check "lib/core.rb"
+          signature "sig/core.rbs"
+          library "securerandom"
+        end
+
+        target :main do
+          check "lib/main.rb"
+          signature "sig/main.rbs"
+          library "digest"
+        end
+      end
+    end
+
+    service = TypeCheckService.new(project: project)
+    core = service.signature_services.fetch(:core)
+    main = service.signature_services.fetch(:main)
+
+    # `main` is derived from `core`: `securerandom` is removed and `digest` is added
+    assert_operator core.latest_env.class_decls, :key?, RBS::TypeName.parse("::SecureRandom")
+    refute_operator core.latest_env.class_decls, :key?, RBS::TypeName.parse("::Digest")
+    refute_operator main.latest_env.class_decls, :key?, RBS::TypeName.parse("::SecureRandom")
+    assert_operator main.latest_env.class_decls, :key?, RBS::TypeName.parse("::Digest")
+
+    project.targets.each do |target|
+      derived = service.signature_services.fetch(target.name)
+      fresh = Services::SignatureService.load_from(target.new_env_loader, implicitly_returns_nil: target.implicitly_returns_nil)
+
+      assert_equal fresh.env_rbs_paths, derived.env_rbs_paths
+      assert_equal(
+        fresh.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] },
+        derived.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] }
+      )
+    end
+  end
+
+  def test_update__derived_files
+    service = Services::TypeCheckService.new(project: project)
+
+    paths = service.update(changes: reset_changes.merge(
+      Pathname("sig/core.rbs") => [ContentChange.string(<<~RBS)],
+        module M
+          class A
+            def foo: () -> B
+          end
+        end
+
+        class B
+        end
+      RBS
+      Pathname("sig/core_test.rbs") => [ContentChange.string(<<~RBS)]
+        module M
+          class B
+          end
+        end
+      RBS
+    ))
+    # The targets other than the base are derived, and no file is resolved again in place
+    assert_equal({}, paths)
+
+    core = service.signature_services.fetch(:core)
+    main = service.signature_services.fetch(:main)
+    test = service.signature_services.fetch(:test)
+
+    # `test` is unreferenced: only the target loads `sig/core_test.rbs`
+    assert_equal ["() -> ::B"], method_types(core, "::M::A", :foo)
+    assert_equal ["() -> ::B"], method_types(main, "::M::A", :foo)
+    assert_equal ["() -> ::M::B"], method_types(test, "::M::A", :foo)
+    refute_operator core.files, :key?, Pathname("sig/core_test.rbs")
+    assert_operator test.files, :key?, Pathname("sig/core_test.rbs")
+
+    # The sources are shared unless they are affected
+    assert_same core.latest_source(Pathname("sig/main.rbs")), main.latest_source(Pathname("sig/main.rbs"))
+    assert_same core.latest_source(Pathname("sig/main.rbs")), test.latest_source(Pathname("sig/main.rbs"))
+    assert_same core.latest_source(Pathname("sig/core.rbs")), main.latest_source(Pathname("sig/core.rbs"))
+    refute_same core.latest_source(Pathname("sig/core.rbs")), test.latest_source(Pathname("sig/core.rbs"))
+
+    project.targets.each do |target|
+      derived = service.signature_services.fetch(target.name)
+      fresh = Services::SignatureService.load_from(target.new_env_loader, implicitly_returns_nil: target.implicitly_returns_nil)
+      fresh.update(reset_changes.merge(
+        Pathname("sig/core.rbs") => [ContentChange.string(core.files.fetch(Pathname("sig/core.rbs")).content)],
+        Pathname("sig/core_test.rbs") => [ContentChange.string(test.files.fetch(Pathname("sig/core_test.rbs")).content)]
+      ).select {|path, _| (t = project.target_for_signature_path(path) || project.target_for_inline_source_path(path)) && (t == target || !t.unreferenced) })
+
+      assert_equal fresh.files.keys.sort, derived.files.keys.sort
+      assert_equal(
+        fresh.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] },
+        derived.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] }
+      )
+    end
+
+    # The derived services are updated in place after
+    paths = service.update(changes: { Pathname("sig/core_test.rbs") => [ContentChange.string("")] })
+    assert_equal({ test: Set[Pathname("sig/core.rbs")] }, paths)
+    assert_same test, service.signature_services.fetch(:test)
+    assert_equal ["() -> ::B"], method_types(test, "::M::A", :foo)
+  end
+
   def test_update_file__signature
     service = Services::TypeCheckService.new(project: project)
 
