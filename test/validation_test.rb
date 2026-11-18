@@ -102,12 +102,12 @@ type b = no_such_type
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::X::Y::Z"), error.name
+        assert_equal RBS::TypeName.parse("X::Y::Z"), error.name
       end
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::no_such_type"), error.name
+        assert_equal RBS::TypeName.parse("no_such_type"), error.name
       end
     end
   end
@@ -185,7 +185,7 @@ end
       assert_predicate validator, :has_error?
       assert_any! validator.each_error.to_a, size: 1 do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Arraay"), error.name
+        assert_equal RBS::TypeName.parse("Arraay"), error.name
       end
     end
   end
@@ -222,7 +222,7 @@ end
 
       assert_any validator.each_error do |error|
         error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
-          error.name == RBS::TypeName.parse("::Arryay")
+          error.name == RBS::TypeName.parse("Arryay")
       end
     end
   end
@@ -1494,7 +1494,7 @@ $baz: Hash[Integer]
       # The types in the method types are validated with the declarations
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Strin"), error.name
+        assert_equal RBS::TypeName.parse("Strin"), error.name
         assert_equal 2, error.location&.start_line
       end
 
@@ -1508,7 +1508,7 @@ $baz: Hash[Integer]
       # The nested declarations are validated
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Unknown"), error.name
+        assert_equal RBS::TypeName.parse("Unknown"), error.name
         assert_equal 7, error.location&.start_line
       end
 
@@ -1586,12 +1586,12 @@ end
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Strin"), error.name
+        assert_equal RBS::TypeName.parse("Strin"), error.name
         assert_equal 2, error.location&.start_line
       end
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::Integr"), error.name
+        assert_equal RBS::TypeName.parse("Integr"), error.name
         assert_equal 8, error.location&.start_line
       end
       assert_any! validator.each_error do |error|
