@@ -17,3 +17,4 @@ group :development, optional: true do
 end
 
 # gem "rbs", path: "../rbs"
+gem "rbs", git: "https://github.com/ruby/rbs.git", branch: "master"
