@@ -117,7 +117,13 @@ module Steep
       #
       def raw_shape: (AST::Types::t, Config) -> Shape?
 
-      def self_shape: (AST::Types::t, Config) -> Shape?
+      # Returns the shape of a class or module instance type in an intersection, where `self` and `instance` are the intersection
+    #
+    # `self_type: nil` keeps `self` to be substituted later.
+    #
+    def intersection_member_shape: (AST::Types::Name::Instance type, self_type: AST::Types::t?, instance_type: AST::Types::t, ?class_type: AST::Types::t?) -> Shape
+
+    def self_shape: (AST::Types::t, Config) -> Shape?
 
       # Returns a shape of instance type and interface type
       #

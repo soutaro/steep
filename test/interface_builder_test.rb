@@ -204,7 +204,8 @@ end
 
       builder.shape(parse_type("::_Foo & ::_Bar"), config).tap do |shape|
         assert_equal parse_type("::_Foo & ::_Bar"), shape.type
-        assert_equal [parse_method_type("(::String) -> ::_Bar")], shape.methods[:f].method_types
+        # `self` is the intersection, not the member defining the method
+        assert_equal [parse_method_type("(::String) -> (::_Foo & ::_Bar)")], shape.methods[:f].method_types
 
         assert shape.methods[:g]
         assert shape.methods[:h]
@@ -217,7 +218,7 @@ end
 
       builder.shape(parse_type("self"), config(self_type: parse_type("::_Foo & ::_Bar"))).tap do |shape|
         assert_equal parse_type("::_Foo & ::_Bar"), shape.type
-        assert_equal [parse_method_type("(::String) -> ::_Bar")], shape.methods[:f].method_types
+        assert_equal [parse_method_type("(::String) -> self")], shape.methods[:f].method_types
       end
     end
   end
