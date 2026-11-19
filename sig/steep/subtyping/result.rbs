@@ -81,7 +81,7 @@ module Steep
       class Failure < Base
         type error = MethodMissingError | BlockMismatchError | ParameterMismatchError
                    | UnknownPairError | PolyMethodSubtyping | UnsatisfiedConstraints
-                   | SelfBindingMismatch | LoopAbort
+                   | SelfBindingMismatch | LoopAbort | TupleDistributionLimit
 
         class MethodMissingError
           attr_reader name: untyped
@@ -146,6 +146,17 @@ module Steep
         end
 
         class LoopAbort
+          def message: () -> String
+        end
+
+        # The tuple was not distributed into a union of tuples, because there are more than `limit` tuples.
+        class TupleDistributionLimit
+          attr_reader size: Integer
+
+          attr_reader limit: Integer
+
+          def initialize: (size: Integer, limit: Integer) -> void
+
           def message: () -> String
         end
 

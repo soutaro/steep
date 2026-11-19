@@ -6019,6 +6019,67 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_tuple_with_union_element_returned_as_union_of_tuples
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class TupleWithUnionElement
+            def f: (String? x) -> ([String, Integer] | [nil, Integer])
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class TupleWithUnionElement
+            def f(x) = [x, 1]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_tuple_with_union_element_over_distribution_limit
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class TupleOverDistributionLimit
+            def f: (String? x) -> ([String, String?, String?, String?, String?, String?] | [nil, String?, String?, String?, String?, String?])
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          class TupleOverDistributionLimit
+            def f(x) = [x, x, x, x, x, x]
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 6
+              end:
+                line: 2
+                character: 7
+            severity: ERROR
+            message: |-
+              Cannot allow method body have type `[(::String | nil), (::String | nil), (::String | nil), (::String | nil), (::String | nil), (::String | nil)]` because declared as type `([::String, (::String | nil), (::String | nil), (::String | nil), (::String | nil), (::String | nil)] | [nil, (::String | nil), (::String | nil), (::String | nil), (::String | nil), (::String | nil)])`
+                [(::String | nil), (::String | nil), (::String | nil), (::String | nil), (::String | nil), (::String | nil)] <: ([::String, (::String | nil), (::String | nil), (::String | nil), (::String | nil), (::String | nil)] | [nil, (::String | nil), (::String | nil), (::String | nil), (::String | nil), (::String | nil)])
+                  Skipped expanding the tuple into 64 tuples with limit of `32`; specify $STEEP_SUBTYPING_TUPLE_DISTRIBUTION_LIMIT env var to override the limit
+            code: Ruby::MethodBodyTypeMismatch
+      YAML
+    )
+  end
+
   def test_or_asgn_send_chain
     run_type_check_test(
       signatures: {

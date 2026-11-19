@@ -275,6 +275,19 @@ module Steep
           end
         end
 
+        class TupleDistributionLimit
+          attr_reader :size, :limit
+
+          def initialize(size:, limit:)
+            @size = size
+            @limit = limit
+          end
+
+          def message
+            "Skipped expanding the tuple into #{size} tuples with limit of `#{limit}`; specify $STEEP_SUBTYPING_TUPLE_DISTRIBUTION_LIMIT env var to override the limit"
+          end
+        end
+
         attr_reader :error
 
         def initialize(relation, error)
