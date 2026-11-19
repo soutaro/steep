@@ -3257,6 +3257,8 @@ module Steep
 
     KNOWN_PURE_METHODS = Set[
       MethodName("::Array#[]"),
+      MethodName("::Array#first"),
+      MethodName("::Array#last"),
       MethodName("::Hash#[]")
     ]
 
