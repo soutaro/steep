@@ -8639,6 +8639,53 @@ EachNoParam.new.each(*a)
     end
   end
 
+  def test_splat_arg_nil
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: () -> untyped
+  def gen: (*Integer) -> String
+end
+    EOF
+      source = parse_ruby(<<-'EOF')
+a = A.new
+b = [1] #: Array[Integer]?
+a.gen(*b)
+a.gen(*nil)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_no_error typing
+      end
+    end
+  end
+
+  def test_splat_arg_nil_mismatch
+    with_checker <<-EOF do |checker|
+class A
+  def initialize: () -> untyped
+  def gen: (*Integer) -> String
+end
+    EOF
+      source = parse_ruby(<<-'EOF')
+a = A.new
+b = ["1"] #: Array[String]?
+a.gen(*b)
+      EOF
+
+      with_standard_construction(checker, source) do |construction, typing|
+        construction.synthesize(source.node)
+
+        assert_typing_error(typing, size: 1) do |errors|
+          assert_any!(errors) do |error|
+            assert_instance_of Diagnostic::Ruby::ArgumentTypeMismatch, error
+          end
+        end
+      end
+    end
+  end
+
   def test_generic_alias_error
     with_checker(<<-RBS) do |checker|
 type list[T] = nil
