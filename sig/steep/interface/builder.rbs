@@ -133,7 +133,21 @@ module Steep
 
       def union_shape: (AST::Types::t, Array[Shape]) -> Shape?
 
-      def intersection_shape: (AST::Types::t, Array[Shape]) -> Shape?
+      # Combines the overloads of a method defined by more than one member of an intersection
+    #
+    # Overloads with the same params return the intersection of their return types, followed by the other overloads, the later member's first.
+    #
+    def intersection_overloads: (Array[Shape::MethodOverload] old_overloads, Array[Shape::MethodOverload] new_overloads) -> Array[Shape::MethodOverload]
+
+    # Returns the intersection of the return types, or one of them if it's a subtype of the other
+    #
+    def intersection_return_type: (AST::Types::t, AST::Types::t) -> AST::Types::t
+
+    def return_subtype?: (AST::Types::t sub_type, AST::Types::t super_type) -> bool
+
+    def same_params?: (MethodType, MethodType) -> bool
+
+    def intersection_shape: (AST::Types::t, Array[Shape]) -> Shape?
 
       def proc_shape: (AST::Types::Proc, Shape) -> Shape
 
