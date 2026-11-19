@@ -36,4 +36,15 @@ module Concurrent
   # @see http://docs.oracle.com/javase/6/docs/api/java/lang/Runtime.html#availableProcessors()
   #
   def self.processor_count: () -> Integer
+
+  # Number of processors cores available for process scheduling.
+  # This method takes in account the CPU quota if the process is inside a cgroup with a
+  # dedicated CPU quota (typically Docker).
+  # Otherwise it returns the same value as #processor_count but as a Float.
+  #
+  # For performance reasons the calculated value will be memoized on the first
+  # call.
+  #
+  # @return [Float] number of available processors
+  def self.available_processor_count: () -> Float
 end
