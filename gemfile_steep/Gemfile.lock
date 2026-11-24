@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/ruby/rbs.git
-  revision: bbdfbf56890cb409bde55c42e5c2ae0979edc4e8
+  revision: 367c84952ea29f0045ff76ee24c50e463f45d47d
   branch: master
   specs:
     rbs (4.3.0.dev)
@@ -10,7 +10,7 @@ GIT
 
 GIT
   remote: https://github.com/soutaro/steep.git
-  revision: 7991b4633a38005cb0cddb4944965a38598e14e3
+  revision: 773356da98ff8aab57f60d823d2ede074b907a20
   branch: master
   specs:
     steep (2.1.0)
@@ -60,7 +60,7 @@ GEM
       drb (~> 2.0)
       prism (>= 1.5, < 3)
     mutex_m (0.3.0)
-    parser (3.3.13.0)
+    parser (3.3.14.0)
       ast (~> 2.4.1)
       racc
     pp (0.6.4)

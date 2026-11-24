@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/ruby/rbs.git
-  revision: 3587e80ffb4a9227bff396f38ab62cc701a382f0
+  revision: 367c84952ea29f0045ff76ee24c50e463f45d47d
   branch: master
   specs:
     rbs (4.3.0.dev)
@@ -60,7 +60,7 @@ GEM
       minitest (> 5.3)
     minitest-slow_test (0.2.0)
       minitest (>= 5.0)
-    parser (3.3.13.0)
+    parser (3.3.14.0)
       ast (~> 2.4.1)
       racc
     pp (0.6.4)
