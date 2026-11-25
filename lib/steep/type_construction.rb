@@ -3291,7 +3291,6 @@ module Steep
       nil
     end
 
-    # Gives the pure reader call the type of the value a `KNOWN_STORE_METHODS` writer call just stored.
     def narrow_stored_value(call, receiver, arguments)
       writer_names = Set.new(call.method_decls.map(&:method_name))
       return self unless writer_names.size == 1
