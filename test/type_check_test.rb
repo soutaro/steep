@@ -6054,6 +6054,105 @@ class TypeCheckTest < Minitest::Test
     )
   end
 
+  def test_hash_index_write__narrows_following_read
+    run_type_check_test(
+      code: {
+        "a.rb" => <<~RUBY
+          hash = {} #: Hash[String, Array[Integer]?]
+          key = "a" #: String
+
+          hash[key] = []
+          hash[key] << 1
+
+          hash.delete(key)
+          hash[key] << 1
+
+          hash[key] ||= []
+          hash[key] << 1
+
+          hash.delete(key)
+          hash[key] ||= (key = "b"; [])
+          hash[key] << 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 8
+                character: 10
+              end:
+                line: 8
+                character: 12
+            severity: ERROR
+            message: Type `(::Array[::Integer] | nil)` does not have method `<<`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 15
+                character: 10
+              end:
+                line: 15
+                character: 12
+            severity: ERROR
+            message: Type `(::Array[::Integer] | nil)` does not have method `<<`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_index_write__no_narrowing_except_hash
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class Box
+            %a{pure} def items: () -> Array[Integer]?
+            def items=: (Array[Integer]) -> Array[Integer]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          box = Box.new
+          box.items ||= []
+          box.items << 1
+
+          array = [] #: Array[Array[Integer]]
+          index = 0 #: Integer
+          array[index] ||= []
+          array[index] << 1
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 10
+              end:
+                line: 3
+                character: 12
+            severity: ERROR
+            message: Type `(::Array[::Integer] | nil)` does not have method `<<`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 13
+              end:
+                line: 8
+                character: 15
+            severity: ERROR
+            message: Type `(::Array[::Integer] | nil)` does not have method `<<`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
   def test_block_pass_optional_block
     run_type_check_test(
       signatures: {

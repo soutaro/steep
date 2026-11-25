@@ -279,6 +279,8 @@ module Steep
 
     KNOWN_PURE_METHODS: Set[method_name]
 
+    KNOWN_STORE_METHODS: Hash[method_name, method_name]
+
     KERNEL_BLOCK_GIVEN: method_name
 
     def inspect: () -> ::String
@@ -561,6 +563,10 @@ module Steep
     # * All of the arguments are _pure_
     #
     def pure_send?: (TypeInference::MethodCall::Typed call, Parser::AST::Node? receiver, Array[Parser::AST::Node] arguments) -> bool
+
+    # Gives the pure reader call of `KNOWN_STORE_METHODS` the type of the value the writer `call` stored
+    #
+    def narrow_stored_value: (TypeInference::MethodCall::Typed call, Parser::AST::Node? receiver, Array[Parser::AST::Node] arguments) -> TypeConstruction
 
     def deprecated_send?: (TypeInference::MethodCall::Typed call) -> [RBS::AST::Annotation, String?]?
 

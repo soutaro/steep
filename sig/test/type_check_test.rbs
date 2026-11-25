@@ -368,6 +368,10 @@ class TypeCheckTest < Minitest::Test
 
   def test_or_asgn_send_chain: () -> untyped
 
+  def test_hash_index_write__narrows_following_read: () -> untyped
+
+  def test_index_write__no_narrowing_except_hash: () -> untyped
+
   def test_block_pass_optional_block: () -> untyped
 
   def test_block_pass_optional_block_mismatch: () -> untyped
