@@ -3260,6 +3260,11 @@ module Steep
       MethodName("::Hash#[]")
     ]
 
+    # Writer methods whose value argument is what the paired reader returns for the same leading arguments.
+    KNOWN_STORE_METHODS = {
+      MethodName("::Hash#[]=") => MethodName("::Hash#[]")
+    }
+
     KERNEL_BLOCK_GIVEN = MethodName("::Kernel#block_given?")
 
     def pure_send?(call, receiver, arguments)
@@ -3284,6 +3289,44 @@ module Steep
       end
 
       nil
+    end
+
+    def narrow_stored_value(call, receiver, arguments)
+      writer_names = Set.new(call.method_decls.map(&:method_name))
+      return self unless writer_names.size == 1
+      reader_name = KNOWN_STORE_METHODS[writer_names.first] or return self
+      return self unless receiver
+
+      *keys, value = arguments
+      return self unless value && typing.has_type?(value)
+      return self unless [receiver, *keys].all? {|node| value_node?(node) }
+
+      reader_node = call.node.updated(:send, [receiver, reader_name.method_name, *keys])
+
+      # The writer stores to the receiver and keys evaluated before the value: `h[k] = (k = 1; v)` writes to the old `k`.
+      read_lvars = [reader_node, *each_descendant_node(reader_node)].filter_map {|node| node.children[0] if node.type == :lvar }
+      return self if [value, *each_descendant_node(value)].any? do |node|
+        node.type == :match_with_lvasgn || (node.type == :lvasgn && read_lvars.include?(node.children[0]))
+      end
+
+      if (reader_call, _ = context.type_env.pure_method_calls[reader_node])
+        known = true
+      else
+        _, reader_constr = with_new_typing(typing.new_child).synthesize(reader_node)
+        reader_call, _ = reader_constr.context.type_env.pure_method_calls[reader_node]
+        return self unless reader_call
+      end
+
+      return self unless Set.new(reader_call.method_decls.map(&:method_name)) == Set[reader_name]
+
+      value_type = typing.type_of(node: value)
+      update_type_env do |env|
+        if known
+          env.replace_pure_call_type(reader_node, value_type)
+        else
+          env.add_pure_call(reader_node, reader_call, value_type)
+        end
+      end
     end
 
     def type_send_interface(node, interface:, receiver:, receiver_type:, method_name:, arguments:, block_params:, block_body:, tapp:, hint:)
@@ -3339,6 +3382,7 @@ module Steep
                     env
                   end
                 end
+                constr = constr.narrow_stored_value(call, receiver, arguments)
               end
             end
 
