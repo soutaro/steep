@@ -55,7 +55,7 @@ module Steep
 
       def evaluate_node: (env: TypeEnv, node: Parser::AST::Node, ?type: AST::Types::t) -> [Result, Result]
 
-      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, arguments: Array[Parser::AST::Node]) -> [Result, Result]?
+      def evaluate_method_call: (env: TypeEnv, type: AST::Types::Logic::Base, receiver: Parser::AST::Node?, method: Symbol, arguments: Array[Parser::AST::Node]) -> [Result, Result]?
 
       def evaluate_union_method_call: (node: Parser::AST::Node, type: AST::Types::t, env: TypeEnv, receiver: Parser::AST::Node, receiver_type: AST::Types::Union) -> [Result, Result]?
 
@@ -123,6 +123,12 @@ module Steep
       # ```
       #
       def literal_var_type_case_select: (Parser::AST::Node value_node, AST::Types::t arg_type, ?for_receiver: bool) -> [Array[AST::Types::t], Array[AST::Types::t]]?
+
+      # Returns the receiver of `object.class` call
+      def class_call_receiver: (Parser::AST::Node) -> Parser::AST::Node?
+
+      # Narrows `object` in `object.class < klass` (`strict: true`) or `object.class <= klass` (`strict: false`)
+      def class_comparison_select: (AST::Types::t `type`, RBS::TypeName klass, strict: bool) -> [AST::Types::t?, AST::Types::t?]
 
       def type_case_select: (AST::Types::t `type`, RBS::TypeName klass) -> [AST::Types::t?, AST::Types::t?]
 

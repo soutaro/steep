@@ -561,6 +561,8 @@ class TypeConstructionTest < Minitest::Test
 
   def test_logic_arg_is_receiver: () -> untyped
 
+  def test_logic_class_is_ancestor: () -> untyped
+
   def test_logic_value: () -> untyped
 
   def test_logic_not: () -> untyped

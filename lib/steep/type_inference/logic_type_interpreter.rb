@@ -167,8 +167,8 @@ module Steep
 
           case type
           when AST::Types::Logic::Base
-            receiver, _, *arguments = node.children
-            if (truthy_result, falsy_result = evaluate_method_call(env: env, type: type, receiver: receiver, arguments: arguments))
+            receiver, method, *arguments = node.children
+            if (truthy_result, falsy_result = evaluate_method_call(env: env, type: type, receiver: receiver, method: method, arguments: arguments))
               return [truthy_result, falsy_result]
             end
           else
@@ -303,7 +303,7 @@ module Steep
         end
       end
 
-      def evaluate_method_call(env:, type:, receiver:, arguments:)
+      def evaluate_method_call(env:, type:, receiver:, method:, arguments:)
         case type
         when AST::Types::Logic::ReceiverIsNil
           if receiver && arguments.size.zero?
@@ -432,6 +432,17 @@ module Steep
 
               falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: false)
               falsy_result.unreachable! unless falsy_type
+
+              if (object = class_call_receiver(receiver))
+                # `object.class < Klass` narrows `object` as `object.is_a?(Klass)` does
+                truthy_object, falsy_object = class_comparison_select(typing.type_of(node: object), arg_type.name, strict: method == :<)
+
+                truthy_env, _ = refine_node_type(env: truthy_result.env, node: object, truthy_type: truthy_object || BOT, falsy_type: BOT)
+                _, falsy_env = refine_node_type(env: falsy_result.env, node: object, truthy_type: BOT, falsy_type: falsy_object || BOT)
+
+                truthy_result = Result.new(type: TRUE, env: truthy_env, unreachable: truthy_object.nil?)
+                falsy_result = Result.new(type: FALSE, env: falsy_env, unreachable: falsy_object.nil?)
+              end
 
               [truthy_result, falsy_result]
             end
@@ -647,6 +658,35 @@ module Steep
             end
           end
         end
+      end
+
+      # Returns the receiver of `object.class` call
+      def class_call_receiver(node)
+        if node.type == :send
+          object, method, *args = node.children
+          if object && method == :class && args.empty?
+            object
+          end
+        end
+      end
+
+      def class_comparison_select(type, klass, strict:)
+        truthy_types, falsy_types = type_case_select0(type, klass)
+
+        if strict
+          # `Klass < Klass` is false, so instances of exactly `Klass` may reach the falsy branch
+          instance_type = factory.instance_type(klass)
+          truthy_types.each do |ty|
+            if subtyping?(sub_type: instance_type, super_type: ty) && falsy_types.none? {|falsy| subtyping?(sub_type: ty, super_type: falsy) }
+              falsy_types << ty
+            end
+          end
+        end
+
+        [
+          truthy_types.empty? ? nil : AST::Types::Union.build(types: truthy_types),
+          falsy_types.empty? ? nil : AST::Types::Union.build(types: falsy_types)
+        ]
       end
 
       def type_case_select(type, klass)
