@@ -403,6 +403,12 @@ module Steep
                             args: module_self.args,
                             location: module_self.location
                           )
+                        when module_self.name.alias?
+                          RBS::Types::Alias.new(
+                            name: module_self.name,
+                            args: module_self.args,
+                            location: module_self.location
+                          )
                         else
                           raise
                         end
