@@ -50,6 +50,10 @@ module Steep
         class ArgIsAncestor < Base
         end
 
+        # A type for `receiver.respond_to?(:name)` call results.
+        class ReceiverRespondsTo < Base
+        end
+
         # A type with truthy/falsy type environment.
         class Env < Base
           attr_reader truthy: TypeInference::TypeEnv
