@@ -366,6 +366,10 @@ class TypeCheckTest < Minitest::Test
 
   def test_tuple_type_with_if_branch: () -> untyped
 
+  def test_tuple_with_union_element_returned_as_union_of_tuples: () -> untyped
+
+  def test_tuple_with_union_element_over_distribution_limit: () -> untyped
+
   def test_or_asgn_send_chain: () -> untyped
 
   def test_block_pass_optional_block: () -> untyped

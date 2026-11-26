@@ -3,6 +3,14 @@ module Steep
     class Check
       ABORT_LIMIT = ENV.fetch("STEEP_SUBTYPING_ABORT_LIMIT", 50).to_i
 
+      # The maximum number of tuples that a tuple with union elements is split into,
+      # when it is checked against a union of tuples.
+      #
+      # Each tuple is checked against every member of the union, so the cost grows with
+      # the product of the element union sizes. 32 covers five optional elements.
+      # Set $STEEP_SUBTYPING_TUPLE_DISTRIBUTION_LIMIT to override it.
+      TUPLE_DISTRIBUTION_LIMIT = ENV.fetch("STEEP_SUBTYPING_TUPLE_DISTRIBUTION_LIMIT", 32).to_i
+
       attr_reader :builder
       attr_reader :cache
 
@@ -458,25 +466,26 @@ module Steep
             end
           end
 
-        when relation.super_type.is_a?(AST::Types::Union)
-          sub_type = relation.sub_type
-          if sub_type.is_a?(AST::Types::Literal) &&
-              relation.super_type.free_variables.empty? &&
-              relation.super_type.types.any? {|ty| ty.is_a?(AST::Types::Literal) && ty == sub_type }
-            # A literal type is a member of a union of literals: no need to test the
-            # branches one by one. Only for unions without free variables, so that no
-            # constraint recording can be skipped.
-            success(relation)
+        when relation.sub_type.is_a?(AST::Types::Tuple) &&
+            relation.super_type.is_a?(AST::Types::Union) &&
+            (size = tuple_distribution_size(relation.sub_type, relation.super_type))
+          if size <= TUPLE_DISTRIBUTION_LIMIT
+            # `[A | B, C] <: [A, C] | [B, C]` holds because the tuple is equivalent to `[A, C] | [B, C]`.
+            Expand(relation) do
+              check_type(Relation.new(sub_type: distribute_tuple(relation.sub_type), super_type: relation.super_type))
+            end
           else
-            Any(relation) do |result|
-              relation.super_type.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |super_type|
-                rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
-                result.add(rel) do
-                  check_type(rel)
-                end
-              end
+            result = check_union_super_type(relation, relation.super_type)
+            if result.success?
+              result
+            else
+              # Report the skipped expansion, so that the user can raise the limit.
+              Failure(relation, Result::Failure::TupleDistributionLimit.new(size: size, limit: TUPLE_DISTRIBUTION_LIMIT))
             end
           end
+
+        when relation.super_type.is_a?(AST::Types::Union)
+          check_union_super_type(relation, relation.super_type)
 
         when relation.sub_type.is_a?(AST::Types::Self) && !self_type.is_a?(AST::Types::Self)
           Expand(relation) do
@@ -1028,6 +1037,52 @@ module Steep
         else
           pairs
         end
+      end
+
+      # Checks `relation` whose super type is `union`, by checking the sub type against each member of `union`.
+      def check_union_super_type(relation, union)
+        sub_type = relation.sub_type
+        if sub_type.is_a?(AST::Types::Literal) &&
+            union.free_variables.empty? &&
+            union.types.any? {|ty| ty.is_a?(AST::Types::Literal) && ty == sub_type }
+          # A literal type is a member of a union of literals: no need to test the
+          # branches one by one. Only for unions without free variables, so that no
+          # constraint recording can be skipped.
+          success(relation)
+        else
+          Any(relation) do |result|
+            union.types.sort_by {|ty| (path = hole_path(ty)) ? -path.size : -Float::INFINITY }.each do |super_type|
+              rel = Relation.new(sub_type: relation.sub_type, super_type: super_type)
+              result.add(rel) do
+                check_type(rel)
+              end
+            end
+          end
+        end
+      end
+
+      # Returns the number of tuples that `tuple` is distributed into, when it is checked against `union`.
+      #
+      # Returns `nil` if `tuple` has no union element, or `union` has no tuple of the same size.
+      def tuple_distribution_size(tuple, union)
+        return unless tuple.types.any? { _1.is_a?(AST::Types::Union) }
+        return unless union.types.any? { _1.is_a?(AST::Types::Tuple) && _1.types.size == tuple.types.size }
+
+        tuple.types.inject(1) do |size, type|
+          size * (type.is_a?(AST::Types::Union) ? type.types.size : 1)
+        end
+      end
+
+      # Returns the union of tuples equivalent to `tuple`, by distributing its union elements.
+      def distribute_tuple(tuple)
+        element_types = tuple.types.map do |type|
+          type.is_a?(AST::Types::Union) ? type.types : [type]
+        end
+
+        first, *rest = element_types
+        first or raise
+        tuples = first.product(*rest).map { AST::Types::Tuple.new(types: _1) }
+        AST::Types::Union.build(types: tuples)
       end
 
       def Relation(sub, sup)

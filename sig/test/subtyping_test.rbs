@@ -90,6 +90,10 @@ class SubtypingTest < Minitest::Test
 
   def test_tuple_subtyping: () -> untyped
 
+  def test_tuple_with_union_element_to_union_of_tuples: () -> untyped
+
+  def test_tuple_with_union_element_to_union_of_tuples__limit: () -> untyped
+
   def test_expand_alias: () -> untyped
 
   def test_hash: () -> untyped

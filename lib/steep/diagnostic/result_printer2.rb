@@ -23,6 +23,8 @@ module Steep
             "Unsupported polymorphic method comparison: #{result.relation}"
           when Subtyping::Result::Failure::SelfBindingMismatch
             "Incompatible block self type: #{result.relation}"
+          when Subtyping::Result::Failure::TupleDistributionLimit
+            "#{result.relation}; #{result.error.message}"
           end
         else
           result.relation.to_s

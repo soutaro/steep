@@ -48,8 +48,12 @@ module Steep
         def detail_lines
           lines = StringIO.new.tap do |io|
             failure_path = result.failure_path || []
-            failure_path.reverse_each.map do |result|
-              relation_message(result.relation)
+            failure_path.reverse_each.flat_map do |result|
+              if result.is_a?(Subtyping::Result::Failure) && result.error.is_a?(Subtyping::Result::Failure::TupleDistributionLimit)
+                [relation_message(result.relation), result.error.message]
+              else
+                [relation_message(result.relation)]
+              end
             end.compact.each.with_index(1) do |message, index|
               io.puts "#{"  " * (index)}#{message}"
             end
