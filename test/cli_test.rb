@@ -911,6 +911,40 @@ end
     end
   end
 
+  def test_check_unexpected_error_reported_by_default
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/foo.rb").write(<<-EOF)
+module Outer
+  1 + "2"
+end
+      EOF
+
+      (current_dir + "sig").mkdir
+      (current_dir + "sig/foo.rbs").write(<<-EOF)
+module Outer
+  include Inner
+
+  module Inner : Outer
+  end
+end
+      EOF
+
+      stdout, status = sh(*steep, "check", "lib/foo.rb")
+
+      refute_predicate status, :success?, stdout
+      assert_match(/lib\/foo\.rb:1:0: \[error\] UnexpectedError: .*Detected recursive ancestors/, stdout)
+      assert_match(/Detected 1 problem from 1 file/, stdout)
+    end
+  end
+
   def test_check_expression_success
     stdout, status = sh(*steep, "check", "-e", "1 + 2")
 
