@@ -159,7 +159,26 @@ module Steep
         master.job_queue << -> do
           Steep.logger.info { "Type checking for stats..." }
           progress = master.work_done_progress(typecheck_guid)
-          master.start_type_check(last_request: nil, progress: progress, include_unchanged: true, report_progress_threshold: 0, needs_response: true)
+          progress.begin("Type checking", request_id: master.fresh_request_id)
+
+          request = master.controller.make_all_request(guid: typecheck_guid, progress: progress)
+          request.needs_response = true
+
+          unless command_line_patterns.empty?
+            # The master loads every inline source file for the environment, but the stats are about the given files only
+            loader = Services::FileLoader.new(base_dir: project.base_dir)
+            inline_paths = Set[] #: Set[Pathname]
+            project.targets.each do |target|
+              [*target.groups, target].each do |group|
+                loader.each_path_in_patterns(group.inline_source_pattern, command_line_patterns) do |path|
+                  inline_paths << project.absolute_path(path)
+                end
+              end
+            end
+            request.inline_paths.select! {|_, path| inline_paths.include?(path) }
+          end
+
+          master.start_type_check(request: request, last_request: nil, report_progress_threshold: 0)
         end
         wait_for_message(reader: client_reader) do |message|
           message[:id] == typecheck_guid

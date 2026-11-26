@@ -911,6 +911,77 @@ end
     end
   end
 
+  def test_check_inline_with_command_line_pattern_uses_other_inline_signatures
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/helper.rb").write(<<-EOF)
+class Helper
+  # @rbs () -> String
+  def start
+    1 + "2"
+    "started"
+  end
+end
+      EOF
+      (current_dir + "lib/caller.rb").write(<<-EOF)
+class Caller
+  # @rbs () -> String
+  def run
+    Helper.new.start
+  end
+end
+      EOF
+
+      # The signature of `Helper#start` is loaded, but the type error in `helper.rb` is not reported
+      stdout, status = sh(*steep, "check", "--no-daemon", "lib/caller.rb")
+
+      assert_predicate status, :success?, stdout
+      assert_match(/No type error detected\./, stdout)
+    end
+  end
+
+  def test_stats_inline_with_command_line_pattern
+    in_tmpdir do
+      (current_dir + "Steepfile").write(<<-EOF)
+target :app do
+  check "lib", inline: true
+end
+      EOF
+
+      (current_dir + "lib").mkdir
+      (current_dir + "lib/helper.rb").write(<<-EOF)
+class Helper
+  # @rbs () -> String
+  def start
+    "started"
+  end
+end
+      EOF
+      (current_dir + "lib/caller.rb").write(<<-EOF)
+class Caller
+  # @rbs () -> String
+  def run
+    Helper.new.start
+  end
+end
+      EOF
+
+      stdout, _, status = sh3(*steep, "stats", "--format=csv", "lib/caller.rb")
+
+      assert_predicate status, :success?, stdout
+      assert_equal <<CSV, stdout
+Target,File,Status,Typed calls,Untyped calls,All calls,Typed %
+app,lib/caller.rb,success,2,0,2,100
+CSV
+    end
+  end
+
   def test_check_expression_success
     stdout, status = sh(*steep, "check", "-e", "1 + 2")
 
