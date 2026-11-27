@@ -224,7 +224,7 @@ jobs:
       - name: Configure RubyGems credentials
         if: ${{ !inputs.dry_run }}
         # No floating major tag on this action, so the exact release is pinned.
-        uses: rubygems/configure-rubygems-credentials@v2.1.0
+        uses: rubygems/configure-rubygems-credentials@v2.2.0
 
       - name: Push the gem
         if: ${{ !inputs.dry_run }}
