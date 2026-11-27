@@ -17,11 +17,11 @@ class Steep::Server::LSPFormatterTest < Minitest::Test
 
   def dirs: () -> untyped
 
-  # @rbs (::Steep::Server::CustomMethods::Hover::content) -> String
-  def format_hover: (::Steep::Server::CustomMethods::Hover::content) -> String
+  # @rbs (::Steep::Server::InteractionProvider::Hover::content) -> String
+  def format_hover: (::Steep::Server::InteractionProvider::Hover::content) -> String
 
-  # @rbs (::Steep::Server::CustomMethods::Completion::item) -> String?
-  def format_completion: (::Steep::Server::CustomMethods::Completion::item) -> String?
+  # @rbs (::Steep::Server::InteractionProvider::Completion::item) -> String?
+  def format_completion: (::Steep::Server::InteractionProvider::Completion::item) -> String?
 
   def range: () -> untyped
 

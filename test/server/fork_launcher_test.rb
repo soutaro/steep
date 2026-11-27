@@ -45,7 +45,7 @@ class Steep::Server::ForkLauncherTest < Minitest::Test
       Project::DSL.parse(project, steepfile.read)
 
       service = Services::TypeCheckService.new(project: project)
-      service.update(changes: { Pathname("sig/customer.rbs") => [Services::ContentChange.string("class Customer\nend\n")] })
+      service.update(changes: { Pathname("sig/customer.rbs") => [Services::ContentChange.string("class Customer\n  def name: () -> Strin\nend\n")] })
 
       launcher = Server::ForkLauncher.new(typecheck_count: 2)
       assert_empty launcher.typecheck_workers
@@ -54,15 +54,16 @@ class Steep::Server::ForkLauncherTest < Minitest::Test
         launcher.start(service)
         assert_equal ["typecheck@0", "typecheck@1"], launcher.typecheck_workers.map(&:name)
 
-        # The workers index the RBS file in the environments forked from the master, without receiving the content
+        # The workers validate the RBS file in the environments forked from the master, without receiving the content
         launcher.typecheck_workers.each do |worker|
           worker << Server::CustomMethods::TypeCheck__File.request(
-            "index@#{worker.name}",
-            { guid: "index", kind: "index", target: "lib", uri: PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s }
+            "validate@#{worker.name}",
+            { guid: "guid", kind: "signature", target: "lib", uri: PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s }
           )
 
-          response = read_response(worker, "index@#{worker.name}")
-          assert_equal [["::Customer", 2, 0, 6, 0, 14]], response[:result][:signature][:entries]
+          response = read_response(worker, "validate@#{worker.name}")
+          assert_equal ["RBS::UnknownTypeName"], response[:result][:signature][:diagnostics].map { _1[:code] }
+          assert_nil response[:result][:signature][:entries]
         end
       ensure
         # The workers exit on `exit`

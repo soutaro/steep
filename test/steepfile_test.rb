@@ -101,6 +101,31 @@ RUBY
     end
   end
 
+  def test_diagnostics_removed
+    in_tmpdir do
+      project = Project.new(steepfile_path: current_dir + "Steepfile")
+
+      assert_output(nil, /^Steepfile:4: warning: `Steep::Diagnostic::Ruby::ImplicitBreakValueMismatch` has been removed/) do
+        Project::DSL.parse(project, <<RUBY)
+target :app do
+  configure_code_diagnostics(
+    {
+      Steep::Diagnostic::Ruby::ImplicitBreakValueMismatch => :error
+    }
+  )
+end
+RUBY
+      end
+
+      # The configuration has a diagnostic class that is never reported
+      config = project.targets[0].code_diagnostics_config
+      removed = config.keys - Diagnostic::Ruby::ALL
+      assert_equal 1, removed.size
+      assert_equal :error, config[removed[0]]
+      Diagnostic::LSPFormatter.new(config)
+    end
+  end
+
   def test_collection_implicit
     in_tmpdir do
       current_dir.join('rbs_collection.yaml').write('')

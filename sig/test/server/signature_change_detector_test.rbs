@@ -1,0 +1,25 @@
+# Generated from test/server/signature_change_detector_test.rb with RBS::Inline
+
+class Steep::Server::SignatureChangeDetectorTest < Minitest::Test
+  Source: untyped
+
+  def path: () -> Pathname
+
+  def test_source_inline_type_update: () -> untyped
+
+  def test_source_rbs_formatting_and_comments: () -> untyped
+
+  def test_source_rbs_declarations: () -> untyped
+
+  def test_source_rbs_annotations_and_directives: () -> untyped
+
+  def test_source_rbs_syntax_error: () -> untyped
+
+  def test_source_invalid_encoding: () -> untyped
+
+  def test_source_same_content: () -> untyped
+
+  def test_detector: () -> untyped
+
+  def test_detector_new_file: () -> untyped
+end

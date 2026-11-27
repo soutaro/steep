@@ -25,19 +25,6 @@ class MasterTest < Minitest::Test
 
   include Server::CustomMethods
 
-  # Drops the index jobs handed out on `initialize`, so that the jobs of the next type check go to the workers
-  #
-  # @rbs (Server::Master, Array[Server::Master::SendMessageJob]) -> void
-  def drop_index_jobs(master, jobs)
-    master.pending_index_jobs.clear
-
-    jobs.each do |job|
-      if job.message[:method] == TypeCheck__File::METHOD && job.message[:params][:kind] == "index"
-        master.result_controller.process_response({ id: job.message[:id], result: nil })
-      end
-    end
-  end
-
   def dirs
     @dirs ||= []
   end
@@ -113,33 +100,257 @@ end
       assert_same master.controller.type_check_service, launcher.started_service
       assert (launcher.started_environments || raise).fetch(:lib).class_decls.key?(RBS::TypeName.parse("::Customer"))
       assert_equal [worker], master.typecheck_workers
-      assert_empty master.environment_queue
 
-      # The worker has the files, and receives the index jobs only
-      assert_equal({ Pathname("lib/customer.rb") => 1, Pathname("sig/customer.rbs") => 1 }, worker.known_versions)
+      # The worker has the files, and receives nothing
+      assert_empty flush_queue(master.write_queue).select { _1.dest == worker }
 
-      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      refute_empty jobs
-      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }.uniq
-      assert_equal ["index"], jobs.map { _1.message[:params][:kind] }.uniq
-      drop_index_jobs(master, jobs)
+      # The environment thread indexes the RBS files of the project, and then the libraries
+      run_environment_jobs(master)
+      assert_equal [[current_dir + "sig/customer.rbs", 0]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.start_line] }
+      refute_empty master.type_check_database.definitions("::String")
 
-      # A file changed after the fork is sent to the worker
-      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      # A Ruby file changed after the fork is sent to the worker with its request
+      master.controller.push_file_change(current_dir + "lib/customer.rb", "class Customer\n  def name = \"\"\nend\n")
       master.process_message_from_client({
         id: "check",
         method: TypeCheck::METHOD,
         params: {
           library_paths: [],
-          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
-          code_paths: [],
+          signature_paths: [],
+          code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]],
           inline_paths: []
         }
       })
 
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal FileLoad::METHOD, jobs[0].message[:method]
-      assert_equal({ "sig/customer.rbs" => "class Customer\n  def name: () -> String\nend\n" }, jobs[0].message[:params][:content])
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal "class Customer\n  def name = \"\"\nend\n", jobs[0].message[:params][:content]
+    end
+  end
+
+  # Sets up a project with `lib/customer.rb` and `sig/customer.rbs`, and a master with `ForkedWorkersLauncher` that forks
+  # one worker of each generation, after `initialize` and the indexing
+  #
+  # @rbs () { (Server::Master, LSPTestHelper::ForkedWorkersLauncher, Array[Server::WorkerProcess]) -> void } -> void
+  def with_forked_master
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("class Customer\nend\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\nend\n")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      workers = 3.times.map { Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test@#{_1}") }
+      launcher = ForkedWorkersLauncher.new(*workers, typecheck_count: 1)
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: launcher
+      )
+      master.typecheck_automatically = false
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+      run_environment_jobs(master)
+
+      yield master, launcher, workers
+    end
+  end
+
+  # Runs the job of the environment thread, and the jobs it gives to the main loop
+  #
+  # @rbs (Server::Master, ^() -> void) -> void
+  def run_environment_job(master, job)
+    environment_thread = Thread.new { job.call }
+    environment_thread.report_on_exception = false
+
+    # The job waits for the main loop only when it forks the workers
+    until environment_thread.join(0.01)
+      if main_job = (master.job_queue.pop(timeout: 0.01) rescue nil)
+        main_job.call
+      end
+    end
+
+    until master.job_queue.empty?
+      master.job_queue.pop.call
+    end
+  end
+
+  # @rbs (Server::Master, Pathname) -> void
+  def request_type_check(master, path)
+    master.process_message_from_client({
+      id: "check-#{SecureRandom.uuid}",
+      method: TypeCheck::METHOD,
+      params: {
+        library_paths: [],
+        signature_paths: [["lib", path.to_s]],
+        code_paths: [],
+        inline_paths: []
+      }
+    })
+  end
+
+  def test_refork_workers_on_signature_change
+    with_forked_master do |master, launcher, workers|
+      assert_equal [workers[0]], master.typecheck_workers
+
+      # A type check job is in flight on the worker
+      master.process_message_from_client({
+        id: "check-code",
+        method: TypeCheck::METHOD,
+        params: { library_paths: [], signature_paths: [], code_paths: [["lib", (current_dir + "lib/customer.rb").to_s]], inline_paths: [] }
+      })
+      job = flush_queue(master.write_queue).find { _1.message[:method] == TypeCheck__File::METHOD } or raise
+      assert_equal workers[0], job.dest
+
+      # A change of the declarations in an RBS file retires the workers, and the jobs wait for the next generation
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+
+      assert_empty master.typecheck_workers
+      assert_equal [workers[0]], launcher.retired_workers
+      assert_empty flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      refute_empty master.pending_typecheck_jobs
+
+      # The retired worker finishes its job, and is not told to exit yet
+      assert_equal [workers[0]], master.retiring_workers
+      assert_empty master.exiting_workers.to_a
+
+      # The next generation is forked from the environments updated with the change
+      environment_jobs = flush_queue(master.environment_queue)
+      assert_equal 1, environment_jobs.size
+      run_environment_job(master, environment_jobs[0])
+
+      assert_equal 2, launcher.start_count
+      customer = (launcher.started_environments || raise).fetch(:lib).class_decls.fetch(RBS::TypeName.parse("::Customer"))
+      assert customer.primary_decl.members.any? { _1.is_a?(RBS::AST::Members::MethodDefinition) && _1.name == :name }
+      assert_equal [workers[1]], master.typecheck_workers
+      assert_equal [[current_dir + "sig/customer.rbs", 1]], master.type_check_database.definitions("::Customer#name").map { [_1.path, _1.start_line] }
+
+      # The new worker gets the jobs without the RBS file, and the retired worker finishing its job stays
+      jobs = flush_queue(master.write_queue)
+      assert_equal [workers[1]], jobs.map(&:dest).uniq
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }.uniq
+      assert_equal [workers[1], workers[0]], master.each_worker.to_a
+
+      # The retired worker is told to exit once its job is done
+      master.result_controller.process_response({ id: job.message[:id], result: nil })
+      jobs = flush_queue(master.write_queue)
+      assert_equal [[workers[0], "exit"]], jobs.filter_map { [_1.dest, _1.message[:method]] if _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal [workers[0]], master.exiting_workers.to_a
+      assert_empty master.retiring_workers
+    end
+  end
+
+  def test_refork_workers_when_update_fails
+    with_forked_master do |master, launcher, workers|
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+
+      service = master.controller.type_check_service or raise
+      service.define_singleton_method(:update) {|changes:| raise "Boom" }
+
+      environment_jobs = flush_queue(master.environment_queue)
+      assert_raises(RuntimeError) { run_environment_job(master, environment_jobs[0]) }
+
+      # The workers are forked anyway, with the environments as they are, and get the jobs
+      assert_equal [workers[1]], master.typecheck_workers
+
+      jobs = flush_queue(master.write_queue).select { _1.dest == workers[1] }
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+    end
+  end
+
+  def test_refork_workers_once_for_successive_changes
+    with_forked_master do |master, launcher, workers|
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\n  def id: () -> Integer\nend\n")
+      request_type_check(master, current_dir + "sig/customer.rbs")
+
+      environment_jobs = flush_queue(master.environment_queue)
+      assert_equal 2, environment_jobs.size
+
+      # The first update doesn't fork the workers, which the second update asks for again
+      environment_jobs[0].call
+      assert_equal 1, launcher.start_count
+      assert_empty master.typecheck_workers
+
+      run_environment_job(master, environment_jobs[1])
+      assert_equal 2, launcher.start_count
+      assert_equal [workers[1]], master.typecheck_workers
+
+      # The retired worker had no job, and was told to exit when it retired
+      assert_equal [workers[0]], master.exiting_workers.to_a
+    end
+  end
+
+  def test_keep_workers_on_signature_change_without_declarations
+    with_forked_master do |master, launcher, workers|
+      path = current_dir + "sig/customer.rbs"
+
+      # A change that leaves the declarations as they are keeps the workers, and the file goes to a worker with its
+      # validation job, which validates the content without updating its environments
+      master.controller.push_file_change(path, "# The customer\nclass Customer\nend\n")
+      request_type_check(master, path)
+
+      assert_equal [workers[0]], master.typecheck_workers
+      assert_empty launcher.retired_workers
+
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal(
+        [[workers[0], TypeCheck__File::METHOD, "signature", "# The customer\nclass Customer\nend\n"]],
+        jobs.map { [_1.dest, _1.message[:method], _1.message[:params][:kind], _1.message[:params][:content]] }
+      )
+      assert_empty master.pending_typecheck_jobs
+      refute_nil master.current_type_check_request
+
+      # The master updates its own environments, and indexes the file
+      run_environment_jobs(master)
+      assert_equal 1, launcher.start_count
+      assert_equal [[path, 1]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.start_line] }
+
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: { diagnostics: [], entries: nil, stats: nil } } })
+      flush_queue(master.write_queue)
+      assert_nil master.current_type_check_request
+      assert_equal [], master.type_check_database.diagnostics(path)
+
+      # A content that cannot be parsed keeps the workers too, and goes to a worker, which reports the syntax error
+      master.controller.push_file_change(path, "# The customer\nclass Customer\n  def\nend\n")
+      request_type_check(master, path)
+      assert_equal [workers[0]], master.typecheck_workers
+
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal ["# The customer\nclass Customer\n  def\nend\n"], jobs.map { _1.message[:params][:content] }
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: nil } })
+      flush_queue(master.write_queue)
+      run_environment_jobs(master)
+
+      # The next change of the declarations forks the workers again, which validate the file by themselves
+      master.controller.push_file_change(path, "# The customer\nclass Customer\n  def name: () -> String\nend\n")
+      request_type_check(master, path)
+      assert_empty master.typecheck_workers
+
+      environment_jobs = flush_queue(master.environment_queue)
+      assert_equal 1, environment_jobs.size
+      run_environment_job(master, environment_jobs[0])
+
+      assert_equal 2, launcher.start_count
+      jobs = flush_queue(master.write_queue).select { _1.dest == workers[1] }
+      assert_equal ["signature"], jobs.map { _1.message[:params][:kind] }
+      assert_equal ["# The customer\nclass Customer\n  def name: () -> String\nend\n"], jobs.map { _1.message[:params][:content] }
     end
   end
 
@@ -194,8 +405,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -256,8 +467,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -305,8 +516,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 10, needs_response: true)
@@ -349,8 +560,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -435,7 +646,7 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS.merge(capabilities: { window: { workDoneProgress: true } }))
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -455,9 +666,7 @@ end
         },
         signature: {
           diagnostics: [],
-          entries: [
-            ["::Customer#name", 0, 1, 6, 1, 10]
-          ]
+          entries: nil
         }
       )
 
@@ -465,10 +674,10 @@ end
 
       assert_equal [], database.diagnostics(current_dir + "lib/customer.rb")
 
-      # The Ruby code and the inline declarations are stored in both tables
+      # The entries of the Ruby code are stored; the inline declarations are indexed from the environments
       definitions = database.definitions("::Customer#name")
       assert_equal [current_dir + "lib/customer.rb"], definitions.map(&:path).uniq
-      assert_equal [[:ruby, 1], [:rbs, 1]], definitions.map { [_1.source, _1.start_line] }
+      assert_equal [[:ruby, 1]], definitions.map { [_1.source, _1.start_line] }
 
       # Results of unknown guids are not stored
       master.on_type_check_update(
@@ -481,7 +690,40 @@ end
     end
   end
 
-  def test_hover_via_typecheck_worker
+  # Runs the jobs on the environment queue, and then the jobs they hand to the main loop
+  #
+  # @rbs (Server::Master) -> void
+  def run_environment_jobs(master)
+    until master.environment_queue.empty?
+      master.environment_queue.pop.call
+    end
+
+    until master.job_queue.empty?
+      job = master.job_queue.pop
+      job.call if job.is_a?(Proc)
+    end
+  end
+
+  # A master with the project loaded, and no worker
+  #
+  # @rbs (Pathname steepfile) -> Server::Master
+  def master_for_interaction(steepfile)
+    project = Project.new(steepfile_path: steepfile)
+    Project::DSL.parse(project, steepfile.read)
+
+    master = Server::Master.new(
+      project: project,
+      reader: worker_reader,
+      writer: worker_writer,
+      launcher: WorkersLauncher.new
+    )
+    master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+    master.controller.load(command_line_args: [])
+
+    master
+  end
+
+  def test_hover
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -490,54 +732,30 @@ target :lib do
   signature "sig"
 end
       EOF
+      (current_dir + "lib").mkpath
+      (current_dir + "lib/foo.rb").write("xs = [1, 2]\n")
 
-      project = Project.new(steepfile_path: steepfile)
-      Project::DSL.parse(project, steepfile.read)
+      master = master_for_interaction(steepfile)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
-
-      master = Server::Master.new(
-        project: project,
-        reader: worker_reader,
-        writer: worker_writer,
-        launcher: WorkersLauncher.new(worker)
-      )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
-      master.controller.load(command_line_args: [])
-
-      master.process_message_from_client(
-        {
-          method: "textDocument/hover",
-          id: "hover_id",
-          params: {
-            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-            position: { line: 3, character: 9 }
+      request_hover = -> (id, line, character) do
+        master.process_message_from_client(
+          {
+            method: "textDocument/hover",
+            id: id,
+            params: {
+              textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
+              position: { line: line, character: character }
+            }
           }
-        }
-      )
+        )
+      end
 
-      # The request is forwarded to the typecheck worker as `$/steep/hover`
-      jobs = flush_queue(master.write_queue)
-      request = jobs.find { |job| job.message[:method] == Hover::METHOD } or raise
-      assert_equal worker, request.dest
-      assert_equal(
-        { uri: "#{file_scheme}#{current_dir}/lib/foo.rb", position: { line: 3, character: 9 } },
-        request.message[:params]
-      )
-      assert_equal 1, master.interaction_jobs_in_flight[worker]
+      # The interaction runs on the environment thread, which renders the result
+      request_hover["hover_id", 0, 0]
+      assert_empty flush_queue(master.write_queue)
+      refute_empty master.environment_queue
 
-      # The result is rendered with the environment of the master, on the main thread
-      master.result_controller.process_response(
-        {
-          id: request.message[:id],
-          result: {
-            target: "lib",
-            range: { start: { line: 3, character: 8 }, end: { line: 3, character: 10 } },
-            content: { kind: "variable", name: "xs", type: "::Array[::Integer]" }
-          }
-        }
-      )
-      assert_equal 0, master.interaction_jobs_in_flight[worker]
+      run_environment_jobs(master)
 
       jobs = flush_queue(master.write_queue)
       assert_equal 1, jobs.size
@@ -547,32 +765,39 @@ end
 
         hover = job.message[:result]
         assert_instance_of LSP::Interface::Hover, hover
-        assert_equal({ start: { line: 3, character: 8 }, end: { line: 3, character: 10 } }.to_json, hover.range.to_json)
+        assert_equal({ start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }.to_json, hover.range.to_json)
         assert_equal "**Local variable** `xs: ::Array[::Integer]`\n", hover.contents.value
       end
 
-      # Nothing at the position
-      master.process_message_from_client(
-        {
-          method: "textDocument/hover",
-          id: "hover_id2",
-          params: {
-            textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-            position: { line: 0, character: 0 }
-          }
-        }
-      )
-      request = flush_queue(master.write_queue).find { |job| job.message[:method] == Hover::METHOD } or raise
-      master.result_controller.process_response({ id: request.message[:id], result: nil })
+      # The interaction sees the changes received before it
+      master.controller.push_file_change(current_dir + "lib/foo.rb", "xs = [\"a\"]\n")
+      request_hover["hover_id2", 0, 0]
+      run_environment_jobs(master)
 
+      jobs = flush_queue(master.write_queue)
+      assert_equal "**Local variable** `xs: ::Array[::String]`\n", jobs[0].message[:result].contents.value
+
+      # Nothing at the position
+      request_hover["hover_id3", 0, 12]
+      run_environment_jobs(master)
       assert_equal(
-        [Master::SendMessageJob.to_client(message: { id: "hover_id2", result: nil })],
+        [Master::SendMessageJob.to_client(message: { id: "hover_id3", result: nil })],
         flush_queue(master.write_queue)
       )
+
+      # Only the latest request is answered
+      request_hover["hover_id4", 0, 0]
+      request_hover["hover_id5", 0, 0]
+      run_environment_jobs(master)
+
+      jobs = flush_queue(master.write_queue)
+      assert_equal ["hover_id4", "hover_id5"], jobs.map { _1.message[:id] }
+      assert_nil jobs[0].message[:result]
+      assert_instance_of LSP::Interface::Hover, jobs[1].message[:result]
     end
   end
 
-  def test_signature_help_via_typecheck_worker
+  def test_signature_help
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -581,154 +806,65 @@ target :lib do
   signature "sig"
 end
       EOF
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/foo.rb").write("Foo.new.foo(\"hello\")\n")
+      (current_dir + "sig/foo.rbs").write("class Foo\n  def foo: (String name) -> void\nend\n")
 
-      project = Project.new(steepfile_path: steepfile)
-      Project::DSL.parse(project, steepfile.read)
+      master = master_for_interaction(steepfile)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
-
-      master = Server::Master.new(
-        project: project,
-        reader: worker_reader,
-        writer: worker_writer,
-        launcher: WorkersLauncher.new(worker)
-      )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
-      master.controller.load(command_line_args: [])
-
-      request_signature_help = -> (id, context = nil) do
+      request_signature_help = -> (id, character, context = nil) do
         params = {
           textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-          position: { line: 3, character: 9 }
+          position: { line: 0, character: character }
         }
         params[:context] = context if context
 
         master.process_message_from_client({ method: "textDocument/signatureHelp", id: id, params: params })
-        flush_queue(master.write_queue).find { |job| job.message[:method] == SignatureHelp::METHOD } or raise
+        run_environment_jobs(master)
+        flush_queue(master.write_queue)
       end
 
       # A signature help is rendered on the main thread
-      request = request_signature_help["help1"]
-      master.result_controller.process_response(
-        {
-          id: request.message[:id],
-          result: {
-            signature_help: {
-              target: "lib",
-              signatures: [{ method_type: "(::String) -> void", parameters: ["::String"], active_parameter: 0, method: nil }],
-              active_signature: 0
-            },
-            syntax_error: false
-          }
-        }
-      )
-
-      jobs = flush_queue(master.write_queue)
+      jobs = request_signature_help["help1", 13]
       assert_equal 1, jobs.size
       help = jobs[0].message[:result]
       assert_instance_of LSP::Interface::SignatureHelp, help
       assert_equal ["(::String) -> void"], help.signatures.map(&:label)
 
       # No signature help at the position closes the one showing
-      request = request_signature_help["help2"]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: false } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help2", result: nil })],
-        flush_queue(master.write_queue)
+        request_signature_help["help2", 0]
       )
 
       # A syntax error while the client shows a signature help is answered with the one showing, as the client sent it
+      master.controller.push_file_change(current_dir + "lib/foo.rb", "Foo.new.foo(\"hello\",\n")
       active_signature_help = {
         signatures: [{ label: "(::String) -> void", parameters: [{ label: "::String" }] }],
         activeSignature: 0,
         activeParameter: 0
       }
-      request = request_signature_help["help3", { triggerKind: 3, isRetrigger: true, activeSignatureHelp: active_signature_help }]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help3", result: active_signature_help })],
-        flush_queue(master.write_queue)
+        request_signature_help["help3", 20, { triggerKind: 3, isRetrigger: true, activeSignatureHelp: active_signature_help }]
       )
 
       # A syntax error with no signature help showing is answered with nil
-      request = request_signature_help["help4", { triggerKind: 2, triggerCharacter: "(", isRetrigger: false }]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help4", result: nil })],
-        flush_queue(master.write_queue)
+        request_signature_help["help4", 20, { triggerKind: 2, triggerCharacter: "(", isRetrigger: false }]
       )
 
       # ... and so is one from a client that sends no context
-      request = request_signature_help["help5"]
-      master.result_controller.process_response({ id: request.message[:id], result: { signature_help: nil, syntax_error: true } })
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "help5", result: nil })],
-        flush_queue(master.write_queue)
+        request_signature_help["help5", 20]
       )
     end
   end
 
-  def test_interaction_request_goes_to_the_least_loaded_worker
-    in_tmpdir do
-      steepfile = current_dir + "Steepfile"
-      steepfile.write(<<-EOF)
-target :lib do
-  check "lib"
-  signature "sig"
-end
-      EOF
-
-      project = Project.new(steepfile_path: steepfile)
-      Project::DSL.parse(project, steepfile.read)
-
-      worker1 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test1")
-      worker2 = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test2")
-
-      master = Server::Master.new(
-        project: project,
-        reader: worker_reader,
-        writer: worker_writer,
-        launcher: WorkersLauncher.new(worker1, worker2)
-      )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
-      master.controller.load(command_line_args: [])
-
-      request_hover = -> (id) do
-        master.process_message_from_client(
-          {
-            method: "textDocument/hover",
-            id: id,
-            params: {
-              textDocument: { uri: "#{file_scheme}#{current_dir}/lib/foo.rb" },
-              position: { line: 0, character: 0 }
-            }
-          }
-        )
-        flush_queue(master.write_queue).find { |job| job.message[:method] == Hover::METHOD } or raise
-      end
-
-      # The worker with the fewest type check jobs in flight takes the request
-      master.typecheck_jobs_in_flight[worker1] = 2
-      request1 = request_hover["hover1"]
-      assert_equal worker2, request1.dest
-      assert_equal({ worker2 => 1 }, master.interaction_jobs_in_flight)
-
-      # The interaction requests in flight count as the load, too
-      master.typecheck_jobs_in_flight[worker1] = 0
-      request2 = request_hover["hover2"]
-      assert_equal worker1, request2.dest
-      assert_equal({ worker2 => 1, worker1 => 1 }, master.interaction_jobs_in_flight)
-
-      # The response frees the worker
-      master.result_controller.process_response({ id: request1.message[:id], result: nil })
-      assert_equal({ worker2 => 0, worker1 => 1 }, master.interaction_jobs_in_flight)
-
-      request3 = request_hover["hover3"]
-      assert_equal worker2, request3.dest
-    end
-  end
-
-  def test_interaction_request_without_worker
+  def test_interaction_request_before_load
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -748,9 +884,8 @@ end
         launcher: WorkersLauncher.new
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
-      master.controller.load(command_line_args: [])
 
-      # Nothing answers hover, completion, and signature help
+      # Nothing answers hover, completion, and signature help before the project is loaded
       master.process_message_from_client(
         {
           method: "textDocument/hover",
@@ -765,8 +900,9 @@ end
         [Master::SendMessageJob.to_client(message: { id: "hover_id", result: nil })],
         flush_queue(master.write_queue)
       )
+      assert_empty master.environment_queue
 
-      # Goto finds no location
+      # Goto finds no location, on the main loop
       master.process_message_from_client(
         {
           method: "textDocument/definition",
@@ -777,14 +913,33 @@ end
           }
         }
       )
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
         flush_queue(master.write_queue)
       )
+
+      # A URI of no file is answered the same, after the project is loaded
+      master.controller.load(command_line_args: [])
+      master.process_message_from_client(
+        {
+          method: "textDocument/completion",
+          id: "completion_id",
+          params: {
+            textDocument: { uri: "untitled:Untitled-1" },
+            position: { line: 0, character: 0 }
+          }
+        }
+      )
+      assert_equal(
+        [Master::SendMessageJob.to_client(message: { id: "completion_id", result: nil })],
+        flush_queue(master.write_queue)
+      )
+      assert_empty master.environment_queue
     end
   end
 
-  def test_goto_definition_via_typecheck_worker
+  def test_goto_definition
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -793,19 +948,12 @@ target :lib do
   signature "sig"
 end
       EOF
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "lib/customer.rb").write("Customer.new.name\n")
+      (current_dir + "sig/customer.rbs").write("class Customer\n  def name: () -> String\nend\n")
 
-      project = Project.new(steepfile_path: steepfile)
-      Project::DSL.parse(project, steepfile.read)
-
-      typecheck_worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
-
-      master = Server::Master.new(
-        project: project,
-        reader: worker_reader,
-        writer: worker_writer,
-        launcher: WorkersLauncher.new(typecheck_worker)
-      )
-      master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
+      master = master_for_interaction(steepfile)
 
       master.type_check_database.update_rbs(
         path: current_dir + "sig/customer.rbs",
@@ -821,24 +969,13 @@ end
           id: "definition_id",
           params: {
             textDocument: { uri: "#{file_scheme}#{current_dir}/lib/customer.rb" },
-            position: { line: 3, character: 9 }
+            position: { line: 0, character: 14 }
           }
         }
       )
 
-      # The request is forwarded to the typecheck worker as `$/steep/source/symbol`
-      jobs = flush_queue(master.write_queue)
-      request = jobs.find { |job| job.message[:method] == Source__Symbol::METHOD } or raise
-      assert_equal typecheck_worker, request.dest
-      assert_equal(
-        { uri: "#{file_scheme}#{current_dir}/lib/customer.rb", position: { line: 3, character: 9 } },
-        request.message[:params]
-      )
-
-      # The symbols in the response are resolved with the database
-      master.result_controller.process_response(
-        { id: request.message[:id], result: { method_names: ["::Customer#name"], type: "::String" } }
-      )
+      # The symbol at the position is resolved on the environment thread, and looked up in the database
+      run_environment_jobs(master)
 
       assert_equal(
         [
@@ -989,8 +1126,8 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
-      master.controller.add_dirty_code_path current_dir + "lib/customer.rb"
-      master.controller.add_dirty_code_path current_dir + "lib/account.rb"
+      master.controller.add_dirty_code_path current_dir + "lib/customer.rb", "class Customer\nend\n"
+      master.controller.add_dirty_code_path current_dir + "lib/account.rb", "class Account\nend\n"
 
       progress = master.work_done_progress("guid")
       master.start_type_check(last_request: nil, progress: progress, report_progress_threshold: 0, needs_response: true)
@@ -1303,6 +1440,11 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
+      # The master has the contents of the files, which it reads on `initialize`
+      master.controller.push_file_change(current_dir + "lib/a.rb", "class A\nend\n")
+      master.controller.push_file_change(current_dir + "lib/b.rb", "class B\nend\n")
+      master.controller.push_file_change(current_dir + "lib/c.rb", "class C\nend\n")
+
       master.process_message_from_client({
         id: "guid",
         method: TypeCheck::METHOD,
@@ -1352,6 +1494,10 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
+      # The master has the contents of the files, which it reads on `initialize`
+      master.controller.push_file_change(current_dir + "lib/customer.rb", "class Customer\nend\n")
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\nend\n")
+
       master.process_message_from_client({
         id: "guid",
         method: TypeCheck::METHOD,
@@ -1397,6 +1543,10 @@ end
       )
       master.assign_initialize_params(DEFAULT_CLI_LSP_INITIALIZE_PARAMS)
 
+      # The master has the contents of the files, which it reads on `initialize`
+      master.controller.push_file_change(current_dir + "lib/customer.rb", "class Customer\nend\n")
+      master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\nend\n")
+
       master.process_message_from_client({
         id: "guid",
         method: TypeCheck::METHOD,
@@ -1415,8 +1565,8 @@ end
       assert_equal [TypeCheck__File::METHOD] * 2, jobs.map { _1.message[:method] }
       assert_equal(
         [
-          { guid: "guid", kind: "code", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s },
-          { guid: "guid", kind: "signature", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s }
+          { guid: "guid", kind: "code", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s, content: "class Customer\nend\n" },
+          { guid: "guid", kind: "signature", target: "lib", uri: Steep::PathHelper.to_uri(current_dir + "sig/customer.rbs").to_s, content: "class Customer\nend\n" }
         ],
         jobs.map { _1.message[:params] }
       )
@@ -1425,7 +1575,7 @@ end
       master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: { diagnostics: [], entries: [], stats: nil }, signature: nil } })
       jobs = flush_queue(master.write_queue).select { _1.dest == worker }
       assert_equal(
-        [{ guid: "guid", kind: "library", target: "lib", uri: Steep::PathHelper.to_uri("/rbs/core/object.rbs").to_s }],
+        [{ guid: "guid", kind: "library", target: "lib", uri: Steep::PathHelper.to_uri("/rbs/core/object.rbs").to_s, content: nil }],
         jobs.map { _1.message[:params] }
       )
     end
@@ -1675,7 +1825,10 @@ end
           )
         end
 
-        # The workers receive the changed RBS file
+        first_generation = launcher.typecheck_workers.dup
+        assert_equal 2, first_generation.size
+
+        # The workers are forked again from the environments with the changed RBS file
         ui.open_file(project.absolute_path(Pathname("sig/foo.rbs")))
         ui.edit_file(project.absolute_path(Pathname("sig/foo.rbs")), content: <<-RBS, version: 0)
 class Foo
@@ -1687,11 +1840,18 @@ end
         finally_holds do
           assert_equal [], ui.diagnostics_for(project.absolute_path(Pathname("lib/foo.rb")))
         end
+
+        # The retired workers exit, and their pipes are closed
+        finally_holds do
+          assert_equal 2, launcher.typecheck_workers.size
+          assert_empty launcher.typecheck_workers & first_generation
+          assert first_generation.none? { _1.wait_thread.alive? }
+          assert_empty launcher.retired_workers
+          assert first_generation.all? { _1.writer.io.closed? }
+        end
       end
 
       main_thread.join
-
-      assert_equal 2, launcher.typecheck_workers.size
     end
   end
 
@@ -1945,6 +2105,8 @@ end
         }
       )
 
+      # Goto answers on the main loop
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "definition_id", result: [] })],
         flush_queue(master.write_queue)
@@ -1962,6 +2124,7 @@ end
         }
       )
 
+      run_environment_jobs(master)
       assert_equal(
         [Master::SendMessageJob.to_client(message: { id: "implementation_id", result: [] })],
         flush_queue(master.write_queue)
@@ -2212,32 +2375,16 @@ end
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
 
-      # Every RBS file of the project is indexed in its target, and every library RBS file in every target
-      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
-      assert_equal 2, jobs.size
+      # The environment thread indexes the RBS files of the project in their targets, and every library RBS file in every target
+      assert_empty flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
+      assert_equal 2, master.environment_queue.size
+      run_environment_jobs(master)
 
-      index_jobs = (jobs.map { [_1.message[:params][:target].to_sym, PathHelper.to_pathname!(_1.message[:params][:uri])] } + master.pending_index_jobs.keys)
-      assert_equal [:lib, current_dir + "sig/customer.rbs"], index_jobs[0]
-      assert_equal ["index"], jobs.map { _1.message[:params][:kind] }.uniq
-      [:lib, :test].each do |target|
-        library_paths = master.controller.files.each_library_path(project.targets.find { _1.name == target } || raise).to_a
-        refute_empty library_paths
-        assert_equal library_paths, index_jobs.filter_map { |t, path| path if t == target && path != current_dir + "sig/customer.rbs" }
-      end
+      database = master.type_check_database
+      assert_equal [[current_dir + "sig/customer.rbs", :rbs, 0]], database.definitions("::Customer").map { [_1.path, _1.source, _1.start_line] }
+      refute database.checked?(current_dir + "sig/customer.rbs")
 
-      # The entries are stored when the worker responds, without making the file checked, and the next job is handed out
-      master.result_controller.process_response(
-        {
-          id: jobs[0].message[:id],
-          result: { source: nil, signature: { diagnostics: nil, entries: [["::Customer", 0, 0, 6, 0, 14]], stats: nil } }
-        }
-      )
-
-      assert_equal [[current_dir + "sig/customer.rbs", :rbs, 0]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.source, _1.start_line] }
-      refute master.type_check_database.checked?(current_dir + "sig/customer.rbs")
-
-      next_jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
-      assert_equal ["index"], next_jobs.map { _1.message[:params][:kind] }
+      assert_includes database.definitions("::String").map(&:path), RBS::EnvironmentLoader::DEFAULT_CORE_ROOT + "string.rbs"
 
       master.process_message_from_client({ id: "definition", method: Query__Definition::METHOD, params: { name: "::Customer" } })
       response = flush_queue(master.write_queue).find { _1.message[:id] == "definition" } or raise
@@ -2276,12 +2423,13 @@ end
       master.typecheck_automatically = false
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
-      drop_index_jobs(master, flush_queue(master.write_queue))
+      flush_queue(master.write_queue)
+      run_environment_jobs(master)
 
       master.controller.push_file_change(current_dir + "sig/customer.rbs", "class Customer\n  def name: () -> String\nend\n")
       master.controller.push_file_change(current_dir + "sig/account.rbs", "class Account\n  def id: () -> Integer\nend\n")
 
-      # The type check validates `sig/customer.rbs`, and `sig/account.rbs` is indexed after the type check jobs
+      # The type check validates `sig/customer.rbs`, and the environment thread indexes both of the changed files
       master.process_message_from_client({
         id: "check",
         method: TypeCheck::METHOD,
@@ -2295,17 +2443,87 @@ end
 
       jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
       assert_equal ["code", "signature"], jobs.map { _1.message[:params][:kind] }
-      assert_equal [[:lib, current_dir + "sig/account.rbs"]], master.pending_index_jobs.keys
 
-      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: nil } })
+      database = master.type_check_database
+      assert_empty database.definitions("::Customer#name")
 
-      jobs = flush_queue(master.write_queue).select { _1.message[:method] == TypeCheck__File::METHOD }
-      assert_equal [["index", PathHelper.to_uri(current_dir + "sig/account.rbs").to_s]], jobs.map { [_1.message[:params][:kind], _1.message[:params][:uri]] }
-      assert_empty master.pending_index_jobs
+      run_environment_jobs(master)
+      assert_equal [[current_dir + "sig/customer.rbs", 1]], database.definitions("::Customer#name").map { [_1.path, _1.start_line] }
+      assert_equal [[current_dir + "sig/account.rbs", 1]], database.definitions("::Account#id").map { [_1.path, _1.start_line] }
+      refute database.checked?(current_dir + "sig/account.rbs")
     end
   end
 
-  def test_start_type_check_delivers_file_contents
+  def test_index_signatures_resolved_again
+    in_tmpdir do
+      steepfile = current_dir + "Steepfile"
+      steepfile.write(<<-EOF)
+target :lib do
+  check "lib"
+  signature "sig"
+end
+
+target :test do
+  unreferenced!
+  signature "sig_test"
+end
+      EOF
+
+      (current_dir + "lib").mkpath
+      (current_dir + "sig").mkpath
+      (current_dir + "sig_test").mkpath
+      (current_dir + "lib/a.rb").write("")
+      (current_dir + "sig/a.rbs").write("module M\n  class A\n    def foo: () -> B\n  end\nend\n")
+      (current_dir + "sig/b.rbs").write("class B\nend\n")
+      (current_dir + "sig/m_b.rbs").write("")
+      (current_dir + "sig_test/m_b.rbs").write("")
+
+      project = Project.new(steepfile_path: steepfile)
+      Project::DSL.parse(project, steepfile.read)
+
+      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+
+      master = Server::Master.new(
+        project: project,
+        reader: worker_reader,
+        writer: worker_writer,
+        launcher: WorkersLauncher.new(worker)
+      )
+      master.typecheck_automatically = false
+
+      master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
+      flush_queue(master.write_queue)
+      run_environment_jobs(master)
+
+      database = master.type_check_database
+      references = -> (name) { database.references(name).map { [_1.path, _1.start_line] } }
+      check = -> (path) do
+        master.process_message_from_client({
+          id: "check",
+          method: TypeCheck::METHOD,
+          params: { library_paths: [], signature_paths: [["lib", path.to_s]], code_paths: [], inline_paths: [] }
+        })
+        flush_queue(master.write_queue)
+        run_environment_jobs(master)
+      end
+
+      assert_equal [[current_dir + "sig/a.rbs", 2]], references.("::B")
+
+      # `sig/a.rbs` is resolved again in the environment of `test`, but it's indexed with `lib`
+      master.controller.push_file_change(current_dir + "sig_test/m_b.rbs", "module M\n  class B\n  end\nend\n")
+      check.(current_dir + "sig_test/m_b.rbs")
+      assert_equal [[current_dir + "sig/a.rbs", 2]], references.("::B")
+      assert_empty references.("::M::B")
+
+      # `sig/a.rbs` is resolved again in the environment of `lib`, and indexed again
+      master.controller.push_file_change(current_dir + "sig/m_b.rbs", "module M\n  class B\n  end\nend\n")
+      check.(current_dir + "sig/m_b.rbs")
+      assert_empty references.("::B")
+      assert_equal [[current_dir + "sig/a.rbs", 2]], references.("::M::B")
+    end
+  end
+
+  def test_broadcast_file_contents
     in_tmpdir do
       steepfile = current_dir + "Steepfile"
       steepfile.write(<<-EOF)
@@ -2324,24 +2542,26 @@ end
       project = Project.new(steepfile_path: steepfile)
       Project::DSL.parse(project, steepfile.read)
 
-      worker = Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test")
+      workers = 2.times.map { Server::WorkerProcess.new(reader: nil, writer: nil, stderr: nil, wait_thread: nil, name: "test@#{_1}") }
 
       master = Server::Master.new(
         project: project,
         reader: worker_reader,
         writer: worker_writer,
-        launcher: WorkersLauncher.new(worker)
+        launcher: WorkersLauncher.new(*workers)
       )
+      master.typecheck_automatically = false
 
       master.process_message_from_client({ id: "initialize", method: "initialize", params: DEFAULT_CLI_LSP_INITIALIZE_PARAMS })
 
-      # The worker receives the RBS files on `initialize`, before the index jobs
-      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal FileLoad::METHOD, jobs[0].message[:method]
+      # Every worker receives the RBS files on `initialize`
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal workers, jobs.map(&:dest)
+      assert_equal [FileLoad::METHOD], jobs.map { _1.message[:method] }.uniq
       assert_equal({ "sig/customer.rbs" => "class Customer\nend\n" }, jobs[0].message[:params][:content])
-      drop_index_jobs(master, jobs)
+      run_environment_jobs(master)
 
-      # The Ruby file goes to the worker with its request
+      # The Ruby file and the RBS file go to the workers with their requests, and the RBS file is not broadcast again
       master.process_message_from_client({
         id: "check-1",
         method: TypeCheck::METHOD,
@@ -2353,19 +2573,19 @@ end
         }
       })
 
-      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
       assert_equal [TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
       assert_equal "code", jobs[0].message[:params][:kind]
       assert_equal "class Customer\nend\n", jobs[0].message[:params][:content]
       assert_equal "signature", jobs[1].message[:params][:kind]
-      refute_operator jobs[1].message[:params], :key?, :content
+      assert_equal "class Customer\nend\n", jobs[1].message[:params][:content]
 
       jobs.each do |job|
         master.result_controller.process_response({ id: job.message[:id], result: { source: nil, signature: nil } })
       end
       flush_queue(master.write_queue)
 
-      # A file the worker already has is not sent again, and a changed file is sent with the new content
+      # A changed RBS file goes to every worker before the jobs, and the Ruby files go with their requests, changed or not
       master.process_message_from_client(
         {
           method: "textDocument/didChange",
@@ -2375,26 +2595,102 @@ end
           }
         }
       )
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir + "sig/customer.rbs"}" },
+            contentChanges: [{ text: "class Customer\n  def name: () -> String\nend\n" }]
+          }
+        }
+      )
       master.process_message_from_client({
         id: "check-2",
         method: TypeCheck::METHOD,
         params: {
           library_paths: [],
-          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          signature_paths: [],
           code_paths: [["lib", (current_dir + "lib/customer.rb").to_s], ["lib", (current_dir + "lib/account.rb").to_s]],
           inline_paths: []
         }
       })
 
-      jobs = flush_queue(master.write_queue).select { _1.dest == worker }
-      assert_equal [TypeCheck__File::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
       assert_equal(
         [
-          ["code", Steep::PathHelper.to_uri(current_dir + "lib/customer.rb").to_s, "class Customer\n  def name = \"\"\nend\n"],
-          ["code", Steep::PathHelper.to_uri(current_dir + "lib/account.rb").to_s, "class Account\nend\n"]
+          [workers[0], FileLoad::METHOD, { "sig/customer.rbs" => "class Customer\n  def name: () -> String\nend\n" }],
+          [workers[1], FileLoad::METHOD, { "sig/customer.rbs" => "class Customer\n  def name: () -> String\nend\n" }],
+          [workers[0], TypeCheck__File::METHOD, "class Customer\n  def name = \"\"\nend\n"],
+          [workers[1], TypeCheck__File::METHOD, "class Account\nend\n"]
         ],
-        jobs.map { |job| params = job.message[:params]; [params[:kind], params[:uri], params[:content]] }
+        jobs.map { |job| [job.dest, job.message[:method], job.message[:params][:content]] }
       )
+      jobs.each do |job|
+        master.result_controller.process_response({ id: job.message[:id], result: { source: nil, signature: nil } }) if job.message[:id]
+      end
+      flush_queue(master.write_queue)
+      run_environment_jobs(master)
+
+      # A change that leaves the declarations as they are is not broadcast: the file goes to a worker with its job, and the
+      # worker validates the content without updating its environments
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir + "sig/customer.rbs"}" },
+            contentChanges: [{ text: "# The customer\nclass Customer\n  def name: () -> String\nend\n" }]
+          }
+        }
+      )
+      master.process_message_from_client({
+        id: "check-3",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal [TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal "signature", jobs[0].message[:params][:kind]
+      assert_equal "# The customer\nclass Customer\n  def name: () -> String\nend\n", jobs[0].message[:params][:content]
+      refute_nil master.current_type_check_request
+
+      run_environment_jobs(master)
+      assert_equal [[current_dir + "sig/customer.rbs", 1]], master.type_check_database.definitions("::Customer").map { [_1.path, _1.start_line] }
+
+      master.result_controller.process_response({ id: jobs[0].message[:id], result: { source: nil, signature: nil } })
+      flush_queue(master.write_queue)
+      assert_nil master.current_type_check_request
+
+      # The next change of the declarations goes to the workers, which validate the file again
+      master.process_message_from_client(
+        {
+          method: "textDocument/didChange",
+          params: {
+            textDocument: { uri: "#{file_scheme}#{current_dir + "sig/customer.rbs"}" },
+            contentChanges: [{ text: "# The customer\nclass Customer\n  def name: () -> String\n  def id: () -> Integer\nend\n" }]
+          }
+        }
+      )
+      master.process_message_from_client({
+        id: "check-4",
+        method: TypeCheck::METHOD,
+        params: {
+          library_paths: [],
+          signature_paths: [["lib", (current_dir + "sig/customer.rbs").to_s]],
+          code_paths: [],
+          inline_paths: []
+        }
+      })
+
+      jobs = flush_queue(master.write_queue).select { _1.dest.is_a?(Server::WorkerProcess) }
+      assert_equal [FileLoad::METHOD, FileLoad::METHOD, TypeCheck__File::METHOD], jobs.map { _1.message[:method] }
+      assert_equal "signature", jobs[2].message[:params][:kind]
+      assert_equal "# The customer\nclass Customer\n  def name: () -> String\n  def id: () -> Integer\nend\n", jobs[2].message[:params][:content]
     end
   end
 end

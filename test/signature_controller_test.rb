@@ -401,4 +401,671 @@ RUBY
 
     assert_instance_of SignatureService::LoadedStatus, service.status
   end
+
+  def update_files(service, files)
+    changes = files.to_h {|path, content| [Pathname(path), [ContentChange.string(content)]] }
+    service.update(changes).tap do
+      assert_instance_of SignatureService::LoadedStatus, service.status
+    end
+  end
+
+  def method_types(service, type_name, method_name)
+    definition = service.latest_builder.build_instance(RBS::TypeName.parse(type_name))
+    definition.methods.fetch(method_name).defs.map { _1.type.to_s }
+  end
+
+  def test_update__resolve_again__name_in_outer_module
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/a.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS)
+      module M
+        class A
+          def foo: () -> B
+        end
+      end
+    RBS
+      class B
+      end
+    RBS
+    assert_equal ["() -> ::B"], method_types(service, "::M::A", :foo)
+
+    paths = update_files(service, "sig/m_b.rbs" => <<~RBS)
+      module M
+        class B
+        end
+      end
+    RBS
+    assert_equal Set[Pathname("sig/a.rbs")], paths
+    assert_equal ["() -> ::M::B"], method_types(service, "::M::A", :foo)
+
+    paths = update_files(service, "sig/m_b.rbs" => "")
+    assert_equal Set[Pathname("sig/a.rbs")], paths
+    assert_equal ["() -> ::B"], method_types(service, "::M::A", :foo)
+  end
+
+  def test_update__resolve_again__unresolved_name
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/a.rbs" => <<~RBS)
+      class A
+        def foo: () -> Foo
+      end
+    RBS
+    assert_equal ["() -> Foo"], method_types(service, "::A", :foo)
+
+    update_files(service, "sig/foo.rbs" => <<~RBS)
+      class Foo
+      end
+    RBS
+    assert_equal ["() -> ::Foo"], method_types(service, "::A", :foo)
+
+    update_files(service, "sig/foo.rbs" => "")
+    assert_equal ["() -> Foo"], method_types(service, "::A", :foo)
+  end
+
+  def test_update__resolve_again__alias
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/alias.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS)
+      module M
+        class Foo = Bar
+      end
+
+      class Bar
+      end
+    RBS
+      class A
+        def foo: () -> M::Foo
+      end
+    RBS
+    assert_equal ["() -> ::Bar"], method_types(service, "::A", :foo)
+
+    # `M::Foo` is an alias of `M::Bar`, instead of `::Bar`
+    update_files(service, "sig/m_bar.rbs" => <<~RBS)
+      module M
+        class Bar
+        end
+      end
+    RBS
+    assert_equal ["() -> ::M::Bar"], method_types(service, "::A", :foo)
+  end
+
+  def test_update__resolve_again__alias_to_removed_class
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/alias.rbs" => <<~RBS, "sig/d.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS)
+      class Y = ::D
+    RBS
+      class D
+      end
+    RBS
+      class A
+        def foo: () -> Y
+      end
+    RBS
+    assert_equal ["() -> ::D"], method_types(service, "::A", :foo)
+
+    # The alias cannot be normalized, and the reference is left unresolved
+    update_files(service, "sig/d.rbs" => "")
+    assert_equal ["() -> Y"], method_types(service, "::A", :foo)
+
+    update_files(service, "sig/d.rbs" => <<~RBS)
+      class D
+      end
+    RBS
+    assert_equal ["() -> ::D"], method_types(service, "::A", :foo)
+  end
+
+  def test_update__resolve_again__alias_target_changed
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/alias.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS)
+      class Y = ::Integer
+    RBS
+      class A
+        def foo: () -> Y
+      end
+    RBS
+    assert_equal ["() -> ::Integer"], method_types(service, "::A", :foo)
+
+    # The names exist in both environments, and the alias is a changed name
+    paths = update_files(service, "sig/alias.rbs" => <<~RBS)
+      class Y = ::String
+    RBS
+    assert_equal Set[Pathname("sig/a.rbs")], paths
+    assert_equal ["() -> ::String"], method_types(service, "::A", :foo)
+  end
+
+  def test_update__resolve_again__class_replaced_by_alias
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/x.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS)
+      class X
+      end
+    RBS
+      class A
+        def foo: () -> X
+      end
+    RBS
+    assert_equal ["() -> ::X"], method_types(service, "::A", :foo)
+
+    # The name exists in both environments, but the resolution goes through the alias
+    paths = update_files(service, "sig/x.rbs" => <<~RBS)
+      class X = ::Integer
+    RBS
+    assert_equal Set[Pathname("sig/a.rbs")], paths
+    assert_equal ["() -> ::Integer"], method_types(service, "::A", :foo)
+  end
+
+  def test_update__resolve_again__namespace_of_qualified_name
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/k.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS)
+      class K
+        class D
+        end
+      end
+
+      module P
+      end
+    RBS
+      class A
+        def foo: () -> P::C::D
+      end
+    RBS
+    assert_equal ["() -> P::C::D"], method_types(service, "::A", :foo)
+
+    # Only the namespace of `P::C::D` is added
+    update_files(service, "sig/p.rbs" => <<~RBS)
+      module P
+        class C = ::K
+      end
+    RBS
+    assert_equal ["() -> ::K::D"], method_types(service, "::A", :foo)
+  end
+
+  def test_update__resolve_again__use_wildcard
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/foo.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS)
+      module Foo
+        class Baz
+        end
+      end
+    RBS
+      use Foo::*
+
+      class A
+        def foo: () -> Bar
+      end
+    RBS
+    assert_equal ["() -> Bar"], method_types(service, "::A", :foo)
+
+    update_files(service, "sig/bar.rbs" => <<~RBS)
+      module Foo
+        class Bar
+        end
+      end
+    RBS
+    assert_equal ["() -> ::Foo::Bar"], method_types(service, "::A", :foo)
+
+    # `Foo` has no type under it, and the wildcard imports nothing
+    paths = update_files(service, "sig/bar.rbs" => "", "sig/foo.rbs" => <<~RBS)
+      module Foo
+      end
+    RBS
+    assert_equal Set[Pathname("sig/a.rbs")], paths
+    assert_equal ["() -> Bar"], method_types(service, "::A", :foo)
+  end
+
+  def test_update__resolve_again__same_name_in_same_context
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    # Both files resolve `B` in the same context, and the second one hits the cache of the resolver
+    update_files(service, "sig/a1.rbs" => <<~RBS, "sig/a2.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS)
+      module M
+        class A1
+          def foo: () -> B
+        end
+      end
+    RBS
+      module M
+        class A2
+          def foo: () -> B
+        end
+      end
+    RBS
+      class B
+      end
+    RBS
+    assert_equal ["() -> ::B"], method_types(service, "::M::A1", :foo)
+    assert_equal ["() -> ::B"], method_types(service, "::M::A2", :foo)
+
+    paths = update_files(service, "sig/m_b.rbs" => <<~RBS)
+      module M
+        class B
+        end
+      end
+    RBS
+    assert_equal Set[Pathname("sig/a1.rbs"), Pathname("sig/a2.rbs")], paths
+    assert_equal ["() -> ::M::B"], method_types(service, "::M::A1", :foo)
+    assert_equal ["() -> ::M::B"], method_types(service, "::M::A2", :foo)
+  end
+
+  def test_update__resolve_again__inline
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "lib/a.rb" => <<~RUBY, "sig/b.rbs" => <<~RBS)
+      module M
+        class A
+          def foo #: B
+            _ = nil
+          end
+        end
+      end
+    RUBY
+      class B
+      end
+    RBS
+    assert_equal ["() -> ::B"], method_types(service, "::M::A", :foo)
+
+    update_files(service, "sig/m_b.rbs" => <<~RBS)
+      module M
+        class B
+        end
+      end
+    RBS
+    assert_equal ["() -> ::M::B"], method_types(service, "::M::A", :foo)
+  end
+
+  def test_update__resolve_again__library
+    Dir.mktmpdir do |dir|
+      (Pathname(dir) + "lib.rbs").write(<<~RBS)
+        module Lib
+          class A
+            def foo: () -> B
+          end
+        end
+
+        class B
+        end
+      RBS
+
+      loader = RBS::EnvironmentLoader.new
+      loader.add(path: Pathname(dir))
+      service = SignatureService.load_from(loader, implicitly_returns_nil: true)
+      assert_equal ["() -> ::B"], method_types(service, "::Lib::A", :foo)
+
+      paths = update_files(service, "sig/lib.rbs" => <<~RBS)
+        module Lib
+          class B
+          end
+        end
+      RBS
+      # The buffer of a library file is named by its absolute path
+      assert_equal Set[Pathname(dir) + "lib.rbs"], paths
+      assert_equal ["() -> ::Lib::B"], method_types(service, "::Lib::A", :foo)
+    end
+  end
+
+  def test_update__resolve_again__unaffected
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/a.rbs" => <<~RBS)
+      module M
+        class A
+          def foo: () -> String
+        end
+      end
+    RBS
+    decl = service.latest_env.class_decls.fetch(RBS::TypeName.parse("::M::A")).primary_decl
+
+    # `::N::String` is not tested while resolving `String` in `M::A`, and `::Integer` is not mentioned
+    paths = update_files(service, "sig/b.rbs" => <<~RBS)
+      module N
+        class String
+        end
+      end
+
+      class B
+        def foo: () -> Integer
+      end
+    RBS
+    assert_empty paths
+
+    assert_same decl, service.latest_env.class_decls.fetch(RBS::TypeName.parse("::M::A")).primary_decl
+  end
+
+  def test_update__resolve_again__after_syntax_error
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/a.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS)
+      module M
+        class A
+          def foo: () -> B
+        end
+      end
+    RBS
+      class B
+      end
+    RBS
+
+    # The environment keeps the one before the error, and the records with it
+    service.update({ Pathname("sig/m_b.rbs") => [ContentChange.string("module M\n  class B\n")] })
+    assert_instance_of SignatureService::SyntaxErrorStatus, service.status
+    assert_equal ["() -> ::B"], method_types(service, "::M::A", :foo)
+
+    paths = update_files(service, "sig/m_b.rbs" => <<~RBS)
+      module M
+        class B
+        end
+      end
+    RBS
+    assert_equal Set[Pathname("sig/a.rbs")], paths
+    assert_equal ["() -> ::M::B"], method_types(service, "::M::A", :foo)
+  end
+
+  def decl_paths(service, type_name)
+    entry = service.latest_env.class_decls.fetch(RBS::TypeName.parse(type_name))
+    entry.each_decl.map { _1.location&.buffer&.name }
+  end
+
+  def test_update__keep_order
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/mods.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS)
+      module MA
+        def m: () -> Integer
+      end
+
+      module MB
+        def m: () -> String
+      end
+    RBS
+      class Foo
+        include MA
+      end
+    RBS
+      class Foo
+        include MB
+      end
+    RBS
+    assert_equal [Pathname("sig/a.rbs"), Pathname("sig/b.rbs")], decl_paths(service, "::Foo")
+    assert_equal ["() -> ::String"], method_types(service, "::Foo", :m)
+
+    update_files(service, "sig/a.rbs" => <<~RBS)
+      class Foo
+        include MA
+
+        def foo: () -> void
+      end
+    RBS
+    assert_equal [Pathname("sig/a.rbs"), Pathname("sig/b.rbs")], decl_paths(service, "::Foo")
+    assert_equal ["() -> ::String"], method_types(service, "::Foo", :m)
+  end
+
+  def test_update__resolve_again__keep_order
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/mods.rbs" => <<~RBS, "sig/a.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS)
+      module MA
+        def m: () -> Integer
+      end
+
+      module MB
+        def m: () -> String
+      end
+    RBS
+      class Foo
+        include MA
+
+        def foo: () -> Bar
+      end
+    RBS
+      class Foo
+        include MB
+      end
+    RBS
+    assert_equal ["() -> ::String"], method_types(service, "::Foo", :m)
+
+    paths = update_files(service, "sig/bar.rbs" => <<~RBS)
+      class Bar
+      end
+    RBS
+    assert_equal Set[Pathname("sig/a.rbs")], paths
+    assert_equal [Pathname("sig/a.rbs"), Pathname("sig/b.rbs")], decl_paths(service, "::Foo")
+    assert_equal ["() -> ::String"], method_types(service, "::Foo", :m)
+  end
+
+  def test_update__keep_order__error_at_updated_file
+    service = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+
+    update_files(service, "sig/a.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS)
+      class A
+      end
+    RBS
+      type t = Integer
+    RBS
+
+    # `sig/a.rbs` is before `sig/b.rbs`, but the error is reported at the updated file
+    service.update({ Pathname("sig/a.rbs") => [ContentChange.string(<<~RBS)] })
+      class A
+      end
+
+      type t = String
+    RBS
+    assert_instance_of SignatureService::AncestorErrorStatus, service.status
+    assert_equal 1, service.status.diagnostics.size
+    service.status.diagnostics[0].tap do |diagnostic|
+      assert_instance_of Diagnostic::Signature::DuplicatedDeclaration, diagnostic
+      assert_equal Pathname("sig/a.rbs"), diagnostic.location&.buffer&.name
+    end
+  end
+
+  def test_library_paths
+    paths = SignatureService.library_paths(RBS::EnvironmentLoader.new)
+    assert_equal SignatureService.load_from(RBS::EnvironmentLoader.new, implicitly_returns_nil: true).env_rbs_paths, paths
+
+    Dir.mktmpdir do |dir|
+      (Pathname(dir) + "a.rbs").write("class LibA\nend\n")
+      loader = RBS::EnvironmentLoader.new
+      loader.add(path: Pathname(dir))
+      assert_equal SignatureService.load_from(loader, implicitly_returns_nil: true).env_rbs_paths, SignatureService.library_paths(loader)
+    end
+  end
+
+  def test_derive__libraries
+    Dir.mktmpdir do |dir|
+      dir = Pathname(dir)
+      (dir + "lib_a").mkpath
+      (dir + "lib_a/a.rbs").write("class LibA\nend\n")
+      (dir + "lib_b").mkpath
+      (dir + "lib_b/b.rbs").write("class LibB\nend\n")
+
+      loader_a = RBS::EnvironmentLoader.new
+      loader_a.add(path: dir + "lib_a")
+      loader_b = RBS::EnvironmentLoader.new
+      loader_b.add(path: dir + "lib_b")
+
+      base = SignatureService.load_from(loader_a, implicitly_returns_nil: true)
+      update_files(base, "sig/x.rbs" => <<~RBS, "sig/y.rbs" => <<~RBS)
+        class X
+          def x: () -> String
+        end
+      RBS
+        class Y
+          def y: () -> LibA
+        end
+      RBS
+      base_env = base.latest_env
+
+      library_paths = SignatureService.library_paths(loader_b)
+      derived = base.derive(
+        library_paths: library_paths,
+        changes: base.files.to_h {|path, file| [path, [ContentChange.string(file.content)]] },
+        implicitly_returns_nil: true
+      )
+      derived or raise
+
+      assert_equal library_paths, derived.env_rbs_paths
+      assert_operator derived.latest_env.class_decls, :key?, RBS::TypeName.parse("::LibB")
+      refute_operator derived.latest_env.class_decls, :key?, RBS::TypeName.parse("::LibA")
+
+      # `sig/x.rbs` doesn't depend on the libraries, and its source is shared
+      assert_same base.latest_source(Pathname("sig/x.rbs")), derived.latest_source(Pathname("sig/x.rbs"))
+      assert_same base.files.fetch(Pathname("sig/x.rbs")), derived.files.fetch(Pathname("sig/x.rbs"))
+
+      # `sig/y.rbs` refers to the removed library, and is resolved again
+      refute_same base.latest_source(Pathname("sig/y.rbs")), derived.latest_source(Pathname("sig/y.rbs"))
+      assert_equal ["() -> LibA"], method_types(derived, "::Y", :y)
+
+      # The base is not changed
+      assert_same base_env, base.latest_env
+      assert_equal ["() -> ::LibA"], method_types(base, "::Y", :y)
+
+      # The derived environment is the one loaded from the libraries
+      fresh = SignatureService.load_from(loader_b, implicitly_returns_nil: true)
+      update_files(fresh, "sig/x.rbs" => base.files.fetch(Pathname("sig/x.rbs")).content, "sig/y.rbs" => base.files.fetch(Pathname("sig/y.rbs")).content)
+      assert_equal(
+        fresh.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] },
+        derived.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] }
+      )
+    end
+  end
+
+  def test_derive__order
+    Dir.mktmpdir do |dir|
+      dir = Pathname(dir)
+      (dir + "lib_a").mkpath
+      (dir + "lib_a/a.rbs").write(<<~RBS)
+        module MA
+          def m: () -> Integer
+        end
+
+        class Foo
+          include MA
+        end
+      RBS
+      (dir + "lib_b").mkpath
+      (dir + "lib_b/b.rbs").write(<<~RBS)
+        module MB
+          def m: () -> String
+        end
+
+        class Foo
+          include MB
+        end
+      RBS
+
+      loader_a = RBS::EnvironmentLoader.new
+      loader_a.add(path: dir + "lib_a")
+      loader_ba = RBS::EnvironmentLoader.new
+      loader_ba.add(path: dir + "lib_b")
+      loader_ba.add(path: dir + "lib_a")
+
+      foo = <<~RBS
+        class Foo
+          def foo: () -> void
+        end
+      RBS
+
+      base = SignatureService.load_from(loader_a, implicitly_returns_nil: true)
+      update_files(base, "sig/foo.rbs" => foo)
+
+      derived = base.derive(
+        library_paths: SignatureService.library_paths(loader_ba),
+        changes: { Pathname("sig/foo.rbs") => [ContentChange.string(foo)] },
+        implicitly_returns_nil: true
+      )
+      derived or raise
+
+      fresh = SignatureService.load_from(loader_ba, implicitly_returns_nil: true)
+      update_files(fresh, "sig/foo.rbs" => foo)
+
+      # The added library is before the libraries of the base and the files, as the loader loads it
+      assert_equal [dir + "lib_b/b.rbs", dir + "lib_a/a.rbs", Pathname("sig/foo.rbs")], decl_paths(derived, "::Foo")
+      assert_equal decl_paths(fresh, "::Foo"), decl_paths(derived, "::Foo")
+      assert_equal ["() -> ::Integer"], method_types(derived, "::Foo", :m)
+    end
+  end
+
+  def test_derive__files
+    base = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+    update_files(base, "sig/a.rbs" => <<~RBS, "sig/b.rbs" => <<~RBS, "sig/c.rbs" => <<~RBS)
+      module M
+        class A
+          def foo: () -> B
+        end
+      end
+    RBS
+      class B
+      end
+    RBS
+      class C
+      end
+    RBS
+
+    # `sig/a.rbs` and `sig/b.rbs` are kept, `sig/c.rbs` is removed, and `sig/m_b.rbs` is added
+    derived = base.derive(
+      library_paths: base.env_rbs_paths,
+      changes: {
+        Pathname("sig/a.rbs") => [ContentChange.string(base.files.fetch(Pathname("sig/a.rbs")).content)],
+        Pathname("sig/b.rbs") => [ContentChange.string(base.files.fetch(Pathname("sig/b.rbs")).content)],
+        Pathname("sig/m_b.rbs") => [ContentChange.string("module M\n  class B\n  end\nend\n")]
+      },
+      implicitly_returns_nil: true
+    )
+    derived or raise
+
+    assert_equal Set[Pathname("sig/a.rbs"), Pathname("sig/b.rbs"), Pathname("sig/m_b.rbs")], Set.new(derived.files.each_key)
+    refute_operator derived.latest_env.class_decls, :key?, RBS::TypeName.parse("::C")
+    assert_equal ["() -> ::M::B"], method_types(derived, "::M::A", :foo)
+    assert_equal ["() -> ::B"], method_types(base, "::M::A", :foo)
+
+    # `sig/b.rbs` has the same content and is not affected: shared
+    assert_same base.latest_source(Pathname("sig/b.rbs")), derived.latest_source(Pathname("sig/b.rbs"))
+    # `sig/a.rbs` is resolved again
+    refute_same base.latest_source(Pathname("sig/a.rbs")), derived.latest_source(Pathname("sig/a.rbs"))
+
+    # The derived service is updated by itself
+    paths = update_files(derived, "sig/m_b.rbs" => "")
+    assert_equal Set[Pathname("sig/a.rbs")], paths
+    assert_equal ["() -> ::B"], method_types(derived, "::M::A", :foo)
+    assert_equal ["() -> ::B"], method_types(base, "::M::A", :foo)
+  end
+
+  def test_derive__replaced_content
+    base = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+    update_files(base, "sig/a.rbs" => "class A\n  def foo: () -> String\nend\n")
+
+    derived = base.derive(
+      library_paths: base.env_rbs_paths,
+      changes: { Pathname("sig/a.rbs") => [ContentChange.string("class A\n  def foo: () -> Integer\nend\n")] },
+      implicitly_returns_nil: true
+    )
+    derived or raise
+
+    assert_equal ["() -> ::Integer"], method_types(derived, "::A", :foo)
+    assert_equal ["() -> ::String"], method_types(base, "::A", :foo)
+  end
+
+  def test_derive__errors
+    base = SignatureService.load_from(environment_loader, implicitly_returns_nil: true)
+    update_files(base, "sig/a.rbs" => "class A\nend\n")
+
+    # A syntax error
+    assert_nil base.derive(library_paths: base.env_rbs_paths, changes: { Pathname("sig/e.rbs") => [ContentChange.string("class")] }, implicitly_returns_nil: true)
+
+    # A loading error: `A` is declared twice
+    changes = {
+      Pathname("sig/a.rbs") => [ContentChange.string(base.files.fetch(Pathname("sig/a.rbs")).content)],
+      Pathname("sig/e.rbs") => [ContentChange.string("class A = ::String\n")]
+    }
+    assert_nil base.derive(library_paths: base.env_rbs_paths, changes: changes, implicitly_returns_nil: true)
+
+    # The base is not loaded
+    base.update({ Pathname("sig/a.rbs") => [ContentChange.string("class")] })
+    assert_instance_of SignatureService::SyntaxErrorStatus, base.status
+    assert_nil base.derive(library_paths: base.env_rbs_paths, changes: {}, implicitly_returns_nil: true)
+  end
 end

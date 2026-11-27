@@ -197,8 +197,7 @@ module Steep
       attr_reader :environment_queue
       attr_reader :pending_typecheck_jobs
       attr_reader :typecheck_jobs_in_flight
-      attr_reader :interaction_jobs_in_flight
-      attr_reader :pending_index_jobs
+      attr_reader :exiting_workers
 
       TYPECHECK_JOBS_PER_WORKER = 2
 
@@ -229,8 +228,11 @@ module Steep
         @environment_queue = Thread::Queue.new
         @pending_typecheck_jobs = []
         @typecheck_jobs_in_flight = {}
-        @interaction_jobs_in_flight = {}
-        @pending_index_jobs = {}
+        @latest_interaction_id = nil
+        @environment_generation = 0
+        @exiting_workers = Set[].compare_by_identity
+        @exited_wait_threads = Set[].compare_by_identity
+        @exited_wait_threads_mutex = Mutex.new
         @shutting_down = false
         @typecheck_quiescent_callbacks = []
         @pending_typecheck_requests = []
@@ -324,9 +326,11 @@ module Steep
             end
           end
 
-          # Returns when a worker process exits, or the main loop stops
+          # Returns when a worker process exits, or the main loop stops, but a retired worker is told to exit
           worker_waiter << loop_thread
-          worker_waiter.wait_one()
+          while thread = worker_waiter.wait_one()
+            break unless @exited_wait_threads_mutex.synchronize { @exited_wait_threads.include?(thread) }
+          end
 
           unless job_queue.closed?
             # A worker process exited, or the main loop stopped, before the client sent `exit`
@@ -365,29 +369,31 @@ module Steep
           Steep.measure("Starting the workers...") do
             launcher.start(service)
           end
-
           start_worker_threads()
+
+          # The workers receive every RBS file and inline RBS source of the project, and the environments follow them in
+          # the background
+          changes = controller.pop_file_changes
+          signature_files = signature_files_in(changes)
+          broadcast_contents(signature_files.map { |_, path| path })
+          environment_queue << -> { update_environments(service, changes, signature_files) }
 
         when ForkLauncher
           # The workers are forked from the environments with the files of the project. The main loop updates the
           # environments itself, because the environment thread has no job yet, and nothing can run without the workers.
           changes = controller.pop_file_changes
-          versions = changes.each_key.to_h { [_1, controller.file_contents.fetch(_1).version] } #: Hash[Pathname, Integer]
-
           Steep.measure("Updating the environments with #{changes.size} files") do
             service.update(changes: changes)
           end
+          warm_definitions(service)
 
           Steep.measure("Forking the workers...") do
             launcher.start(service)
           end
-
-          # The workers have the files in the environments
-          typecheck_workers.each do |worker|
-            worker.known_versions.replace(versions)
-          end
-
           start_worker_threads()
+
+          signature_files = signature_files_in(changes)
+          environment_queue << -> { index_signatures(service, signature_files) }
         end
       end
 
@@ -407,9 +413,25 @@ module Steep
           worker.reader.read do |message|
             enqueue_worker_message(worker, message)
           end
+
+          # The worker has exited
+          job_queue << -> { close_exited_worker(worker) }
+        rescue ClosedQueueError
+          # The server is exiting
         end
 
         worker_waiter << worker.wait_thread
+      end
+
+      def close_exited_worker(worker)
+        launcher = self.launcher
+
+        if launcher.is_a?(ForkLauncher) && exiting_workers.delete?(worker)
+          worker.reader.close
+          worker.writer.close
+          launcher.remove_retired_worker(worker)
+          typecheck_jobs_in_flight.delete(worker)
+        end
       end
 
       def enqueue_worker_message(worker, message)
@@ -421,8 +443,23 @@ module Steep
       def each_worker(&block)
         if block
           typecheck_workers.each(&block)
+
+          launcher = self.launcher
+          if launcher.is_a?(ForkLauncher)
+            launcher.retired_workers.each(&block)
+          end
         else
           enum_for :each_worker
+        end
+      end
+
+      def retiring_workers
+        launcher = self.launcher
+
+        if launcher.is_a?(ForkLauncher)
+          launcher.retired_workers.reject { exiting_workers.include?(_1) }
+        else
+          []
         end
       end
 
@@ -503,7 +540,7 @@ module Steep
 
           start_workers()
 
-          index_all_signatures()
+          index_library_signatures()
 
           if typecheck_automatically
             progress.end()
@@ -622,12 +659,8 @@ module Steep
 
           if path = pathname(uri)
             if target = project.group_for_path(path)
-              if controller.inline_path?(path)
-                controller.open_inline_path(path, text)
-              else
-                controller.open_path(path)
-                controller.push_file_change(path, text) if text
-              end
+              controller.open_path(path)
+              controller.push_file_change(path, text) if text
 
               start_type_checking_queue.execute do
                 guid = SecureRandom.uuid
@@ -642,34 +675,19 @@ module Steep
           end
 
         when "textDocument/hover", "textDocument/completion", "textDocument/signatureHelp"
-          uri = message[:params][:textDocument][:uri] #: String
-          position = message[:params][:position] #: CustomMethods::position
-
-          method, params =
+          interaction =
             case message[:method]
             when "textDocument/hover"
-              [CustomMethods::Hover::METHOD, { uri: uri, position: position }]
+              -> (provider, path, line, column) { provider.hover(path: path, line: line, column: column) }
             when "textDocument/completion"
               trigger = message[:params].dig(:context, :triggerCharacter) #: String?
-              [CustomMethods::Completion::METHOD, { uri: uri, position: position, trigger: trigger }]
+              -> (provider, path, line, column) { provider.completion(path: path, line: line, column: column, trigger: trigger) }
             else
-              [CustomMethods::SignatureHelp::METHOD, { uri: uri, position: position }]
-            end #: [String, untyped]
+              -> (provider, path, line, column) { provider.signature_help(path: path, line: line, column: column) }
+            end #: ^(InteractionProvider, Pathname, Integer, Integer) -> interaction_result?
 
-          worker =
-            if path = pathname(uri)
-              send_interaction_request(method: method, params: params, path: path) do |result|
-                respond_to_interaction(message, result)
-              end
-            end
-
-          unless worker
-            enqueue_write_job SendMessageJob.to_client(
-              message: {
-                id: message[:id],
-                result: nil
-              }
-            )
+          run_interaction(message, interaction) do |result|
+            respond_to_interaction(message, result)
           end
 
         when "workspace/symbol"
@@ -692,45 +710,28 @@ module Steep
               :type_definition
             end #: GotoResolver::kind
 
-          worker =
-            if path = pathname(message[:params][:textDocument][:uri])
-              from =
-                if controller.files.signature_paths.registered_path?(path) || controller.files.library_path?(path)
-                  :rbs
+          path = pathname(message[:params][:textDocument][:uri])
+          from =
+            if path && (controller.files.signature_paths.registered_path?(path) || controller.files.library_path?(path))
+              :rbs
+            else
+              :ruby
+            end #: GotoResolver::from
+
+          interaction = -> (provider, path, line, column) { provider.source_symbol(path: path, line: line, column: column) } #: ^(InteractionProvider, Pathname, Integer, Integer) -> InteractionProvider::SourceSymbol::result
+
+          run_interaction(message, interaction) do |result|
+            # The symbols are looked up in the database, on the main loop
+            job_queue << -> do
+              locations =
+                if result
+                  goto_resolver.goto(kind: kind, from: from, result: result)
                 else
-                  :ruby
-                end #: GotoResolver::from
+                  [] #: Array[GotoResolver::location]
+                end
 
-              params = {
-                uri: message[:params][:textDocument][:uri],
-                position: message[:params][:position]
-              } #: CustomMethods::Source__Symbol::params
-
-              send_interaction_request(method: CustomMethods::Source__Symbol::METHOD, params: params, path: path) do |result|
-                # @type var result: CustomMethods::Source__Symbol::result?
-                locations =
-                  if result
-                    goto_resolver.goto(kind: kind, from: from, result: result)
-                  else
-                    [] #: Array[GotoResolver::location]
-                  end
-
-                enqueue_write_job SendMessageJob.to_client(
-                  message: {
-                    id: message[:id],
-                    result: locations
-                  }
-                )
-              end
+              enqueue_write_job SendMessageJob.to_client(message: { id: message[:id], result: locations })
             end
-
-          unless worker
-            enqueue_write_job SendMessageJob.to_client(
-              message: {
-                id: message[:id],
-                result: [] #: Array[untyped]
-              }
-            )
           end
 
         when CustomMethods::Query__Definition::METHOD
@@ -897,11 +898,7 @@ module Steep
                 controller.make_request(guid: progress.guid, progress: progress)
               end
 
-            unless request
-              # The index jobs of the changed files are left to hand out
-              dispatch_typecheck_jobs()
-              return
-            end
+            return unless request
 
             request.needs_response = needs_response ? true : false
           end
@@ -939,9 +936,6 @@ module Steep
           end
 
           Steep.logger.info "Dispatching the type check jobs"
-          typecheck_workers.each do |worker|
-            deliver_contents(worker, signature_paths_to_deliver)
-          end
 
           @pending_typecheck_jobs = request.jobs
           dispatch_typecheck_jobs()
@@ -950,78 +944,63 @@ module Steep
 
       def dispatch_typecheck_jobs
         return if @shutting_down
-        request = current_type_check_request
+        request = current_type_check_request or return
 
         loop do
           workers = typecheck_workers.select {|worker| typecheck_jobs_in_flight.fetch(worker, 0) < TYPECHECK_JOBS_PER_WORKER }
           break if workers.empty?
 
           workers.each do |worker|
-            if request && (job = pending_typecheck_jobs.shift)
-              send_typecheck_job(worker, request, job)
-            elsif index_job = pending_index_jobs.shift
-              target_name, path = index_job[0]
-              send_index_job(worker, target_name, path)
-            else
-              return
-            end
+            job = pending_typecheck_jobs.shift or return
+            send_typecheck_job(worker, request, job)
           end
         end
       end
 
-      def send_index_job(worker, target_name, path)
-        params = {
-          guid: "index",
-          kind: "index",
-          target: target_name.to_s,
-          uri: PathHelper.to_uri(path).to_s
-        } #: CustomMethods::TypeCheck__File::params
+      def index_library_signatures
+        service = controller.type_check_service or return
 
-        typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) + 1
-
-        result_controller << send_request(method: CustomMethods::TypeCheck__File::METHOD, params: params, worker: worker) do |handler|
-          handler.on_completion do |response|
-            typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) - 1
-
-            result = response[:result] #: CustomMethods::TypeCheck__File::result?
-            if entries = result&.[](:signature)&.[](:entries)
-              type_check_database.update_rbs(path: path, target: target_name, entries: entries.map { TypeCheckDatabase::Entry.from_wire(_1) })
-            end
-
-            dispatch_typecheck_jobs()
-          end
-        end
-      end
-
-      def enqueue_index_jobs(target_paths)
-        return if target_paths.empty?
-
-        target_paths.each do |target_path|
-          pending_index_jobs[target_path] = true
-        end
-
-        typecheck_workers.each do |worker|
-          deliver_contents(worker, signature_paths_to_deliver)
-        end
-      end
-
-      def index_all_signatures
-        target_paths = [] #: Array[[Symbol, Pathname]]
-
-        controller.files.signature_paths.each do |path, target|
-          target_paths << [target.name, path]
-        end
-        controller.files.inline_paths.each do |path, target|
-          target_paths << [target.name, path]
-        end
+        library_files = [] #: Array[[Symbol, Pathname]]
         project.targets.each do |target|
           controller.files.each_library_path(target) do |path|
-            target_paths << [target.name, path]
+            library_files << [target.name, path]
           end
         end
 
-        enqueue_index_jobs(target_paths)
-        dispatch_typecheck_jobs()
+        environment_queue << -> { index_signatures(service, library_files) }
+      end
+
+      def index_signatures(service, target_files)
+        return if target_files.empty?
+
+        updates = [] #: Array[[Symbol, Pathname, Array[TypeCheckDatabase::Entry]]]
+
+        target_files.group_by { |target_name, _| target_name }.each do |target_name, files|
+          signature_service = service.signature_services.fetch(target_name)
+
+          # The index of the last loaded signatures would have stale locations
+          next unless signature_service.status.is_a?(Services::SignatureService::LoadedStatus)
+
+          # The buffer of a library file is named by its absolute path, and the one of a project file by its relative path
+          buffer_paths = files.to_h do |_, path|
+            [signature_service.env_rbs_paths.include?(path) ? path : project.relative_path(path), path]
+          end #: Hash[Pathname, Pathname]
+
+          Steep.measure("Indexing #{files.size} files of #{target_name}") do
+            entries = TypeCheckDatabase.rbs_entries_by_path(signature_service.latest_env, paths: Set.new(buffer_paths.each_key))
+            buffer_paths.each do |buffer_path, path|
+              updates << [target_name, path, entries.fetch(buffer_path, [])]
+            end
+          end
+        end
+
+        job_queue << -> do
+          updates.each do |target_name, path, entries|
+            type_check_database.update_rbs(path: path, target: target_name, entries: entries)
+          end
+        end
+      rescue ClosedQueueError
+        # The main loop has stopped
       end
 
       def send_typecheck_job(worker, request, job)
@@ -1040,21 +1019,23 @@ module Steep
             "inline"
           end #: CustomMethods::TypeCheck__File::kind
 
+        # The RBS files go with their jobs too: a worker validates the content it receives, which may be newer than the
+        # file in its environments, in its text. A library has no content, and the worker validates the file in its
+        # environments.
+        content =
+          unless kind == :library
+            if file = controller.file_contents.fetch(project.relative_path(path), nil)
+              wire_content(file.text)
+            end
+          end
+
         params = {
           guid: request.guid,
           kind: kind_string,
           target: target_name.to_s,
-          uri: PathHelper.to_uri(path).to_s
+          uri: PathHelper.to_uri(path).to_s,
+          content: content
         } #: CustomMethods::TypeCheck__File::params
-
-        if kind == :code
-          if content = content_for(worker, path)
-            params[:content] = content
-          end
-        else
-          # The validation reports the entries of the declarations too
-          pending_index_jobs.delete([target_name, path])
-        end
 
         typecheck_jobs_in_flight[worker] = typecheck_jobs_in_flight.fetch(worker, 0) + 1
 
@@ -1071,6 +1052,7 @@ module Steep
               signature: result&.[](:signature)
             )
 
+            release_retired_workers()
             dispatch_typecheck_jobs()
           end
         end
@@ -1093,11 +1075,6 @@ module Steep
 
             if signature
               type_check_database.update_signature(path: path, target: target.name, diagnostics: signature[:diagnostics])
-              type_check_database.update_rbs(
-                path: path,
-                target: target.name,
-                entries: signature[:entries]&.map { TypeCheckDatabase::Entry.from_wire(_1) }
-              )
             end
 
             source_diagnostics = source && source[:diagnostics]
@@ -1128,6 +1105,8 @@ module Steep
       def broadcast_notification(message)
         Steep.logger.info "Broadcasting notification #{message[:method]}"
         each_worker do |worker|
+          # The workers told to exit read nothing more
+          next if exiting_workers.include?(worker)
           enqueue_write_job SendMessageJob.new(dest: worker, message: message)
         end
       end
@@ -1267,122 +1246,227 @@ module Steep
         return if changes.empty?
         service = controller.type_check_service or return
 
-        # The changed RBS files are indexed after the type check jobs, unless the type check validates them
-        target_paths = changes.each_key.filter_map do |relative_path|
+        signature_files = signature_files_in(changes)
+        updated_paths = controller.pop_declaration_changes()
+        generation = nil #: Integer?
+
+        # The workers keep their environments while the declarations stay the same: an RBS file changed in its text only
+        # goes to a worker with its validation job, which validates the content without updating the environments
+        unless updated_paths.empty?
+          case launcher
+          when SpawnLauncher
+            # The workers update their environments with the files by themselves
+            broadcast_contents(signature_files.map { |_, path| path })
+          when ForkLauncher
+            # The next generation is forked from the environments updated with the declarations
+            generation = (@environment_generation += 1)
+            launcher.retire_workers()
+            release_retired_workers()
+          end
+        end
+
+        environment_queue << -> do
+          begin
+            update_environments(service, changes, signature_files)
+
+            if generation && generation == @environment_generation
+              warm_definitions(service)
+            end
+          ensure
+            # Forks the generation of the latest update only, while the environments are not being updated. The workers
+            # are forked even if the update fails, with the environments as they are.
+            if generation && generation == @environment_generation
+              forked = Thread::Queue.new
+
+              job_queue << -> do
+                fork_workers(service, generation)
+              ensure
+                forked << true
+              end
+
+              forked.pop
+            end
+          end
+        rescue ClosedQueueError
+          # The main loop has stopped
+        end
+      end
+
+      def update_environments(service, changes, signature_files)
+        resolved_paths = Steep.measure("Updating the environments with #{changes.size} files") do
+          service.update(changes: changes)
+        end
+        index_signatures(service, signature_files | resolved_signature_files(resolved_paths))
+      end
+
+      def resolved_signature_files(resolved_paths)
+        resolved_paths.flat_map do |target_name, paths|
+          paths.filter_map do |path|
+            path = project.absolute_path(path)
+            target = project.target_for_signature_path(path) || project.target_for_inline_source_path(path)
+            [target_name, path] if target.nil? || target.name == target_name
+          end
+        end
+      end
+
+      def signature_files_in(changes)
+        changes.each_key.filter_map do |relative_path|
           path = project.absolute_path(relative_path)
           if target = controller.files.signature_paths.target(path) || controller.files.inline_paths.target(path)
             [target.name, path]
           end
-        end #: Array[[Symbol, Pathname]]
-        enqueue_index_jobs(target_paths)
+        end
+      end
 
-        environment_queue << -> do
-          Steep.measure("Updating the environments with #{changes.size} files") do
-            service.update(changes: changes)
+      def fork_workers(service, generation)
+        launcher = self.launcher
+        return unless launcher.is_a?(ForkLauncher)
+
+        # No workers are forked after `shutdown`, and a newer update forks the workers again
+        return if @shutting_down || job_queue.closed?
+        return unless generation == @environment_generation
+
+        Steep.measure("Forking the workers...") do
+          launcher.start(service)
+        end
+        start_worker_threads()
+
+        dispatch_typecheck_jobs()
+      end
+
+      def warm_definitions(service)
+        Steep.measure("Building the definitions of the project") do
+          project.targets.each do |target|
+            signature_service = service.signature_services.fetch(target.name)
+            subtyping = signature_service.current_subtyping or next
+            builder = subtyping.factory.definition_builder
+            env = builder.env
+
+            signature_service.type_names(paths: Set.new(signature_service.files.each_key), env: env).each do |name|
+              case
+              when env.class_decls.key?(name)
+                builder.build_instance(name)
+                builder.build_singleton(name)
+              when env.interface_decls.key?(name)
+                builder.build_interface(name)
+              end
+            rescue RBS::BaseError
+              # The validation reports the error
+            end
           end
         end
       end
 
-      def content_for(worker, path)
-        relative_path = project.relative_path(path)
-        file = controller.file_contents.fetch(relative_path, nil) or return
-        return if worker.known_versions[relative_path] == file.version
+      def release_retired_workers
+        # The workers stop at `exit` after `shutdown`
+        return if @shutting_down
 
-        worker.known_versions[relative_path] = file.version
+        retiring_workers.each do |worker|
+          next if typecheck_jobs_in_flight.fetch(worker, 0) > 0
 
-        if file.text.valid_encoding?
-          file.text
-        else
-          { text: [file.text].pack("m"), binary: true }
+          exiting_workers << worker
+          @exited_wait_threads_mutex.synchronize { @exited_wait_threads << worker.wait_thread }
+          send_notification({ method: "exit" }, worker: worker)
         end
       end
 
-      def deliver_contents(worker, paths)
+      def wire_content(text)
+        if text.valid_encoding?
+          text
+        else
+          { text: [text].pack("m"), binary: true }
+        end
+      end
+
+      def broadcast_contents(paths)
         content = {} #: Hash[String, ChangeBuffer::content]
 
         paths.each do |path|
-          if file_content = content_for(worker, path)
-            content[project.relative_path(path).to_s] = file_content
+          relative_path = project.relative_path(path)
+          if file = controller.file_contents.fetch(relative_path, nil)
+            content[relative_path.to_s] = wire_content(file.text)
           end
         end
 
-        unless content.empty?
-          Steep.logger.info { "Sending the contents of #{content.size} files to #{worker.name}" }
+        return if content.empty?
+
+        Steep.logger.info { "Sending the contents of #{content.size} files to the workers" }
+        typecheck_workers.each do |worker|
           enqueue_write_job SendMessageJob.to_worker(worker, message: CustomMethods::FileLoad.notification({ content: content }))
         end
       end
 
-      def deliver_contents_for_request(worker, path)
+      def run_interaction(message, interaction, &block)
+        service = controller.type_check_service
+        path = pathname(message[:params][:textDocument][:uri])
+        position = message[:params][:position] #: InteractionProvider::position?
+
+        if path.nil? || position.nil? || service.nil?
+          block[nil]
+          return
+        end
+
+        line = position[:line] + 1
+        column = position[:character]
+
+        # The interaction sees the changes received so far, which the environment thread applies first
         update_environment()
-        deliver_contents(worker, signature_paths_to_deliver + [path])
-      end
 
-      def worker_for_interaction
-        typecheck_workers.min_by do |worker|
-          typecheck_jobs_in_flight.fetch(worker, 0) + interaction_jobs_in_flight.fetch(worker, 0)
+        id = message[:id]
+        @latest_interaction_id = id
+        provider = InteractionProvider.new(service: service)
+
+        environment_queue << -> do
+          result =
+            if id == @latest_interaction_id
+              begin
+                interaction[provider, path, line, column]
+              rescue => exn
+                Steep.log_error(exn, message: "Failed to answer the interaction request: #{exn.inspect}")
+                nil
+              end
+            else
+              Steep.logger.info { "Skipping the interaction request: a newer one is waiting" }
+              nil
+            end
+
+          block[result]
+        rescue ClosedQueueError
+          # The main loop has stopped
         end
-      end
-
-      def send_interaction_request(method:, params:, path:)
-        worker = worker_for_interaction or return
-
-        deliver_contents_for_request(worker, path)
-        interaction_jobs_in_flight[worker] = interaction_jobs_in_flight.fetch(worker, 0) + 1
-
-        result_controller << send_request(method: method, params: params, worker: worker) do |handler|
-          handler.on_completion do |response|
-            interaction_jobs_in_flight[worker] = interaction_jobs_in_flight.fetch(worker, 0) - 1
-            yield response[:result]
-          end
-        end
-
-        worker
       end
 
       def respond_to_interaction(message, result)
         id = message[:id]
-
-        if message[:method] == "textDocument/signatureHelp"
-          help = result #: CustomMethods::SignatureHelp::result?
-
-          if help && help[:syntax_error]
-            # The file cannot be parsed while the user types: keep the signature help the client is showing, if any
-            active_signature_help = message[:params].dig(:context, :activeSignatureHelp)
-            enqueue_write_job SendMessageJob.to_client(message: { id: id, result: active_signature_help })
-            return
-          end
-
-          result = help&.[](:signature_help)
-        end
-
         service = controller.type_check_service
 
-        if result.nil? || service.nil?
-          enqueue_write_job SendMessageJob.to_client(message: { id: id, result: nil })
-          return
-        end
-
-        # Renders with the latest environments, without waiting for an update running on the environment thread
+        # Renders on the environment thread, with the environments the interaction ran with
         lsp_result =
-          begin
-            case message[:method]
-            when "textDocument/hover"
-              LSPFormatter.hover(result, service: service)
-            when "textDocument/completion"
-              LSPFormatter.completion_list(result, service: service)
-            when "textDocument/signatureHelp"
-              LSPFormatter.signature_help(result, service: service)
+          if result && service
+            begin
+              case message[:method]
+              when "textDocument/hover"
+                hover = result #: InteractionProvider::Hover::result
+                LSPFormatter.hover(hover, service: service)
+              when "textDocument/completion"
+                completion = result #: InteractionProvider::Completion::result
+                LSPFormatter.completion_list(completion, service: service)
+              when "textDocument/signatureHelp"
+                signature_help = result #: InteractionProvider::SignatureHelp::result
+                if signature_help[:syntax_error]
+                  # The file cannot be parsed while the user types: keep the signature help the client is showing, if any
+                  message[:params].dig(:context, :activeSignatureHelp)
+                elsif help = signature_help[:signature_help]
+                  LSPFormatter.signature_help(help, service: service)
+                end
+              end
+            rescue => exn
+              Steep.log_error(exn, message: "Failed to format the result of #{message[:method]}: #{exn.inspect}")
+              nil
             end
-          rescue => exn
-            Steep.log_error(exn, message: "Failed to format the result of #{message[:method]}: #{exn.inspect}")
-            nil
           end
 
         enqueue_write_job SendMessageJob.to_client(message: { id: id, result: lsp_result })
-      end
-
-      def signature_paths_to_deliver
-        controller.files.signature_paths.paths.to_a + controller.files.inline_paths.paths.to_a
       end
 
       def workspace_symbol_result(query)

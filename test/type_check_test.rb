@@ -2155,17 +2155,801 @@ class TypeCheckTest < Minitest::Test
           diagnostics:
           - range:
               start:
-                line: 4
-                character: 18
+                line: 3
+                character: 6
               end:
-                line: 6
-                character: 7
+                line: 3
+                character: 9
             severity: ERROR
             message: |-
-              Cannot allow block body have type `::Symbol` because declared as type `T`
+              Cannot allow method body have type `::Symbol` because declared as type `T`
                 ::Symbol <: T
-            code: Ruby::BlockBodyTypeMismatch
+            code: Ruby::MethodBodyTypeMismatch
         YAML
+    )
+  end
+
+  def test_type_inference__block_call_masgn
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.pair: () -> [Integer, String]
+            def self.ints: () -> Array[Integer]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a, b = BlockCall.measure { BlockCall.pair }
+          a.foo
+          b.foo
+
+          c, d = BlockCall.measure do
+            [1, "foo"]
+          end
+          c.foo
+          d.foo
+
+          e, f = [BlockCall.measure { 1 }, :foo]
+          e.foo
+
+          g, h = BlockCall.measure { BlockCall.ints }
+          g.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 2
+              end:
+                line: 2
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 3
+                character: 2
+              end:
+                line: 3
+                character: 5
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 2
+              end:
+                line: 8
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 5
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 12
+                character: 2
+              end:
+                line: 12
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 15
+                character: 2
+              end:
+                line: 15
+                character: 5
+            severity: ERROR
+            message: Type `(::Integer | nil)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_masgn_variables
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.pair: () -> [Integer, String]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var a: Integer?
+          a, b = BlockCall.measure { BlockCall.pair }
+          b.foo
+
+          c = 1
+          d = 2
+          c, d = BlockCall.measure { ["foo", 3] }
+          c.foo
+          d.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 3
+                character: 2
+              end:
+                line: 3
+                character: 5
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 8
+                character: 2
+              end:
+                line: 8
+                character: 5
+            severity: ERROR
+            message: Type `::String` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_hint
+    # The block body is typed with the hint, and `Box` gets `Integer?` from the hint because it's invariant
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.wrap: [A] () { () -> A } -> BlockCall::Box[A]
+          end
+
+          class BlockCall::Box[A]
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var x: [:ok, untyped]
+          x = BlockCall.measure { [:ok, 1] }
+
+          # @type var y: BlockCall::Box[Integer?]
+          y = BlockCall.wrap { 1 }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics: []
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_hint_unsatisfiable
+    # The hint is ignored, and the mismatch is reported at the assignment
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var x: String
+          x = BlockCall.measure { 1 }
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 2
+                character: 27
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `::Integer` to a variable of type `::String`
+                ::Integer <: ::String
+                  ::Numeric <: ::String
+                    ::Object <: ::String
+                      ::BasicObject <: ::String
+            code: Ruby::IncompatibleAssignment
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_hint_jump
+    # The values of `next` are given to the type variable, and the values of `break` to the block call
+    # `a` and `c` are `Integer?`
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a, b = BlockCall.measure do
+            next [nil, nil] if BlockCall.cond
+            [1, "foo"]
+          end
+          a.foo
+
+          c, d = BlockCall.measure do
+            break [nil, nil] if BlockCall.cond
+            [1, "foo"]
+          end
+          c.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 2
+              end:
+                line: 5
+                character: 5
+            severity: ERROR
+            message: Type `(nil | ::Integer)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 11
+                character: 2
+              end:
+                line: 11
+                character: 5
+            severity: ERROR
+            message: Type `(nil | ::Integer)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_hint_next
+    # The hint is ignored when the value of `next` is incompatible with it, and the mismatch is reported at the assignment, as it is for the block body
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          # @type var x: String
+          x = BlockCall.measure do
+            next 1 if BlockCall.cond
+            "foo"
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 2
+                character: 0
+              end:
+                line: 5
+                character: 3
+            severity: ERROR
+            message: |-
+              Cannot assign a value of type `(::Integer | ::String)` to a variable of type `::String`
+                (::Integer | ::String) <: ::String
+                  ::Integer <: ::String
+                    ::Numeric <: ::String
+                      ::Object <: ::String
+                        ::BasicObject <: ::String
+            code: Ruby::IncompatibleAssignment
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_break_type_variable
+    # The value of `break` has the type of a type variable that is solved after the block body, and gets the solution
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.gen: [A] () { (A) -> A } -> A
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = BlockCall.gen do |x|
+            break x if BlockCall.cond
+            1
+          end
+          a.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 2
+              end:
+                line: 5
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_break_overload
+    # The value of `break` is typed with each of the overloads of `over`, and the type is from the one that is chosen
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.each_int: () { (Integer) -> void } -> self
+            def self.over: (Array[Integer], untyped, String) -> void
+                         | (Array[String], untyped, Integer) -> void
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = BlockCall.each_int do |i|
+            BlockCall.over(z = [], (if BlockCall.cond then break z else 1 end), 1)
+          end
+          a.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 2
+              end:
+                line: 4
+                character: 5
+            severity: ERROR
+            message: Type `(singleton(::BlockCall) | ::Array[::String])` does not have method
+              `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_jump_scope
+    # The `break` and `next` in the nested blocks and loops are not of the outer block
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.each_int: () { (Integer) -> void } -> self
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = BlockCall.each_int do |i|
+            BlockCall.each_int { break "foo" }
+            while BlockCall.cond
+              break :sym
+            end
+            -> { next 1.0 }
+            break 3 if i > 1
+          end
+          a.foo
+
+          b = BlockCall.measure do
+            BlockCall.measure { next "foo" }
+            -> { next 1.0 }
+            next 3 if BlockCall.cond
+            :sym
+          end
+          b.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 5
+            severity: ERROR
+            message: Type `(singleton(::BlockCall) | ::Integer)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 17
+                character: 2
+              end:
+                line: 17
+                character: 5
+            severity: ERROR
+            message: Type `(::Integer | ::Symbol)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_break
+    # The block call evaluates to the return type of the method or the values of `break`
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.map_like: [A] () { () -> A } -> Array[A]
+            def self.each_int: () { (Integer) -> void } -> self
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = BlockCall.measure do
+            break 1 if BlockCall.cond
+            "foo"
+          end
+          a.foo
+
+          b = BlockCall.map_like do
+            break :sym if BlockCall.cond
+            "foo"
+          end
+          b.foo
+
+          c = BlockCall.each_int do |i|
+            break i if i > 1
+          end
+          c.foo
+
+          d = BlockCall.each_int do |i|
+            break if i > 1
+          end
+          d.foo
+
+          # @type var e: Array[Integer] | singleton(BlockCall)
+          e = BlockCall.each_int do |i|
+            break [] if i > 1
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 2
+              end:
+                line: 5
+                character: 5
+            severity: ERROR
+            message: Type `(::String | ::Integer)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 11
+                character: 2
+              end:
+                line: 11
+                character: 5
+            severity: ERROR
+            message: Type `(::Array[::String] | ::Symbol)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 16
+                character: 2
+              end:
+                line: 16
+                character: 5
+            severity: ERROR
+            message: Type `(singleton(::BlockCall) | ::Integer)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 21
+                character: 2
+              end:
+                line: 21
+                character: 5
+            severity: ERROR
+            message: Type `(singleton(::BlockCall) | nil)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__block_call_next
+    # The block evaluates to the values of `next`, which are given to the type variables
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.measure: [A] () { () -> A } -> A
+            def self.ints: () { (Integer) -> Integer } -> void
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = BlockCall.measure do
+            next 1 if BlockCall.cond
+            "foo"
+          end
+          a.foo
+
+          b = -> do
+            next 1 if BlockCall.cond
+            "foo"
+          end
+          b.foo
+
+          BlockCall.ints do |i|
+            next "foo" if BlockCall.cond
+            i
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 2
+              end:
+                line: 5
+                character: 5
+            severity: ERROR
+            message: Type `(::Integer | ::String)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 11
+                character: 2
+              end:
+                line: 11
+                character: 5
+            severity: ERROR
+            message: Type `^() -> (::String | ::Integer)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 14
+                character: 2
+              end:
+                line: 14
+                character: 12
+            severity: ERROR
+            message: |-
+              Cannot break with a value of type `::String` because type `::Integer` is assumed
+                ::String <: ::Integer
+                  ::Object <: ::Integer
+                    ::BasicObject <: ::Integer
+            code: Ruby::BreakTypeMismatch
+      YAML
+    )
+  end
+
+  def test_type_inference__loop_break
+    # The loop evaluates to `nil` or the values of `break`
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class BlockCall
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = while BlockCall.cond
+            break 1 if BlockCall.cond
+          end
+          a.foo
+
+          b = (begin
+            break "foo" if BlockCall.cond
+          end until BlockCall.cond)
+          b.foo
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 4
+                character: 2
+              end:
+                line: 4
+                character: 5
+            severity: ERROR
+            message: Type `(nil | ::Integer)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 9
+                character: 2
+              end:
+                line: 9
+                character: 5
+            severity: ERROR
+            message: Type `(nil | ::String)` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
+    )
+  end
+
+  def test_type_inference__for_break
+    # The `for` loop evaluates to the collection or the values of `break`
+    # The `break` and `next` in the loop are not of the outer block or loop
+    run_type_check_test(
+      signatures: {
+        "a.rbs" => <<~RBS
+          class ForTest
+            def self.ints: () -> Array[Integer]
+            def self.measure: [A] () { () -> A } -> A
+            def self.cond: () -> bool
+          end
+        RBS
+      },
+      code: {
+        "a.rb" => <<~RUBY
+          a = ForTest.ints.each do |i|
+            f = for j in [1, 2]
+              break :sym if ForTest.cond
+            end
+            f.foo
+          end
+          a.foo
+
+          b = ForTest.measure do
+            for j in [1, 2]
+              next "str" if ForTest.cond
+            end
+            1
+          end
+          b.foo
+
+          c = while ForTest.cond
+            for j in [1, 2]
+              break 1.0 if ForTest.cond
+            end
+          end
+          c.foo
+
+          for j in [1, 2]
+            break if ForTest.cond
+          end
+        RUBY
+      },
+      expectations: <<~YAML
+        ---
+        - file: a.rb
+          diagnostics:
+          - range:
+              start:
+                line: 5
+                character: 4
+              end:
+                line: 5
+                character: 7
+            severity: ERROR
+            message: Type `(::Array[::Integer] | ::Symbol)` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 7
+                character: 2
+              end:
+                line: 7
+                character: 5
+            severity: ERROR
+            message: Type `::Array[::Integer]` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 11
+                character: 4
+              end:
+                line: 11
+                character: 14
+            severity: ERROR
+            message: The value given to next will be ignored
+            code: Ruby::UnexpectedJumpValue
+          - range:
+              start:
+                line: 15
+                character: 2
+              end:
+                line: 15
+                character: 5
+            severity: ERROR
+            message: Type `::Integer` does not have method `foo`
+            code: Ruby::NoMethod
+          - range:
+              start:
+                line: 22
+                character: 2
+              end:
+                line: 22
+                character: 5
+            severity: ERROR
+            message: Type `nil` does not have method `foo`
+            code: Ruby::NoMethod
+      YAML
     )
   end
 

@@ -595,9 +595,13 @@ module FactoryHelper
     @factory or raise "#factory should be called from inside with_factory"
   end
 
+  # Parses a type, keeping the type names as they are written
+  #
+  # The tests write the type names that are not defined in the environment, like `Integer` for `::Integer`.
+  #
   def parse_type(string, factory: self.factory, variables: [])
     type = RBS::Parser.parse_type(string, variables: variables)
-    factory.type(type)
+    factory.for_unresolved_type_names.type(type)
   end
 
   # @rbs (String, ?factory: AST::Types::Factory) -> Steep::Source
@@ -605,9 +609,11 @@ module FactoryHelper
     Steep::Source.parse(string, path: Pathname("test.rb"), factory: factory)
   end
 
+  # Parses a method type, keeping the type names as they are written
+  #
   def parse_method_type(string, factory: self.factory, variables: [])
     type = RBS::Parser.parse_method_type(string, variables: variables)
-    factory.method_type(type)
+    factory.for_unresolved_type_names.method_type(type)
   end
 end
 
@@ -647,22 +653,28 @@ module LSPTestHelper
     # The service `#start` was called with
     attr_reader :started_service #: Steep::Services::TypeCheckService?
 
-    # The environments of each target when `#start` was called, which the workers would be forked with
+    # The environments of each target when `#start` was called last, which the workers would be forked with
     attr_reader :started_environments #: Hash[Symbol, RBS::Environment]?
+
+    # The number of the generations started
+    attr_reader :start_count #: Integer
 
     # @rbs @workers: Array[Steep::Server::WorkerProcess]
 
-    # @rbs *workers: Steep::Server::WorkerProcess
-    def initialize(*workers)
-      super(typecheck_count: workers.size)
+    # @rbs *workers: Steep::Server::WorkerProcess -- the workers given on `#start`, `typecheck_count` at a time
+    # @rbs typecheck_count: Integer
+    def initialize(*workers, typecheck_count: workers.size)
+      super(typecheck_count: typecheck_count)
       @workers = workers
+      @start_count = 0
     end
 
     # @rbs (Steep::Services::TypeCheckService) -> void
     def start(service)
       @started_service = service
       @started_environments = service.signature_services.transform_values(&:latest_env)
-      typecheck_workers.concat(@workers)
+      @start_count += 1
+      typecheck_workers.concat(@workers.shift(typecheck_count))
     end
   end
 

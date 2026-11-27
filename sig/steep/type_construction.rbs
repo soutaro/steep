@@ -306,6 +306,28 @@ module Steep
         () -> Interface::Substitution
       } -> [Interface::MethodType, bool, Interface::Substitution]
 
+    # Returns `true` if the type variable occurs in the parameters of the method, or in the parameters or self type of the block
+    #
+    def param_variable?: (Interface::MethodType, Symbol var) -> bool
+
+    # Returns the `break` nodes, or the `next` nodes, that jump from the block or the loop of given body, with the types of their values
+    #
+    # The type is `nil` for a node without a value.
+    #
+    # The types are read from `#typing`, so the body must be type checked with it already.
+    # The nodes that were not type checked are skipped.
+    # A value in the arguments of an overloaded method call has the type from the overload that is chosen.
+    #
+    # See `NodeHelper#each_jump_node` for the nodes in the nested blocks and loops.
+    #
+    def jump_values: (Parser::AST::Node? body, :break | :next `type`) -> Array[[Parser::AST::Node, AST::Types::t]]
+
+    # Returns the type of a loop of given body: `result_type`, or the values of `break` in the body
+    #
+    # `result_type` is the type the loop evaluates to without `break`: `nil` for `while` and `until`, and the collection for `for`.
+    #
+    def loop_type: (AST::Types::t result_type, Parser::AST::Node? body) -> AST::Types::t
+
     def eliminate_vars: (untyped `type`, untyped variables, ?to: untyped) -> untyped
 
     # Type check arguments
@@ -349,7 +371,7 @@ module Steep
     # * `block_next_type` Type of `next` from the block
     # * `block_block_hint` Type hint of the block that will be given to the block
     # * `block_annotations` Annotations given to the block body
-    # * `node_type_hint` Type hint of block call node
+    # * `node_type_hint` Type hint of block call node, which is the type hint of `break` values
     #
     def for_block: (
         Parser::AST::Node? body_node,
@@ -362,14 +384,20 @@ module Steep
         block_self_hint: AST::Types::t?
       ) -> TypeConstruction
 
-    # Synthesize the block body and returns the type of the body
+    # Synthesize the block body and returns the type of the block: the type of the body, or the values of `next` in it
+    #
+    # The values of `next` are checked against `next_type` with `constraints` after the body is type checked,
+    # and the ones that are incompatible are reported and not included in the type of the block.
+    # They are not checked if `next_type` is `nil`.
     #
     # The constructor can be safely discarded because it cannot change anything outer than block.
     #
     def synthesize_block: (
       node: Parser::AST::Node & Parser::AST::_BlockNode,
       block_type_hint: AST::Types::t?,
-      block_body: Parser::AST::Node?
+      block_body: Parser::AST::Node?,
+      ?next_type: AST::Types::t?,
+      ?constraints: Subtyping::Constraints
     ) -> AST::Types::t
 
     %a{pure} def nesting: () -> RBS::Resolver::context

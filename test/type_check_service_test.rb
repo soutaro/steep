@@ -46,6 +46,113 @@ class TypeCheckServiceTest < Minitest::Test
     }
   end
 
+  def method_types(service, type_name, method_name)
+    definition = service.latest_builder.build_instance(RBS::TypeName.parse(type_name))
+    definition.methods.fetch(method_name).defs.map { _1.type.to_s }
+  end
+
+  def test_initialize__derived_libraries
+    project = Project.new(steepfile_path: Pathname.pwd + "Steepfile").tap do |project|
+      Project::DSL.eval(project) do
+        target :core do
+          check "lib/core.rb"
+          signature "sig/core.rbs"
+          library "securerandom"
+        end
+
+        target :main do
+          check "lib/main.rb"
+          signature "sig/main.rbs"
+          library "digest"
+        end
+      end
+    end
+
+    service = TypeCheckService.new(project: project)
+    core = service.signature_services.fetch(:core)
+    main = service.signature_services.fetch(:main)
+
+    # `main` is derived from `core`: `securerandom` is removed and `digest` is added
+    assert_operator core.latest_env.class_decls, :key?, RBS::TypeName.parse("::SecureRandom")
+    refute_operator core.latest_env.class_decls, :key?, RBS::TypeName.parse("::Digest")
+    refute_operator main.latest_env.class_decls, :key?, RBS::TypeName.parse("::SecureRandom")
+    assert_operator main.latest_env.class_decls, :key?, RBS::TypeName.parse("::Digest")
+
+    project.targets.each do |target|
+      derived = service.signature_services.fetch(target.name)
+      fresh = Services::SignatureService.load_from(target.new_env_loader, implicitly_returns_nil: target.implicitly_returns_nil)
+
+      assert_equal fresh.env_rbs_paths, derived.env_rbs_paths
+      assert_equal(
+        fresh.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] },
+        derived.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] }
+      )
+    end
+  end
+
+  def test_update__derived_files
+    service = Services::TypeCheckService.new(project: project)
+
+    paths = service.update(changes: reset_changes.merge(
+      Pathname("sig/core.rbs") => [ContentChange.string(<<~RBS)],
+        module M
+          class A
+            def foo: () -> B
+          end
+        end
+
+        class B
+        end
+      RBS
+      Pathname("sig/core_test.rbs") => [ContentChange.string(<<~RBS)]
+        module M
+          class B
+          end
+        end
+      RBS
+    ))
+    # The targets other than the base are derived, and no file is resolved again in place
+    assert_equal({}, paths)
+
+    core = service.signature_services.fetch(:core)
+    main = service.signature_services.fetch(:main)
+    test = service.signature_services.fetch(:test)
+
+    # `test` is unreferenced: only the target loads `sig/core_test.rbs`
+    assert_equal ["() -> ::B"], method_types(core, "::M::A", :foo)
+    assert_equal ["() -> ::B"], method_types(main, "::M::A", :foo)
+    assert_equal ["() -> ::M::B"], method_types(test, "::M::A", :foo)
+    refute_operator core.files, :key?, Pathname("sig/core_test.rbs")
+    assert_operator test.files, :key?, Pathname("sig/core_test.rbs")
+
+    # The sources are shared unless they are affected
+    assert_same core.latest_source(Pathname("sig/main.rbs")), main.latest_source(Pathname("sig/main.rbs"))
+    assert_same core.latest_source(Pathname("sig/main.rbs")), test.latest_source(Pathname("sig/main.rbs"))
+    assert_same core.latest_source(Pathname("sig/core.rbs")), main.latest_source(Pathname("sig/core.rbs"))
+    refute_same core.latest_source(Pathname("sig/core.rbs")), test.latest_source(Pathname("sig/core.rbs"))
+
+    project.targets.each do |target|
+      derived = service.signature_services.fetch(target.name)
+      fresh = Services::SignatureService.load_from(target.new_env_loader, implicitly_returns_nil: target.implicitly_returns_nil)
+      fresh.update(reset_changes.merge(
+        Pathname("sig/core.rbs") => [ContentChange.string(core.files.fetch(Pathname("sig/core.rbs")).content)],
+        Pathname("sig/core_test.rbs") => [ContentChange.string(test.files.fetch(Pathname("sig/core_test.rbs")).content)]
+      ).select {|path, _| (t = project.target_for_signature_path(path) || project.target_for_inline_source_path(path)) && (t == target || !t.unreferenced) })
+
+      assert_equal fresh.files.keys.sort, derived.files.keys.sort
+      assert_equal(
+        fresh.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] },
+        derived.latest_env.sources.to_h { [_1.buffer.name, _1.declarations] }
+      )
+    end
+
+    # The derived services are updated in place after
+    paths = service.update(changes: { Pathname("sig/core_test.rbs") => [ContentChange.string("")] })
+    assert_equal({ test: Set[Pathname("sig/core.rbs")] }, paths)
+    assert_same test, service.signature_services.fetch(:test)
+    assert_equal ["() -> ::B"], method_types(test, "::M::A", :foo)
+  end
+
   def test_update_file__signature
     service = Services::TypeCheckService.new(project: project)
 
@@ -61,6 +168,46 @@ RBS
       assert_operator service.signature_services[:main].files, :key?, Pathname("sig/main.rbs")
       assert_operator service.signature_services[:test].files, :key?, Pathname("sig/main.rbs")
     end
+  end
+
+  def test_update__resolved_paths
+    service = Services::TypeCheckService.new(project: project)
+
+    service.update(changes: reset_changes.merge(
+      Pathname("sig/core.rbs") => [ContentChange.string(<<~RBS)]
+        module M
+          class A
+            def foo: () -> B
+          end
+        end
+
+        class B
+        end
+      RBS
+    ))
+
+    # `test` is unreferenced, and only the target loads `sig/core_test.rbs`
+    paths = service.update(changes: {
+      Pathname("sig/core_test.rbs") => [ContentChange.string(<<~RBS)]
+        module M
+          class B
+          end
+        end
+      RBS
+    })
+    assert_equal({ test: Set[Pathname("sig/core.rbs")] }, paths)
+
+    # Every target loads `sig/main.rbs`
+    paths = service.update(changes: {
+      Pathname("sig/core_test.rbs") => [ContentChange.string("")],
+      Pathname("sig/main.rbs") => [ContentChange.string(<<~RBS)]
+        module M
+          class B
+          end
+        end
+      RBS
+    })
+    assert_equal({ core: Set[Pathname("sig/core.rbs")], main: Set[Pathname("sig/core.rbs")], inline: Set[Pathname("sig/core.rbs")] }, paths)
   end
 
   def test_update_file__signature_unreferenced
@@ -298,6 +445,51 @@ RUBY
 
       assert_empty service.signature_diagnostics[Pathname("sig/main.rbs")]
     end
+  end
+
+  def test_validate__content
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+    core = project.targets.find { _1.name == :core } or raise
+
+    service.update(changes: { Pathname("sig/core.rbs") => [ContentChange.string("class Core\n  def foo: () -> Strin\nend\n")] })
+
+    # The content is validated as it is, with the environment as it is
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core, content: "# Core\n\nclass Core\n  def foo: () -> Strin\nend\n").tap do |diagnostics|
+      assert_any!(diagnostics, size: 1) do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal 4, error.location.start_line
+      end
+    end
+
+    assert_equal "class Core\n  def foo: () -> Strin\nend\n", service.signature_services.fetch(:core).files.fetch(Pathname("sig/core.rbs")).content
+
+    # A content that cannot be parsed reports the syntax error
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core, content: "class Core\n  def\nend\n").tap do |diagnostics|
+      assert_any!(diagnostics, size: 1) do |error|
+        assert_instance_of Diagnostic::Signature::SyntaxError, error
+      end
+    end
+  end
+
+  def test_validate__content__syntax_error
+    service = Services::TypeCheckService.new(project: project)
+    service.update(changes: reset_changes)
+    core = project.targets.find { _1.name == :core } or raise
+
+    service.update(changes: { Pathname("sig/core.rbs") => [ContentChange.string("class Core\n  def foo: () -> )\nend\n")] })
+    assert_instance_of Services::SignatureService::SyntaxErrorStatus, service.signature_services.fetch(:core).status
+
+    # The content reports its own syntax error, not the one of the text in the environment
+    service.validate_signature(path: Pathname("sig/core.rbs"), target: core, content: "# Core\n\nclass Core\n  def foo: () -> )\nend\n").tap do |diagnostics|
+      assert_any!(diagnostics, size: 1) do |error|
+        assert_instance_of Diagnostic::Signature::SyntaxError, error
+        assert_equal 4, error.location.start_line
+      end
+    end
+
+    # A content that can be parsed has no syntax error
+    assert_empty service.validate_signature(path: Pathname("sig/core.rbs"), target: core, content: "class Core\n  def foo: () -> String\nend\n")
   end
 
   def test_validate__other_target

@@ -43,15 +43,21 @@ module Steep
 
       class BreakContext
         attr_reader :break_type
+        attr_reader :break_hint
         attr_reader :next_type
 
-        def initialize(break_type:, next_type:)
+        def initialize(break_type:, break_hint:, next_type:)
           @break_type = break_type
+          @break_hint = break_hint
           @next_type = next_type
         end
 
         def subst(s)
-          BreakContext.new(break_type: break_type.subst(s), next_type: next_type&.subst(s))
+          BreakContext.new(
+            break_type: break_type&.subst(s),
+            break_hint: break_hint&.subst(s),
+            next_type: next_type&.subst(s)
+          )
         end
       end
 

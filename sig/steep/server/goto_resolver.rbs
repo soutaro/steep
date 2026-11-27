@@ -29,7 +29,7 @@ module Steep
       def initialize: (database: TypeCheckDatabase) -> void
 
       # Returns the LSP locations for a goto request, given the result of `$/steep/source/symbol` and where the cursor is
-      def goto: (kind: kind, from: from, result: CustomMethods::Source__Symbol::result) -> Array[location]
+      def goto: (kind: kind, from: from, result: InteractionProvider::SourceSymbol::result) -> Array[location]
 
       # Returns the result of `$/steep/query/definition` for a name string
       def query_definition: (String name_string) -> CustomMethods::Query__Definition::result

@@ -17,6 +17,8 @@ class SteepfileTest < Minitest::Test
 
   def test_diagnostics: () -> untyped
 
+  def test_diagnostics_removed: () -> untyped
+
   def test_collection_implicit: () -> untyped
 
   def test_collection_explicit: () -> untyped

@@ -22,12 +22,20 @@ module Steep
       # The `Pathname` of each buffer name, shared by every entry in the file
       @paths: Hash[String, Pathname]
 
-      def initialize: () -> void
+      # The names of the buffers to collect the entries from, `nil` for every buffer
+      @only_paths: Set[Pathname]?
 
-      # Collects the entries of every declaration in the environment
+      # `paths` limits the declarations to the ones in the files, by the name of the buffer: the relative path of a
+      # project file, or the absolute path of a library file
+      def initialize: (?paths: Set[Pathname]?) -> void
+
+      # Collects the entries of every declaration in the environment, or of the ones in `paths`
       def env: (RBS::Environment env) -> self
 
       private
+
+      # `true` if the entries of a declaration at the location are to be collected
+      def wanted?: (RBS::Location[untyped, untyped]? location) -> bool
 
       def class_decl: (RBS::TypeName name, RBS::AST::Declarations::Class | RBS::AST::Declarations::Module | RBS::AST::Ruby::Declarations::ClassDecl | RBS::AST::Ruby::Declarations::ModuleDecl decl) -> void
 

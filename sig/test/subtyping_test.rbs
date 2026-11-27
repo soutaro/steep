@@ -15,6 +15,7 @@ class SubtypingTest < Minitest::Test
 
   Failure: untyped
 
+  # The type names are kept as they are written, like `String` for `::String`
   def parse_type: (untyped string, checker: untyped, ?variables: untyped) -> untyped
 
   def parse_method_type: (untyped string, checker: untyped, ?variables: untyped) -> untyped

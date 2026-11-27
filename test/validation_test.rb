@@ -102,12 +102,12 @@ type b = no_such_type
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::X::Y::Z"), error.name
+        assert_equal RBS::TypeName.parse("X::Y::Z"), error.name
       end
 
       assert_any! validator.each_error do |error|
         assert_instance_of Diagnostic::Signature::UnknownTypeName, error
-        assert_equal RBS::TypeName.parse("::no_such_type"), error.name
+        assert_equal RBS::TypeName.parse("no_such_type"), error.name
       end
     end
   end
@@ -222,7 +222,7 @@ end
 
       assert_any validator.each_error do |error|
         error.is_a?(Diagnostic::Signature::UnknownTypeName) &&
-          error.name == parse_type("Arryay").name
+          error.name == RBS::TypeName.parse("Arryay")
       end
     end
   end
@@ -1461,6 +1461,224 @@ Test: SetValueExtractor[ArraySet]
           assert_equal "Type `::M` is deprecated", error.header_line
         end
       end
+    end
+  end
+  def test_validate_source__rbs
+    with_checker <<-EOF do |checker|
+class Foo
+  def foo: () -> Strin
+
+  include Bar[Integer]
+
+  class Nested
+    type t = Unknown
+  end
+end
+
+module Bar[T < String]
+end
+
+class Foo
+  def bar: () -> void
+  def bar: () -> void
+end
+
+Baz: Array
+$baz: Hash[Integer]
+    EOF
+
+      validator = Validator.new(checker: checker)
+      source = checker.factory.env.sources.find { Pathname(_1.buffer.name).basename.to_s == "0.rbs" } or raise
+      validator.validate_source(source)
+
+      # The types in the method types are validated with the declarations
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal RBS::TypeName.parse("Strin"), error.name
+        assert_equal 2, error.location&.start_line
+      end
+
+      # The type applications of the mixins are validated against the bounds
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnsatisfiableTypeApplication, error
+        assert_equal RBS::TypeName.parse("::Bar"), error.type_name
+        assert_equal 4, error.location&.start_line
+      end
+
+      # The nested declarations are validated
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal RBS::TypeName.parse("Unknown"), error.name
+        assert_equal 7, error.location&.start_line
+      end
+
+      # The definition is validated once, and its errors don't stop the validation of the other declarations
+      assert_equal 1, validator.each_error.count { _1.is_a?(Diagnostic::Signature::DuplicatedMethodDefinition) }
+
+      # The constants and the globals are validated
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
+        assert_equal RBS::TypeName.parse("::Array"), error.name
+        assert_equal 19, error.location&.start_line
+      end
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
+        assert_equal RBS::TypeName.parse("::Hash"), error.name
+        assert_equal 20, error.location&.start_line
+      end
+
+      assert_equal 6, validator.each_error.count
+    end
+  end
+
+  def test_validate_source__rbs_valid
+    with_checker <<-EOF do |checker|
+class Foo[T < Numeric]
+  include Bar[T]
+
+  def foo: [S < String] (S) -> T
+
+  attr_reader bar: Array[T]
+
+  @baz: Hash[Symbol, T]
+
+  def self.build: () -> Foo[Integer]
+end
+
+module Bar[T < Numeric]
+  type t[T] = T | nil
+end
+
+Baz: Array[String]
+$baz: Hash[Integer, Bar::t[Integer]]
+    EOF
+
+      validator = Validator.new(checker: checker)
+      source = checker.factory.env.sources.find { Pathname(_1.buffer.name).basename.to_s == "0.rbs" } or raise
+      validator.validate_source(source)
+
+      assert_empty validator.each_error.map { [_1.class, _1.location&.start_line, _1.header_line] }
+    end
+  end
+
+  def test_validate_source__inline
+    with_factory({}, { "a.rb" => <<-RUBY }) do |factory|
+class Foo
+  # @rbs () -> Strin
+  def foo
+  end
+
+  include Comparable
+
+  attr_reader :bar #: Integr
+
+  # @rbs () -> Hash[Integer]
+  def self.baz
+  end
+end
+    RUBY
+      builder = Steep::Interface::Builder.new(factory, implicitly_returns_nil: true)
+      checker = Steep::Subtyping::Check.new(builder: builder)
+
+      validator = Validator.new(checker: checker)
+      source = factory.env.sources.find { _1.is_a?(RBS::Source::Ruby) } or raise
+      validator.validate_source(source)
+
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal RBS::TypeName.parse("Strin"), error.name
+        assert_equal 2, error.location&.start_line
+      end
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal RBS::TypeName.parse("Integr"), error.name
+        assert_equal 8, error.location&.start_line
+      end
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::InvalidTypeApplication, error
+        assert_equal RBS::TypeName.parse("::Hash"), error.name
+        assert_equal 10, error.location&.start_line
+      end
+
+      assert_equal 3, validator.each_error.count
+    end
+  end
+  def test_validate_source__ancestor_application
+    with_checker <<-EOF do |checker|
+module M[T]
+end
+
+interface _I[T]
+  def foo: () -> T
+end
+
+class Foo
+  include M
+  include M[Integer, String]
+  include _I
+  extend M[String, Integer]
+end
+
+class Bar::Baz
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      source = checker.factory.env.sources.find { Pathname(_1.buffer.name).basename.to_s == "0.rbs" } or raise
+      validator.validate_source(source)
+
+      # The type applications of the superclass and the mixins are validated with the declarations
+      applications = validator.each_error.select { _1.is_a?(Diagnostic::Signature::InvalidTypeApplication) }
+      assert_equal [9, 10, 11, 12], applications.map { _1.location&.start_line }.sort
+
+      # The namespace of a class declaration exists
+      assert_any! validator.each_error do |error|
+        assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+        assert_equal RBS::TypeName.parse("::Bar"), error.name
+        assert_equal 15, error.location&.start_line
+      end
+
+      assert_equal 5, validator.each_error.count
+    end
+  end
+
+  def test_validate_source__shadowed_type_name
+    with_checker <<-EOF do |checker|
+module Lib
+  class Thing
+  end
+end
+
+module App
+  class Lib
+  end
+
+  class Foo
+    type t = Lib::Thing
+
+    attr_reader thing: Lib::Thing
+
+    def things: () -> Array[Lib::Thing]
+
+    def thing_class: () -> singleton(::Lib::Thing)
+  end
+end
+    EOF
+
+      validator = Validator.new(checker: checker)
+      source = checker.factory.env.sources.find { Pathname(_1.buffer.name).basename.to_s == "0.rbs" } or raise
+      validator.validate_source(source)
+
+      # `Lib` in `App` is `App::Lib`, which doesn't have `Thing`
+      [11, 13, 15].each do |line|
+        assert_any! validator.each_error do |error|
+          assert_instance_of Diagnostic::Signature::UnknownTypeName, error
+          assert_equal RBS::TypeName.parse("Lib::Thing"), error.name
+          assert_equal line, error.location&.start_line
+        end
+      end
+
+      assert_equal 3, validator.each_error.count
     end
   end
 end

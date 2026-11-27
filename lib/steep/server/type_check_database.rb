@@ -187,8 +187,8 @@ module Steep
         )
       end
 
-      def self.rbs_entries_by_path(env)
-        RBSEntryBuilder.new.env(env).entries
+      def self.rbs_entries_by_path(env, paths: nil)
+        RBSEntryBuilder.new(paths: paths).env(env).entries
       end
 
       attr_reader :pool

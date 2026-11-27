@@ -623,6 +623,8 @@ class TypeConstructionTest < Minitest::Test
 
   def test_send_rbs_error: () -> untyped
 
+  def test_undefined_type_name: () -> untyped
+
   def test_const: () -> untyped
 
   def test_const_class_module: () -> untyped
@@ -732,6 +734,8 @@ class TypeConstructionTest < Minitest::Test
   def test_ruby3_it_parameter2: () -> untyped
 
   def test_type_check_def_without_decl: () -> untyped
+
+  def test_break_without_value_with_annotation: () -> untyped
 
   def test_break_without_value_to_block: () -> untyped
 

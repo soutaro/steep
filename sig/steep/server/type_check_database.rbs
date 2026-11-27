@@ -224,9 +224,9 @@ module Steep
       # Extracts the declarations and the type references in the RBS files (and inline RBS in Ruby files) of the environment,
       # grouped by the path of the file
       #
-      # See `RBSEntryBuilder` for the details.
+      # `paths` limits the files to the ones with the names of the buffers. See `RBSEntryBuilder` for the details.
       #
-      def self.rbs_entries_by_path: (RBS::Environment env) -> Hash[Pathname, Array[Entry]]
+      def self.rbs_entries_by_path: (RBS::Environment env, ?paths: Set[Pathname]?) -> Hash[Pathname, Array[Entry]]
 
       attr_reader pool: NamePool
 

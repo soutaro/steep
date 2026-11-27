@@ -23,6 +23,31 @@ module Steep
       end
     end
 
+    def each_jump_node(node, &block)
+      if block
+        case node.type
+        when :break, :next
+          yield node
+          each_child_node(node) { each_jump_node(_1, &block) }
+        when :block, :numblock, :itblock
+          # The parameters and the body are type checked with the context of the block
+          each_jump_node(node.children[0], &block)
+        when :while, :until, :while_post, :until_post
+          # The body is type checked with the context of the loop
+          each_jump_node(node.children[0], &block)
+        when :for
+          # The body is type checked with the context of the loop
+          each_jump_node(node.children[1], &block)
+        when :def, :defs, :class, :module, :sclass
+          # No jump goes out of the definitions
+        else
+          each_child_node(node) { each_jump_node(_1, &block) }
+        end
+      else
+        enum_for :each_jump_node, node
+      end
+    end
+
     def value_node?(node)
       case node.type
       when :self

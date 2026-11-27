@@ -16,12 +16,30 @@ module Steep
 
         def inspect: () -> String
 
-        def initialize: (builder: RBS::DefinitionBuilder) -> void
+        @resolved_type_names: bool
+
+        @for_unresolved_type_names: Factory?
+
+        def initialize: (builder: RBS::DefinitionBuilder, ?resolved_type_names: bool) -> void
+
+        # Returns a factory that translates the types of which type names are not resolved yet
+        #
+        # The factory keeps the type names as they are, and the types are made absolute later with `#absolute_type`.
+        #
+        def for_unresolved_type_names: () -> Factory
+
+        # Returns `true` if the type refers to a type name that is not defined in the environment
+        #
+        def undefined_type_name?: (RBS::Types::t) -> bool
 
         def type_name_resolver: () -> TypeNameResolver
 
         def normalize_args: (RBS::TypeName type_name, Array[RBS::Types::t]) -> Array[RBS::Types::t]
 
+        # Translates an RBS type to a Steep type
+        #
+        # The type names that are not defined in the environment are translated to `untyped`.
+        #
         def type: (RBS::Types::t `type`) -> t
 
         def type_opt: (RBS::Types::t? `type`) -> t?
