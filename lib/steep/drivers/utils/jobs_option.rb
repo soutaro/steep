@@ -9,7 +9,12 @@ module Steep
         end
 
         def default_jobs_count
-          Concurrent.physical_processor_count + jobs_count_modifier
+          available_processor_count + jobs_count_modifier
+        end
+
+        def available_processor_count
+          limit = Concurrent.available_processor_count.floor
+          [Concurrent.physical_processor_count, [limit, 1].max].min or raise
         end
 
         def jobs_count_value
